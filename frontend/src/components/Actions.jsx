@@ -12,15 +12,31 @@ function useGate() {
   return [user, () => nav(`/sign-in?next=${encodeURIComponent(window.location.pathname)}`)];
 }
 
+// One /me/saved read shared by every star on the page; dropped after any change.
+let cache = null;
+let cacheFor = null;
+const savedKeys = (uid) => {
+  if (cacheFor !== uid) { cache = null; cacheFor = uid; }
+  cache = cache || get("/me/saved").then((d) => new Set(d.items.map((i) => i.fkey))).catch(() => { cache = null; return new Set(); });
+  return cache;
+};
+
 export function SaveButton({ fkey }) {
   const [user, signIn] = useGate();
   const toast = useToast();
   const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (!user) return undefined;
+    let live = true;
+    savedKeys(user.id).then((s) => { if (live) setOn(s.has(fkey)); });
+    return () => { live = false; };
+  }, [user, fkey]);
   const go = async () => {
     if (!user) return signIn();
     try {
       if (on) { await del("/me/saved", { fkey }); setOn(false); toast("Removed from saved"); }
       else { await put("/me/saved", { fkey }); setOn(true); toast("Saved. Find it in Following."); }
+      cache = null;
     } catch (x) { toast(x.message || "Could not save that", "err"); }
   };
   return <button type="button" className={"icon-btn icon-btn--sm" + (on ? " is-on" : "")} aria-pressed={on} aria-label={on ? "Remove from saved" : "Save forecast"} onClick={go} data-testid={`save-${fkey}`}><Icon name="star" size={18} /></button>;

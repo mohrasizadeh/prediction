@@ -12,22 +12,29 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (tries = 0) => {
     try {
       const m = await get("/auth/me");
       setMe(m);
+      setLoading(false);
       return m;
     } catch (err) {
       // Only a real 401 means signed out; a 429 or a network blip keeps who we had.
       if (err?.status === 401) {
         setMe({ user: null });
+        setLoading(false);
         return { user: null };
       }
       let kept = null;
-      setMe((m) => { kept = m || { user: null }; return kept; });
-      return kept;
-    } finally {
+      setMe((m) => { kept = m; return m; });
+      // Fresh page load hit the rate limit: we do not know who this is yet, so ask again shortly.
+      if (!kept && err?.status === 429 && tries < 5) {
+        await new Promise((r) => setTimeout(r, 2500));
+        return refresh(tries + 1);
+      }
+      setMe((m) => m || { user: null });
       setLoading(false);
+      return kept || { user: null };
     }
   }, []);
 

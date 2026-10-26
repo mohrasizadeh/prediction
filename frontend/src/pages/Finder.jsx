@@ -8,7 +8,7 @@ import { pct } from "../lib/copy";
 import { Crest, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { FormError } from "../components/Ui";
-import { ForecastCard, STATS, Seg, Select, kickoff, useTitle } from "../components/Football";
+import { ForecastCard, STATS, Seg, Select, TEAM_STATS, kickoff, useTitle } from "../components/Football";
 
 const DEF = { mode: "likelihood", stat: "shots", n: "2", scope: "player", last_n: "10", venue: "", started: "", positions: "", leagues: "" };
 const POS = ["GK", "DEF", "MID", "FWD"];
@@ -21,7 +21,7 @@ function Result({ r, mode, f }) {
       <header className="fcard-head">
         {r.player ? <PlayerAvatar player={r.player} size={40} /> : <Crest team={r.team} size={40} />}
         <div className="fcard-who">{r.player ? <Link to={`/player/${r.player.id}`}><b>{who?.name}</b></Link> : <Link to={`/team/${r.team?.id}`}><b>{who?.name}</b></Link>}
-          <span className="muted small">{r.team?.name}{nx ? ` · next ${nx.home?.name} v ${nx.away?.name}, ${kickoff(nx.kickoff)}` : ""}</span></div>
+          <span className="muted small">{r.player ? `${r.team?.name || ""} · ` : ""}{nx ? `next ${nx.home?.name} v ${nx.away?.name}, ${kickoff(nx.kickoff)}` : ""}</span></div>
       </header>
       <p className="fcard-market">{mode === "form" ? `${f.n} or more in ${r.reached} of ${r.games} games` : `${r.run} games in a row with ${f.n} or more`}</p>
       {r.forecast && <p className="muted small">Next-match likelihood {pct(r.forecast.p)}</p>}
@@ -33,7 +33,7 @@ export default function Finder() {
   const { entitlements } = useAuth();
   const [sp, setSp] = useSearchParams();
   const f = { ...DEF, ...Object.fromEntries(sp.entries()) };
-  const set = (k) => (v) => { const n = { ...f, [k]: v }; setSp(Object.fromEntries(Object.entries(n).filter(([kk, vv]) => vv !== "" && DEF[kk] !== vv))); };
+  const set = (k) => (v) => { const n = { ...f, [k]: v }; setRes({ rows: null, err: null, busy: false }); setSp(Object.fromEntries(Object.entries(n).filter(([kk, vv]) => vv !== "" && DEF[kk] !== vv))); };
   const lg = useApi("/leagues");
   const leagues = useMemo(() => (lg.data?.countries || []).flatMap((c) => c.leagues), [lg.data]);
   const [res, setRes] = useState({ rows: null, err: null, busy: false });
@@ -69,7 +69,7 @@ export default function Finder() {
           <Seg label="Scope" value={f.scope} onChange={set("scope")} options={[{ id: "player", label: "Players" }, { id: "team", label: "Teams" }]} testid="finder-scope" />
         </div>
         <div className="filters">
-          <Select label="Stat" value={f.stat} onChange={set("stat")} options={STATS.filter((s) => s.id !== "minutes")} testid="finder-stat" />
+          <Select label="Stat" value={f.stat} onChange={set("stat")} options={f.scope === "team" ? TEAM_STATS : STATS.filter((s) => s.id !== "minutes")} testid="finder-stat" />
           <Select label="Line" value={f.n} onChange={set("n")} options={[1, 2, 3, 4, 5].map((n) => ({ id: String(n), label: `${n} or more` }))} testid="finder-n" />
           {f.mode !== "likelihood" && <Select label="Window" value={f.last_n} onChange={set("last_n")} options={["5", "10", "20"].map((n) => ({ id: n, label: `Last ${n}` }))} testid="finder-window" />}
           {f.mode !== "likelihood" && <Seg label="Venue" value={f.venue} onChange={set("venue")} options={[{ id: "", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid="finder-venue" />}
@@ -77,7 +77,7 @@ export default function Finder() {
         {f.scope === "player" && <div className="chips" aria-label="Positions">{POS.map((p) => <button type="button" key={p} className={"chip chip--sm" + (f.positions.split(",").includes(p) ? " chip-on" : "")} onClick={() => togglePos(p)} data-testid={`finder-pos-${p}`}>{p}</button>)}
           {f.mode !== "likelihood" && <label className="check-inline"><input type="checkbox" checked={!!f.started} onChange={(e) => set("started")(e.target.checked ? "true" : "")} data-testid="finder-started" /> Started only</label>}</div>}
         <div className="btn-row"><button className="btn btn--primary" disabled={res.busy || !picked.length} data-testid="finder-run">{res.busy ? "Searching…" : picked.length ? "Search" : "Pick a league first"}</button>
-          <button type="button" className="btn btn--ghost" onClick={() => setSp({})} data-testid="finder-reset">Reset</button></div>
+          <button type="button" className="btn btn--ghost" onClick={() => { setSp({}); setRes({ rows: null, err: null, busy: false }); }} data-testid="finder-reset">Reset</button></div>
       </form>
       <FormError error={res.err} />
       {res.busy && <Loading rows={3} />}

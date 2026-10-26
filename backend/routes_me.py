@@ -101,10 +101,7 @@ def following_feed(response: Response, user=Depends(D.require_user), db=Depends(
     fc = list(db.forecasts.find({**Q.NOT_HIDDEN, "match_iid": {"$in": [m["iid"] for m in ms]},
                                  "$or": [{"player_iid": {"$in": players}}, {"scope": "team", "team_iid": {"$in": list(teams)}}]},
                                 {"_id": 0, "contrib": 0}).sort("p", -1).limit(100))
-    pn = Q._names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
-    for f in fc:
-        f["player"] = pn.get(f.get("player_iid"))
-    return {"matches": ms, "forecasts": fc}
+    return {"matches": ms, "forecasts": Q._decorate(db, fc)}
 
 
 # ------------------------------------------------------------------ saved forecasts
@@ -116,7 +113,7 @@ class SavedBody(BaseModel):
 def saved(response: Response, user=Depends(D.require_user), db=Depends(D.get_db)):
     _private(response)
     rows = list(db.saved_forecasts.find({"user_id": user["id"]}, {"_id": 0, "fkey": 1, "created_at": 1}).sort("created_at", -1))
-    current = {f["fkey"]: f for f in db.forecasts.find({"fkey": {"$in": [r["fkey"] for r in rows]}, **Q.NOT_HIDDEN}, {"_id": 0, "contrib": 0})}
+    current = {f["fkey"]: f for f in Q._decorate(db, list(db.forecasts.find({"fkey": {"$in": [r["fkey"] for r in rows]}, **Q.NOT_HIDDEN}, {"_id": 0, "contrib": 0})))}
     for r in rows:
         r["forecast"] = current.get(r["fkey"])                 # null once the match is played and the forecast is replaced
     return {"items": rows, "limit": P.ent(db, user, "saved_max")}

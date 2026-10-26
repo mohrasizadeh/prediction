@@ -1,0 +1,52 @@
+{
+  "summary": "Phase 4 testing (backend + frontend). New pytest suite test_phase4_screens.py: 16 passed, 2 failed, 2 skipped. The 2 skips are free-plan Finder league cap tests; billing is off, so the test user is Pro with finder_leagues=-1. UI working: Insights grid, stat/scope/tier filters and empty state; Finder (league chips, free-plan replace as anonymous, Likelihood/Form/Run, team/player scope, venue, positions, filters kept in the URL across reload, Reset, empty state); Search via header icon (hint under 2 letters, 'sev'/'inter' results with crests/avatars, links go to the team page); Following signed-out prompt; follow-team/follow-player then Follows list, Upcoming feed (30 fixtures) and unfollow; save star then Saved list then unsave; player note save, reload, empty save removes it; Track record shows tr-not-ready, 0 of 300; Share card downloads Sevilla-v-Osasuna.png, valid PNG 1200x630, crests drawn, toast 'Share card saved as an image', no error. Mobile 390px: no page overflow on insights/finder/search/following/track-record/match/team/player/league. Bugs: (1) Saved and feed forecasts are not decorated, so cards show 'Team' with a placeholder crest; (2) Finder shows stale rows ('undefined of undefined games') after a mode switch; (3) /auth/me counts toward the 10/min auth rate limit, so a few page reloads make a signed-in user look signed out and the Follow/Save buttons send them to sign-in; (4) the SaveButton never loads its saved state.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/auth/me (security_mw rate limit)", "issue": "/api/auth/* shares the 'auth' group, limit security.rate_limit_auth_per_minute=10 per IP. Every full page load calls /auth/me (twice in dev StrictMode). After about 5 reloads in a minute it returns 429. auth.js refresh() keeps the previous user on 429, but on a fresh page load there is no previous user, so it falls back to {user:null}. The user then looks signed out: header shows Sign in, and FollowButton/SaveButton redirect to /sign-in. Reproduced twice in Playwright; backend log has 30x 'GET /api/auth/me 429'.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/me/saved", "issue": "items[].forecast is the raw forecast doc with no player/team/opp names (Q._decorate not applied). The UI card shows 'Team' and a placeholder shield."},
+      {"endpoint": "GET /api/me/following-feed", "issue": "forecasts[] get only player names; team/opp are missing. Team-scope cards show 'Team', and player cards show 'Midfielder ·  · date' with no team v opp."},
+      {"endpoint": "GET /api/finder likelihood (player)", "issue": "Some rows have tier=null (20 of 100 for shots 1+ in Serie A) next to 'Watch' rows. Check that null tier is intended."},
+      {"endpoint": "GET /api/insights", "issue": "Only team-scope forecasts come back (13 rows, none for players), so the Insights 'Players' filter is always empty right now. This is a data or tier fact; just flagging it."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Finder results", "issue": "After a Likelihood search, switching mode to Form/Run without searching again renders the old rows with the new mode's Result component: '1 or more in undefined of undefined games'. Results should be cleared, or tied to the mode they were fetched with, whenever filters change.", "selector": "[data-testid=finder-results] .fcard-market", "priority": "MEDIUM"},
+      {"component": "SaveButton (Actions.jsx)", "issue": "`on` always starts false. A saved forecast shows an empty star after reload and in the Saved list itself; pressing it PUTs again instead of removing. It should load the saved fkeys, e.g. one shared /me/saved fetch in context, like FollowButton does per item.", "selector": "[data-testid^=save-]", "priority": "MEDIUM"},
+      {"component": "Finder stat select (team scope)", "issue": "Uses STATS (Goals/Assists) for teams too and never offers Corners, although TEAM_STATS exists and Insights has team corners forecasts. Use TEAM_STATS when scope=team.", "selector": "[data-testid=finder-stat]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Saved list / Upcoming feed forecast cards", "issue": "Cards show 'Team' plus a placeholder crest because the API rows lack team/opp/player objects.", "affected_selectors": ["[data-testid=saved-list] .fcard", "[data-testid=following-page] .fcard"]},
+      {"flow": "Signed-in navigation with reloads", "issue": "429 on /auth/me makes the user look signed out (see backend critical).", "affected_selectors": ["[data-testid=follow-team]", "[data-testid=follow-player]", "[data-testid^=save-]"]}
+    ],
+    "design_issues": [
+      {"screen": "Finder Run/Form team rows", "issues": ["Subtitle repeats the team: 'Lecce · next Frosinone v Lecce'. Minor."]},
+      {"screen": "Finder Reset", "issues": ["Reset clears the URL filters but leaves the old results on screen."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_phase4_screens.py", "/app/test_reports/pytest/pytest_phase4.xml"],
+  "action_items": [
+    "Take /api/auth/me out of the 10/min 'auth' rate-limit group (treat it as 'read'), or raise the limit. Also, in auth.js refresh(), retry after Retry-After on 429 instead of falling back to user:null on a cold load.",
+    "Decorate /me/saved forecasts and /me/following-feed forecasts with player/team/opp (Q._decorate).",
+    "Finder: clear res.rows when mode/scope/stat/filters change (or remember the mode the rows were fetched with); also clear on Reset.",
+    "SaveButton: start from the user's saved set so the star shows the right state and toggles correctly (including inside the Saved list).",
+    "Finder: use TEAM_STATS (with Corners) when scope=team."
+  ],
+  "critical_code_review_comments": [
+    "security_mw: grp='auth' for every /api/auth/ path includes GET /auth/me; only login/register/forgot should share the strict limit.",
+    "Following.jsx Feed: forecasts.slice(0,24) is rendered without team names (backend gap).",
+    "Share.jsx: works; the card's kickoff uses the viewer's local time with no timezone label. Fine for a share image.",
+    "Finder.jsx: results never reset on filter change (see ui_bugs).",
+    "Match 5ac44df1 kicked off Mon Oct 26 20:00 and still shows 'Not Started' at 23:00 UTC; possibly stale ingest, not in scope."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase4_screens.py"],
+  "success_rate": {"backend": "89% (16/18 executed)", "frontend": "85% (core flows work; 2 display bugs + stale Finder rows + auth 429 sign-out)"},
+  "test_credentials": "test_e1_user@example.com / Test-User-Pass-2026!q (from /app/memory/test_credentials.md); with billing off the user is on the Pro plan",
+  "seed_data_creation": "None left behind: test user follows=0, saved_forecasts=0, notes=0 (checked in Mongo).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login is rate-limited (10 auth requests/min/IP, which includes /auth/me). In Playwright, wait for the sign-in form to hydrate, then navigate client-side with history.pushState + popstate instead of page.goto, or you will get 429 and appear signed out. Billing is off, so the test user is Pro (finder_leagues=-1); the free-plan one-league replace only shows when anonymous. Insights currently has only 13 team forecasts. The share PNG verified 1200x630 via a download event (navigator.canShare is undefined in headless).",
+  "rca of the issue": "Signed-out-after-reloads: SessionMiddleware puts GET /api/auth/me in the 'auth' group (limit 10/min/IP). On a cold load, AuthProvider.refresh() gets a 429; prev state is null, so setMe keeps {user:null}, and useGate() then redirects to /sign-in on Follow/Save. Repro: sign in, then reload pages about 6 times within 60s; the header shows 'Sign in'. Mitigation: exempt /auth/me from the auth group and retry on 429 in refresh()."
+}
