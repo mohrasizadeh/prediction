@@ -33,7 +33,7 @@ function Issues() {
         {(d) => <><ResponsiveTable columns={cols} rows={d.rows} onRow={setPick} testid="issues-table" /><Pager page={d.page} limit={d.limit} total={d.total} onPage={setPage} /></>}
       </DataState>
       <Confirm open={!!pick} title={pick?.resolved ? "Issue" : "Mark this issue resolved?"} body={pick && <KV obj={pick} skip={["id"]} />} reason={pick?.resolved ? undefined : "What did you do? (optional note)"}
-               confirmLabel="Resolve" onClose={() => setPick(null)} testid="issue-confirm"
+               confirmLabel={pick?.resolved ? "Close" : "Resolve"} onClose={() => setPick(null)} testid="issue-confirm"
                onConfirm={async (note) => { if (pick.resolved) return setPick(null); await post(`/admin/issues/${pick.id}/resolve`, { note }); setPick(null); toast("Resolved"); q.reload(); }} />
     </>
   );

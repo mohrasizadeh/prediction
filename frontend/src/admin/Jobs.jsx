@@ -48,7 +48,7 @@ export default function Jobs() {
       </div>
       <div className="a-key-grid">
         {JOBS.map(([id, label, hint]) => {
-          const l = d.last[id];
+          const l = id === "engine" ? Object.entries(d.last).filter(([k]) => k.startsWith("engine:")).map(([, v]) => v).sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)))[0] : d.last[id];
           const waiting = d.requests.some((r) => r.job === id);
           return (
             <article key={id} className="a-card a-job" data-testid={`job-${id}`}>

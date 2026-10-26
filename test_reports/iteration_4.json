@@ -1,0 +1,56 @@
+{
+  "summary": "Frontend-only Playwright testing (1920px and 390px) of Admin Jobs, Data quality and Engine, signed in as test_e1_admin. I signed in once: 2FA enrolment through the manual key plus pyotp, then 10 recovery codes, then /admin. After that I reused the __Host-sid cookie. I made no PitchAPI or API-Football calls. No 'Queue it' confirm, no images-sync, no calendar import, no Explorer run. The only write was resolving one OPEN issue with a note. Every requested flow works. I found and fixed 2 frontend bugs: page-level horizontal overflow on the Coverage tab at 390px, and stray '&&' / '}' text in the Cache drawer. There are 3 data/logic issues for the main agent.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/jobs", "issue": "last['engine'] is never set because engine runs are stored as job='engine:<league_iid>' (engine:10, engine:14, ...). The Engine job card says 'Never run', but Recent runs lists engine:* rows with status ok at 8:41 PM. Group engine:* under 'engine' in jobs_status, or look up by prefix in Jobs.jsx."},
+      {"endpoint": "POST /api/admin/mapping/check (players)", "issue": "Raw pos and Pos are 'No data' for every player, and Coverage shows 'player pos' at 0% in every league. Still, the result shows mapping-ok ('Every column found a value'), because pos is not in normalize.PLAYER_COLS and provider.pitchapi.player_keys has no position key. Map the position key and include pos_raw in the missing check."},
+      {"endpoint": "GET /api/admin/brain", "issue": "The 3 gates (leagues 10, 14, 30, start_model) all show Not passed, n_train 0, reason 'no kickoff times'. The engine ran but had no kickoff times on the ingested matches, so it trained on nothing. Check that match kickoff is stored on ingest."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Coverage matrix (Quality > Coverage)", "issue": "FIXED. At 390px the document scrollWidth was 1323 against a clientWidth of 390, so the whole page scrolled sideways into blank space. RCA: the td '.sr-only below the minimum' spans are position:absolute inside the non-positioned .a-table-wrap scroller, so they escaped to the document. Fix: position:relative on .a-table-wrap. Re-verified: 390 = 390 and 1920 = 1920.", "selector": "[data-testid=coverage-matrix]", "priority": "HIGH"},
+      {"component": "Cache drawer", "issue": "FIXED. A JSX typo on Cache.jsx line 52 rendered the literal text '&&', an empty code box and '}' under the Cache key. It now renders the params code only when there are params. Re-verified.", "selector": "[data-testid=cache-drawer]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Jobs", "issues": ["The jobs-leagues tile shows 6, not the 3 in the brief. Six leagues are enabled in the DB: Bundesliga, Champions League, Europa League, LaLiga, Premier League and Serie A. Europa League, Premier League and Serie A have 0% coverage, so either someone switched them on or they were meant to stay off."]},
+      {"screen": "Quality > Issues", "issues": ["The dialog for an already-resolved issue still has a primary 'Resolve' button. It only closes the dialog. Use 'Close' or hide it when pick.resolved."]},
+      {"screen": "Engine > Calendar import / Quality > Mapping", "issues": ["The Import button stretches full width at 1920 even though it has the self-start class (the .a-form grid ignores it). Mapping check looks fine."]},
+      {"screen": "Engine > Images", "issues": ["The images-kind select in the card header is a small unstyled native select. It does not match the other filter selects."]},
+      {"screen": "Coverage (desktop)", "issues": ["At 1920 the last column (player pos) is clipped inside the matrix scroller (1347 against 1254). It is reachable by scrolling, but it is easy to miss."]}
+    ]
+  },
+  "passed": [
+    "Sign in as test_e1_admin: /enroll-2fa, manual secret, TOTP, recovery codes, 'I saved them', Continue, lands on /admin",
+    "Jobs: tiles jobs-leagues 6, jobs-seasons 0, jobs-tick Idle, jobs-requests 0. The six job cards show status 'ok' with the last run for reference_sync, fixtures_sync, results_sync and backfill; engine and images show 'Never run'. Queue shows match_ingest '175 pending · 200 done'. Recent runs has 23 rows. Run now opens job-confirm ('Run Engine now?'); Cancel and Esc both close it. No POST was sent. jobs-refresh works",
+    "Quality Issues: 2 open player_stat_missing rows. Resolving one with the note 'TEST_ resolved by testing agent iteration 4' sent POST 200; the row left the Open list. The Resolved filter shows 50 rows and the pager 'Page 1 of 10'. The resolved detail shows the Note, Resolved at and Resolved by",
+    "Coverage: coverage-matrix, 11 field columns, percentage cells, is-low marking below 90%",
+    "Mapping check: Cache search '/v1/matches', open the /v1/matches/m_0oV4JG/players row, read cache-key, then Mapping with 'Match player stats' and the key. mapping-result shows mapping-players (30 rows) and 'Keys the provider sent (61)' (61 rows once opened). Invalid JSON gives 'That is not valid JSON.' A bad key gives 'No saved answer with that key.'",
+    "Engine Brain: tiles 3/0/off and a gate list with 3 expandable gates. Calendar: invalid JSON gives 'That is not valid JSON.' (nothing imported). Images: tiles league 0/6, team 0/96 and player 0/1,857, and 'Nothing to review.' for every kind filter. images-sync was not clicked",
+    "390px through the admin More sheet tiles (admin-more-tile-jobs, -quality, -engine): no horizontal overflow on Jobs, Issues, Mapping, Brain, Calendar or Images. Coverage had overflow and was fixed. Recent runs renders as cards. The confirm shows as a bottom sheet. No page errors anywhere"
+  ],
+  "flaky_tests": ["Once, right after my CSS hot-reload, a fresh page load at /admin/data/quality rendered the public 404 (signed-out shell) even though GET /api/auth/me returned 200 with the same cookie. A retry worked. This is probably the frontend recompiling during hot reload; not reproduced (1 of 9 loads)."],
+  "test_report_links": [],
+  "action_items": [
+    "Jobs: map engine:<iid> runs to the 'engine' card's last-run status",
+    "Provider mapping: add a player position key, and make mapping/check flag pos_raw when it is missing everywhere (player pos coverage is 0% for all leagues)",
+    "Engine gates: 'no kickoff times'. Make sure ingested matches store their kickoff, then rerun the engine",
+    "Confirm that 6 enabled leagues is intended (the brief says 3)",
+    "Jobs.jsx run() and the Quality onConfirm have no local try/catch; Confirm catches errors and shows a FormError, so this is acceptable. Jobs only reloads on success"
+  ],
+  "critical_code_review_comments": [
+    "Cache.jsx:52 had a JSX typo that rendered '&&' and '}' as text (fixed)",
+    "The .sr-only absolute spans inside the overflow scrollers leaked out to the document width (fixed with position:relative on .a-table-wrap). Watch for the same pattern in other scroll containers",
+    "Quality Issues: the issue-confirm dialog for a resolved issue reuses confirmLabel 'Resolve'",
+    "Jobs/Quality still carry notMounted/MissingRoutes guards now that the routes exist. These are dead branches"
+  ],
+  "updated_files": ["/app/frontend/src/admin/Cache.jsx", "/app/frontend/src/styles/admin.css"],
+  "success_rate": {"backend": "not tested (frontend only)", "frontend": "100% of the requested flows work. 2 UI bugs found and fixed, 3 data/logic issues reported"},
+  "test_credentials": "test_e1_admin@example.com / Test-Admin-Pass-2026!q. TOTP secret ZHYPLSSVOEIZHIX36SBU3RBFVXZ4TC52. Recovery codes: bed25bc8-55ac0280, 804bc0c6-00626bd0, 071bfe3f-b49a8880, 2ee1f90a-565cb0b5, 67d56edf-95c8dcb9, 275ed77c-0c3e46a7, d066d5c6-b812b989, 47346fd9-f8e60a65, 6fc66b7e-42001755, 64f2c994-975ed34a. The owner was not used",
+  "seed_data_creation": "None created. One ingest issue (id 6adfbae90292c882cd9ce0e3, match 361) was resolved with the note 'TEST_ resolved by testing agent iteration 4'",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sign in once, then reuse only __Host-sid via add_cookies(url=BASE, secure, httpOnly). Routes: /admin/data/{jobs,quality,engine,cache}. Tab testids: quality-tabs-{issues,coverage,mapping} and engine-tabs-{brain,calendar,images}. Confirm testids are <testid>, <testid>-input, -cancel and -ok. A players cache key that works: 1cc13073be5b839e086c313cff82a67410db6c0bbf583f4b5b2badb3c703baf6. Next time, retest the Engine card last-run status, the position mapping and the gates after the fixes."
+}

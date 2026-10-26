@@ -22,6 +22,13 @@ Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
 - Owner approved the backend change: routes_data_admin.py is mounted (2 lines in server.py) and tests/selftest_data_admin.py added; run_tests.sh now prints 13 PASS. Screens tested end to end on real routes (iteration_3).
 - Header and footer logo: BrandLogo in Media.jsx (logo_light/logo_dark by mode, falls back to the brand mark); Site Studio image upload for logo/favicon/share image; logo in the Studio mini preview.
 
+## Implemented (2026-10-26) — Phase 2 (ingest and jobs) + start of Phase 3
+- Owner-approved backend additions: routes_ingest_admin.py (jobs, issues + resolve, coverage, mapping check), routes_cron.py (POST /api/cron/tick, bearer WEBHOOK_CRON_SECRET, background tick, 202) + .emergent/crons.yml every 15 min; normalize.py: players with no stats skipped, missing shots/sot = 0 for players who played (owner decision), missing minutes kept None and logged once per match. New tests: selftest_ingest_admin, selftest_cron, selftest_normalize_gaps (17 test files pass).
+- provider.pitchapi.team_keys / player_keys set from real cached answers (check A).
+- Admin screens: Jobs, Data quality (Issues, Coverage, Mapping check), Engine (Brain layers, Calendar import, Images review). api.js gained putFile for raw uploads.
+- Real data flowing: 6 leagues on (owner), 200+ matches ingested, engine produced first forecasts; Today page shows real fixtures.
+- Open: player positions 0% (position_id null in /players; needs lineups-based mapping, backend change); start_model gate reports "no kickoff times" (engine_bridge key mismatch, backend); engine runs list + forecast hide routes not built yet (Phase 3 backend proposal).
+
 ## Backlog
 - P0: Phase 1 (endpoint explorer, cache and usage, leagues) when the owner says go.
 - P1: Logo images in header (needs a decision: Media.jsx rule covers crests/avatars only).

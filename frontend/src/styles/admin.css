@@ -125,7 +125,7 @@
 .a-flags { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 
 /* Tables and cards */
-.a-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface1); }
+.a-table-wrap { position: relative; overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface1); }
 .a-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .a-table th { position: sticky; top: 0; text-align: left; font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); padding: 12px 14px; background: var(--surface1); border-bottom: 1px solid var(--border); white-space: nowrap; }
 .a-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
@@ -307,5 +307,7 @@
 .a-img-thumb .brand-logo { max-width: 40px; height: 28px; }
 .a-job { display: grid; gap: 10px; align-content: start; }
 .a-review { display: grid; gap: 10px; }
+.a-form .self-start, .a-stack .self-start { justify-self: start; }
+.a-card-head select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface2); color: var(--text); font-size: 16px; }
 .a-review-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .a-cov.is-ok { color: var(--up); font-weight: 700; } .a-cov.is-low { color: var(--down); font-weight: 700; background: color-mix(in srgb, var(--down) 8%, transparent); }
