@@ -1,0 +1,50 @@
+{
+  "summary": "Tested the new Admin > Engine Runs and Forecasts tabs plus the 3 new admin routes (engine status, forecast browser, hide/unhide), backend and frontend. Signed in as test_e1_admin; 2FA was enrolled through the API (/account/2fa/begin + confirm with pyotp) and the session cookie was then reused in Playwright. No Run now, sync or calendar import was triggered. Backend pytest: 8/8 passed. UI: every requested flow works at 1920px and 390px with no page errors. Everything I hid was unhidden (GET /api/admin/forecasts?hidden=yes total = 0 at the end). No bugs blocking a flow; a few minor or design notes below.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/forecasts/{id}/hide", "issue": "It looks the forecast up with find_one({'id': fid}), but there is no index on forecasts.id (mongo_init only indexes match_iid/is_current/hidden, is_current/tier/p, player_iid, fkey/run_id). Every engine run adds non-current history rows, so this becomes a collection scan as the collection grows. Add ix('forecasts', [('id', ASC)], unique=True)."},
+      {"endpoint": "GET /api/admin/forecasts", "issue": "Current forecasts whose kickoff has passed are still listed. For example, Sevilla 12+ shots at Oct 26 8:00 PM still shows at 9:43 PM, and LaLiga keeps 4 current forecasts while its latest run made 0. This may be intended (results not in yet), but the browser gives no 'started' marker."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Engine > Forecasts filters", "issues": ["The fc-market text input is an unstyled native input: thin dark border, 29px tall against the 44px selects on mobile. It does not match the styled selects next to it.", "The market filter sends one request per keystroke (no debounce)."]},
+      {"screen": "Engine > Runs markets card", "issues": ["The 'N current' chip uses the green 'up' tone even when N is 0 (Bundesliga, Champions League, Europa League, Premier League). Use muted for 0.", "Leagues with no enabled markets expand to an empty body. Show 'No market switched on' instead."]},
+      {"screen": "Engine > Forecasts confirm", "issues": ["Confirm is not passed busy= during the POST, so a double-click on Hide can send 2 requests. Harmless (idempotent), but the audit log gets 2 rows."]},
+      {"screen": "Engine tabs (390px)", "issues": ["The tab strip scrolls sideways inside its own box (540 against 358) with no page overflow, but 'Calendar import' is cut to 'Calen' with no fade or scroll hint. Acceptable."]}
+    ]
+  },
+  "passed": [
+    "Auth guards: GET /api/admin/engine, GET /api/admin/forecasts and POST hide all return 401/403 when signed out",
+    "GET /api/admin/engine: 6 enabled leagues, each with markets, forecasts and hidden; runs have league_name and no _id; total forecasts 2,324 (Serie A 2,320, LaLiga 4)",
+    "GET /api/admin/forecasts: default page 1, limit 50; scope team = 44 and player = 2,280, which add up to the total; hidden yes + no = total; league and market prefix filters work; regex characters in market give 200; page 1 and page 2 share no ids; limit is capped at 100",
+    "POST hide: a whitespace reason gives 400 REASON_REQUIRED, an unknown id 404, a 301-character reason 422; hide then unhide works and the change persists (hidden_reason and hidden_by are stored; the league's hidden count goes up in /admin/engine); audit_log has forecast.hide and forecast.unhide rows by test_e1_admin",
+    "UI Runs: engine-markets has 6 engine-league-{iid} details; Serie A expands to 5 market chips; engine-runs-table shows 15 run-status chips (done/skipped), and a skipped run shows its note",
+    "UI Forecasts: fc-table has 50 rows; the pager says 'Page 1 of 47' and Next and Previous work; fc-scope, fc-league (LaLiga 4 rows, Bundesliga shows the empty state), fc-hidden and fc-market ('5+ corn') all filter",
+    "UI hide: fc-toggle opens fc-confirm; OK is disabled while the input is empty or only spaces and enabled once a reason is typed; after Hide the row button reads Unhide, the API shows the reason, the Hidden filter shows the row, and Runs shows '1 hidden' on LaLiga. The Unhide dialog shows reason, by and at with no input; Unhide restores the row (API hidden total = 0)",
+    "Regression: Brain layers (brain-gates 5, shape off), Calendar import form and Images tiles/review all render",
+    "390px: no page overflow (scrollWidth 390) on Runs, Forecasts, Brain and Images; the forecasts table renders as cards with a reachable Hide button; the confirm opens and Cancel closes it",
+    "normalize lineup_pos: player_match_stats.pos is set for every row (MID 4,944, DEF 3,599, FWD 2,487, GK 759; none null)"
+  ],
+  "test_report_links": ["/app/backend/tests/test_engine_forecasts_admin.py", "/app/backend/tests/admin_login_helper.py", "/app/test_reports/pytest/pytest_engine_forecasts.xml"],
+  "action_items": [
+    "Add a unique index on forecasts.id",
+    "Style the fc-market input like the other filters, and debounce it",
+    "Optional: muted chip for '0 current', an empty-markets message, and busy state on the hide confirm"
+  ],
+  "critical_code_review_comments": [
+    "normalize.lineup_pos uses `if x.get('started') and px:`, so a starter with pitch_x == 0.0 would fall back to position_map. In the current data only subs have pitch_x 0 (8,200 rows, all started=false), so there is no impact today. Prefer `px is not None`",
+    "engine_bridge keeps a hide only when the fkey matches exactly (match:scope:team:player:stat:thr). If the engine changes a threshold, the old hide is silently dropped. That is acceptable, but worth documenting",
+    "Hide survival across engine reruns was not exercised live (I was told not to trigger runs). It is covered by code review and selftest_engine_admin.py"
+  ],
+  "updated_files": ["/app/backend/tests/test_engine_forecasts_admin.py", "/app/backend/tests/admin_login_helper.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% of the requested flows"},
+  "test_credentials": "test_e1_admin@example.com / Test-Admin-Pass-2026!q. The new TOTP secret and recovery codes are in /tmp/test_admin_totp.json (secret C37573KRVN5RQPIXKYM7H7VIBDML2FB5). admin_login_helper.admin_session() signs in and stores the last code used, so the replay guard is not hit. The owner was not used",
+  "seed_data_creation": "None. Two forecasts were hidden and then unhidden (224aa891-..., 79c4aed8-...); their audit rows remain",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Route /admin/data/engine. Tab testids: engine-tabs-{runs,forecasts,brain,calendar,images}. Confirm testids: fc-confirm, -input, -ok, -cancel. To sign in, use admin_login_helper.py (it handles TOTP; wait 30s between sign-ins to avoid code reuse). Live engine rerun hide-survival is not yet verified end to end."
+}

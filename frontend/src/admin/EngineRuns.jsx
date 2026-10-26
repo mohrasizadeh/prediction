@@ -24,8 +24,8 @@ export function Runs() {
           <Card title="Markets per switched-on league" testid="engine-markets">
             {d.leagues.length ? d.leagues.map((l) => (
               <details key={l.league_iid} data-testid={`engine-league-${l.league_iid}`}>
-                <summary><b>{l.name}</b> <Chip tone="up">{l.forecasts} current</Chip>{l.hidden > 0 && <Chip tone="warn">{l.hidden} hidden</Chip>}</summary>
-                <div className="a-btns">{Object.entries(l.markets).map(([m, on]) => <Chip key={m} tone={on ? "up" : "muted"}>{m}{on ? "" : " (off)"}</Chip>)}</div>
+                <summary><b>{l.name}</b> <Chip tone={l.forecasts ? "up" : "muted"}>{l.forecasts} current</Chip>{l.hidden > 0 && <Chip tone="warn">{l.hidden} hidden</Chip>}</summary>
+                {Object.values(l.markets).some(Boolean) ? <div className="a-btns">{Object.entries(l.markets).map(([m, on]) => <Chip key={m} tone={on ? "up" : "muted"}>{m}{on ? "" : " (off)"}</Chip>)}</div> : <p className="a-muted small">No market switched on yet. Markets turn on when the data coverage is high enough.</p>}
               </details>
             )) : <p className="a-muted small">No league is switched on.</p>}
           </Card>
@@ -45,7 +45,7 @@ function Filters({ f, set, leagues }) {
       <select aria-label="League" value={f.league_iid} onChange={ch("league_iid")} data-testid="fc-league"><option value="">Every league</option>{leagues.map((l) => <option key={l.league_iid} value={l.league_iid}>{l.name}</option>)}</select>
       <select aria-label="Scope" value={f.scope} onChange={ch("scope")} data-testid="fc-scope"><option value="">Teams and players</option><option value="team">Teams</option><option value="player">Players</option></select>
       <select aria-label="Shown or hidden" value={f.hidden} onChange={ch("hidden")} data-testid="fc-hidden"><option value="">Shown and hidden</option><option value="no">Shown</option><option value="yes">Hidden</option></select>
-      <input aria-label="Market" placeholder="Market, e.g. 2+ shots" value={f.market} onChange={ch("market")} data-testid="fc-market" />
+      <input className="a-input" aria-label="Market" placeholder="Market, e.g. 2+ shots" value={f.market} onChange={ch("market")} data-testid="fc-market" />
     </div>
   );
 }
@@ -54,6 +54,7 @@ export function Forecasts() {
   const toast = useToast();
   const [f, setF] = useState({ league_iid: "", scope: "", hidden: "", market: "", page: 1 });
   const [pick, setPick] = useState(null);
+  const [busy, setBusy] = useState(false);
   const meta = useApi("/admin/engine", { limit: 1 });
   const q = useApi("/admin/forecasts", f);
   const cols = [
@@ -64,7 +65,8 @@ export function Forecasts() {
     { key: "x", label: "", render: (r) => <span onClick={(e) => e.stopPropagation()} role="presentation"><button className={"btn btn--sm " + (r.hidden ? "btn--secondary" : "btn--ghost")} onClick={() => setPick(r)} data-testid={`fc-toggle-${r.id}`}>{r.hidden ? "Unhide" : "Hide"}</button></span> },
   ];
   const save = async (reason) => {
-    await post(`/admin/forecasts/${pick.id}/hide`, { hidden: !pick.hidden, reason });
+    setBusy(true);
+    try { await post(`/admin/forecasts/${pick.id}/hide`, { hidden: !pick.hidden, reason }); } finally { setBusy(false); }
     toast(pick.hidden ? "Forecast shown again" : "Forecast hidden"); setPick(null); q.reload();
   };
   return (
@@ -76,7 +78,7 @@ export function Forecasts() {
       <Confirm open={!!pick} title={pick?.hidden ? "Show this forecast again?" : "Hide this forecast?"} danger={!pick?.hidden}
                body={pick && <><p>{pick.player_name || pick.team_name} · {pick.market}</p>{pick.hidden && <KV obj={{ reason: pick.hidden_reason, by: pick.hidden_by, at: when(pick.hidden_at) }} />}<p className="a-muted small">{pick.hidden ? "It appears on public pages again." : "It disappears from every public page and stays hidden after the next engine run."}</p></>}
                reason={pick?.hidden ? undefined : "Reason (required)"} confirmLabel={pick?.hidden ? "Unhide" : "Hide"}
-               onClose={() => setPick(null)} onConfirm={save} testid="fc-confirm" />
+               busy={busy} onClose={() => setPick(null)} onConfirm={save} testid="fc-confirm" />
     </div>
   );
 }

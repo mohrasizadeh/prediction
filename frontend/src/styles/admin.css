@@ -143,7 +143,7 @@
 .a-rowcard-go { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text3); }
 .a-person { display: grid; min-width: 0; } .a-person small { color: var(--text3); overflow: hidden; text-overflow: ellipsis; }
 .a-filters { display: flex; flex-wrap: wrap; gap: 8px; }
-.a-filters select, .a-head select, .a-setting-input select, .a-setting-input input, .a-setting-input textarea, .a-leaf input, .a-leaf select, .a-leaf textarea, .a-key-form input, .a-new-page input, .a-md {
+.a-filters select, .a-filters input, .a-head select, .a-setting-input select, .a-setting-input input, .a-setting-input textarea, .a-leaf input, .a-leaf select, .a-leaf textarea, .a-key-form input, .a-new-page input, .a-md {
   min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface2); color: var(--text); font-size: 16px; min-width: 0; max-width: 100%; }
 .a-setting-input textarea, .a-leaf textarea, .a-md { padding: 10px 12px; font-family: ui-monospace, Menlo, monospace; font-size: 14px; width: 100%; resize: vertical; }
 .a-md { font-family: var(--font-body); font-size: 15px; line-height: 1.6; }

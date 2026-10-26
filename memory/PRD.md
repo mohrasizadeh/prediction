@@ -29,10 +29,16 @@ Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
 - Real data flowing: 6 leagues on (owner), 200+ matches ingested, engine produced first forecasts; Today page shows real fixtures.
 - Open: player positions 0% (position_id null in /players; needs lineups-based mapping, backend change); start_model gate reports "no kickoff times" (engine_bridge key mismatch, backend); engine runs list + forecast hide routes not built yet (Phase 3 backend proposal).
 
+## Implemented (2026-10-26) — Engine screen finish (owner-approved)
+- normalize.lineup_pos: position from lineups (starters by pitch_x depth, subs by provider.position_map); GK tackles None. Backfilled 11,789 player rows + 2,178 players from saved lineups; engine rerun on 6 leagues -> 2,280 player forecasts (Serie A). Rotation gate now reports real reason ("only N player-match rows", needs more data) instead of "no kickoff times".
+- routes_ingest_admin.py: GET /api/admin/engine (runs + markets), GET /api/admin/forecasts (browser), POST /api/admin/forecasts/{id}/hide (reason required, audited). engine_bridge.py keeps Hide across reruns by fkey. Test selftest_engine_admin.py (18 test files pass).
+- Frontend: Engine tabs Runs + Forecasts (EngineRuns.jsx). Testing agent iteration_5: backend 8/8, frontend all flows pass.
+- Images: images.leagues set (78,2,3,140,39,135), images.enabled on (owner asked to pull logos/photos). First sync: 6 league logos, 74 crests, 74 player photos; stopped on API-Football daily budget; continues via Sync images.
+
 ## Backlog
-- P0: Phase 1 (endpoint explorer, cache and usage, leagues) when the owner says go.
-- P1: Logo images in header (needs a decision: Media.jsx rule covers crests/avatars only).
-- P2: Friendlier date pickers in Announcements; settings history shows resets.
+- P1: Public match/league/team/player screens (Phase 4).
+- P1: Index on forecasts.id (minor perf, backend mongo_init change needs OK).
+- P2: Debounce market filter; started marker for past-kickoff forecasts; friendlier date pickers in Announcements.
 
 ## Next tasks
 Wait for the owner's next phase prompt.
