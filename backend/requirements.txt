@@ -1,0 +1,15 @@
+# Emergent's template already has fastapi, uvicorn, motor/pymongo, python-dotenv, bcrypt.
+# Add these (pin what Emergent installs for the rest):
+fastapi>=0.110
+httpx>=0.27          # PitchAPI, Stripe, Resend (no vendor SDKs)
+pymongo>=4.6
+cryptography>=42
+numpy>=1.26
+scipy>=1.11
+pandas>=2.1
+pyotp>=2.9           # two-factor sign-in
+bcrypt>=4.1
+pydantic>=2
+uvicorn>=0.30
+# tests and the demo server only
+mongomock>=4.1

@@ -1,0 +1,242 @@
+{
+  "project_name": "Prediciotn - Football Statistics & Forecast Platform",
+  "app_type": "hybrid_fullstack",
+  "architecture_constraints": {
+    "framework": "React 18 + React Router 6 + FastAPI + MongoDB",
+    "css_system": "Plain CSS files only (frontend/src/styles/*.css). Absolutely NO Tailwind CSS and NO shadcn/ui library.",
+    "file_extension": "JavaScript files (.js) and plain CSS files",
+    "icons": "Inline SVG stroke icons (Lucide-style). No icon CDN, no external scripts",
+    "compliance_prohibitions": "STRICT COMPLIANCE: NEVER use betting, odds, tips, picks, stake, value, edge, or promotion words anywhere in code, copy, titles, placeholders, or tests",
+    "mandatory_disclaimer": "Statistical analysis for information and entertainment. Not betting advice."
+  },
+  "design_archetype": {
+    "name": "Swiss Tactical Performance & Cyber-Stadium Fusion",
+    "vibe": "Precision tactical sports analysis hub, dense data clarity, high-contrast dark/light adaptability, zero clutter, high emotional focus",
+    "prohibited_fonts_for_admin_dashboards": ["Space Grotesk"],
+    "prohibited_colors_for_admin_dashboards": ["#1B93A4"]
+  },
+  "typography": {
+    "fonts": {
+      "public_body_font": "var(--font-body, 'Inter', sans-serif)",
+      "public_heading_font": "var(--font-heading, 'Plus Jakarta Sans', sans-serif)",
+      "admin_font": "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      "numeric_data_font": "'JetBrains Mono', 'Roboto Mono', monospace"
+    },
+    "hierarchy": {
+      "h1": {
+        "size": "clamp(1.875rem, 4vw, 2.75rem)",
+        "weight": "var(--heading-weight, 700)",
+        "letter_spacing": "-0.02em",
+        "line_height": "1.15"
+      },
+      "h2": {
+        "size": "clamp(1.5rem, 3vw, 2.25rem)",
+        "weight": "var(--heading-weight, 700)",
+        "letter_spacing": "-0.015em",
+        "line_height": "1.2"
+      },
+      "h3": {
+        "size": "clamp(1.25rem, 2vw, 1.5rem)",
+        "weight": "600",
+        "letter_spacing": "-0.01em",
+        "line_height": "1.3"
+      },
+      "h4": {
+        "size": "1.125rem",
+        "weight": "600",
+        "line_height": "1.4"
+      },
+      "body_base": {
+        "size": "1rem",
+        "line_height": "1.5",
+        "mobile_size": "0.9375rem"
+      },
+      "small_label": {
+        "size": "0.8125rem",
+        "weight": "500",
+        "letter_spacing": "0.04em",
+        "text_transform": "uppercase"
+      }
+    },
+    "mobile_input_rule": "ALL form inputs on viewports <= 768px MUST have font-size: 16px to prevent iOS forced zoom"
+  },
+  "colors": {
+    "public_runtime_css_variables": {
+      "bg": "var(--bg)",
+      "surface1": "var(--surface1)",
+      "surface2": "var(--surface2)",
+      "surface3": "var(--surface3)",
+      "border": "var(--border)",
+      "border_strong": "var(--border-strong)",
+      "text": "var(--text)",
+      "text2": "var(--text2)",
+      "text3": "var(--text3)",
+      "brand": "var(--brand)",
+      "on_brand": "var(--on-brand)",
+      "tier_strong": "var(--tier-strong)",
+      "tier_solid": "var(--tier-solid)",
+      "tier_watch": "var(--tier-watch)",
+      "up": "var(--up)",
+      "down": "var(--down)",
+      "on_down": "var(--on-down)",
+      "chart1": "var(--chart1)",
+      "chart2": "var(--chart2)",
+      "chart3": "var(--chart3)",
+      "chart4": "var(--chart4)",
+      "chart5": "var(--chart5)",
+      "chart6": "var(--chart6)",
+      "card_shadow": "var(--card-shadow)"
+    },
+    "public_default_preset_midnight": {
+      "bg": "#0A0E17",
+      "surface1": "#121824",
+      "surface2": "#1A2234",
+      "surface3": "#242F45",
+      "border": "rgba(255, 255, 255, 0.1)",
+      "border_strong": "rgba(255, 255, 255, 0.22)",
+      "text": "#F8FAFC",
+      "text2": "#94A3B8",
+      "text3": "#64748B",
+      "brand": "#7C83FF",
+      "on_brand": "#FFFFFF",
+      "tier_strong": "#2DD4BF",
+      "tier_solid": "#38BDF8",
+      "tier_watch": "#F59E0B"
+    },
+    "admin_fixed_tokens": {
+      "dark": {
+        "admin_bg": "#0D1117",
+        "admin_surface1": "#161B22",
+        "admin_surface2": "#21262D",
+        "admin_surface3": "#30363D",
+        "admin_border": "#30363D",
+        "admin_text": "#F0F6FC",
+        "admin_text2": "#8B949E",
+        "admin_brand": "#6366F1",
+        "admin_up": "#22C55E",
+        "admin_down": "#EF4444",
+        "admin_warn": "#F59E0B"
+      },
+      "light": {
+        "admin_bg": "#F6F8FA",
+        "admin_surface1": "#FFFFFF",
+        "admin_surface2": "#F3F4F6",
+        "admin_surface3": "#E5E7EB",
+        "admin_border": "#D0D7DE",
+        "admin_text": "#1F2328",
+        "admin_text2": "#656D76",
+        "admin_brand": "#4F46E5",
+        "admin_up": "#16A34A",
+        "admin_down": "#DC2626",
+        "admin_warn": "#D97706"
+      }
+    }
+  },
+  "tier_presentation_rules": {
+    "strong": "Strong ●●● (Color: var(--tier-strong))",
+    "solid": "Solid ●●○ (Color: var(--tier-solid))",
+    "watch": "Watch ●○○ (Color: var(--tier-watch))"
+  },
+  "layout_and_navigation": {
+    "public_shell": {
+      "header": {
+        "height": "var(--header-h, 64px)",
+        "elements": ["Logo ('Prediciotn')", "'Beta' badge", "Desktop nav links", "Account/Auth button"],
+        "background": "var(--surface1)",
+        "border_bottom": "1px solid var(--border)"
+      },
+      "desktop_nav": "Visible top bar links for viewports >= 769px",
+      "phone_bottom_tab_bar": {
+        "visible_screen_max": "768px",
+        "height": "var(--tab-h, 60px)",
+        "position": "fixed bottom-0 left-0 right-0 z-50",
+        "tabs": ["4 main tabs", "'More' tab triggering full-screen or bottom sheet overlay"],
+        "background": "var(--surface1)",
+        "border_top": "1px solid var(--border)"
+      },
+      "footer": {
+        "exact_disclaimer": "Statistical analysis for information and entertainment. Not betting advice.",
+        "padding": "var(--space-8, 32px) var(--space-4, 16px)"
+      },
+      "cookie_banner": "Fixed bottom bar with accept/decline actions and privacy policy link"
+    },
+    "admin_shell": {
+      "desktop_breakpoint": ">= 1025px",
+      "left_rail": {
+        "width": "248px",
+        "position": "fixed left-0 top-0 bottom-0 z-40",
+        "modules_grouped": true
+      },
+      "mobile_breakpoint": "<= 1024px",
+      "mobile_app_bar": {
+        "position": "fixed bottom-0 left-0 right-0 z-50",
+        "items": "4 icons + 'More' button",
+        "more_sheet": "Full-screen 'All tools' sheet with live search, grouped tool tiles, and Customize bar pinning"
+      }
+    }
+  },
+  "button_classes_and_styles": {
+    "base_class": ".btn",
+    "variants": {
+      ".btn--primary": "background: var(--brand); color: var(--on-brand); border: none;",
+      ".btn--secondary": "background: var(--surface2); color: var(--text); border: 1px solid var(--border);",
+      ".btn--ghost": "background: transparent; color: var(--text2); border: none;",
+      ".btn--danger": "background: var(--down); color: var(--on-down, #FFFFFF); border: none;"
+    },
+    "sizes": {
+      ".btn--sm": "height: var(--btn-h-sm, 36px); padding: 0 12px; font-size: 0.875rem;",
+      ".btn--md": "height: var(--btn-h-md, 44px); padding: 0 18px; font-size: 0.9375rem;",
+      ".btn--lg": "height: var(--btn-h-lg, 52px); padding: 0 24px; font-size: 1rem;"
+    },
+    "border_radius": "border-radius: var(--btn-radius, 8px)",
+    "accessibility_touch_target": "Minimum 44px height/width for all interactive touch targets"
+  },
+  "responsive_component_adaptations": {
+    "tables_to_cards": "On screens <= 768px, data tables must automatically stack into clean mobile card layouts",
+    "drawers_to_sheets": "Side drawers (user detail, inspect) must open as full-screen sliding sheets on viewports <= 768px",
+    "confirmation_dialogs": "Destructive/action confirmation dialogs must align as bottom sheets on phones"
+  },
+  "accessibility_and_ux": {
+    "wcag_target": "WCAG 2.2 AA compliant",
+    "contrast_ratio": "Minimum 4.5:1 text contrast for standard text; 3:1 for large text and key graphic boundaries",
+    "focus_ring": "Visible 2px to 3px solid focus ring using var(--brand) with 2px offset on all keyboard-navigable elements",
+    "touch_targets": "Minimum 44px x 44px interactive area",
+    "motion": "Respect @media (prefers-reduced-motion: reduce) by disabling non-essential transitions and animations",
+    "horizontal_scroll": "Zero horizontal scroll at 320px - 390px viewports. Use minmax(0, 1fr) for grid columns"
+  },
+  "image_urls": [
+    {
+      "category": "hero_stadium",
+      "description": "Full view of lit football stadium at night",
+      "url": "https://images.unsplash.com/photo-1629217855633-79a6925d6c47?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwxfHxmb290YmFsbCUyMG1hdGNoJTIwc3RhZGl1bSUyMHN0YWRpdW0lMjBsaWdodHN8ZW58MHx8fHwxNzkzMDM4OTI4fDA&ixlib=rb-4.1.0&q=85"
+    },
+    {
+      "category": "pitch_corner",
+      "description": "Corner flag on green pitch under stadium floodlights",
+      "url": "https://images.unsplash.com/photo-1676746610993-fa0c050d1f6d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwzfHxmb290YmFsbCUyMG1hdGNoJTIwc3RhZGl1bSUyMHN0YWRpdW0lMjBsaWdodHN8ZW58MHx8fHwxNzkzMDM4OTI4fDA&ixlib=rb-4.1.0&q=85"
+    },
+    {
+      "category": "player_action",
+      "description": "Football player kicking ball during match",
+      "url": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTB8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBwbGF5ZXIlMjBraWNraW5nJTIwYmFsbCUyMGFjdGlvbnxlbnwwfHx8fDE3OTMwMzg5MzF8MA&ixlib=rb-4.1.0&q=85"
+    }
+  ],
+  "testing_requirements": {
+    "data_testid_rule": "ALL interactive elements (buttons, inputs, links, tabs, dialogs, drawers) and key metric cards MUST include explicit kebap-case data-testid attributes",
+    "examples": [
+      "data-testid=\"nav-link-dashboard\"",
+      "data-testid=\"signin-submit-button\"",
+      "data-testid=\"admin-sidebar-module-users\"",
+      "data-testid=\"setting-input-site_title\"",
+      "data-testid=\"tier-badge-strong\""
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow plain CSS guidelines in src/styles/*.css. Do not add Tailwind CSS or import Tailwind.",
+    "Ensure public site uses CSS custom properties injected from GET /api/site/config.",
+    "Use standard class names (.btn, .btn--primary, .btn--secondary, .btn--ghost, .btn--danger, .btn--sm, .btn--md, .btn--lg) for buttons.",
+    "Verify no forbidden compliance terms (betting, odds, tips, picks, stake, value, edge, promotion) exist in any UI text or tests.",
+    "Always render the exact disclaimer in the footer: 'Statistical analysis for information and entertainment. Not betting advice.'",
+    "Ensure all interactive elements have valid data-testid attributes for testing."
+  ]
+}

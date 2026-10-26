@@ -1,0 +1,187 @@
+{
+  "name": "forecast-app",
+  "version": "1.0.0",
+  "note": "Dark first. Every colour pair listed in contrast_checks passes WCAG 2.2 AA (4.5:1 text, 3:1 large text and icons). Do not change a value without re-running the check. Text on the red 'down' colour uses onDown. These are the defaults and the 'Midnight' preset; the live values come from Site Studio (doc 16). Icons, dots and large marks need 3:1; text needs 4.5:1.",
+  "color": {
+    "dark": {
+      "bg": "#0A0E17",
+      "surface1": "#111827",
+      "surface2": "#182033",
+      "surface3": "#212B42",
+      "border": "#243049",
+      "borderStrong": "#33415F",
+      "text": "#E9EEF7",
+      "text2": "#A3AFC6",
+      "text3": "#75819B",
+      "brand": "#7C83FF",
+      "onBrand": "#0A0E17",
+      "tierStrong": "#2DD4BF",
+      "tierSolid": "#60A5FA",
+      "tierWatch": "#FBBF24",
+      "up": "#34D399",
+      "down": "#F87171",
+      "chart1": "#7C83FF",
+      "chart2": "#2DD4BF",
+      "chart3": "#FBBF24",
+      "chart4": "#F472B6",
+      "chart5": "#60A5FA",
+      "chart6": "#A3E635",
+      "onDown": "#0A0E17"
+    },
+    "light": {
+      "bg": "#F5F7FB",
+      "surface1": "#FFFFFF",
+      "surface2": "#F0F3F9",
+      "surface3": "#E6EBF4",
+      "border": "#E2E8F2",
+      "borderStrong": "#C9D2E3",
+      "text": "#0B1220",
+      "text2": "#475269",
+      "text3": "#6B7690",
+      "brand": "#4F46E5",
+      "onBrand": "#FFFFFF",
+      "tierStrong": "#0D9488",
+      "tierSolid": "#2563EB",
+      "tierWatch": "#B45309",
+      "up": "#059669",
+      "down": "#DC2626",
+      "chart1": "#4F46E5",
+      "chart2": "#0D9488",
+      "chart3": "#B45309",
+      "chart4": "#DB2777",
+      "chart5": "#2563EB",
+      "chart6": "#4D7C0F",
+      "onDown": "#FFFFFF"
+    }
+  },
+  "font": {
+    "family": "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+    "features": "'tnum' 1, 'cv11' 1",
+    "scale_px": {
+      "xs": 12,
+      "sm": 14,
+      "base": 16,
+      "lg": 18,
+      "xl": 22,
+      "2xl": 28,
+      "3xl": 36
+    },
+    "weight": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "lineHeight": {
+      "tight": 1.2,
+      "normal": 1.5
+    }
+  },
+  "space_px": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64
+  ],
+  "radius_px": {
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "pill": 999
+  },
+  "elevation": {
+    "dark": {
+      "card": "0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35)"
+    },
+    "light": {
+      "card": "0 1px 2px rgba(11,18,32,0.06), 0 8px 24px rgba(11,18,32,0.06)"
+    }
+  },
+  "motion_ms": {
+    "fast": 150,
+    "base": 220,
+    "slow": 600
+  },
+  "easing": "cubic-bezier(0.2, 0.0, 0.0, 1.0)",
+  "breakpoints_px": {
+    "sm": 640,
+    "md": 768,
+    "lg": 1024,
+    "xl": 1280
+  },
+  "layout": {
+    "maxWidth_px": 1200,
+    "gutter_px": {
+      "mobile": 16,
+      "desktop": 24
+    },
+    "bottomTabHeight_px": 64,
+    "headerHeight_px": 56
+  },
+  "tier": {
+    "Strong": {
+      "label": "Strong",
+      "dots": 3,
+      "colorToken": "tierStrong"
+    },
+    "Solid": {
+      "label": "Solid",
+      "dots": 2,
+      "colorToken": "tierSolid"
+    },
+    "Watch": {
+      "label": "Watch",
+      "dots": 1,
+      "colorToken": "tierWatch"
+    }
+  },
+  "contrast_checks_to_run": [
+    [
+      "text",
+      "bg"
+    ],
+    [
+      "text2",
+      "surface1"
+    ],
+    [
+      "text3",
+      "surface1"
+    ],
+    [
+      "brand",
+      "bg"
+    ],
+    [
+      "onBrand",
+      "brand"
+    ],
+    [
+      "tierStrong",
+      "surface1"
+    ],
+    [
+      "tierSolid",
+      "surface1"
+    ],
+    [
+      "tierWatch",
+      "surface1"
+    ],
+    [
+      "up",
+      "surface1"
+    ],
+    [
+      "down",
+      "surface1"
+    ]
+  ]
+}

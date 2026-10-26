@@ -1,0 +1,48 @@
+TEAM STRENGTH (Dixon-Coles)
+  correlation of fitted vs true strength: 0.80
+  match outcome log loss: engine 1.0820  vs league frequencies 1.0743  (280 matches)
+
+FORECAST QUALITY (log loss, lower is better)
+market                     n   rate     raw    base   plain    full  lineup
+player shots 0.5+       7255   0.50   0.737   0.546   0.541   0.541   0.541
+player shots 1.5+       7255   0.26   0.641   0.417   0.408   0.408   0.409
+player sot 0.5+         7255   0.25   0.698   0.475   0.467   0.467   0.467
+player tackles 1.5+     7255   0.36   0.757   0.552   0.541   0.540   0.541
+player tackles 2.5+     7255   0.18   0.640   0.401   0.390   0.389   0.391
+team corners 4.5+        560   0.59   0.817   0.658   0.663   0.659   0.669
+team shots 11.5+         560   0.63   0.716   0.526   0.525   0.526   0.535
+ALL player             36275   0.31   0.694   0.478   0.469   0.469   0.470
+ALL team                1120   0.61   0.766   0.592   0.594   0.592   0.602
+  raw=last-10 rate | base=no team context | plain=no matchup terms
+  full=shipped engine | lineup=full + lineup effects (opponent and own personnel)
+
+OPPONENT TACTIC AND PERSONNEL (team shots 11.5+, log loss full -> lineup)
+  opponent plays a low block     n=  60  full 0.568  lineup 0.562
+  opponent plays a high press    n= 148  full 0.568  lineup 0.586
+  opponent is possession-based   n=  72  full 0.628  lineup 0.648
+  no named opponent tactic       n= 304  full 0.474  lineup 0.479
+  recovery (shots): opponent-side coefficient vs true defender quality  r = -0.11 (expect negative)
+  recovery (shots): own-side coefficient vs true attacker quality        r = +0.18 (expect positive)
+
+CALIBRATION (rounds 20+, isotonic fitted on earlier rounds only)
+  log loss  full 0.4659  calibrated 0.4668  raw 0.6843
+  brier     full 0.1528  calibrated 0.1531  raw 0.1746
+
+RELIABILITY (calibrated)
+  stated 0.0-0.3  n=13517  stated avg 0.139  actual 0.134
+  stated 0.3-0.5  n= 4347  stated avg 0.391  actual 0.386
+  stated 0.5-0.6  n= 1920  stated avg 0.539  actual 0.537
+  stated 0.6-0.7  n= 1544  stated avg 0.652  actual 0.665
+  stated 0.7-0.8  n=  983  stated avg 0.740  actual 0.749
+  stated 0.8-0.9  n=  666  stated avg 0.851  actual 0.842
+  stated 0.9-1.0  n=  598  stated avg 0.948  actual 0.933
+
+TIERS (calibrated forecasts)
+  Strong  n=  966  stated avg 0.906  actual 0.880
+  Solid   n= 1108  stated avg 0.727  actual 0.734
+  Watch   n= 2478  stated avg 0.655  actual 0.678
+
+SAMPLE REASONS (Strong, player)
+  shots 0.5+  p=0.94  Expected minutes are high. | The opponent's style allows more shots.
+  shots 0.5+  p=0.88  Expected minutes are high. | The opponent's style allows more shots.
+  shots 0.5+  p=0.94  Takes a larger share of the team's shots than most in the role. | Expected minutes are high.
