@@ -49,7 +49,7 @@ function Row({ id, onClose }) {
     <Drawer open={!!id} onClose={onClose} title={q.data?.path || "Cached answer"} testid="cache-drawer" wide>
       {q.loading || !q.data ? (q.error ? <ErrorBox error={q.error} /> : <Loading />) : (
         <div className="a-stack">
-          {Object.keys(q.data.params).length > 0 && <code className="a-path">{new URLSearchParams(q.data.params).toString()}</code>}
+          <p className="a-muted small">Cache key: <code data-testid="cache-key">{id}</code></p> && <code className="a-path">{new URLSearchParams(q.data.params).toString()}</code>}
           {q.data.error_code ? <p className="a-notice a-notice--warn">Stored not-found answer: {q.data.error_code}</p> : <div className="a-jt-wrap"><JsonTree data={q.data.data} /></div>}
         </div>
       )}

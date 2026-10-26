@@ -20,7 +20,7 @@ export const onApiError = (fn) => {
   return () => listeners.delete(fn);
 };
 
-export async function api(path, { method = "GET", body, query, signal } = {}) {
+export async function api(path, { method = "GET", body, raw, query, signal } = {}) {
   const qs = query
     ? "?" + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== "")).toString()
     : "";
@@ -28,8 +28,8 @@ export async function api(path, { method = "GET", body, query, signal } = {}) {
     method,
     signal,
     credentials: "include",
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers: raw !== undefined ? { "Content-Type": raw.type || "application/octet-stream" } : body !== undefined ? { "Content-Type": "application/json" } : undefined,
+    body: raw !== undefined ? raw : body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
@@ -47,3 +47,5 @@ export const post = (path, body) => api(path, { method: "POST", body: body ?? {}
 export const put = (path, body) => api(path, { method: "PUT", body: body ?? {} });
 export const patch = (path, body) => api(path, { method: "PATCH", body: body ?? {} });
 export const del = (path, body) => api(path, { method: "DELETE", body });
+// Raw file bytes (a File or Blob), e.g. an image upload.
+export const putFile = (path, file) => api(path, { method: "PUT", raw: file });

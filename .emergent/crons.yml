@@ -1,0 +1,8 @@
+crons:
+  - name: ingest-tick
+    description: "Runs the ingest tick: league, fixture and result syncs, backfill, queue, engine, cleanup"
+    cron: "*/15 * * * *"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/tick"
+    method: POST
+    enabled: true

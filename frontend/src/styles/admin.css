@@ -305,3 +305,7 @@
 .a-img-input > input { flex: 1 1 160px; }
 .a-img-thumb { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; background: #0B0F16; border: 1px solid var(--border); overflow: hidden; }
 .a-img-thumb .brand-logo { max-width: 40px; height: 28px; }
+.a-job { display: grid; gap: 10px; align-content: start; }
+.a-review { display: grid; gap: 10px; }
+.a-review-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.a-cov.is-ok { color: var(--up); font-weight: 700; } .a-cov.is-low { color: var(--down); font-weight: 700; background: color-mix(in srgb, var(--down) 8%, transparent); }

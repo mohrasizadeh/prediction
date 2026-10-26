@@ -1,2 +1,3 @@
 [lint.per-file-ignores]
 "backend/tests/*" = ["F403", "F405"]
+"proposals/*/selftest_*.py" = ["F403", "F405", "E402"]

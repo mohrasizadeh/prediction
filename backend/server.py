@@ -29,6 +29,8 @@ import routes_admin
 import routes_billing
 import routes_data
 import routes_data_admin
+import routes_ingest_admin
+import routes_cron
 import routes_images
 import routes_me
 import routes_site
@@ -48,6 +50,8 @@ app.include_router(routes_images.public)
 app.include_router(routes_images.admin)
 app.include_router(routes_data.router)
 app.include_router(routes_data_admin.router)
+app.include_router(routes_ingest_admin.router)
+app.include_router(routes_cron.router)
 app.include_router(routes_me.router)
 
 

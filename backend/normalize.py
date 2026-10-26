@@ -89,12 +89,15 @@ def has_group(p: dict, group: str) -> bool:
 
 PLAYER_COLS = ["minutes", "shots", "sot", "tackles", "goals", "assists", "xg", "saves",
                "interceptions", "clearances", "fouls_committed", "fouls_won"]
+ZERO_WHEN_ABSENT = ("shots", "sot")
 
 
 def players(players_data, player_keys: dict, position_map: dict) -> list[dict]:
     """One dict per player who featured. position 'pos' is None when the raw id is not mapped."""
     rows = []
     for p in players_data:
+        if not p.get("stats"):          # listed but never on the pitch: no stats groups at all
+            continue
         pl = p.get("player", {})
         raw = pl.get("position_id")
         row = {"ext_id": pl.get("id"), "name": pl.get("name"), "team_ext_id": p.get("team_id"),
@@ -105,6 +108,11 @@ def players(players_data, player_keys: dict, position_map: dict) -> list[dict]:
                 row[col] = player_stat(p, spec["group"], spec["key"], spec.get("use", "value"))
             else:
                 row[col] = None
+        # PitchAPI omits a count when it is 0 (0 never appears in real answers). Owner decision: for a player who
+        # played, a missing shots / shots-on-target count is 0 when its key is mapped.
+        for col in ZERO_WHEN_ABSENT:
+            if row[col] is None and (player_keys.get(col) or {}).get("key"):
+                row[col] = 0.0
         # Goalkeepers have no defence group: tackles is None, not 0.
         if row["pos"] == "GK":
             row["tackles"] = None
@@ -153,9 +161,9 @@ def normalize_match(match: dict, stats_data, players_data, lineups_data, setting
                     raise MissingField(f"team {col} missing for {side}")
                 ts[side][col] = tot
                 issues.append({"kind": "team_stat_from_players", "detail": col})
-    for p in pl:
-        if p["minutes"] is None or p["shots"] is None:
-            raise MissingField(f"player {p['ext_id']} has no minutes or shots")
+    gaps = [p["ext_id"] for p in pl if p["minutes"] is None or p["shots"] is None]
+    if gaps:   # PitchAPI leaves keys out (seen on real answers): keep None, record once per match, do not drop the match
+        issues.append({"kind": "player_stat_missing", "detail": f"{len(gaps)} players without minutes or shots: " + ", ".join(gaps[:10])})
 
     # started flag comes from the lineups endpoint
     started = {x["ext_id"] for s in ("home", "away") for x in lu[s]["players"] if x["started"]}
