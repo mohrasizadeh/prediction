@@ -3,7 +3,6 @@ from testkit import *
 import routes_data_admin as RDA
 from cached_fetch import PitchClient
 
-srv.app.include_router(RDA.router)   # the test mounts it itself; server.py is not changed by this test
 pitch_calls = []
 
 
