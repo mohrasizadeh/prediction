@@ -9,6 +9,7 @@ import { DISCLAIMER } from "../lib/copy";
 import { utc } from "../lib/time";
 import { audienceOk, route, useSite } from "../lib/site";
 import Icon from "./Icon";
+import { BrandLogo } from "./Media";
 import { useEsc } from "./Ui";
 
 function ago(iso) {
@@ -118,6 +119,18 @@ function Footer({ cfg, updated }) {
   );
 }
 
+// Follows the data-theme attribute that ThemeSync sets on <html>.
+function useThemeMode() {
+  const get = () => (document.documentElement.dataset.theme === "light" ? "light" : "dark");
+  const [mode, setMode] = useState(get);
+  useEffect(() => {
+    const ob = new MutationObserver(() => setMode(get()));
+    ob.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => ob.disconnect();
+  }, []);
+  return mode;
+}
+
 export function Maintenance({ message }) {
   return <div className="maint" data-testid="maintenance-page"><Icon name="clock" size={32} /><h1>Back shortly</h1><p>{message}</p></div>;
 }
@@ -129,6 +142,7 @@ export default function Layout({ children }) {
   const status = useApi("/public/status");
   const updated = ago(status.data?.data_updated_at);
   const [more, setMore] = useState(false);
+  const mode = useThemeMode();
   const closeMore = useCallback(() => setMore(false), []);
   const nav = cfg?.nav || {};
   const items = (nav.items || []).filter((i) => i.enabled !== false && audienceOk(i.audience, user, me));
@@ -146,7 +160,7 @@ export default function Layout({ children }) {
       {preview && <div className="preview-bar" data-testid="preview-bar">Preview of the draft look. Visitors do not see this.</div>}
       <header className="header" data-testid="site-header">
         <div className="header-row">
-          <Link to="/" className="brand" data-testid="brand-link"><span className="brand-mark" aria-hidden="true" /><span className="brand-name">{cfg?.brand?.name || "Prediciotn"}</span></Link>
+          <Link to="/" className="brand" data-testid="brand-link"><BrandLogo brand={cfg?.brand} mode={mode} /><span className="brand-name">{cfg?.brand?.name || "Prediciotn"}</span></Link>
           <span className="beta" data-testid="beta-tag" title="Tested on simulated data only">Beta</span>
           {!rail && <nav className="top-nav" aria-label="Main">{items.map((i) => <NavItem key={i.id} item={i} testid={`top-nav-${i.id}`} />)}</nav>}
           <div className="header-actions">

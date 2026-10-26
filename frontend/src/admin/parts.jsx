@@ -128,6 +128,36 @@ export function KV({ obj, skip = [] }) {
   );
 }
 
+// Collapsible JSON viewer for raw API answers. Large arrays show the first 50 items.
+export function JsonTree({ data, name = "data", depth = 0 }) {
+  if (data === null || typeof data !== "object") {
+    return <div className="a-jt-leaf"><span className="a-jt-key">{name}</span><span className={"a-jt-v a-jt-" + (data === null ? "null" : typeof data)}>{JSON.stringify(data)}</span></div>;
+  }
+  const entries = Array.isArray(data) ? data.slice(0, 50).map((v, i) => [i, v]) : Object.entries(data);
+  const size = Array.isArray(data) ? `[${data.length}]` : `{${entries.length}}`;
+  return (
+    <details className="a-jt" open={depth < 2}>
+      <summary><span className="a-jt-key">{name}</span><span className="a-jt-size">{size}</span></summary>
+      <div className="a-jt-body">
+        {entries.map(([k, v]) => <JsonTree key={k} name={String(k)} data={v} depth={depth + 1} />)}
+        {Array.isArray(data) && data.length > 50 && <p className="a-muted small">…and {data.length - 50} more</p>}
+      </div>
+    </details>
+  );
+}
+
+// Phase 1 data routes are proposed (proposals/phase1_backend) but not mounted on the server yet.
+export const notMounted = (e) => e?.code === "HTTP_404";
+export function MissingRoutes({ testid = "routes-missing" }) {
+  return (
+    <div className="a-card a-soon" data-testid={testid}>
+      <span className="a-soon-ico"><Icon name="plug" size={28} /></span>
+      <h1>Waiting for the server routes</h1>
+      <p>This screen is ready. The server does not have its routes yet, because the backend change is waiting for the owner's OK.</p>
+    </div>
+  );
+}
+
 export function Card({ title, children, actions, testid, className = "" }) {
   return (
     <section className={"a-card " + className} data-testid={testid}>

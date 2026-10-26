@@ -20,9 +20,12 @@ import Content from "./Content";
 import Inbox from "./Inbox";
 import Announcements from "./Announcements";
 import Plans from "./Plans";
+import Explorer from "./Explorer";
+import Cache from "./Cache";
+import Leagues from "./Leagues";
 
 const SCREENS = { dashboard: Dashboard, users: Users, staff: Staff, settings: Settings, keys: Keys, logs: Logs, security: Security, health: Health,
-  studio: Studio, pages: Content, inbox: Inbox, announcements: Announcements, plans: Plans };
+  studio: Studio, pages: Content, inbox: Inbox, announcements: Announcements, plans: Plans, explorer: Explorer, cache: Cache, leagues: Leagues };
 const SHORT = { "Site Studio": "Studio", "E-mail templates": "Templates", "E-mail list": "List", "Blocked addresses": "Blocked", "Endpoint explorer": "Explorer", "Cache and usage": "Cache", "Data quality": "Quality", Announcements: "News" };
 
 export function useAdminShell() {

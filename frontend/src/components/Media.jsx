@@ -44,6 +44,14 @@ export function LeagueMark({ league, size = 20, decorative = true }) {
   return <span className="media-chip" style={{ width: size, height: size }}><Img image={league.image} size={size} alt={decorative ? "" : league.name} onFail={() => setFailed(true)} /></span>;
 }
 
+// Site logo from Site Studio (brand.logo_light / brand.logo_dark). Falls back to the brand mark if missing or broken.
+export function BrandLogo({ brand, mode }) {
+  const [failed, setFailed] = useState("");
+  const image = (mode === "light" ? brand?.logo_light || brand?.logo_dark : brand?.logo_dark || brand?.logo_light) || "";
+  if (!image || failed === image) return <span className="brand-mark" aria-hidden="true" />;
+  return <img src={src(image)} alt="" height={28} className="brand-logo" decoding="async" onError={() => setFailed(image)} data-testid="brand-logo" />;
+}
+
 const TINTS = ["chart1", "chart2", "chart3", "chart4", "chart5", "chart6"];
 const tintFor = (id = "") => TINTS[[...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % TINTS.length];
 

@@ -8,6 +8,7 @@ import { Confirm, Drawer, Switch, Tabs, useToast } from "../components/Ui";
 import { ErrorBox, Loading, Empty } from "../components/States";
 import Icon from "../components/Icon";
 import { Chip, PageHead, when } from "./parts";
+import { BrandLogo } from "../components/Media";
 
 const LABEL = { brand: "Brand", theme: "Look", buttons: "Buttons", nav: "Menus", footer: "Footer", seo: "SEO", cookies: "Cookie banner", home: "Home page", custom_css: "Custom CSS" };
 const ENUMS = { default_mode: ["system", "light", "dark"], radius: ["sharp", "default", "round"], density: ["comfortable", "compact"], shadows: ["none", "soft", "strong"], motion: ["full", "reduced"],
@@ -19,6 +20,34 @@ const setIn = (o, path, v) => {
   c[k] = rest.length ? setIn(o[k], rest, v) : v;
   return c;
 };
+
+const IMAGE_KEYS = ["logo_light", "logo_dark", "favicon", "og_image"];
+
+// Upload goes to POST /admin/site/assets (PNG, JPEG, WebP, ICO; checked on the server); the field keeps the returned address.
+function ImageInput({ id, value, onChange }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const pick = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setBusy(true);
+    try {
+      const b64 = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = no; r.readAsDataURL(f); });
+      const r = await post("/admin/site/assets", { name: f.name.slice(0, 80), data_b64: b64 });
+      onChange(r.url);
+      toast("Image uploaded. Save to draft to keep it.");
+    } catch (x) { toast(sayError(x), "err"); } finally { setBusy(false); }
+  };
+  return (
+    <div className="a-img-input">
+      <span className="a-img-thumb"><BrandLogo brand={{ logo_dark: value }} mode="dark" /></span>
+      <input id={id} value={value ?? ""} placeholder="No image" onChange={(e) => onChange(e.target.value)} data-testid={id} />
+      <label className="btn btn--secondary btn--sm" data-testid={`${id}-upload`}>{busy ? "Uploading…" : "Upload"}<input type="file" accept="image/png,image/jpeg,image/webp,image/x-icon" hidden onChange={pick} disabled={busy} /></label>
+      {value && <button type="button" className="btn btn--ghost btn--sm" onClick={() => onChange("")} data-testid={`${id}-clear`}>Remove</button>}
+    </div>
+  );
+}
 
 function Leaf({ path, value, onChange, meta, problems }) {
   const key = path[path.length - 1];
@@ -32,6 +61,7 @@ function Leaf({ path, value, onChange, meta, problems }) {
   else if (opts) input = <select id={id} value={value} onChange={(e) => onChange(e.target.value)} data-testid={id}>{opts.includes(value) ? null : <option>{value}</option>}{opts.map((o) => <option key={o}>{o}</option>)}</select>;
   else if (typeof value === "number") input = <input id={id} type="number" value={value} onChange={(e) => onChange(e.target.value === "" ? "" : Number(e.target.value))} data-testid={id} />;
   else if (key === "css") input = <textarea id={id} rows={12} spellCheck={false} value={value || ""} onChange={(e) => onChange(e.target.value)} data-testid={id} />;
+  else if (IMAGE_KEYS.includes(key)) input = <ImageInput id={id} value={value} onChange={onChange} />;
   else input = <input id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value)} data-testid={id} />;
   return <div className={"a-leaf" + (msg ? " has-err" : "")}><label htmlFor={id}>{key.replace(/_/g, " ")}</label>{input}{msg && <small className="field-err" role="alert">{msg}</small>}</div>;
 }
