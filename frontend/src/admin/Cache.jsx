@@ -66,7 +66,7 @@ function CacheTable() {
   const q = useApi("/admin/cache", { q: search, page });
   const remove = async (params, label) => {
     const r = await del(`/admin/cache?${new URLSearchParams(params)}`);
-    setAsk(null); toast(`Deleted ${r.deleted} ${r.deleted === 1 ? "row" : "rows"}${label ? ` (${label})` : ""}`); q.reload();
+    setAsk(null); toast(`Deleted ${r.deleted} ${r.deleted === 1 ? "row" : "rows"}${label === "all" ? " from the whole cache" : ""}`); q.reload();
   };
   const cols = [
     { key: "path", label: "Path", primary: true, render: (r) => <span className="a-person"><b className="a-mono">{r.path}</b>{Object.keys(r.params).length > 0 && <small>{new URLSearchParams(r.params).toString()}</small>}</span> },

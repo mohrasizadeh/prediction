@@ -1,0 +1,42 @@
+{
+  "summary": "Frontend-only Playwright testing (1920px and 390px) of the Phase 1 admin data screens, now on real routes. Owner first sign-in done once (2FA enrolment, 10 recovery codes, password change to Owner-Test-Pass-2026!x, lands on /admin), then the __Host-sid cookie was reused. Every requested flow passed. No page errors, no crashes, no routes-missing cards. No provider key was saved. leagues-sync and Force refresh were NOT clicked. No code was changed (only memory/test_credentials.md).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Cache and usage", "issues": ["The Delete-all toast reads 'Deleted 0 rows (all)'. The '(all)' / '(prefix)' suffix is raw label text and reads oddly. Use 'Deleted 0 rows from the whole cache' or drop the suffix.", "At 0 calls the meter is an empty grey bar with no label beside it. This is fine, but it looks like a divider."]},
+      {"screen": "Leagues (empty)", "issues": ["The lead line says '0 of 0 switched on. New leagues arrive switched off.' while the list is empty. Show the normal lead when there are no leagues.", "'Refresh league list' stays active when no PitchAPI key is saved. Consider disabling it or pointing to Keys, as the empty state already does."]}
+    ]
+  },
+  "passed": [
+    "Owner first sign-in: signin, then /enroll-2fa (manual secret plus TOTP), then 10 recovery codes, then 'I saved them' and Continue, then /change-password, then /admin",
+    "Explorer: default call 'leagues', path 'GET /v1/leagues'. Run sends POST /api/admin/explorer, which returns 400 PITCH_KEY. The FormError shows 'No PitchAPI key is saved yet. Add it in Keys.' There is no routes-missing card, no explorer-result and no crash. calls_today stays 0, so no call is logged",
+    "Cache: usage-today '0 / 2,000' (0% of the daily budget), usage-breaker 'Closed' (Calls are allowed), usage-cache-rows 0, role=meter aria-valuenow 0. usage-chart has 14 bars and 'Show table' shows 14 rows, then 'Show chart' toggles back. usage-purpose and usage-status show 'No calls today.' The cache table shows 'The cache is empty...'. 'Delete these' is disabled with an empty search",
+    "Delete all: cache-confirm asks to 'Type DELETE to confirm'. OK stays disabled when empty and for 'delete' (case-sensitive). With 'DELETE' it sends DELETE /api/admin/cache?all=true (200), the toast reads 'Deleted 0 rows (all)', the dialog closes and the table reloads",
+    "Leagues: GET /api/admin/leagues returns {leagues:[], budget:2000}. leagues-empty shows the guidance text. leagues-sync is visible (not clicked)",
+    "390px: Explorer, Cache and Leagues have scrollWidth 390 = clientWidth, so there is no horizontal overflow. On mobile the Explorer error shows in the viewport after Run"
+  ],
+  "flaky_tests": ["The first 390px run timed out waiting for leagues-empty (15s) after 2 earlier page loads in the same script. A fresh run showed it within 5s with GET /api/admin/leagues 200. No console or page errors. This is probably a slow load in the preview environment, with a 1-in-2 failure rate. It is not reproduced."],
+  "test_report_links": [],
+  "action_items": [
+    "Optional: tidy the Delete toast suffix '(all)'. Adjust the Leagues lead when the list is empty. Consider disabling leagues-sync when no key is saved",
+    "Run reset_admin.py (owner now has the new password and a new TOTP secret)"
+  ],
+  "critical_code_review_comments": [
+    "Leagues.jsx: while loading it returns <Loading> without the a-page/PageHead wrapper, and on a non-404 error it returns a bare <ErrorBox>, so the page title disappears. Wrap both in the page shell",
+    "parts.jsx notMounted (HTTP_404) guards are still in Explorer/Cache/Leagues. Now that the routes are mounted, a real 404 (e.g. explorer PITCH_NOT_FOUND returns its own code, which is fine) would only be hidden if a code HTTP_404 comes back. Consider removing the guards",
+    "Cache.jsx remove(): there is no try/catch, so a failed DELETE leaves the confirm open with no error toast (unhandled promise)",
+    "routes_data_admin: the handlers are sync def with pymongo. FastAPI runs them in the threadpool, so this is OK. The cache_list regex uses re.escape, which is fine. DELETE /cache with no key, prefix or all returns 400 BAD_VALUE, which is good"
+  ],
+  "updated_files": ["/app/memory/test_credentials.md"],
+  "success_rate": {"backend": "not tested (frontend only)", "frontend": "100% of requested flows passed"},
+  "test_credentials": "Owner smj.rasizadeh@gmail.com. NEW password: Owner-Test-Pass-2026!x. TOTP secret: 6A7PEW6HYVN35LYNVSMHF3WRNT5NQD5H. Recovery codes: 2be831f5-1abd3ed1, b804f507-0ed5c6cf, ebe25b13-c2c19303, ab530ba5-5ba53ccb, f1793f80-77b17478, 9954644a-93a5e673, b3ecddcb-a0b6df44, 3464a78d-c9db9d59, 181f44f2-eeb84b66, 704b831d-8a52abcc",
+  "seed_data_creation": "None. Delete-all ran on an empty cache (deleted 0), which wrote one cache.delete audit entry",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sign in once and save cookies. Then add only __Host-sid with context.add_cookies(url=BASE, secure, httpOnly). Routes are /admin/data/{explorer,cache,leagues}. Testids for the Confirm dialog: cache-confirm, cache-confirm-input, cache-confirm-ok. The chart toggle is usage-chart-toggle. With a key saved later, retest explorer-result/source/cost/save, the cache table rows and drawer, and the leagues toggles and seasons drawer."
+}

@@ -76,7 +76,7 @@ export default function Leagues() {
   const on = q.data.leagues.filter((l) => l.enabled).length;
   return (
     <div className="a-page" data-testid="admin-leagues">
-      <PageHead title="Leagues" lead={`${on} of ${q.data.leagues.length} switched on. New leagues arrive switched off.`}
+      <PageHead title="Leagues" lead={q.data.leagues.length ? `${on} of ${q.data.leagues.length} switched on. New leagues arrive switched off.` : "Switch leagues on and pick seasons to backfill."}
                 actions={<button className="btn btn--secondary btn--sm" onClick={sync} data-testid="leagues-sync"><Icon name="refresh" size={16} />Refresh league list</button>} />
       {q.data.leagues.length === 0 ? (
         <Card><Empty icon="trophy" testid="leagues-empty">No leagues yet. Save the PitchAPI key in Keys, then use Refresh league list (one call) or run GET /v1/leagues in the Endpoint explorer.</Empty></Card>
