@@ -152,7 +152,7 @@ export function MissingRoutes({ testid = "routes-missing" }) {
   return (
     <div className="a-card a-soon" data-testid={testid}>
       <span className="a-soon-ico"><Icon name="plug" size={28} /></span>
-      <h1>Waiting for the server routes</h1>
+      <h2>Waiting for the server routes</h2>
       <p>This screen is ready. The server does not have its routes yet, because the backend change is waiting for the owner's OK.</p>
     </div>
   );

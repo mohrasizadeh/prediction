@@ -94,13 +94,13 @@ function MoreSheet({ open, onClose, items, user, signOut }) {
   );
 }
 
-function Footer({ cfg, updated }) {
+function Footer({ cfg, updated, mode }) {
   const f = cfg?.footer || {};
   return (
     <footer className="footer" data-testid="site-footer">
       <div className="wrap">
         <div className="footer-cols">
-          <div className="footer-brand"><span className="brand-mark" aria-hidden="true" /><strong>{cfg?.brand?.name || "Prediciotn"}</strong><p>{cfg?.brand?.tagline}</p></div>
+          <div className="footer-brand"><BrandLogo brand={cfg?.brand} mode={mode} /><strong>{cfg?.brand?.name || "Prediciotn"}</strong><p>{cfg?.brand?.tagline}</p></div>
           {(f.columns || []).map((c) => (
             <nav key={c.title} aria-label={c.title} className="footer-col"><h3>{c.title}</h3>
               {(c.links || []).map((l) => isExternal(l.route) ? <a key={l.label} href={l.route} target="_blank" rel="noopener noreferrer">{l.label}</a> : <Link key={l.label} to={route(l.route)}>{l.label}</Link>)}
@@ -191,7 +191,7 @@ export default function Layout({ children }) {
         )}
         <div className="page-col">
           <main id="main" className="wrap main">{maint ? <Maintenance message={cfg.maintenance.message} /> : children || <Outlet />}</main>
-          <Footer cfg={cfg} updated={updated} />
+          <Footer cfg={cfg} updated={updated} mode={mode} />
         </div>
       </div>
       <nav className="bottom-tabs" aria-label="Main" data-testid="bottom-tabs">

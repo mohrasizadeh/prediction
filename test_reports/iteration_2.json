@@ -1,0 +1,53 @@
+{
+  "summary": "Frontend-only Playwright testing (1920px and 390px) of Phase 1 admin data screens (Endpoint explorer, Cache and usage, Leagues) and the Site Studio header logo (logo_dark/logo_light upload, publish, theme switch, broken-image fallback, restore). Owner first sign-in done once (2FA enrolment, recovery codes, password change), then I reused the session cookie in later scripts, so no rate limits were hit. Every requested flow passed. No page errors or crashes. I found no blocking bugs. A few minor UX and design notes are below. No code was changed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/explorer, GET /api/admin/usage, GET /api/admin/leagues", "issue": "Return 404 HTTP_404 as expected, because the user refused the backend change. The UI handles this with the routes-missing card."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Endpoint explorer (desktop)", "issues": ["In the 3-column form row the Season field has a hint below it, so its label sits higher than the 'League id' and 'Status' labels. Use align-items:start or put the hint under the row."]},
+      {"screen": "Endpoint explorer (390px)", "issues": ["After Run, the routes-missing card (or a result) shows below the fold under the long form, so nothing visibly changes on screen. Scroll the card or result into view after Run."]},
+      {"screen": "Explorer/Cache/Leagues routes-missing card", "issues": ["MissingRoutes renders an <h1> inside a page that already has an <h1> from PageHead, which gives 2 h1s. Use h2.", "Leagues PageHead has no lead line, while Cache and Explorer have one. This is inconsistent."]},
+      {"screen": "Site Studio Brand tab", "issues": ["The mini preview (Phone/Desktop, Dark/Light) does not show the uploaded logo. The header in the preview shows only 'Forecast', so the owner cannot check the logo before publishing.", "Field order puts 'Logo light' before 'Logo dark' in the grid, and the row heights do not match (Name/Tagline inputs are taller than the image inputs)."]},
+      {"screen": "Public footer", "issues": ["The footer brand still uses the plain .brand-mark (Layout.jsx line 103) and not BrandLogo, so the uploaded logo shows only in the header."]},
+      {"screen": "Public header with logo", "issues": ["The logo is shown next to the brand-name text. If the logo is a wordmark, the name appears twice. Consider hiding .brand-name when a logo is set, or add a setting for it."]}
+    ]
+  },
+  "passed": [
+    "Owner first sign-in with ADMIN_INITIAL_PASSWORD: /enroll-2fa, manual secret, TOTP accepted, 10 recovery codes, 'I saved them' then Continue, /change-password to Owner-Test-Pass-2026!x, lands on /admin",
+    "Explorer: explorer-call is a real <select>. The default 'All leagues' path is 'GET /v1/leagues' and Run is enabled. 'A league's matches' shows League id, Season (default 2025/2026) and Status (default all). Run is disabled until a league id is typed, and stays disabled for whitespace only. The path URL-encodes values ('eng 1/x' becomes eng%201%2Fx, season 2024%2F2025, status=played). The Date and Player calls change the fields and the path. Typed values are kept when switching calls",
+    "Explorer Run shows routes-missing 'Waiting for the server routes', no explorer-result, no crash, no FormError",
+    "Force refresh opens explorer-force-confirm ('Make a real call?' / 'Call PitchAPI'). Cancel closes it. OK runs and shows routes-missing. Changing the call clears the card",
+    "Cache and usage (/admin/data/cache) shows the routes-missing card",
+    "Leagues (/admin/data/leagues) shows the routes-missing card",
+    "390px: More sheet tiles admin-more-tile-explorer/cache/leagues open each page, the sheet closes, overflow is 0px on all 3 (also with the matches form filled). The force-confirm sheet looks right on phone",
+    "Studio Brand tab: f-logo_dark-upload and f-logo_light-upload use a hidden file input. Uploading 2 PNGs (red 64x28 and blue 64x28) fills /api/site/assets/<id>, shows the toast 'Image uploaded. Save to draft to keep it.' and the thumbs load (naturalWidth 64). Save to draft worked, then Publish with note gave 'Published version 1'",
+    "Public header (signed out): img[data-testid=brand-logo] uses the light asset in light theme and the dark asset after theme-toggle, and back again. 390px header shows the logo with no overflow",
+    "Broken logo (asset requests routed to 404): the header falls back to .brand-mark in both themes, with no broken-image icon",
+    "Remove (f-logo_*-clear) empties the field and hides the Remove button. Restored with an empty logo pair and published as version 2. The public header has no brand-logo and shows the brand-mark again"
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "Optional: show the logo in the Studio mini preview and in the footer brand",
+    "Optional: scroll the result or routes-missing card into view after Run on mobile. Fix the Season hint misalignment. Use h2 in MissingRoutes",
+    "Run reset_admin.py (owner now has the new password and TOTP). Optionally delete the 2 orphan TEST site assets 26a189634d7e4a72aae3df4eeef93f60 and 0e97bdb092f044d2a8e53f440a6e4f81 (red.png, blue.png). Site config is now at version 2 (v1 = logos, v2 = logos cleared)"
+  ],
+  "critical_code_review_comments": [
+    "parts.jsx notMounted matches any HTTP_404. This is fine for now. When the routes land, a real 404 such as GET /admin/cache/{id} for a deleted row would still show 'waiting for routes' only where notMounted is used (Explorer/Cache top level). Remove these guards once the backend is mounted",
+    "Cache.jsx: when /admin/usage is 404, CacheTable is not rendered at all. This is OK because both routes come together, but the coupling is implicit",
+    "BrandLogo: if the mode's logo fails, it falls back to the brand mark and not to the other mode's logo. This is acceptable",
+    "Explorer save(): the filename comes from res.path with '/' replaced, but the query params are not in the name, so different seasons give the same fixture filename"
+  ],
+  "updated_files": ["/app/memory/test_credentials.md"],
+  "success_rate": {"backend": "not tested (frontend only)", "frontend": "100% of requested flows passed. Only minor design notes"},
+  "test_credentials": "Owner smj.rasizadeh@gmail.com. NEW password: Owner-Test-Pass-2026!x. TOTP secret: FIEGYT3A7GMMLJVMAEWMDYPW57L77LH6. Recovery codes: c925266a-841fa67d, be3aa789-54b73e45, f64a48b5-17cb4b2e, 44245f30-5a99ded6, e8f346b7-61cfba1c, a5f91b91-9f705250, 3f382556-3e0aab7b, 74c55a92-ce99a837, 821697cb-b589e6fb, 2d8ed7b8-1e6a5996",
+  "seed_data_creation": "2 site assets (red.png and blue.png). Site config versions 1 (logos set) and 2 (logos cleared, the restored state)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sign in once, then reuse the __Host-sid cookie with context.add_cookies(url=BASE) in later scripts. This avoids the auth/2FA rate limits. The Studio route is /admin/studio (not /admin/site/studio). Phase 1 data routes are on /admin/data/{explorer,cache,leagues}. The file input is '[data-testid=f-logo_dark-upload] input[type=file]'. The publish dialog uses publish-confirm-input and publish-confirm-ok. When the backend routes are mounted, retest Explorer results (explorer-source, explorer-cost, explorer-save), the Cache table/drawer/deletes and the Leagues toggles and seasons drawer."
+}

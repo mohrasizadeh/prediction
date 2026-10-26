@@ -70,7 +70,7 @@ export default function Leagues() {
   const [filter, setFilter] = useState("");
   const sync = async () => { try { await post("/admin/jobs/run?job=reference_sync"); toast("League list refresh queued"); } catch (x) { toast(x.message || "Could not queue it", "err"); } };
   if (q.loading && !q.data) return <Loading rows={5} />;
-  if (notMounted(q.error)) return <div className="a-page" data-testid="admin-leagues"><PageHead title="Leagues" /><MissingRoutes /></div>;
+  if (notMounted(q.error)) return <div className="a-page" data-testid="admin-leagues"><PageHead title="Leagues" lead="Switch leagues on and pick seasons to backfill." /><MissingRoutes /></div>;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const list = q.data.leagues.filter((l) => (l.name + " " + (l.country_code || "")).toLowerCase().includes(filter.toLowerCase()));
   const on = q.data.leagues.filter((l) => l.enabled).length;

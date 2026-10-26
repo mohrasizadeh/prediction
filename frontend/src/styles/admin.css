@@ -162,7 +162,7 @@
 .a-actions-grid .btn { justify-content: flex-start; white-space: normal; text-align: left; min-height: 44px; }
 .a-form { display: grid; gap: 14px; }
 .a-form-row { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
-@media (min-width: 640px) { .a-form-row { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; } }
+@media (min-width: 640px) { .a-form-row { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: start; } }
 .a-notice { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: var(--surface2); color: var(--text2); font-size: 14px; }
 .a-notice--warn { border-left: 3px solid var(--warn); } .a-notice .ico { margin-top: 2px; }
 .a-break { display: block; word-break: break-all; padding: 8px; border-radius: 8px; background: var(--surface3); margin-top: 6px; }

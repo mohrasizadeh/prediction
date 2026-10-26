@@ -1,6 +1,6 @@
 // Endpoint explorer (docs/10 §3.10): run an allowed PitchAPI call through the server's cache, see cached or real,
 // the cost in calls, and the raw JSON. Force refresh spends a real call. Save as fixture downloads the JSON.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { post } from "../lib/api";
 import { Confirm, Field, FormError } from "../components/Ui";
 import Icon from "../components/Icon";
@@ -29,6 +29,8 @@ export default function Explorer() {
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
   const [askForce, setAskForce] = useState(false);
+  const outRef = useRef(null);
+  useEffect(() => { if (res || err) outRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, [res, err]);
   const call = CALLS.find((c) => c.id === callId);
   const path = call.parts.reduce((p, k) => p.replace(`{${k}}`, encodeURIComponent((vals[k] || "").trim())), call.path);
   const params = Object.fromEntries(call.params.map(([k, d]) => [k, vals[k] ?? d]));
@@ -65,6 +67,7 @@ export default function Explorer() {
           </div>
         </form>
       </Card>
+      <div ref={outRef} />
       {notMounted(err) && <MissingRoutes />}
       {res && (
         <Card title="Answer" testid="explorer-result" actions={<button className="btn btn--ghost btn--sm" onClick={save} data-testid="explorer-save"><Icon name="download" size={16} />Save as fixture</button>}>

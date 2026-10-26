@@ -17,6 +17,11 @@ Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
 - Admin shell (rail ≥1025 px, bottom bar + All tools sheet + Customize bar), modules: Dashboard, Users, Staff, Settings, Keys, Logs, Security, Health, Site Studio, Pages, Inbox, Announcements, Plans (Sync disabled). Others "Coming in the next phase".
 - Tested end to end by testing agent (iteration_1); its 3 bugs fixed plus follow-ups (auth refresh on 429, fewer /auth/me calls, error boundary, sentence case).
 
+## Implemented (2026-10-26) — Phase 1 (frontend) + header logo
+- Admin → Endpoint explorer, Cache and usage, Leagues screens built (allow-listed call picker, JSON tree, force-refresh confirm, save as fixture; usage meter, 14-day chart, cache table with delete; league cards, season backfill picker with call estimate).
+- Owner declined the backend change: the routes are kept unmounted in /app/proposals/phase1_backend (routes_data_admin.py + a selftest with 30 passing checks). Screens show "Waiting for the server routes" until mounted (2 lines in server.py).
+- Header and footer logo: BrandLogo in Media.jsx (logo_light/logo_dark by mode, falls back to the brand mark); Site Studio image upload for logo/favicon/share image; logo in the Studio mini preview.
+
 ## Backlog
 - P0: Phase 1 (endpoint explorer, cache and usage, leagues) when the owner says go.
 - P1: Logo images in header (needs a decision: Media.jsx rule covers crests/avatars only).

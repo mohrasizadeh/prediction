@@ -108,7 +108,7 @@ function Preview({ draft, mode, device }) {
   const r = { sharp: 2, default: 12, round: 20 }[draft.theme?.radius] ?? 12;
   return (
     <div className={"a-prev a-prev--" + device} style={{ ...vars, "--p-r": r + "px" }} data-testid="studio-preview" aria-label="Live preview">
-      <div className="p-head"><b>{draft.brand?.name}</b><span className="p-beta">Beta</span>{device === "desktop" && <span className="p-nav">{items.slice(0, 5).map((i) => <span key={i.id}>{i.label}</span>)}</span>}</div>
+      <div className="p-head"><BrandLogo brand={draft.brand} mode={mode} /><b>{draft.brand?.name}</b><span className="p-beta">Beta</span>{device === "desktop" && <span className="p-nav">{items.slice(0, 5).map((i) => <span key={i.id}>{i.label}</span>)}</span>}</div>
       <div className="p-body">
         <p className="p-tag">{draft.brand?.tagline}</p>
         <div className="p-card"><small>Insight</small><strong>2+ shots on target</strong><span className="p-tier">Strong ●●● <em>74% (66 to 81)</em></span><span className="p-text2">Reached in 8 of the last 10.</span></div>
