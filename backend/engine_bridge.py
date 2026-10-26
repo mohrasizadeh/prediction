@@ -173,6 +173,8 @@ def run_league(db, league_iid: int, now=None) -> dict:
                                                       "next_comp": c["next_comp"], "n14": c["n14"], "at": now}}, upsert=True)
         db.match_probs.update_many({"match_iid": m["iid"], "is_current": True}, {"$set": {"is_current": False}})
         db.match_probs.insert_one({"match_iid": m["iid"], "run_id": run_id, "is_current": True, "at": now, **probs})
+        kept = {d["fkey"]: d for d in db.forecasts.find({"match_iid": m["iid"], "is_current": True, "hidden": True},
+                                                         {"_id": 0, "fkey": 1, "hidden_reason": 1, "hidden_by": 1, "hidden_at": 1})}
         db.forecasts.update_many({"match_iid": m["iid"], "is_current": True}, {"$set": {"is_current": False}})
         docs = []
         for f in fcs:
@@ -193,6 +195,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "contrib": {k: round(float(v), 4) for k, v in f.contrib.items()},
                          "rotation": f.rotation, "rotation_why": f.rotation_why, "p_play_usual": f.p_play_usual,
                          "p_raw": f.p_raw, "p_base": f.p_base, "is_current": True, "hidden": False, "created_at": now})
+        for d in docs:   # an admin's Hide survives the next run
+            if d["fkey"] in kept:
+                d.update(kept[d["fkey"]], hidden=True)
         if docs:
             db.forecasts.insert_many(docs)
         n_f += len(docs)

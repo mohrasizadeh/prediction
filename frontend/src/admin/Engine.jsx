@@ -1,7 +1,8 @@
 // Engine (docs/09, docs/18, docs/19, docs/10 §3.10). Tabs: Brain layers (GET /admin/brain), Calendar import
 // (POST /admin/calendar/import), Images (GET /admin/images, /review, sync, approve, reject, upload, take down).
-// Lineup effects are locked off and only shown. Runs and forecast hiding need routes that are not built yet.
+// Lineup effects are locked off and only shown. Runs and the forecast browser live in EngineRuns.jsx.
 import { useState } from "react";
+import { Forecasts, Runs } from "./EngineRuns";
 import { del, post, putFile } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { Confirm, Field, FormError, Tabs, useToast } from "../components/Ui";
@@ -105,12 +106,13 @@ function Images() {
 }
 
 export default function Engine() {
-  const [tab, setTab] = useState("brain");
+  const [tab, setTab] = useState("runs");
+  const body = { runs: <Runs />, forecasts: <Forecasts />, brain: <Brain />, calendar: <Calendar />, images: <Images /> }[tab];
   return (
     <div className="a-page" data-testid="admin-engine">
-      <PageHead title="Engine" lead="What the forecast brain is using, the cup calendar, and club and player images." />
-      <Tabs tabs={[{ id: "brain", label: "Brain layers" }, { id: "calendar", label: "Calendar import" }, { id: "images", label: "Images" }]} value={tab} onChange={setTab} testid="engine-tabs" />
-      {tab === "brain" ? <Brain /> : tab === "calendar" ? <Calendar /> : <Images />}
+      <PageHead title="Engine" lead="Runs, current forecasts you can hide, what the forecast brain is using, the cup calendar, and images." />
+      <Tabs tabs={[{ id: "runs", label: "Runs" }, { id: "forecasts", label: "Forecasts" }, { id: "brain", label: "Brain layers" }, { id: "calendar", label: "Calendar import" }, { id: "images", label: "Images" }]} value={tab} onChange={setTab} testid="engine-tabs" />
+      {body}
     </div>
   );
 }

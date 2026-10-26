@@ -123,6 +123,15 @@ def players(players_data, player_keys: dict, position_map: dict) -> list[dict]:
 
 
 # ---------------------------------------------------------------- lineups
+def lineup_pos(x: dict, position_map: dict):
+    """Starters: position_id is a formation-grid slot, so the line comes from pitch_x (depth, 0 own goal to 1). Subs: position_map."""
+    px = x.get("pitch_x")
+    if x.get("started") and px:
+        return "GK" if px < 0.2 else "DEF" if px < 0.45 else "MID" if px < 0.8 else "FWD"
+    raw = x.get("position_id")
+    return position_map.get(str(raw)) if raw is not None else None
+
+
 def lineups(lineups_data: dict) -> dict:
     out = {}
     for side in ("home", "away"):
@@ -169,6 +178,14 @@ def normalize_match(match: dict, stats_data, players_data, lineups_data, setting
     started = {x["ext_id"] for s in ("home", "away") for x in lu[s]["players"] if x["started"]}
     for p in pl:
         p["started"] = p["ext_id"] in started
+
+    # /players sends no position_id on real answers: take the line from the lineup
+    lpos = {x["ext_id"]: lineup_pos(x, settings["position_map"]) for s in ("home", "away") for x in lu[s]["players"]}
+    for p in pl:
+        if p["pos"] is None:
+            p["pos"] = lpos.get(p["ext_id"])
+            if p["pos"] == "GK":
+                p["tackles"] = None
 
     # team totals for the engine = sum over that team's players, same keys
     totals = {}
