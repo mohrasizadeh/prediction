@@ -9,6 +9,7 @@ import "@fontsource-variable/plus-jakarta-sans/wght.css";
 import "@fontsource-variable/manrope/wght.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
+import "./styles/football.css";
 import "./styles/admin.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(

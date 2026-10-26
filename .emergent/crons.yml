@@ -6,3 +6,17 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/tick"
     method: POST
     enabled: true
+  - name: image-sync-refresh
+    description: "1 Jan and 1 Aug 03:00 UTC: image sync that also re-reads every squad for new signings"
+    cron: "0 3 1 1,8 *"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/images/refresh"
+    method: POST
+    enabled: true
+  - name: image-sync-continue
+    description: "2-5 Jan and Aug 03:00 UTC: image sync carries on where the daily API-Football limit stopped"
+    cron: "0 3 2-5 1,8 *"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/images/continue"
+    method: POST
+    enabled: true

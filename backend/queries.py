@@ -73,6 +73,9 @@ def match_detail(db, match_iid: int) -> dict | None:
         f["player"] = players.get(f.get("player_iid"))
     styles = {s["team_iid"]: s for s in db.team_styles.find({"team_iid": {"$in": [m["home_iid"], m["away_iid"]]}}, {"_id": 0}).sort("as_of", -1)}
     lu = list(db.lineups.find({"match_iid": match_iid, "started": True}, {"_id": 0}))
+    lp = _names(db, "players", [x["player_iid"] for x in lu])
+    for x in lu:
+        x["player"] = lp.get(x["player_iid"])
     return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]],
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
             "forecasts": fc, "styles": styles, "starters": lu,
@@ -86,7 +89,23 @@ def h2h(db, a: int, b: int, limit: int = 10) -> dict:
                               {"_id": 0}).sort("kickoff", -1).limit(limit))
     wa = sum(1 for m in ms if (m["home_iid"] == a and m["hg"] > m["ag"]) or (m["away_iid"] == a and m["ag"] > m["hg"]))
     wb = sum(1 for m in ms if (m["home_iid"] == b and m["hg"] > m["ag"]) or (m["away_iid"] == b and m["ag"] > m["hg"]))
+    _with_teams(db, ms)
     return {"a_wins": wa, "b_wins": wb, "draws": len(ms) - wa - wb, "matches": ms}
+
+
+def _with_teams(db, ms: list[dict]) -> list[dict]:
+    """Add home / away {id, name, image} to match rows (our database only)."""
+    teams = _names(db, "teams", [m["home_iid"] for m in ms] + [m["away_iid"] for m in ms])
+    for m in ms:
+        m["home"], m["away"] = teams.get(m["home_iid"]), teams.get(m["away_iid"])
+    return ms
+
+
+def _with_opp(db, rows: list[dict]) -> list[dict]:
+    opp = _names(db, "teams", [r["opp_iid"] for r in rows if r.get("opp_iid") is not None])
+    for r in rows:
+        r["opp"] = opp.get(r.get("opp_iid"))
+    return rows
 
 
 def team_form(db, team_iid: int, n: int = 5) -> list[dict]:
@@ -95,9 +114,10 @@ def team_form(db, team_iid: int, n: int = 5) -> list[dict]:
     for m in ms:
         home = m["home_iid"] == team_iid
         gf, ga = (m["hg"], m["ag"]) if home else (m["ag"], m["hg"])
-        out.append({"match_iid": m["iid"], "kickoff": m["kickoff"], "home": home, "gf": gf, "ga": ga,
+        out.append({"match_iid": m["iid"], "match_id": m.get("id"), "kickoff": m["kickoff"], "home": home, "gf": gf, "ga": ga,
+                    "opp_iid": m["away_iid"] if home else m["home_iid"],
                     "result": "W" if gf > ga else ("D" if gf == ga else "L")})
-    return out
+    return _with_opp(db, out)
 
 
 # ----------------------------------------------------------- Insights feed
@@ -136,6 +156,7 @@ def squad_grid(db, team_iid: int, stat: str, last_n: int = 10, venue: str | None
     for r in rows:
         games = r["games"]
         vals = [g["v"] for g in games if g["v"] is not None]
+        _with_opp(db, games)
         out.append({"player": names.get(r["_id"]), "player_iid": r["_id"], "games": games,
                     "avg": sum(vals) / len(vals) if vals else None, "total": sum(vals)})
     out.sort(key=lambda x: -(x["avg"] or 0))
@@ -144,8 +165,8 @@ def squad_grid(db, team_iid: int, stat: str, last_n: int = 10, venue: str | None
 
 def team_totals_grid(db, team_iid: int, stat: str, last_n: int = 10) -> list[dict]:
     rows = list(db.team_match_stats.find({"team_iid": team_iid}, {"_id": 0}).sort("kickoff", -1).limit(last_n))
-    return [{"match_iid": r["match_iid"], "kickoff": r["kickoff"], "opp_iid": r["opp_iid"], "home": r["home"],
-             "for": r.get(stat), "against": r.get(stat + "_against")} for r in rows]
+    return _with_opp(db, [{"match_iid": r["match_iid"], "kickoff": r["kickoff"], "opp_iid": r["opp_iid"], "home": r["home"],
+                           "for": r.get(stat), "against": r.get(stat + "_against")} for r in rows])
 
 
 # ---------------------------------------------------------- Forecast Finder
@@ -325,6 +346,8 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
     fc = list(db.forecasts.find({"player_iid": player_iid, **NOT_HIDDEN}, {"_id": 0, "contrib": 0}).sort("p", -1)) if nxt else []
     p = attach_images(db, "players", [p])[0]
     team = attach_images(db, "teams", [team])[0] if team else None
+    if nxt:
+        _with_teams(db, [nxt])
     return {"player": p, "team": team, "next_match": nxt, "forecasts": fc}
 
 
@@ -337,7 +360,8 @@ def team_detail(db, team_iid: int, now=None) -> dict | None:
     nxt = list(db.matches.find({"status": "scheduled", "kickoff": {"$gte": now},
                                 "$or": [{"home_iid": team_iid}, {"away_iid": team_iid}]}, {"_id": 0}).sort("kickoff", 1).limit(5))
     t = attach_images(db, "teams", [t])[0]
-    return {"team": t, "style": style, "next": nxt, "form": team_form(db, team_iid, 5)}
+    lg = _names(db, "leagues", [t["league_iid"]]).get(t.get("league_iid")) if t.get("league_iid") is not None else None
+    return {"team": t, "league": lg, "style": style, "next": _with_teams(db, nxt), "form": team_form(db, team_iid, 5)}
 
 
 # ------------------------------------------------------------ League page
@@ -346,6 +370,4 @@ def league_matches(db, league_iid: int, status: str = "scheduled", limit: int = 
     q = {"league_iid": league_iid, "status": status}
     q["kickoff"] = {"$gte": now} if status == "scheduled" else {"$lt": now}
     ms = list(db.matches.find(q, {"_id": 0}).sort("kickoff", 1 if status == "scheduled" else -1).limit(limit))
-    teams = _names(db, "teams", [m["home_iid"] for m in ms] + [m["away_iid"] for m in ms])
-    for m in ms: m["home"], m["away"] = teams.get(m["home_iid"]), teams.get(m["away_iid"])
-    return ms
+    return _with_teams(db, ms)
