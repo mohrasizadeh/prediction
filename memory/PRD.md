@@ -46,9 +46,16 @@ Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
 - Backend (owner-approved): finder rows get team + next match names; /me/saved and /me/following-feed forecasts decorated; GET /api/auth/me counted in the read rate limit (security_mw.py). auth.js retries /auth/me on 429.
 - Testing agent iterations 7-8: all flows pass after fixes.
 
+## Implemented (2026-10-26) — Phase 4b money and e-mail (test mode)
+- Stripe claimable test sandbox provisioned; keys saved in the app key store (stripe_secret, stripe_webhook); features.billing on; Pro synced to Stripe (CAD 9.99/month, 79.99/year, 5-day trial). Webhook also at /api/stripe/webhook. billing.success_url=/account/plan?status=success.
+- Pricing page, Stripe checkout, Confirming poll, Manage billing (portal), trial label. Admin Money: Plans Sync, Subscriptions, Payments + refund, Coupons, Revenue. Admin E-mail: Templates, Blocked addresses, Campaigns.
+- Cards print home v away (home_iid added in queries._decorate and insights).
+- Testing agent iteration_9: full checkout to Pro works; 5 display bugs fixed afterwards.
+- Tax: automatic tax off (Stripe processes payment only). Owner to choose tax handling + give business address.
+
 ## Backlog
-- P0: Phase 4b (money and e-mail, test mode): Pricing, checkout, billing, admin Money and E-mail screens, analytics beacon.
-- P1: Phase 4c (popups, footer e-mail form, cookie/tag loader, growth admin screens).
+- P0: Phase 4c (popups, footer e-mail form, cookie/tag loader, growth admin screens).
+- P1: Member e-mail in admin Subscriptions/Payments rows; turn off Stripe adaptive pricing (shows USD); e-mail key for sending.
 - P2: ForecastCard shows home v away order; Finder rejects player-only stats for teams.
 - P1: Index on forecasts.id; player_detail filter forecasts to next match.
 - P2: Debounce market filter; started marker for past-kickoff forecasts; friendlier date pickers in Announcements.

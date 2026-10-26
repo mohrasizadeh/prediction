@@ -17,8 +17,8 @@ export function Subscriptions() {
   const cols = [
     { key: "user", label: "Member", primary: true, render: (r) => <span className="a-person"><b>{r.email || r.user_email || r.user_id}</b><small>{r.plan_key} · {r.interval}</small></span> },
     { key: "status", label: "Status", render: (r) => <Chip tone={TONE[r.status] || "muted"}>{r.status}{r.cancel_at_period_end ? " (ends)" : ""}</Chip> },
-    { key: "amount", label: "Amount", render: (r) => cents(r.amount_cents, r.currency) },
-    { key: "period_end", label: "Period ends", render: (r) => when(r.period_end) },
+    { key: "amount", label: "Amount", render: (r) => cents(r.amount_cents ?? r.amount, r.currency) },
+    { key: "period_end", label: "Period ends", render: (r) => when(r.period_end || r.current_period_end) },
     { key: "x", label: "", render: (r) => <span onClick={(e) => e.stopPropagation()} role="presentation">{r.cancel_at_period_end
       ? <button className="btn btn--secondary btn--sm" onClick={() => setAct({ r, kind: "resume" })} data-testid={`sub-resume-${r.id}`}>Resume</button>
       : r.status !== "canceled" && <button className="btn btn--ghost btn--sm" onClick={() => setAct({ r, kind: "cancel" })} data-testid={`sub-cancel-${r.id}`}>Cancel at period end</button>}</span> },
@@ -44,7 +44,7 @@ export function Payments() {
   const [amt, setAmt] = useState("");
   const q = useApi("/admin/payments", { page });
   const cols = [
-    { key: "who", label: "Payment", primary: true, render: (r) => <span className="a-person"><b>{cents(r.amount_cents, r.currency)}</b><small>{r.email || r.user_id || ""} {r.number || ""}</small></span> },
+    { key: "who", label: "Payment", primary: true, render: (r) => <span className="a-person"><b>{cents(r.amount_cents ?? r.amount_paid, r.currency)}</b><small>{r.email || r.user_id || ""} {r.number || ""}</small></span> },
     { key: "status", label: "Status", render: (r) => <Chip tone={TONE[r.status] || "muted"}>{r.status}</Chip> },
     { key: "refunded", label: "Refunded", render: (r) => (r.refunded_cents ? cents(r.refunded_cents, r.currency) : "None") },
     { key: "at", label: "When", render: (r) => when(r.at || r.created_at) },
@@ -60,7 +60,7 @@ export function Payments() {
       <PageHead title="Payments" lead="Every charge from Stripe. Refunds need a reason and go to the audit log." />
       <DataState q={q} empty="No payments yet.">{(d) => <><ResponsiveTable columns={cols} rows={d.rows} testid="pay-table" /><Pager page={d.page} limit={d.limit} total={d.total} onPage={setPage} /></>}</DataState>
       <Confirm open={!!pick} danger title="Refund this payment?" reason="Reason (required)" confirmLabel="Refund" onClose={() => setPick(null)} onConfirm={go} testid="refund-confirm"
-               body={pick && <><p>{cents(pick.amount_cents, pick.currency)}</p><Field label="Amount to refund (empty = full)" value={amt} onChange={(e) => setAmt(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" testid="refund-amount" /></>} />
+               body={pick && <><p>{cents(pick.amount_cents ?? pick.amount_paid, pick.currency)}</p><Field label="Amount to refund (empty = full)" value={amt} onChange={(e) => setAmt(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" testid="refund-amount" /></>} />
     </div>
   );
 }

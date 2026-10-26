@@ -13,14 +13,14 @@ function Editor({ k, onClose, onSaved }) {
   const [prev, setPrev] = useState(null);
   const t = { ...(q.data || {}), ...(edit || {}) };
   const fields = ["subject", "html", "text"].filter((f) => f in (q.data || {}));
-  const act = async (fn, msg) => { setErr(null); try { await fn(); toast(msg); onSaved(); } catch (x) { setErr(x); } };
+  const act = async (fn, msg) => { setErr(null); try { const r = await fn(); if (r?.status && r.status !== "sent" && r.status !== "ok" && msg.startsWith("Test")) { setErr(r.status === "skipped_disabled" ? "E-mail sending is off. Switch it on in Settings and save the e-mail key first." : `Not sent: ${r.status}`); return; } toast(msg); onSaved(); } catch (x) { setErr(x); } };
   return (
     <Drawer open={!!k} onClose={() => { setEdit(null); setPrev(null); onClose(); }} title={`Template: ${k || ""}`} wide testid="tpl-drawer"
             footer={<div className="a-btns">
               <button className="btn btn--primary" disabled={!edit} onClick={() => act(() => put(`/admin/email/templates/${k}`, Object.fromEntries(fields.map((f) => [f, t[f]]))), "Template saved")} data-testid="tpl-save">Save</button>
               <button className="btn btn--secondary" onClick={() => act(async () => setPrev(await get(`/admin/email/templates/${k}/preview`)), "Preview ready")} data-testid="tpl-preview">Preview</button>
               <button className="btn btn--ghost" onClick={() => act(() => post(`/admin/email/templates/${k}/test`), "Test sent to your inbox")} data-testid="tpl-test">Send test to me</button>
-              <button className="btn btn--ghost" onClick={() => act(() => post(`/admin/email/templates/${k}/reset`), "Reset to the default")} data-testid="tpl-reset">Reset</button>
+              <button className="btn btn--ghost" onClick={() => act(async () => { await post(`/admin/email/templates/${k}/reset`); setEdit(null); q.reload(); }, "Reset to the default")} data-testid="tpl-reset">Reset</button>
             </div>}>
       {q.loading && !q.data ? <p className="a-muted">Loading…</p> : (
         <div className="a-form">

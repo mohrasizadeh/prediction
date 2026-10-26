@@ -77,7 +77,7 @@ export default function Plans() {
   const { plans, entitlements } = q.data;
   return (
     <div className="a-page" data-testid="admin-plans">
-      <PageHead title="Plans" lead="Paid plans are off. While billing is off every signed-in person gets the top plan." />
+      <PageHead title="Plans" lead="What each plan includes and costs. After changing prices, press Sync to Stripe so checkout uses them." />
       <div className="a-plan-grid">
         {plans.filter((p) => !p.archived).map((p) => (
           <article key={p.key} className={"a-card a-plan" + (p.highlight ? " is-hi" : "")} data-testid={`plan-${p.key}`}>

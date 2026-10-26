@@ -1,0 +1,50 @@
+{
+  "summary": "Phase 4b (Stripe TEST mode billing + admin Money + admin E-mail + home-v-away) tested end to end. Backend: new test_phase4b_billing_email.py has 14 passed and 1 skipped (the refund-reason API test; a payment now exists). The full Stripe flow works in preview. Signed-out Choose Pro goes to sign-in. Signed in, Choose Pro opens checkout.stripe.com. Paying with card 4242 returns to /account/plan?status=success, billing-confirming shows, and the webhook arrives in about 2s: plan-name becomes 'Pro' with status Trialing (5-day trial). Manage billing opens billing.stripe.com and the portal works. Admin screens all work: plan sync shows a toast, cancel at period end works (webhook gives 'trialing (ends)', and the user page then says 'Ends on'), the refund dialog needs a reason, the coupon TEST10 can be created and switched off, revenue tiles show for CAD, and templates edit/preview/reset, the empty blocked-addresses list and campaign draft save all work. Home v away order is correct on /insights (all 13 cards checked against the matches collection) and on /match (Torino v Como, Como cards read 'Torino v Como'). No page overflow at 390px on pricing, account plan, or the 8 admin money/e-mail screens and the coupon drawer. Found 5 frontend bugs, listed below.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/email/templates/{key}/test", "issue": "Returns 200 {status:'skipped_disabled'} when e-mail is off. The UI treats any 200 as a success (see frontend). Return a 409 EMAIL_OFF style error, or have the UI check the status."},
+      {"endpoint": "GET /api/admin/subscriptions, /api/admin/payments", "issue": "Rows have no member e-mail (only user_id), so the Member column shows a hex id. Field names also differ from what the UI reads (current_period_end vs period_end; amount_paid vs amount_cents)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "admin/Email.jsx Editor tpl-test", "issue": "'Send test to me' shows a success toast 'Test sent to your inbox' while e-mail is off (backend status skipped_disabled). The review asks for a clear error. Fix: check r.status !== 'sent' and setErr/toast an error such as 'E-mail sending is off'.", "selector": "[data-testid=tpl-test]", "priority": "HIGH"},
+      {"component": "admin/Money.jsx Payments", "issue": "The amount column and the refund dialog body show 'No data' because the UI reads r.amount_cents but payment docs store amount_paid. Expected '0.00 CAD'.", "selector": "[data-testid=pay-table]", "priority": "MEDIUM"},
+      {"component": "admin/Money.jsx Subscriptions", "issue": "'Period ends' shows 'No data' because the UI reads r.period_end but the doc has current_period_end (2026-10-31). Member shows user_id, not e-mail.", "selector": "[data-testid=sub-table]", "priority": "MEDIUM"},
+      {"component": "admin/Email.jsx Editor tpl-reset", "issue": "After Reset, the DB and list go back to Default, but the drawer fields keep the edited subject ('TEST_UI ...'). The edit state is not cleared and q is not reloaded, so pressing Save would re-apply the old edit.", "selector": "[data-testid=tpl-reset]", "priority": "MEDIUM"},
+      {"component": "admin/Plans.jsx PageHead", "issue": "The lead text is hard-coded: 'Paid plans are off. While billing is off every signed-in person gets the top plan.' It shows even though features.billing is true.", "selector": "[data-testid=admin-plans] h1 + p", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Pricing", "issues": ["The Free card shows '$0' (USD format) while Pro shows 'CA$9.99'. Use the plan currency.", "The Pro 5-day free trial is not mentioned on the pricing card; it only appears on Stripe checkout.", "Stripe Checkout charges in USD by default (adaptive pricing, US$7.41), while the app shows CAD. Turn off adaptive pricing in Stripe if CAD-only is wanted."]},
+      {"screen": "Account > Plan (trialing)", "issues": ["Shows 'Renews on Oct 31' during the trial; 'Trial ends on' would be clearer.", "The Confirming setInterval keeps polling every 2s forever after the 30s fallback; it should stop after the late message."]},
+      {"screen": "Admin Payments", "issues": ["The Refund button is enabled for a 0.00 trial invoice; the click gives 'This payment has no payment or charge id.' Disable it when amount_paid is 0."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_phase4b_billing_email.py", "/app/backend/tests/recreate_test_users.py", "/app/test_reports/pytest/pytest_phase4b.xml"],
+  "action_items": [
+    "Email.jsx tpl-test: show an error when the response status is not 'sent' (e.g. skipped_disabled gives 'E-mail sending is off'), or make the backend return a 4xx.",
+    "Money.jsx Payments: use amount_paid (or map amount_cents in the backend list_payments).",
+    "Money.jsx Subscriptions: use current_period_end (or map period_end in the backend), and join the user e-mail in list_subscriptions and list_payments.",
+    "Email.jsx Editor: after Reset (and after Save), clear the edit state and reload the template query.",
+    "Plans.jsx: make the PageHead lead depend on features.billing.",
+    "Pricing: format the Free price in the plan currency; mention the trial days.",
+    "Account Confirming: clear the interval after the late message, or after a maximum number of polls."
+  ],
+  "critical_code_review_comments": [
+    "routes_admin.template_test returns 200 for every skipped_* status, so the UI cannot tell success from failure.",
+    "admin_queries.list_subscriptions and list_payments return raw docs. Field names do not match the Money.jsx columns, which is the cause of the 'No data' cells.",
+    "RefundBody.reason has no min_length; the reason check only happens in stripe_billing.refund (after the payment lookup). Add min_length=3 in Pydantic.",
+    "Pricing.jsx always shows the 'Test mode: use card 4242...' text; it should depend on billing.mode == 'test'.",
+    "Account Confirming never stops polling when the webhook does not arrive."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase4b_billing_email.py", "/app/backend/tests/recreate_test_users.py"],
+  "success_rate": {"backend": "100% (14/14 run, 1 skipped)", "frontend": "~85% (5 display bugs, all core flows work)"},
+  "test_credentials": "test_e1_user@example.com / Test-User-Pass-2026!q (role user). test_e1_admin@example.com / Test-Admin-Pass-2026!q (role admin, TOTP secret CZ4NYSLS2GJT63RSGJ2J47XU7NSNNWFG, also in /tmp/test_admin_totp.json). Both were recreated with tests/recreate_test_users.py and are still present; delete them if you want.",
+  "seed_data_creation": "Recreated both test users. Stripe sandbox: customer cus_VVzZmQABHOatVG and subscription sub_1UUxcuGfBF8i81Yj3V2eYyAj (now CANCELED immediately via the admin API at_period_end=false), plus one 0.00 CAD paid trial invoice. Coupons TEST10 and TESTAPI5 were created and both switched off. Campaign drafts 'TEST_UI campaign draft' and 'TEST_ api draft' were left (not sent). The verify_email template was edited, then reset to Default.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Stripe checkout automation: fill #cardNumber, #cardExpiry ('12 / 34'), #cardCvc, #billingName and #billingPostalCode ('10001', country defaults to US). Untick #enableStripePass (Link), otherwise a phone number is required. Then click [data-testid=hosted-payment-submit-button]. The webhook arrives within about 2s in preview. Admin 2FA sign-in: after the password, wait for a fresh 30s TOTP window (codes cannot be reused) and fill input[autocomplete=one-time-code]; it auto-submits. Confirm buttons use the {testid}-ok / {testid}-cancel pattern (sub-confirm-ok, coupon-confirm-ok, refund-confirm-ok). To retest: tpl-test error message, the Payments amount and Subscriptions period-end columns, the Reset refreshing the drawer, and the Plans lead text.",
+  "rca of the issue": "'No data' cells: Money.jsx reads amount_cents and period_end, but the Stripe webhook handler stores amount_paid and current_period_end, and admin_queries.paged returns raw docs. tpl-test false success: emailer._deliver returns {'status':'skipped_disabled'} with HTTP 200 and Email.jsx act() only catches thrown errors. Stale editor after reset: Editor keeps its local edit state and onSaved only reloads the parent list."
+}

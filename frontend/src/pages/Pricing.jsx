@@ -11,7 +11,9 @@ import { Seg, useTitle } from "../components/Football";
 
 const money = (c, cur) => new Intl.NumberFormat(undefined, { style: "currency", currency: (cur || "usd").toUpperCase() }).format(c / 100);
 
-function PlanCard({ p, interval, current, onBuy, busy }) {
+const d0cur = (p, cur) => p.prices?.[0]?.currency || cur || "usd";
+
+function PlanCard({ p, interval, current, onBuy, busy, currency }) {
   const price = (p.prices || []).find((x) => x.interval === interval && x.active !== false);
   const free = !p.prices?.length;
   return (
@@ -19,8 +21,9 @@ function PlanCard({ p, interval, current, onBuy, busy }) {
       {p.highlight && <span className="chip-tag chip-tag--brand pcard-tag">Most complete</span>}
       <h2>{p.name}</h2>
       {p.tagline && <p className="muted">{p.tagline}</p>}
-      <p className="pcard-price">{free ? money(0, "usd").replace(/[\d.,]+/, "0") : price ? <>{money(price.amount_cents, price.currency)}<small> / {price.interval}</small></> : "Not offered"}</p>
+      <p className="pcard-price">{free ? money(0, d0cur(p, currency)) : price ? <>{money(price.amount_cents, price.currency)}<small> / {price.interval}</small></> : "Not offered"}</p>
       {price?.interval === "year" && <p className="muted small">{money(Math.round(price.amount_cents / 12), price.currency)} a month, billed yearly</p>}
+      {!free && p.trial_days > 0 && <p className="muted small" data-testid={`plan-trial-${p.key}`}>{p.trial_days}-day free trial</p>}
       <ul className="pcard-list">{(p.bullets || []).map((b) => <li key={b}><Icon name="check" size={16} />{b}</li>)}</ul>
       {current ? <span className="btn btn--secondary btn--block" aria-disabled="true" data-testid={`plan-current-${p.key}`}>Your plan</span>
         : !free && price && <button className="btn btn--primary btn--block" disabled={busy} onClick={() => onBuy(p, price)} data-testid={`plan-buy-${p.key}`}>{busy ? "Opening checkout…" : `Choose ${p.name}`}</button>}
@@ -55,7 +58,7 @@ export default function Pricing() {
         <>
           {yearly && <Seg label="Billing period" value={interval} onChange={setInterval} options={[{ id: "month", label: "Monthly" }, { id: "year", label: "Yearly" }]} testid="pricing-interval" />}
           <FormError error={state.err} />
-          <div className="pgrid">{d.plans.map((p) => <PlanCard key={p.key} p={p} interval={interval} current={user && me?.plan?.plan_key === p.key} onBuy={buy} busy={state.busy === p.key} />)}</div>
+          <div className="pgrid">{d.plans.map((p) => <PlanCard key={p.key} p={p} interval={interval} currency={d.currency} current={user && me?.plan?.plan_key === p.key} onBuy={buy} busy={state.busy === p.key} />)}</div>
           <p className="muted small">Payments are handled by Stripe on its own secure page. Test mode: use card 4242 4242 4242 4242. {user ? <Link to="/account/plan">Manage your plan</Link> : <Link to="/sign-in?next=/pricing">Sign in to choose a plan</Link>}</p>
         </>
       )}

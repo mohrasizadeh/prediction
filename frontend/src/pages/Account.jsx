@@ -172,7 +172,7 @@ function Confirming({ onDone }) {
     const t = setInterval(async () => {
       n += 1;
       try { const d = await get("/account/billing"); if (d.plan?.source === "subscription") { clearInterval(t); refresh(); onDone(); } } catch { /* keep polling */ }
-      if (n >= 15) setLate(true);
+      if (n >= 15) { setLate(true); clearInterval(t); }
     }, 2000);
     return () => clearInterval(t);
   }, [onDone, refresh]);
@@ -200,7 +200,7 @@ function Plan() {
       {!d.billing_enabled && <p className="notice" data-testid="billing-off-note"><Icon name="info" size={16} />Paid plans are not open yet. Every signed-in person gets the full plan for now.</p>}
       {d.comp && <p className="notice">Included until {fmtDate(d.comp.until || d.comp.ends_at)}.</p>}
       {plan.status === "past_due" && <p className="notice notice--warn"><Icon name="alert" size={16} />Your last payment did not go through.</p>}
-      {plan.period_end && <p className="muted">{plan.cancel_at_period_end ? "Ends" : "Renews"} on {fmtDate(plan.period_end)}.</p>}
+      {plan.period_end && <p className="muted">{plan.cancel_at_period_end ? "Ends" : plan.status === "trialing" ? "Trial ends" : "Renews"} on {fmtDate(plan.period_end)}.</p>}
       <div className="btn-row">
         <button className="btn btn--secondary" disabled={!d.can_use_portal || busy} onClick={portal} title={d.can_use_portal ? "" : "Available once you have a paid plan"} data-testid="manage-billing">{busy ? "Opening…" : "Manage billing"}</button>
         {d.billing_enabled && <Link to="/pricing" className="btn btn--ghost" data-testid="change-plan">Change plan</Link>}
