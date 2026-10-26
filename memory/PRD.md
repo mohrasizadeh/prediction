@@ -40,8 +40,16 @@ Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
 - queries.py (owner-approved): names/crests added for opponents, H2H, team next matches, starters, player next match, team league. Also fixed: squad grid now uses the team's last N matches (plan cap + venue respected), match styles newest wins.
 - routes_cron.py: POST /api/cron/images/{refresh|continue}; crons.yml: 1 Jan/Aug refresh, 2-5 Jan/Aug continue, 03:00 UTC. Tests selftest_public_names.py + cron tests (19 test files pass). Testing agent iteration_6: all flows pass.
 
+## Implemented (2026-10-26) — Phase 4 finished + match share card
+- Insights (stat/scope/tier filters), Forecast Finder (leagues per plan, Likelihood/Form/Run, filters in URL), Search (200 ms debounce), Following (Upcoming, Follows, Saved), Track record (collecting state until 300 scored). Save star on ForecastCards, Follow on Team/Player, private player notes.
+- Share card: browser canvas PNG (1200x630) with both crests, kickoff, win/draw/loss and top forecast; Web Share or download. No server route (owner choice).
+- Backend (owner-approved): finder rows get team + next match names; /me/saved and /me/following-feed forecasts decorated; GET /api/auth/me counted in the read rate limit (security_mw.py). auth.js retries /auth/me on 429.
+- Testing agent iterations 7-8: all flows pass after fixes.
+
 ## Backlog
-- P1: Insights, Forecast Finder, Search overlay, Following, Track record screens (rest of Phase 4).
+- P0: Phase 4b (money and e-mail, test mode): Pricing, checkout, billing, admin Money and E-mail screens, analytics beacon.
+- P1: Phase 4c (popups, footer e-mail form, cookie/tag loader, growth admin screens).
+- P2: ForecastCard shows home v away order; Finder rejects player-only stats for teams.
 - P1: Index on forecasts.id; player_detail filter forecasts to next match.
 - P2: Debounce market filter; started marker for past-kickoff forecasts; friendlier date pickers in Announcements.
 

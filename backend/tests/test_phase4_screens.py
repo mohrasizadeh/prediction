@@ -174,3 +174,10 @@ class TestFollowing:
         assert "TEST_ note" in u.get(f"{API}/me/notes/{PLAYER}").text
         assert u.delete(f"{API}/me/notes/{PLAYER}").status_code in (200, 204)
         assert "TEST_ note" not in u.get(f"{API}/me/notes/{PLAYER}").text
+
+
+# Fix 1 regression (iteration 8): /auth/me must not share the 10/min 'auth' bucket, or a few reloads sign the user out.
+class TestAuthMeRateLimit:
+    def test_auth_me_not_rate_limited_by_reloads(self, anon):
+        codes = [anon.get(f"{API}/auth/me").status_code for _ in range(15)]
+        assert 429 not in codes, f"/auth/me returned 429 after {codes.index(429)} calls: {codes}"

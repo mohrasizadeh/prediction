@@ -33,7 +33,12 @@ export default function Finder() {
   const { entitlements } = useAuth();
   const [sp, setSp] = useSearchParams();
   const f = { ...DEF, ...Object.fromEntries(sp.entries()) };
-  const set = (k) => (v) => { const n = { ...f, [k]: v }; setRes({ rows: null, err: null, busy: false }); setSp(Object.fromEntries(Object.entries(n).filter(([kk, vv]) => vv !== "" && DEF[kk] !== vv))); };
+  const set = (k) => (v) => {
+    const n = { ...f, [k]: v };
+    if (k === "scope" && !(v === "team" ? TEAM_STATS : STATS).some((s) => s.id === n.stat)) n.stat = "shots";
+    setRes({ rows: null, err: null, busy: false });
+    setSp(Object.fromEntries(Object.entries(n).filter(([kk, vv]) => vv !== "" && DEF[kk] !== vv)));
+  };
   const lg = useApi("/leagues");
   const leagues = useMemo(() => (lg.data?.countries || []).flatMap((c) => c.leagues), [lg.data]);
   const [res, setRes] = useState({ rows: null, err: null, busy: false });

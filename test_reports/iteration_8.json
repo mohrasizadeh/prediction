@@ -1,0 +1,39 @@
+{
+  "summary": "Retest of the iteration_7 fixes. Backend: test_phase4_screens.py has 18 passed, 2 skipped (free-plan caps, billing off) and 1 failed. The failure is the new /auth/me rate-limit regression test. Fixes 2, 3 and 4 pass in the UI. Fix 1 FAILS. After 12 quick reloads, /auth/me returns 429 from the 8th call. All 5 client retries (2.5s apart) also get 429, so the header shows 'Sign in'. Clicking follow-team then sends the user to /sign-in?next=/team/... Regression is fine: Insights (13 cards), Track record (tr-not-ready), Search 'sev' gives Sevilla, the match Share card downloads Venezia-v-Inter.png (valid PNG, 1200x630), and no page overflows at 390px (insights, finder, search, following, track-record, match).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/auth/me (security_mw.py line 109)", "issue": "Still counted in the 'auth' group, which allows 10 requests per minute per IP in a fixed 60s window. Rejected calls also add to the count. A few reloads give 429 for the rest of the minute.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/finder scope=team", "issue": "Accepts stat=goals (a player-only stat) and returns an empty list instead of 400 or a fallback."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "auth.js refresh()", "issue": "The retry budget (5 x 2.5s = 12.5s) is shorter than the 60s rate-limit window, and Retry-After is ignored. On a cold load the user ends up as user:null, the header shows Sign in, and Follow/Save send them to sign-in.", "selector": "[data-testid=header-account]", "priority": "HIGH"},
+      {"component": "Finder stat select", "issue": "Pick Players + Goals, then switch to Teams. The select shows 'Shots' but the URL and the query keep stat=goals, so Search returns nothing. The stat should reset to a valid TEAM_STATS value when scope changes.", "selector": "[data-testid=finder-stat]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ForecastCard (feed, saved, insights)", "issues": ["The subtitle always reads '{team} v {opp}'. For an away team it says 'Inter v Venezia' while the fixture row and the match page say 'Venezia v Inter'. Use home v away order, or write '@ opp' / 'vs'."]},
+      {"screen": "Cookie banner", "issues": ["In every new browser context it covers the bottom-right content on desktop and about a quarter of the screen on mobile. This is expected until dismissed, but it is large on 390px."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_phase4_screens.py", "/app/test_reports/pytest/pytest_iter8.xml"],
+  "action_items": [
+    "Fix 1 is not fixed. In security_mw.py, put GET /api/auth/me in the 'read' group, e.g. grp = 'auth' if path.startswith('/api/auth/') and path != '/api/auth/me' else ...; or give it its own higher limit. Optionally also make refresh() wait for Retry-After seconds on 429 instead of a fixed 2.5s x5.",
+    "Finder: when scope changes, reset stat to 'shots' if the current stat is not in the new options list.",
+    "ForecastCard: show the fixture in home v away order (or mark the venue) so it matches the match page."
+  ],
+  "critical_code_review_comments": [
+    "auth.js: reading state via setMe((m)=>{kept=m;return m;}) depends on React running the updater eagerly. Use a useRef that mirrors `me` instead.",
+    "Actions.jsx: the module-level saved-keys cache is cleared on toggle, but other mounted stars keep their old state until they remount. This is acceptable.",
+    "FollowButton makes one GET /me/follows per button. Cache it like savedKeys."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase4_screens.py (added TestAuthMeRateLimit)"],
+  "success_rate": {"backend": "95% (18/19 executed)", "frontend": "80% (4 of 5 review items pass; Fix 1 fails)"},
+  "seed_data_creation": "None. The test user's follows (Sevilla, Inter) and saved forecasts were deleted from the DB after testing.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Verified: Fix 2 (saved list and feed cards show 'Inter' with crest; follow Inter 64eaa41c-2da7-46b5-b679-b15be0525ccc to get feed forecasts, Sevilla has none). Fix 3 (mode, venue and Reset clear rows; no 'undefined'; team stats are Shots/SOT/Corners/Tackles; team corners form gives 18 rows). Fix 4 (star aria-pressed=true after reload and in the Saved list; pressing it removes and shows a toast). Following tabs use data-testid following-tabs-{feed|follows|saved}. Anonymous Finder search hits a daily cap, then returns 401 SIGN_IN_REQUIRED and redirects to sign-in (expected). To retest Fix 1: sign in, then do 12 page.reload() calls; header-account must still be visible."
+}

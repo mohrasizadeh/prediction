@@ -106,7 +106,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             elif method not in SAFE and not path.startswith(ORIGIN_EXEMPT) and not _origin_ok(request, c["security.allowed_origins"]):
                 response = _err(403, "BAD_ORIGIN", "This request came from somewhere we do not trust.", rid)
             elif not path.startswith(RATE_EXEMPT):
-                grp = "auth" if path.startswith("/api/auth/") else ("read" if method in SAFE else "write")
+                grp = "auth" if path.startswith("/api/auth/") and not (method == "GET" and path == "/api/auth/me") else ("read" if method in SAFE else "write")
                 limit = int(c[f"security.rate_limit_{grp}_per_minute"])
                 ok, retry = await run_in_threadpool(ratelimit.hit, db, f"{grp}:{ip}", limit, 60)
                 if not ok:
