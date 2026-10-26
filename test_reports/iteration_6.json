@@ -1,0 +1,48 @@
+{
+  "summary": "Tested the public Match, Team, Player, League and Leagues screens, the name enrichment in queries.py and auth on the image cron, backend and UI. Backend pytest: 16/16 passed (test_public_screens.py). UI (Playwright at 1920px and 390px): every requested flow works with no page errors. That covers the forecast filters and the Why button, the lineup pitch on both matches, the players toggle, the H2H and matchup empty states, the squad grid's stat, window and line controls, team totals with opponent names, the Against tiles, links from fixtures to matches, the quick-view filters and history table, league tabs, leaderboard per-90, the teams grid, search on the Leagues page, and the error state for unknown ids. At 390px no page overflows sideways (tables and tab bars scroll inside their own containers). Every image src is same-origin /api/media/... The only third-party request was the Cloudflare insights beacon, which is not in the app code and is probably added by the hosting edge. The real cron secret was used only with the invalid mode 'foo', which returns 400 before any job starts. Main findings: (1) when the free-plan games cap applies, the squad grid still returns more games than the cap; (2) match tactic chips show the oldest team style, not the newest; (3) anonymous users never see hero tactic chips.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/teams/{id}/squad-grid", "issue": "The free-plan cap is not enforced and the response doesn't match the docstring. For an anonymous user on Sevilla with last=10, the response says last=5 and capped=true but holds 9 distinct matches. Cause: queries.squad_grid slices each player's own last N games, not the team's last N matches. The UI therefore shows 9 columns, and row averages use games outside the visible columns (e.g. Oso: every visible cell is '–' but Avg is 2). Fix: take the team's last N match_iids from team_match_stats and use them in the $match.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/matches/{id}", "issue": "queries.match_detail builds `styles` with a dict comprehension over team_styles sorted as_of DESC. Later rows overwrite earlier ones, so the OLDEST style wins. Example: Como has as_of 28 = ['possession'] but would show as_of 6 = []. Fix: sort ascending, or use find_one with sort per team."},
+      {"endpoint": "GET /api/matches/{id}", "issue": "For users without matchup_tab, styles is emptied, so the hero tactic chips (Side tactics) never render for anonymous or free users. Yet the forecast cards still show 'Opponent: Possession' chips and the team page shows the team's chips. Decide whether the hero chips are meant to be gated. If not, strip styles only for the Matchup tab."},
+      {"endpoint": "GET /api/players/{id}", "issue": "player_detail returns every current forecast for the player, not only those for next_match (no match_iid filter). It is fine today, but it will mix matches once there are several upcoming fixtures."},
+      {"endpoint": "GET /api/{matches|teams|players}/{bad id}", "issue": "404 message is a generic 'We could not find that.' (from _iid) instead of the entity-specific text. Also `if not i` would treat iid 0 as not found."},
+      {"endpoint": "queries.squad_grid", "issue": "N+1 query: _with_opp(db, games) runs once per player row (~25 team lookups per request). Collect all opp_iids once."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Team squad grid / totals", "issue": "The API returns `capped`, but the UI never reads it. For anonymous users 'Last 10' and 'Last 20' look selected while totals silently show 5 rows. Add a 'limited to 5 games on your plan' note or lock the buttons.", "selector": "[data-testid='grid-window'], [data-testid='totals-window']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Match Lineups pitch", "issues": ["Surnames are cut off with an ellipsis even at 1920px (e.g. '15 Com…', '77 Cacc…'). Allow a wider label or two lines."]},
+      {"screen": "Match Forecasts", "issues": ["All 229 forecast cards render at once with no pagination or 'show more'. This is heavy on mobile."]},
+      {"screen": "Team squad grid", "issues": ["Position shows the raw code (DEF/MID) while other screens use full labels via posLabel."]},
+      {"screen": "Player quick view chart", "issues": ["Bars have no x-axis labels (opponent or date). That information is only in the title tooltip, which doesn't work on touch."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_public_screens.py", "/app/test_reports/pytest/pytest_iter6.xml"],
+  "action_items": [
+    "Fix queries.squad_grid to use the team's last N matches, so the cap is enforced and Avg matches the visible columns",
+    "Fix the styles ordering in match_detail so the newest team_styles row wins",
+    "Decide on gating the hero tactic chips; only the Matchup tab should need matchup_tab",
+    "Show the `capped` state in the team grid and totals UI",
+    "Filter player_detail forecasts by next_match iid",
+    "Remove the N+1 _with_opp calls in squad_grid"
+  ],
+  "critical_code_review_comments": [
+    "queries.squad_grid: the per-player $slice is not the team's last-N window (correctness plus cap leak)",
+    "queries.match_detail: the dict comprehension over a DESC sort keeps the oldest style",
+    "routes_data._iid: `if not i` should be `if i is None`",
+    "queries.h2h: m['hg'] > m['ag'] will raise a TypeError if a final match has null scores"
+  ],
+  "updated_files": ["/app/backend/tests/test_public_screens.py"],
+  "success_rate": {"backend": "100% (16/16 tests; 1 HIGH logic issue found by DB inspection)", "frontend": "100% of requested flows work; 1 UX gap"},
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Test ids: match 0e531123-1643-4e68-a9f0-23559b01701d (Torino v Como, 229 forecasts, 22 starters, H2H empty, matchup locked for anonymous users); 5ac44df1-... (Sevilla v Osasuna, 4 forecasts, confirmed lineups). Team Sevilla 415eb552-... (9 final matches; anonymous grid cap = 5). Player 20e4e25e-... (Vasilije Adžić, Sassuolo, 7 games, 5 forecasts). League Serie A 1e2b1fe0-... The anonymous cap shows as last=5, capped=true in the squad-grid and totals responses. Cookie banner: 'No thanks'. Do not call the cron image endpoints with a valid mode and the real secret."
+}

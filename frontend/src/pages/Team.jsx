@@ -27,6 +27,7 @@ function Grid({ id }) {
         <Seg label="Window" value={last} onChange={setLast} options={WINDOWS} testid="grid-window" />
         <Seg label="Line" value={line} onChange={(v) => setLine(Number(v))} options={LINES} testid="grid-line" />
       </div>
+      {q.data?.capped && <p className="notice small" data-testid="grid-capped">Showing the last {q.data.last} games. Longer windows come with a bigger plan.</p>}
       {q.loading && !q.data ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.rows.length ? <Empty icon="grid">No player data for this club yet.</Empty> : (
         <div className="tbl-wrap"><table className="tbl grid" data-testid="squad-grid">
           <thead><tr><th scope="col" className="sticky">Player</th>{cols.map((c) => <th key={c.match_iid} scope="col" className="gcol" title={`${c.opp?.name || ""} ${shortDay(c.kickoff)}`}><Crest team={c.opp} size={20} /><small>{shortDay(c.kickoff)}</small></th>)}<th scope="col">Avg</th></tr></thead>
@@ -54,6 +55,7 @@ function Totals({ id }) {
   return (
     <>
       <div className="filters"><Select label="Stat" value={stat} onChange={setStat} options={TEAM_STATS} testid="totals-stat" /><Seg label="Window" value={last} onChange={setLast} options={WINDOWS} testid="totals-window" /></div>
+      {q.data?.capped && <p className="notice small" data-testid="totals-capped">Showing the last {q.data.last} games. Longer windows come with a bigger plan.</p>}
       {q.loading && !q.data ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.rows.length ? <Empty icon="activity">No finished matches loaded yet.</Empty> : (
         <ul className="totals card" data-testid="team-totals">{q.data.rows.map((r) => (
           <li key={r.match_iid}>

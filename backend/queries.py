@@ -71,7 +71,7 @@ def match_detail(db, match_iid: int) -> dict | None:
     players = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
     for f in fc:
         f["player"] = players.get(f.get("player_iid"))
-    styles = {s["team_iid"]: s for s in db.team_styles.find({"team_iid": {"$in": [m["home_iid"], m["away_iid"]]}}, {"_id": 0}).sort("as_of", -1)}
+    styles = {s["team_iid"]: s for s in db.team_styles.find({"team_iid": {"$in": [m["home_iid"], m["away_iid"]]}}, {"_id": 0}).sort("as_of", 1)}   # newest wins
     lu = list(db.lineups.find({"match_iid": match_iid, "started": True}, {"_id": 0}))
     lp = _names(db, "players", [x["player_iid"] for x in lu])
     for x in lu:
@@ -145,6 +145,10 @@ def squad_grid(db, team_iid: int, stat: str, last_n: int = 10, venue: str | None
     """One row per player: the stat in each of the team's last N games, newest first."""
     assert stat in STAT_FIELDS
     match = {"team_iid": team_iid}
+    if venue in ("home", "away"):
+        match["home"] = venue == "home"
+    games = [g["match_iid"] for g in db.team_match_stats.find(match, {"match_iid": 1}).sort("kickoff", -1).limit(last_n)]
+    match = {"team_iid": team_iid, "match_iid": {"$in": games}}   # the team's last N matches, not each player's
     pipeline = [{"$match": match}, {"$sort": {"kickoff": -1}},
                 {"$group": {"_id": "$player_iid",
                             "games": {"$push": {"match_iid": "$match_iid", "kickoff": "$kickoff", "opp_iid": "$opp_iid",
@@ -152,11 +156,11 @@ def squad_grid(db, team_iid: int, stat: str, last_n: int = 10, venue: str | None
                 {"$project": {"games": {"$slice": ["$games", last_n]}}}]
     rows = list(db.player_match_stats.aggregate(pipeline))
     names = _names(db, "players", [r["_id"] for r in rows])
+    _with_opp(db, [g for r in rows for g in r["games"]])
     out = []
     for r in rows:
         games = r["games"]
         vals = [g["v"] for g in games if g["v"] is not None]
-        _with_opp(db, games)
         out.append({"player": names.get(r["_id"]), "player_iid": r["_id"], "games": games,
                     "avg": sum(vals) / len(vals) if vals else None, "total": sum(vals)})
     out.sort(key=lambda x: -(x["avg"] or 0))

@@ -35,9 +35,14 @@ Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
 - Frontend: Engine tabs Runs + Forecasts (EngineRuns.jsx). Testing agent iteration_5: backend 8/8, frontend all flows pass.
 - Images: images.leagues set (78,2,3,140,39,135), images.enabled on (owner asked to pull logos/photos). First sync: 6 league logos, 74 crests, 74 player photos; stopped on API-Football daily budget; continues via Sync images.
 
+## Implemented (2026-10-26) — Phase 4 public screens + twice-yearly image sync
+- Public screens: Match (hero, Forecasts with filters + show more, Lineups pitch, Players, H2H, Matchup), League (Fixtures, Results, Leaderboards, Teams), Leagues (search), Team (Squad grid, Team totals, Against, Fixtures, plan-cap note), Player (next match forecasts, Quick view chart, history table). Shared components/Football.jsx, styles/football.css. Pages read only our database; images only /api/media.
+- queries.py (owner-approved): names/crests added for opponents, H2H, team next matches, starters, player next match, team league. Also fixed: squad grid now uses the team's last N matches (plan cap + venue respected), match styles newest wins.
+- routes_cron.py: POST /api/cron/images/{refresh|continue}; crons.yml: 1 Jan/Aug refresh, 2-5 Jan/Aug continue, 03:00 UTC. Tests selftest_public_names.py + cron tests (19 test files pass). Testing agent iteration_6: all flows pass.
+
 ## Backlog
-- P1: Public match/league/team/player screens (Phase 4).
-- P1: Index on forecasts.id (minor perf, backend mongo_init change needs OK).
+- P1: Insights, Forecast Finder, Search overlay, Following, Track record screens (rest of Phase 4).
+- P1: Index on forecasts.id; player_detail filter forecasts to next match.
 - P2: Debounce market filter; started marker for past-kickoff forecasts; friendlier date pickers in Announcements.
 
 ## Next tasks

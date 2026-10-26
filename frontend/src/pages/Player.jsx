@@ -21,6 +21,7 @@ function Chart({ games, stat, line }) {
           return <span key={g.match_iid} className={"chart-bar" + (v != null && v >= line ? " hit" : "")} style={{ height: `${v ? (v / max) * 100 : 2}%` }} title={`${g.opp?.name || ""} ${shortDay(g.kickoff)}: ${v ?? "No data"}`}><i>{v ?? ""}</i></span>;
         })}
       </div>
+      <div className="chart-x" aria-hidden="true">{rows.map((g) => <span key={g.match_iid}><Crest team={g.opp} size={16} /><small>{shortDay(g.kickoff)}</small></span>)}</div>
     </>
   );
 }

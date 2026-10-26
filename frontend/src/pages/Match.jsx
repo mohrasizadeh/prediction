@@ -41,6 +41,7 @@ function Hero({ d }) {
 function Forecasts({ d, teams }) {
   const [side, setSide] = useState("all");
   const [scope, setScope] = useState("all");
+  const [shown, setShown] = useState(24);
   const rows = d.forecasts.filter((f) => (side === "all" || f.team_iid === (side === "home" ? d.match.home_iid : d.match.away_iid)) && (scope === "all" || f.scope === scope));
   return (
     <>
@@ -48,7 +49,8 @@ function Forecasts({ d, teams }) {
         <Seg label="Team" value={side} onChange={setSide} options={[{ id: "all", label: "Both" }, { id: "home", label: d.home.name }, { id: "away", label: d.away.name }]} testid="fc-side" />
         <Seg label="Scope" value={scope} onChange={setScope} options={[{ id: "all", label: "All" }, { id: "player", label: "Players" }, { id: "team", label: "Teams" }]} testid="fc-scope" />
       </div>
-      {rows.length ? <div className="fgrid">{rows.map((f) => <ForecastCard key={f.id} f={f} teams={teams} />)}</div>
+      {rows.length ? <><div className="fgrid">{rows.slice(0, shown).map((f) => <ForecastCard key={f.id} f={f} teams={teams} />)}</div>
+        {rows.length > shown && <button type="button" className="btn btn--secondary more-btn" onClick={() => setShown(shown + 24)} data-testid="fc-more">Show more ({rows.length - shown} left)</button>}</>
         : <Empty icon="target">No forecasts for this match yet. They appear once the engine has run.</Empty>}
     </>
   );
