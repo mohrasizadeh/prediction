@@ -134,3 +134,22 @@
 .chart-line { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--tier-watch); z-index: 1; pointer-events: none; }
 .next-link { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; color: var(--text); text-decoration: none; margin-bottom: 14px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .fcard, .lbar-fill, .chart-bar { animation: none; transition: none; } }
+.lead { margin: -4px 0 18px; max-width: 60ch; }
+.chip--sm { min-height: 34px; padding: 0 12px; font-size: .875rem; }
+.icon-btn.is-on { color: var(--tier-watch); }
+.share-btn { justify-self: center; }
+.finder { display: grid; gap: 14px; }
+.finder .filters { margin-bottom: 0; }
+.finder-block { display: grid; gap: 8px; }
+.flabel { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; }
+.saved-item { display: grid; gap: 6px; }
+.note-in { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font: inherit; margin-bottom: 10px; resize: vertical; }
+.row-main { flex: 1; min-width: 0; color: var(--text); text-decoration: none; }
+.rel { display: grid; gap: 10px; }
+.rel-row { display: grid; grid-template-columns: 70px 1fr 48px; gap: 10px; align-items: center; }
+.rel-track { position: relative; height: 18px; border-radius: 6px; background: var(--surface2); overflow: hidden; }
+.rel-stated, .rel-actual { position: absolute; left: 0; border-radius: 6px; }
+.rel-stated { top: 0; bottom: 50%; background: color-mix(in srgb, var(--text3) 70%, transparent); }
+.rel-actual { top: 50%; bottom: 0; background: var(--up); }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin: 0 4px 0 10px; vertical-align: middle; }
+.key--stated { background: var(--text3); } .key--actual { background: var(--up); }

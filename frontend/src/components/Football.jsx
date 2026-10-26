@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { pct, TIER } from "../lib/copy";
 import { utc } from "../lib/time";
 import { Crest, PlayerAvatar } from "./Media";
+import { SaveButton } from "./Actions";
 
 export const kickoff = (s, opts = { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) => (s ? utc(s).toLocaleString(undefined, opts) : "No date");
 export const shortDay = (s) => kickoff(s, { day: "numeric", month: "short" });
@@ -63,6 +64,7 @@ export function ForecastCard({ f, teams = {}, showMatch }) {
           <span className="muted small">{f.player && f.pos ? `${posLabel(f.pos)} · ` : ""}{team?.name || ""}{opp ? ` v ${opp.name}` : ""}{showMatch ? ` · ${kickoff(f.kickoff)}` : ""}</span>
         </div>
         <TierBadge tier={f.tier} />
+        {f.fkey && <SaveButton fkey={f.fkey} />}
       </header>
       <p className="fcard-market">{f.market}</p>
       <LikelihoodBar p={f.p} lo={f.lo} hi={f.hi} tier={f.tier} confirmed={f.scope === "player" ? f.lineup_confirmed : undefined} />

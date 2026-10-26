@@ -191,7 +191,7 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
         lo_t, hi_t = max(d0, now - timedelta(hours=1)) if d0 < now else d0, d0 + timedelta(days=1)
         mq = {"status": "scheduled", "kickoff": {"$gte": d0, "$lt": hi_t}}
         if league_iids: mq["league_iid"] = {"$in": league_iids}
-        day_matches = list(db.matches.find(mq, {"_id": 0, "iid": 1, "kickoff": 1, "home_iid": 1, "away_iid": 1}))
+        day_matches = list(db.matches.find(mq, {"_id": 0, "iid": 1, "id": 1, "kickoff": 1, "home_iid": 1, "away_iid": 1}))
         playing = {}
         for m in day_matches:
             playing[m["home_iid"]] = m; playing[m["away_iid"]] = m
@@ -234,7 +234,7 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
     for o in out:
         nxt = playing[o["team_iid"]] if playing is not None else db.matches.find_one(
             {"status": "scheduled", "kickoff": {"$gte": now}, "$or": [{"home_iid": o["team_iid"]}, {"away_iid": o["team_iid"]}]},
-            {"_id": 0, "iid": 1, "kickoff": 1, "home_iid": 1, "away_iid": 1}, sort=[("kickoff", 1)])
+            {"_id": 0, "iid": 1, "id": 1, "kickoff": 1, "home_iid": 1, "away_iid": 1}, sort=[("kickoff", 1)])
         o["next_match"] = nxt
         if nxt:
             f = db.forecasts.find_one({"match_iid": nxt["iid"], **NOT_HIDDEN, "scope": scope, "stat": stat, "thr": threshold - 0.5,
@@ -243,6 +243,10 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
     if scope == "player":
         names = _names(db, "players", [o["id"] for o in out])
         for o in out: o["player"] = names.get(o["id"])
+    teams = _names(db, "teams", [o["team_iid"] for o in out])
+    for o in out:
+        o["team"] = teams.get(o["team_iid"])
+    _with_teams(db, [o["next_match"] for o in out if o.get("next_match")])
     return out
 
 

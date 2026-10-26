@@ -49,3 +49,9 @@ export const patch = (path, body) => api(path, { method: "PATCH", body: body ?? 
 export const del = (path, body) => api(path, { method: "DELETE", body });
 // Raw file bytes (a File or Blob), e.g. an image upload.
 export const putFile = (path, file) => api(path, { method: "PUT", raw: file });
+// Our own image bytes (an /api/media/... address) as a Blob, e.g. to draw a share card.
+export async function getBlob(image) {
+  const res = await fetch(BASE + image, { credentials: "include" });
+  if (!res.ok) throw new ApiError(res.status, "IMAGE_FAILED", "Could not load that image.");
+  return res.blob();
+}

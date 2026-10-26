@@ -6,6 +6,7 @@ import { Crest, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { ForecastCard, MatchRow, ProbBar, Seg, TacticChip, kickoff, num1, posLabel, useTitle } from "../components/Football";
+import { ShareCard } from "../components/Share";
 
 function Side({ team, rot, tactics, align }) {
   return (
@@ -34,6 +35,7 @@ function Hero({ d }) {
       </div>
       <ProbBar probs={d.probs} />
       {d.probs && <p className="muted small hero-xg">Expected goals {num1(d.probs.xg_home)} – {num1(d.probs.xg_away)}</p>}
+      <ShareCard d={d} />
     </section>
   );
 }

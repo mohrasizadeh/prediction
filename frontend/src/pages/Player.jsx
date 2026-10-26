@@ -5,6 +5,34 @@ import { useApi } from "../lib/useApi";
 import { Crest, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { ForecastCard, STATS, Seg, Select, kickoff, num1, posLabel, shortDay, useTitle } from "../components/Football";
+import { FollowButton } from "../components/Actions";
+import { useAuth } from "../lib/auth";
+import { del, put } from "../lib/api";
+import { useToast } from "../components/Ui";
+
+function Note({ id }) {
+  const { user } = useAuth();
+  const toast = useToast();
+  const q = useApi(user ? `/me/notes/${id}` : null);
+  const [text, setText] = useState(null);
+  if (!user) return null;
+  const val = text ?? q.data?.text ?? "";
+  const save = async () => {
+    try {
+      if (val.trim()) { await put(`/me/notes/${id}`, { text: val }); toast("Note saved"); }
+      else { await del(`/me/notes/${id}`); toast("Note removed"); }
+    } catch (x) { toast(x.message || "Could not save the note", "err"); }
+  };
+  return (
+    <section className="card" data-testid="player-note">
+      <h2 className="h3">Your note</h2>
+      {q.loading && !q.data ? <Loading rows={1} /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : (
+        <><textarea className="note-in" rows={3} maxLength={1000} value={val} onChange={(e) => setText(e.target.value)} placeholder="Only you can see this." aria-label="Your note" data-testid="note-input" />
+          <button type="button" className="btn btn--secondary btn--sm" onClick={save} data-testid="note-save">Save note</button></>
+      )}
+    </section>
+  );
+}
 
 function Chart({ games, stat, line }) {
   const rows = [...games].reverse();
@@ -79,6 +107,7 @@ export default function Player() {
           <h1>{p.name}</h1>
           <p className="muted">{posLabel(p.pos)}</p>
           {team && <Link to={`/team/${team.id}`} className="inline"><Crest team={team} size={20} /> {team.name}</Link>}
+          <div><FollowButton kind="player" refId={p.id} name={p.name} /></div>
         </div>
       </header>
       <section className="card" data-testid="player-next">
@@ -89,6 +118,7 @@ export default function Player() {
           : <p className="muted small">No forecasts for this player yet.</p>)}
       </section>
       <History id={id} />
+      <Note id={id} />
     </section>
   );
 }

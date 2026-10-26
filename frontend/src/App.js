@@ -9,6 +9,9 @@ import Match from "./pages/Match";
 import League, { Leagues } from "./pages/League";
 import Team from "./pages/Team";
 import Player from "./pages/Player";
+import Finder from "./pages/Finder";
+import { Insights, TrackRecord } from "./pages/Insights";
+import { Following, Search } from "./pages/Following";
 import MarkdownPage from "./pages/Markdown";
 import Account from "./pages/Account";
 import { ChangePasswordFirst, ConfirmEmail, Enroll2FA, ForgotPassword, ResetPassword, SignIn, SignUp, VerifyEmail } from "./pages/Auth";
@@ -70,16 +73,16 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Today />} />
           <Route path="match/:id" element={<Match />} />
-          <Route path="insights" element={<P title="Insights" docs="docs/01 §5 screen 3, docs/04 ForecastCard" routes={["GET /api/insights"]} probe="/insights" query={{ limit: 20 }} />} />
-          <Route path="finder" element={<P title="Forecast Finder" docs="docs/01 §5 screen 4, docs/02, docs/06 §2 and §4 (plan limits)" routes={["GET /api/finder"]} />} />
+          <Route path="insights" element={<Insights />} />
+          <Route path="finder" element={<Finder />} />
           <Route path="leagues" element={<Leagues />} />
           <Route path="teams" element={<Leagues />} />
           <Route path="league/:id" element={<League />} />
           <Route path="team/:id" element={<Team />} />
           <Route path="player/:id" element={<Player />} />
-          <Route path="following" element={<P title="Following" docs="docs/01 §5 screen 10" routes={["GET /api/me/follows", "GET /api/me/following-feed", "GET /api/me/saved"]} probe="/me/following-feed" />} />
-          <Route path="track-record" element={<P title="Track record" docs="docs/01 §5 screen 11" routes={["GET /api/track-record"]} probe="/track-record" />} />
-          <Route path="search" element={<P title="Search" docs="docs/01 §5 screen 13 (overlay, 200 ms debounce)" routes={["GET /api/search?q="]} />} />
+          <Route path="following" element={<Following />} />
+          <Route path="track-record" element={<TrackRecord />} />
+          <Route path="search" element={<Search />} />
           <Route path="pricing" element={<P title="Pricing" docs="docs/13 §2, docs/14" routes={["GET /api/plans", "POST /api/billing/checkout"]} probe="/plans" />} />
           <Route path="account/*" element={<Account />} />
           <Route path="contact" element={<P title="Contact" docs="docs/13 §2" routes={["POST /api/contact"]} />} />

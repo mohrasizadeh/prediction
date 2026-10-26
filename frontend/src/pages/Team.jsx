@@ -6,6 +6,7 @@ import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { FormPills, MatchRow, STATS, Seg, Select, TEAM_STATS, TacticChip, num1, posLabel, shortDay, useTitle } from "../components/Football";
+import { FollowButton } from "../components/Actions";
 
 const WINDOWS = [{ id: 5, label: "Last 5" }, { id: 10, label: "Last 10" }, { id: 20, label: "Last 20" }];
 const LINES = [1, 2, 3, 4, 5].map((n) => ({ id: n, label: `${n}+` }));
@@ -101,7 +102,7 @@ export default function Team() {
         <div className="phead-main">
           <h1>{d.team.name}</h1>
           {d.league && <Link to={`/league/${d.league.id}`} className="muted small inline"><LeagueMark league={d.league} size={20} /> {d.league.name}</Link>}
-          <div className="phead-row"><FormPills form={d.form} /><div className="chips">{(d.style?.tactics || []).map((t) => <TacticChip key={t} t={t} />)}</div></div>
+          <div className="phead-row"><FormPills form={d.form} /><div className="chips">{(d.style?.tactics || []).map((t) => <TacticChip key={t} t={t} />)}</div><FollowButton kind="team" refId={d.team.id} name={d.team.name} /></div>
         </div>
       </header>
       <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "grid", label: "Squad grid" }, { id: "totals", label: "Team totals" }, { id: "against", label: "Against" }, { id: "fixtures", label: "Fixtures" }]} />
