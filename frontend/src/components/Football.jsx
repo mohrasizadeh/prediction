@@ -50,10 +50,12 @@ export function LikelihoodBar({ p, lo, hi, tier, confirmed }) {
 
 export const TacticChip = ({ t, prefix }) => <span className="tchip" data-testid={`tactic-${t}`}>{prefix ? `${prefix}: ` : ""}{TACTICS[t] || t.replace(/_/g, " ")}</span>;
 
-export function ForecastCard({ f, teams = {}, showMatch }) {
+export function ForecastCard({ f, teams = {}, showMatch, homeIid }) {
   const [open, setOpen] = useState(false);
   const team = f.team || teams[f.team_iid];
   const opp = f.opp || teams[f.opp_iid];
+  const hid = f.home_iid ?? homeIid;
+  const fixture = team && opp ? (hid === f.opp_iid ? `${opp.name} v ${team.name}` : `${team.name} v ${opp.name}`) : team?.name || "";
   const reasons = f.reasons || [];
   return (
     <article className="fcard" data-testid={`forecast-${f.id}`}>
@@ -61,7 +63,7 @@ export function ForecastCard({ f, teams = {}, showMatch }) {
         {f.player ? <PlayerAvatar player={f.player} size={40} /> : <Crest team={team} size={40} />}
         <div className="fcard-who">
           {f.player ? <Link to={`/player/${f.player.id}`}><b>{f.player.name}</b></Link> : <b>{team?.name || "Team"}</b>}
-          <span className="muted small">{f.player && f.pos ? `${posLabel(f.pos)} · ` : ""}{team?.name || ""}{opp ? ` v ${opp.name}` : ""}{showMatch ? ` · ${kickoff(f.kickoff)}` : ""}</span>
+          <span className="muted small">{f.player && f.pos ? `${posLabel(f.pos)} · ` : ""}{fixture}{showMatch ? ` · ${kickoff(f.kickoff)}` : ""}</span>
         </div>
         <TierBadge tier={f.tier} />
         {f.fkey && <SaveButton fkey={f.fkey} />}

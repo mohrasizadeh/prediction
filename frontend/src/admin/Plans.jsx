@@ -1,7 +1,7 @@
 // Plans (docs/10 §3.5): cards with subscriber counts, editor with entitlements grid and prices. Sync to Stripe stays
 // disabled until phase 4b.
 import { useState } from "react";
-import { put } from "../lib/api";
+import { post, put } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { Drawer, Field, FormError, Switch, useToast } from "../components/Ui";
 import { ErrorBox, Loading } from "../components/States";
@@ -9,6 +9,13 @@ import Icon from "../components/Icon";
 import { Chip, PageHead } from "./parts";
 
 const lim = (v) => (v === -1 ? "No limit" : typeof v === "boolean" ? (v ? "On" : "Off") : v);
+
+function SyncButton({ k }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const go = async () => { setBusy(true); try { await post(`/admin/plans/${k}/sync`); toast("Plan and prices synced to Stripe"); } catch (x) { toast(x.message || "Sync failed", "err"); } finally { setBusy(false); } };
+  return <button className="btn btn--ghost btn--sm" onClick={go} disabled={busy} data-testid={`plan-sync-${k}`}>{busy ? "Syncing…" : "Sync to Stripe"}</button>;
+}
 
 function Editor({ plan, cat, onClose, onSaved }) {
   const toast = useToast();
@@ -81,7 +88,7 @@ export default function Plans() {
             {p.prices?.length > 0 && <p className="a-plan-prices">{p.prices.map((x) => `${((x.amount_cents || 0) / 100).toFixed(2)} ${x.currency || ""}/${x.interval}`).join(" · ")}</p>}
             <div className="a-btns">
               <button className="btn btn--secondary btn--sm" onClick={() => setEdit(p)} data-testid={`plan-edit-${p.key}`}><Icon name="edit" size={16} />Edit</button>
-              {p.key !== "free" && <button className="btn btn--ghost btn--sm" disabled title="Available in the money phase" data-testid={`plan-sync-${p.key}`}>Sync to Stripe</button>}
+              {p.key !== "free" && <SyncButton k={p.key} />}
             </div>
           </article>
         ))}

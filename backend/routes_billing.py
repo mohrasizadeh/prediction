@@ -103,6 +103,7 @@ def portal(user=Depends(D.require_user), db=Depends(D.get_db)):
         raise D.err(502, "BILLING_ERROR", "We could not open the billing page. Try again in a minute.")
 
 
+@router.post("/stripe/webhook")       # where the Stripe sandbox delivers events
 @router.post("/webhooks/stripe")
 async def stripe_webhook(request: Request, db=Depends(D.get_db)):
     raw = await request.body()

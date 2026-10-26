@@ -1,6 +1,6 @@
 // Account area (docs/13 §2 tabs): Profile, Security, Devices, Notifications, Plan and billing, Privacy.
-import { useState } from "react";
-import { Link, Navigate, NavLink, Route, Routes } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, Navigate, NavLink, Route, Routes, useSearchParams } from "react-router-dom";
 import { del, get, patch, post } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
@@ -164,14 +164,35 @@ function Notifications() {
   );
 }
 
+function Confirming({ onDone }) {
+  const [late, setLate] = useState(false);
+  const { refresh } = useAuth();
+  useEffect(() => {
+    let n = 0;
+    const t = setInterval(async () => {
+      n += 1;
+      try { const d = await get("/account/billing"); if (d.plan?.source === "subscription") { clearInterval(t); refresh(); onDone(); } } catch { /* keep polling */ }
+      if (n >= 15) setLate(true);
+    }, 2000);
+    return () => clearInterval(t);
+  }, [onDone, refresh]);
+  return <p className="notice" data-testid="billing-confirming"><Icon name="refresh" size={16} />{late ? "Your payment is received. Access can take a minute to switch on." : "Confirming your payment…"}</p>;
+}
+
 function Plan() {
   const b = useApi("/account/billing");
+  const toast = useToast();
+  const [sp, setSp] = useSearchParams();
+  const [busy, setBusy] = useState(false);
+  const done = useCallback(() => { setSp({}); b.reload(); }, [setSp, b]);
+  const portal = async () => { setBusy(true); try { const r = await post("/billing/portal"); window.location.assign(r.url); } catch (x) { toast(x.message || "Billing is not available right now", "err"); setBusy(false); } };
   if (b.loading && !b.data) return <Loading />;
   if (b.error) return <ErrorBox error={b.error} onRetry={b.reload} />;
   const d = b.data;
   const plan = d.plan || {};
   return (
     <Section title="Plan and billing" testid="account-plan">
+      {sp.get("status") === "success" && <Confirming onDone={done} />}
       <div className="plan-hero">
         <div><small className="kicker">Current plan</small><strong data-testid="plan-name">{plan.plan_name || "Free"}</strong></div>
         <span className="chip-tag chip-tag--brand" data-testid="plan-status">{plan.source === "billing_off" ? "Included" : plan.status || "Active"}</span>
@@ -181,12 +202,12 @@ function Plan() {
       {plan.status === "past_due" && <p className="notice notice--warn"><Icon name="alert" size={16} />Your last payment did not go through.</p>}
       {plan.period_end && <p className="muted">{plan.cancel_at_period_end ? "Ends" : "Renews"} on {fmtDate(plan.period_end)}.</p>}
       <div className="btn-row">
-        <button className="btn btn--secondary" disabled={!d.can_use_portal} title={d.can_use_portal ? "" : "Available when paid plans open"} data-testid="manage-billing">Manage billing</button>
+        <button className="btn btn--secondary" disabled={!d.can_use_portal || busy} onClick={portal} title={d.can_use_portal ? "" : "Available once you have a paid plan"} data-testid="manage-billing">{busy ? "Opening…" : "Manage billing"}</button>
         {d.billing_enabled && <Link to="/pricing" className="btn btn--ghost" data-testid="change-plan">Change plan</Link>}
       </div>
       <h3>Invoices</h3>
       {d.payments?.length ? (
-        <ul className="rows">{d.payments.map((p) => <li key={p.id || p.created_at} className="row-card"><div className="row-main"><strong>{(p.amount_cents / 100).toFixed(2)} {String(p.currency || "").toUpperCase()}</strong><small>{fmtDate(p.created_at)} · {p.status}</small></div>{p.invoice_url && <a href={p.invoice_url} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">Invoice</a>}</li>)}</ul>
+        <ul className="rows">{d.payments.map((p) => <li key={p.id || p.at} className="row-card"><div className="row-main"><strong>{(p.amount_cents / 100).toFixed(2)} {String(p.currency || "").toUpperCase()}</strong><small>{fmtDate(p.at || p.created_at)} · {p.status}</small></div>{p.invoice_url && <a href={p.invoice_url} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">Invoice</a>}</li>)}</ul>
       ) : <Empty icon="receipt">No invoices yet.</Empty>}
     </Section>
   );

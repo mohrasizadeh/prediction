@@ -9,6 +9,7 @@ import Match from "./pages/Match";
 import League, { Leagues } from "./pages/League";
 import Team from "./pages/Team";
 import Player from "./pages/Player";
+import Pricing from "./pages/Pricing";
 import Finder from "./pages/Finder";
 import { Insights, TrackRecord } from "./pages/Insights";
 import { Following, Search } from "./pages/Following";
@@ -83,7 +84,7 @@ export default function App() {
           <Route path="following" element={<Following />} />
           <Route path="track-record" element={<TrackRecord />} />
           <Route path="search" element={<Search />} />
-          <Route path="pricing" element={<P title="Pricing" docs="docs/13 §2, docs/14" routes={["GET /api/plans", "POST /api/billing/checkout"]} probe="/plans" />} />
+          <Route path="pricing" element={<Pricing />} />
           <Route path="account/*" element={<Account />} />
           <Route path="contact" element={<P title="Contact" docs="docs/13 §2" routes={["POST /api/contact"]} />} />
           <Route path="unsubscribe" element={<P title="Unsubscribe" docs="docs/13 §2, docs/14" routes={["GET /api/email/unsubscribe?t=", "POST /api/email/unsubscribe"]} />} />

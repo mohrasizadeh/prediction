@@ -153,3 +153,15 @@
 .rel-actual { top: 50%; bottom: 0; background: var(--up); }
 .key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin: 0 4px 0 10px; vertical-align: middle; }
 .key--stated { background: var(--text3); } .key--actual { background: var(--up); }
+.pgrid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); margin: 16px 0; }
+@media (min-width: 768px) { .pgrid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); } }
+.pcard { position: relative; display: grid; gap: 10px; align-content: start; padding: 24px 20px; border-radius: 20px; background: var(--surface1); border: 1px solid var(--border); box-shadow: var(--card-shadow); animation: rise .3s ease both; }
+.pcard h2 { margin: 0; font-size: 1.25rem; }
+.pcard--hi { border-color: var(--brand); background: radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 60%), var(--surface1); }
+.pcard-tag { position: absolute; top: 16px; right: 16px; }
+.pcard-price { margin: 4px 0 0; font-size: 2.25rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pcard-price small { font-size: 1rem; font-weight: 600; color: var(--text2); }
+.pcard-list { list-style: none; padding: 0; margin: 6px 0 12px; display: grid; gap: 8px; }
+.pcard-list li { display: flex; gap: 8px; align-items: center; color: var(--text2); }
+.pcard-list .ico, .pcard-list svg { color: var(--up); flex: none; }
+.tpl-frame { width: 100%; min-height: 320px; border: 1px solid var(--border); border-radius: 12px; background: #fff; margin-top: 8px; }

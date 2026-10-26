@@ -114,7 +114,7 @@ export default function Player() {
         <h2 className="h3">Next match</h2>
         {nx ? <Link to={`/match/${nx.id}`} className="next-link"><span className="team"><Crest team={nx.home} size={20} />{nx.home?.name}</span><span className="muted">v</span><span className="team"><Crest team={nx.away} size={20} />{nx.away?.name}</span><time className="muted small">{kickoff(nx.kickoff)}</time></Link>
           : <p className="muted">No upcoming match loaded.</p>}
-        {nx && (forecasts.length ? <div className="fgrid">{forecasts.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} />)}</div>
+        {nx && (forecasts.length ? <div className="fgrid">{forecasts.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} homeIid={nx.home_iid} />)}</div>
           : <p className="muted small">No forecasts for this player yet.</p>)}
       </section>
       <History id={id} />
