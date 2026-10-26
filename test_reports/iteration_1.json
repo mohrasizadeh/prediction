@@ -1,0 +1,86 @@
+{
+  "summary": "Frontend-only E2E testing (Playwright, 390px and 1920px) of Phase 0: public layout, auth screens, owner first sign-in (2FA enrolment + recovery codes + forced password change), 2FA sign-in, admin shell (rail, bottom bar, More sheet, customize bar), Dashboard, Users, Staff, Settings, Keys, Logs, Security, Health, Site Studio (preset, draft, preview, publish, versions), Pages, Inbox, Announcements, Plans and all 6 Account tabs. Backend not touched. Found 3 blocking frontend bugs: Users page crashed, every as='select' Field was broken, Staff invite link was never shown. I fixed all 3 with minimal edits and checked them again. Also found an auth/me rate-limit problem, reported below. After the fixes nearly every requested flow works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/auth/me", "issue": "Counts toward the per-IP 'auth' bucket (security.rate_limit_auth_per_minute = 10/min). Each full page load plus each refresh() call (Notifications switches, Profile save, sign-in) uses one. Sign-in failed with 'Too many requests' in testing. Backend must not change, so this needs a frontend mitigation (see action_items)."},
+      {"endpoint": "POST /api/auth/login/2fa", "issue": "2fa:{ip} limit is 10 per 15 min. After about 9 sign-ins in 15 min the code screen shows 'Too many requests. Try again soon.' FYI only. It slows down repeated testing."},
+      {"endpoint": "GET /api/admin/settings/{key}/history", "issue": "After toggle and then Reset to default, the History drawer shows only the PUT entry. The reset is not listed (it is in the audit log). FYI."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "admin/Users.jsx UserDrawer", "issue": "FIXED BY TESTER. The Users page crashed on every render ('The above error occurred in the <UserDrawer> component', whole admin went blank). JSX children are evaluated even when Drawer is closed, and with d=null `d.plan?.plan_name` / `actions.map` threw. The same happened right after opening a row, before loading started. Fix: render <Loading/> when `q.loading || !d`.", "selector": "[data-testid=admin-users]", "priority": "CRITICAL"},
+      {"component": "components/Ui.jsx Field", "issue": "FIXED BY TESTER. With `as=\"select\"` and children, Field rendered `children || <Tag/>`, so only bare <option>s appeared and there was no <select>. Broken: Account time zone, Staff invite role (invites always went out as 'support'), Users role-change dialog, Announcements level/audience, Inbox status, Plans price interval. Fix: always render <Tag {...p}>{children}</Tag>.", "selector": "[data-testid=staff-invite-role], [data-testid=profile-tz]", "priority": "HIGH"},
+      {"component": "admin/Staff.jsx", "issue": "FIXED BY TESTER. The invite link (shown because e-mail is off) never appeared. onDone() reloads the list, then `if (q.loading) return <Loading/>` unmounted Invite and lost the link state. Fix: `if (q.loading && !q.data)`.", "selector": "[data-testid=staff-invite-link]", "priority": "HIGH"},
+      {"component": "lib/auth.js AuthProvider.refresh", "issue": "Any error from GET /auth/me, including 429, sets me={user:null}. Code reading shows a rate-limited staff user would look signed out: /admin shows 404, the header shows 'Sign in', Gates do not run. Not reproduced live because the 2FA limit was hit before the reproduction script ran. auth/me 429s were seen in the console and the sign-in UI.", "selector": "n/a", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Recovery codes (390px)", "issues": ["2-column .codes grid: the 17-char codes in column 1 run into the '6.'/'8.'/'10.' markers of column 2 (e.g. 'fd553317-5d83730b' overlaps '10.'). Use 1 column under ~420px or put the list markers inside."]},
+      {"screen": "Enroll 2FA / auth pages (390px)", "issues": ["The cookie banner covers the code input and Continue button until a choice is made. Consider a smaller banner on auth screens."]},
+      {"screen": "Account > Devices", "issues": ["Shows the raw user-agent ('Mozilla/5.0 (X11; …') instead of a friendly 'Chrome on Linux'. Sessions from the same IP pile up (10 rows)."]},
+      {"screen": "Admin text casing", "issues": ["text-transform capitalize gives 'API Calls Today', 'E-Mails Today', 'Server Errors 24 H', 'Unsaved Draft', 'Live: Version 0', 'TEST Billing'. Use sentence case."]},
+      {"screen": "Admin Users", "issues": ["Lead text reads '1 people'. Pluralise."]},
+      {"screen": "Announcements drawer", "issues": ["Starts/Ends use the native datetime-local picker, not a styled date picker."]},
+      {"screen": "Site Studio light preview (pitch preset)", "issues": ["Primary button in light mode is dark text on mid green, which is low contrast."]},
+      {"screen": "Account tabs (390px)", "issues": ["Tab strip scrolls sideways and cuts off at 'Devices' with no fade or affordance."]},
+      {"screen": "Layout/Footer", "issues": ["Fallback brand string is misspelled 'Prediciotn' (Layout.jsx lines 102 and 149). Only shows if config fails."]}
+    ]
+  },
+  "passed": [
+    "Home: brand 'Forecast' from config, beta-tag, exact footer disclaimer, cookie-reject and cookie-accept hide the banner, bottom-tabs at 390px, rail at 1920px, tab-more opens more-sheet, Esc closes it",
+    "/admin signed out shows not-found inside the public layout",
+    "Owner first sign-in: redirect to /enroll-2fa, secret in groups of 4, TOTP accepted, 10 recovery codes, Continue disabled until 'I saved them' is ticked, /change-password, then lands on /admin",
+    "2FA sign-in screen auto-submits at 6 digits. Wrong code shows 'That code is not right.'",
+    "Admin desktop: rail with 9 groups, TEST billing and owner chips, theme toggle switches data-admin-theme",
+    "Admin 390px: bottom bar with 4 tabs + More. Search 'pop' finds Popups. Gibberish shows 'Nothing matches.' Pinning a 5th shows toast 'Bottom bar holds 4. Unpin one first.' Unpin then pin works and persists. Esc closes the sheet",
+    "Unbuilt modules (Analytics) show 'Coming in the next phase.'",
+    "Dashboard tiles, charts, Show table toggle, alerts",
+    "Users: table at desktop, cards at 390px, full-screen drawer on phone (390x844), Add note through the reason dialog, toast 'Note added', note visible (after fix)",
+    "Staff: list, role matrix, invite with role analyst shows the link (after fix)",
+    "Settings: 175 settings, search, group filter, show_xg toggle off then Reset to default, History drawer. features.live and engine.lineup_effects show Locked and are disabled",
+    "Keys: all Not set. An invalid PitchAPI key shows 'A PitchAPI starts with pk_live_ or pk_test_.'",
+    "Logs: 8 tabs. Audit lists user.note, staff.invite, settings.put and settings.reset. Time range select works",
+    "Security and Health tiles render",
+    "Studio: 9 section tabs. Preset 'pitch' changes the preview and shows Unsaved draft. Brand name Save to draft. Desktop/Phone and Dark/Light change the mini preview. Publish with a note gives 'Live: version 1'. Versions drawer lists it. Public header showed 'TEST Brand'. Restored with midnight + 'Forecast' as version 2",
+    "Pages: about title and markdown, Preview tab renders h2/strong, save, /legal/about shows it publicly. The word 'odds' is rejected with 'these words are not allowed here: odds.'",
+    "Inbox empty state",
+    "Announcements: create 'TEST announcement', it shows in the public banner, delete leaves the empty state",
+    "Plans: free and pro cards, edit drawer opens, Sync to Stripe disabled",
+    "Account: Profile save (name, tz Europe/London, theme dark, which applies dark to html). Security shows the change-password form, the e-mail change form and 'On. Staff accounts cannot turn it off.' Devices shows This device. Notifications has 5 switches incl. 2 staff-only, toggle saves. Plan and billing shows Pro / Included / billing-off note. Privacy export downloads my-data.json",
+    "Sign-up shows Check your inbox. Resend counts down 'Send again in N s' and is disabled. Forgot password shows forgot-sent",
+    "No horizontal overflow at 390px: home, sign-in, enroll-2fa, account (profile/security/privacy), admin dashboard, users, staff, settings, keys, logs, security, health, studio"
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "Review the 3 fixes I applied (Users.jsx drawer null guard, Ui.jsx Field select children, Staff.jsx loading guard) and look for the same 'children evaluated while closed' pattern elsewhere",
+    "AuthProvider.refresh: do not treat 429/5xx/network errors as signed out. Keep the previous `me` and retry after Retry-After. Only a 2xx {user:null} should sign out",
+    "Cut /auth/me calls: after profile/prefs PATCH, merge the response into `me` instead of calling refresh() (the auth/me bucket is 10/min per IP)",
+    "Fix the recovery-code grid overlap at 390px",
+    "Show a friendly device name instead of the raw user-agent on Account > Devices",
+    "Use sentence case for admin labels instead of text-transform capitalize ('E-mails today', 'Unsaved draft'). Fix '1 people'. Fix the 'Prediciotn' fallback",
+    "Run reset_admin.py and clean up: TEST_staff_invite@example.com (role support), TEST_staff_invite2@example.com (analyst), TEST_signup_ui@example.com (unverified sign-up), owner note 'TEST note from UI testing', owner profile name 'TEST Owner' and tz Europe/London, an 'about' page row (title 'About', empty body; it did not exist before), Site config versions 1 and 2 (v2 = midnight preset + brand 'Forecast', which may differ from the original default config, v0)"
+  ],
+  "critical_code_review_comments": [
+    "Ui.jsx Field: `children || <Tag/>` dropped the element for every select. Fixed",
+    "Users.jsx: the drawer body dereferenced `d` without a null check. React evaluates JSX children even when Drawer returns null. Fixed",
+    "Staff/Dashboard/SecurityHealth/Markdown/Account Plan: `if (q.loading) return <Loading/>` unmounts the page on every reload and loses local state and scroll. Prefer `q.loading && !q.data`",
+    "auth.js: the catch-all in refresh() turns transient errors into sign-out",
+    "Studio Leaf ids are 'f-' + path. Keys like 'name' would repeat across sections, but only one section renders at a time, so this is OK",
+    "No error boundary at the app root: one render error blanks the whole admin. Add an ErrorBoundary around <AdminApp/> routes"
+  ],
+  "updated_files": [
+    "/app/frontend/src/admin/Users.jsx",
+    "/app/frontend/src/components/Ui.jsx",
+    "/app/frontend/src/admin/Staff.jsx",
+    "/app/memory/test_credentials.md"
+  ],
+  "success_rate": {"backend": "not tested (frontend only, per request)", "frontend": "~90% of requested flows pass after the 3 fixes; 3 bugs fixed by tester, 1 high-priority auth-refresh issue open"},
+  "test_credentials": "Owner smj.rasizadeh@gmail.com. NEW password: Owner-Test-Pass-2026!x. TOTP secret: XAT4XYCUJWDRUELRCDRGAMZMTY52L252. Recovery codes: f702ab70-b38c6f3b, bb548174-a4f87e1d, d17cbc9e-b294b691, c6656501-b3507f85, e275ac4a-c948c8f1, 888359c5-70df7ad8, 8420634c-9034910f, 2f893671-798346fc, fd553317-5d83730b, 8df30e0b-a52a010e",
+  "seed_data_creation": "TEST_staff_invite@example.com (support), TEST_staff_invite2@example.com (analyst), TEST_signup_ui@example.com sign-up, owner note, site versions 1 and 2, about page row, announcement (deleted)",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Rate limits are tight: auth bucket 10/min per IP (includes GET /auth/me on every full page load), 2FA 10 per 15 min per IP, forgot 5/h per IP. Sign in once per script and navigate with history.pushState + popstate instead of page.goto so auth/me is not called again. Account theme radios are visually hidden: click label.seg-opt. Studio field test ids are 'f-<key>' (brand name = f-name). The Look tab id is studio-tabs-theme. Recheck the Users drawer, the Staff invite link and selects after the main agent reviews my fixes.",
+  "rca of the issue": "Users crash: UserDrawer always builds its body JSX. With id=null, useApi(null) returns loading=false, error=null, data=null, so `d.plan?.plan_name` throws a TypeError and, with no error boundary, unmounts the whole tree. Selects: the Field component returned children instead of wrapping them in Tag. Invite link: the parent's loading early return unmounted the child that held the link state."
+}

@@ -44,7 +44,7 @@ function Invite({ onDone }) {
 export default function Staff() {
   const q = useApi("/admin/staff");
   const { user } = useAuth();
-  if (q.loading) return <Loading />;
+  if (q.loading && !q.data) return <Loading />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const roles = q.data.roles || {};
   const perms = [...new Set(Object.values(roles).flat().filter((p) => p !== "*"))].sort();

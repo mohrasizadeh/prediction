@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
+import { patch } from "../lib/api";
 import { DISCLAIMER } from "../lib/copy";
 import { utc } from "../lib/time";
 import { audienceOk, route, useSite } from "../lib/site";
@@ -26,16 +27,13 @@ function NavItem({ item, className, onClick, testid }) {
 
 function ThemeToggle() {
   const { cfg, setTheme } = useSite();
-  const { user, refresh } = useAuth();
+  const { user, setUser } = useAuth();
   if (cfg?.theme?.allow_toggle === false) return null;
   const now = document.documentElement.dataset.theme === "light" ? "light" : "dark";
   const flip = async () => {
     const next = now === "light" ? "dark" : "light";
     setTheme(next);
-    if (user) {
-      const { patch } = await import("../lib/api");
-      patch("/account/profile", { theme: next }).then(refresh).catch(() => {});
-    }
+    if (user) patch("/account/profile", { theme: next }).then((r) => setUser(r.user)).catch(() => {});
   };
   return (
     <button className="icon-btn" onClick={flip} aria-label={now === "light" ? "Switch to dark" : "Switch to light"} data-testid="theme-toggle">
@@ -44,9 +42,11 @@ function ThemeToggle() {
   );
 }
 
+const NO_BANNER = /^\/(sign-in|sign-up|enroll-2fa|change-password|reset-password|forgot-password|verify-email|confirm-email)/;
 function CookieBanner({ c }) {
   const [choice, setChoice] = useState(() => localStorage.getItem("consent"));
-  if (!c?.banner || choice) return null;
+  const { pathname } = useLocation();
+  if (!c?.banner || choice || NO_BANNER.test(pathname)) return null;
   const pick = (v) => { localStorage.setItem("consent", v); setChoice(v); };
   return (
     <div className="cookie" role="region" aria-label="Privacy choices" data-testid="cookie-banner">

@@ -114,9 +114,10 @@
 .a-alert--red { border-left-color: var(--down); } .a-alert--red .ico { color: var(--down); }
 .a-dl { display: grid; gap: 0; margin: 0; }
 .a-dl > div { display: grid; grid-template-columns: minmax(0, 140px) minmax(0, 1fr); gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
-.a-dl dt { color: var(--text2); text-transform: capitalize; } .a-dl dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.a-dl dt { color: var(--text2); }
+.a-dl dt::first-letter { text-transform: uppercase; } .a-dl dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .a-dl--tight > div { padding: 5px 0; }
-.a-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--surface3); color: var(--text2); white-space: nowrap; text-transform: capitalize; }
+.a-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--surface3); color: var(--text2); white-space: nowrap; }
 .a-chip--brand { background: color-mix(in srgb, var(--brand) 20%, transparent); color: var(--text); }
 .a-chip--up { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--text); }
 .a-chip--down { background: color-mix(in srgb, var(--down) 20%, transparent); color: var(--text); }
@@ -214,7 +215,8 @@
 .a-node-body { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 640px) { .a-node-body { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } .a-node-body > fieldset { grid-column: 1 / -1; } }
 .a-color-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-.a-leaf { display: grid; gap: 6px; min-width: 0; } .a-leaf label { font-size: 13px; font-weight: 650; color: var(--text2); text-transform: capitalize; }
+.a-leaf { display: grid; gap: 6px; min-width: 0; } .a-leaf label { font-size: 13px; font-weight: 650; color: var(--text2); }
+.a-leaf label::first-letter { text-transform: uppercase; }
 .a-leaf input, .a-leaf select { width: 100%; }
 .a-leaf.has-err input, .a-leaf.has-err select { border-color: var(--down); }
 .a-leaf .switch-row { border: 0; min-height: 44px; padding: 0; }

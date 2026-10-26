@@ -6,7 +6,7 @@ import { Bars, Card, Chip, KV, PageHead, ResponsiveTable, StatTile, num, when } 
 
 export function Security() {
   const q = useApi("/admin/security");
-  if (q.loading) return <Loading rows={5} />;
+  if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const d = q.data;
   const hours = Object.entries(d.failed_by_hour || {}).map(([day, count]) => ({ day, count }));
@@ -42,7 +42,7 @@ export function Security() {
 
 export function Health() {
   const q = useApi("/admin/health");
-  if (q.loading) return <Loading rows={5} />;
+  if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const h = q.data;
   return (

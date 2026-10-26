@@ -16,6 +16,11 @@ const TABS = [
   ["notifications", "Notifications", "bell"], ["plan", "Plan and billing", "credit-card"], ["privacy", "Privacy", "padlock"],
 ];
 const fmt = (s) => (s ? utc(s).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "No data");
+function device(ua = "") {
+  const b = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : null;
+  const o = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : null;
+  return b || o ? `${b || "Browser"}${o ? ` on ${o}` : ""}` : ua ? ua.slice(0, 60) : "Unknown device";
+}
 const fmtDate = (s) => (s ? utc(s).toLocaleDateString(undefined, { dateStyle: "medium" }) : "No data");
 
 function Section({ title, lead, children, testid }) {
@@ -23,7 +28,7 @@ function Section({ title, lead, children, testid }) {
 }
 
 function Profile() {
-  const { user, refresh } = useAuth();
+  const { user, setUser } = useAuth();
   const { setTheme } = useSite();
   const toast = useToast();
   const [f, setF] = useState({ display_name: user.display_name || "", tz: user.tz || "UTC", theme: user.theme || "system" });
@@ -32,7 +37,7 @@ function Profile() {
   const zones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [f.tz];
   const save = async (e) => {
     e.preventDefault(); setBusy(true); setErr(null);
-    try { await patch("/account/profile", f); setTheme(f.theme); await refresh(); toast("Profile saved"); } catch (x) { setErr(x); } finally { setBusy(false); }
+    try { const r = await patch("/account/profile", f); setTheme(f.theme); setUser(r.user); toast("Profile saved"); } catch (x) { setErr(x); } finally { setBusy(false); }
   };
   return (
     <Section title="Profile" lead={`Signed in as ${user.email}`} testid="account-profile">
@@ -125,7 +130,7 @@ function Devices() {
             {s.data.sessions.map((x) => (
               <li key={x.sid} className="row-card" data-testid={`session-${x.sid}`}>
                 <Icon name={/mobile|iphone|android/i.test(x.ua || "") ? "phone" : "monitor"} />
-                <div className="row-main"><strong>{(x.ua || "Unknown device").slice(0, 70)}</strong><small>Last seen {fmt(x.last_seen)} · {x.ip || "No data"}</small></div>
+                <div className="row-main"><strong>{device(x.ua)}</strong><small>Last seen {fmt(x.last_seen)} · {x.ip || "No data"}</small></div>
                 {x.current ? <span className="chip-tag chip-tag--brand">This device</span> :
                   <button className="btn btn--secondary btn--sm" onClick={() => act(() => del(`/account/sessions/${x.sid}`), "Signed out that device")} data-testid={`session-revoke-${x.sid}`}>Sign out</button>}
               </li>
@@ -139,12 +144,12 @@ function Devices() {
 }
 
 function Notifications() {
-  const { user, refresh } = useAuth();
+  const { user, setUser } = useAuth();
   const toast = useToast();
   const p = user.prefs || {};
   const staff = user.role !== "user";
   const val = (k, d) => (p[k] === undefined ? d : p[k]);
-  const set = async (k, v) => { try { await patch("/account/profile", { prefs: { ...p, [k]: v } }); await refresh(); toast("Saved"); } catch (x) { toast(x.message || "Could not save", "err"); } };
+  const set = async (k, v) => { try { const r = await patch("/account/profile", { prefs: { ...p, [k]: v } }); setUser(r.user); toast("Saved"); } catch (x) { toast(x.message || "Could not save", "err"); } };
   const rows = [
     ["product_emails", "Product e-mails", "News about features you use.", true],
     ["marketing_emails", "Marketing e-mails", "Occasional updates. Off unless you turn it on.", false],
@@ -161,7 +166,7 @@ function Notifications() {
 
 function Plan() {
   const b = useApi("/account/billing");
-  if (b.loading) return <Loading />;
+  if (b.loading && !b.data) return <Loading />;
   if (b.error) return <ErrorBox error={b.error} onRetry={b.reload} />;
   const d = b.data;
   const plan = d.plan || {};

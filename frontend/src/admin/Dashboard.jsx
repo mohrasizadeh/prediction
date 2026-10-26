@@ -19,7 +19,7 @@ export function AlertList({ alerts, testid = "alert-list" }) {
 
 export default function Dashboard() {
   const q = useApi("/admin/dashboard");
-  if (q.loading) return <Loading rows={6} />;
+  if (q.loading && !q.data) return <Loading rows={6} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const o = q.data.overview, h = q.data.health;
   const mrr = (o.revenue?.by_currency || []).map((r) => `${((r.mrr_cents || 0) / 100).toLocaleString()} ${String(r.currency || "").toUpperCase()}`).join(" · ") || "No data";

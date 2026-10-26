@@ -17,9 +17,15 @@ export function AuthProvider({ children }) {
       const m = await get("/auth/me");
       setMe(m);
       return m;
-    } catch {
-      setMe({ user: null });
-      return { user: null };
+    } catch (err) {
+      // Only a real 401 means signed out; a 429 or a network blip keeps who we had.
+      if (err?.status === 401) {
+        setMe({ user: null });
+        return { user: null };
+      }
+      let kept = null;
+      setMe((m) => { kept = m || { user: null }; return kept; });
+      return kept;
     } finally {
       setLoading(false);
     }
@@ -48,7 +54,9 @@ export function AuthProvider({ children }) {
     navigate("/");
   }, [refresh, navigate]);
 
-  const value = { me, user: me?.user || null, entitlements: me?.entitlements || {}, loading, refresh, signOut };
+  // After a PATCH that returns the user, merge it instead of calling /auth/me again (it is rate limited).
+  const setUser = useCallback((u) => setMe((m) => ({ ...(m || {}), user: { ...(m?.user || {}), ...u } })), []);
+  const value = { me, user: me?.user || null, entitlements: me?.entitlements || {}, loading, refresh, signOut, setUser };
   return createElement(AuthCtx.Provider, { value }, children);
 }
 

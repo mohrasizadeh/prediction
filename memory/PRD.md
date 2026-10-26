@@ -1,0 +1,26 @@
+# PRD: Prediciotn (football statistics and forecasts)
+
+## Original problem statement
+Hand-off zip (prediciotn.zip): a complete, tested football statistics and forecast web app (React + FastAPI + MongoDB). Backend and forecast engine finished and tested; frontend a working scaffold. Steps: read README, EMERGENT.md, docs/00, docs/03, docs/15 and summarise; put the project in place (replace backend/frontend, copy docs, keep MONGO_URL/DB_NAME/REACT_APP_BACKEND_URL, add APP_ENCRYPTION_KEY, CRON_SHARED_SECRET, PUBLIC_BASE_URL, ENV=development, COOKIE_SECURE=1, ADMIN_EMAIL=smj.rasizadeh@gmail.com, ADMIN_INITIAL_PASSWORD); prove it works (run_tests.sh 12 PASS, /api/public/settings, /api/auth/me, home page, yarn check-copy); build Phase 0 only (site config loader, account screens, admin shell with listed modules; features.billing false; no data screens; no outside services). Rules: do not touch backend/ or soccer_brain/, no own auth/JWT/CORS, API only via lib/api.js, HttpOnly cookie sessions, utc() for times, images only via Media.jsx, loading/empty/error states, mobile first at 390 px, analysis-only copy. User added: "the UIUX is super important to be world class".
+
+## Architecture
+- Backend: unchanged hand-off FastAPI (`backend/server.py`, sync pymongo). Env loaded in preview by `/root/.venv/.../sitecustomize.py` (reads backend/.env for the uvicorn process only, since server.py has no dotenv).
+- Frontend: CRA + react-router 6, plain CSS. `lib/site.js` (config loader, CSS + font injection, theme), `components/Layout.jsx`, `components/Ui.jsx`, `components/Icon.jsx`, `pages/Auth.jsx`, `pages/Account.jsx`, `admin/*` (shell + 13 modules), `styles/base.css`, `styles/admin.css`. Fonts self-hosted (public/fonts + @fontsource-variable).
+
+## User personas
+Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
+
+## Implemented (2026-10-26) — Phase 0
+- Site config loader (ETag, 60 s + focus revalidation, preview token, maintenance, redirects aliases), Beta tag, config-driven rail/top nav, phone bottom bar + More, footer with disclaimer, cookie banner, announcements bar.
+- Auth: sign in + 2FA code, sign up + resend, verify, forgot, reset, confirm new e-mail, 2FA enrolment with QR/manual key/recovery codes, forced first-password change, staff gates.
+- Account: Profile, Security, Devices, Notifications, Plan and billing, Privacy.
+- Admin shell (rail ≥1025 px, bottom bar + All tools sheet + Customize bar), modules: Dashboard, Users, Staff, Settings, Keys, Logs, Security, Health, Site Studio, Pages, Inbox, Announcements, Plans (Sync disabled). Others "Coming in the next phase".
+- Tested end to end by testing agent (iteration_1); its 3 bugs fixed plus follow-ups (auth refresh on 429, fewer /auth/me calls, error boundary, sentence case).
+
+## Backlog
+- P0: Phase 1 (endpoint explorer, cache and usage, leagues) when the owner says go.
+- P1: Logo images in header (needs a decision: Media.jsx rule covers crests/avatars only).
+- P2: Friendlier date pickers in Announcements; settings history shows resets.
+
+## Next tasks
+Wait for the owner's next phase prompt.

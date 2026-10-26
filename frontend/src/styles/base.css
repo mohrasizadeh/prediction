@@ -202,7 +202,8 @@ pre { overflow: auto; max-height: 420px; font-size: 13px; }
 .aside-kicker { position: relative; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--tier-strong); }
 .aside-big { position: relative; font-family: var(--font-heading); font-size: 2rem; line-height: 1.15; letter-spacing: -0.025em; font-weight: 700; max-width: 440px; }
 .aside-big span { color: var(--text2); }
-.codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 16px 16px 16px 36px; margin: 0; border-radius: 14px; background: var(--surface2); border: 1px dashed var(--border-strong); }
+.codes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 16px 16px 16px 36px; margin: 0; border-radius: 14px; background: var(--surface2); border: 1px dashed var(--border-strong); }
+@media (min-width: 440px) { .codes { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; } }
 .codes code { font-size: .9375rem; letter-spacing: .02em; }
 .qr { justify-self: center; padding: 8px; border-radius: 16px; background: #fff; line-height: 0; }
 .manual-key summary { cursor: pointer; color: var(--brand); font-weight: 600; min-height: 44px; display: flex; align-items: center; }

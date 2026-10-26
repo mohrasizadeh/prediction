@@ -1,6 +1,6 @@
 // Admin shell (docs/17): left rail >=1025 px; below, a bottom app bar (4 tabs + More) and a full-screen "All tools" sheet.
 // The menu comes from GET /api/admin/shell. Hiding a module is a convenience; the server checks every route.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { get, put } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -40,6 +40,16 @@ function Soon({ m }) {
       <p>Coming in the next phase.</p>
     </div>
   );
+}
+
+class Boundary extends Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidUpdate(prev) { if (prev.path !== this.props.path && this.state.err) this.setState({ err: null }); }
+  render() {
+    if (!this.state.err) return this.props.children;
+    return <div className="a-soon" role="alert" data-testid="admin-crash"><h1>This screen hit a problem</h1><p>Other tools still work. Reload to try again.</p><button className="btn btn--secondary" onClick={() => window.location.reload()}>Reload</button></div>;
+  }
 }
 
 const sub = (route) => route.replace(/^\/admin\/?/, "");
@@ -161,6 +171,7 @@ export default function AdminApp() {
           </div>
         </header>
         <main className="a-main" id="main">
+          <Boundary path={pathname}>
           <Routes>
             {d.modules.map((m) => {
               const C = SCREENS[m.id];
@@ -168,6 +179,7 @@ export default function AdminApp() {
             })}
             <Route path="*" element={<div className="a-soon" data-testid="admin-not-found"><h1>Not here</h1><p>This tool does not exist or your role cannot use it.</p></div>} />
           </Routes>
+          </Boundary>
         </main>
       </div>
       <nav className="a-bar" aria-label="Admin tools" data-testid="admin-bottom-bar">

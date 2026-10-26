@@ -51,7 +51,7 @@ function UserDrawer({ id, onClose, onChanged }) {
   ].filter(Boolean);
   return (
     <Drawer open={!!id} onClose={onClose} title={p.display_name || p.email || "Person"} testid="user-drawer" wide>
-      {q.loading ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : (
+      {q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : (q.loading || !d) ? <Loading /> : (
         <div className="a-stack">
           <div className="a-person-head"><span className="a-avatar">{(p.display_name || p.email || "?")[0].toUpperCase()}</span><div><strong>{p.email}</strong><small>{p.role} · {d.plan?.plan_name} ({d.plan?.source})</small></div>{flags(p)}</div>
           <div className="a-actions-grid">{actions.map(([k, l, i, fn]) => <button key={k} className="btn btn--secondary btn--sm" onClick={fn} data-testid={`user-action-${k}`}><Icon name={i} size={16} />{l}</button>)}</div>
@@ -79,7 +79,7 @@ export default function Users() {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value, page: 1 });
   return (
     <div className="a-page" data-testid="admin-users">
-      <PageHead title="Users" lead={q.data ? `${q.data.total.toLocaleString()} people` : " "} />
+      <PageHead title="Users" lead={q.data ? `${q.data.total.toLocaleString()} ${q.data.total === 1 ? "person" : "people"}` : " "} />
       <div className="a-filters">
         <div className="a-search"><Icon name="search" size={18} /><input type="search" placeholder="Search by name, id or e-mail" aria-label="Search people" value={f.q} onChange={set("q")} data-testid="users-search" /></div>
         <select aria-label="Role" value={f.role} onChange={set("role")} data-testid="users-filter-role"><option value="">Any role</option>{["user", "analyst", "support", "admin", "owner"].map((r) => <option key={r}>{r}</option>)}</select>

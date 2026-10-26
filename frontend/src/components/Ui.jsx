@@ -9,7 +9,7 @@ export function Field({ label, hint, error, testid, as = "input", children, ...p
   return (
     <div className={"field" + (error ? " field--error" : "")}>
       <label htmlFor={id}>{label}</label>
-      {children || <Tag id={id} data-testid={testid} aria-invalid={!!error} aria-describedby={error ? id + "-e" : hint ? id + "-h" : undefined} {...p} />}
+      <Tag id={id} data-testid={testid} aria-invalid={!!error} aria-describedby={error ? id + "-e" : hint ? id + "-h" : undefined} {...p}>{as === "input" ? undefined : children}</Tag>
       {hint && !error && <small id={id + "-h"} className="field-hint">{hint}</small>}
       {error && <small id={id + "-e"} className="field-err" role="alert">{error}</small>}
     </div>
