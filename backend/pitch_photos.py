@@ -29,6 +29,8 @@ def plan(db, force: bool = False) -> int:
         if p["iid"] in have:
             continue
         enqueue(db, "player_photo", p["ext_id"], priority=7 if p["iid"] in hot else 9, payload={})
+        db.ingest_queue.update_one({"task": "player_photo", "key": p["ext_id"], "status": {"$in": ["done", "failed", "skipped"]}},
+                                   {"$set": {"status": "pending", "attempts": 0, "next_run_at": utcnow()}})   # retry temporary failures
         n += 1
     db.job_state.update_one({"_id": "player_photo_plan"}, {"$set": {"at": utcnow(), "queued": n}}, upsert=True)
     return n

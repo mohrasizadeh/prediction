@@ -1,0 +1,34 @@
+{
+  "summary": "Retest of the iteration_19 fixes. Backend: 25 of 26 tests passed. Frontend: all checked flows passed. (1) referee-assignments now returns one round. Across all 6 referee leagues no club appears twice: Bundesliga 9 fixtures, Champions League 18, Europa League 18, LaLiga 10, Premier League 10, Serie A 10. Rows are sorted, and 'from' equals the first kickoff. The list stops exactly at the first repeat (the next scheduled match includes a club already listed). An unknown league returns 404. The League > Referees UI rows match the API match ids for all 6 leagues. (2) Card tags: with real data every Serie A referee has 2-3 games, so no tags are shown. With the API response intercepted: 4 games gives no tag; 5 games gives 'Cards above average' or 'Cards below average'; 6 and 12 games near the average give 'Around average'. (3) fetch_photo (mocked client/http only): photo_checked_at is set for stored, bad bytes (SVG, GIF, empty) and a response with no or invalid image_url. It is left unset for a None response, non-200 responses (404, 500, 503, 302) and httpx ConnectError/ReadTimeout. BUT the retry still never happens (see the RCA). (4) Bell: it updates right after follow and unfollow on the player page, with no navigation: 0->1->2->1->0, aria-labels correct, also at 390px. (5) Regression passed: bell hidden when signed out (1920 and 390); no overflow at 390 (scrollWidth 390); Following booking card shows the followed player (Vásquez 27%); /referees renders 34 rows; player page photos load from /api/media (13 of 13), with 0 requests to pitchapi.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "pitch_photos.plan + ingest.enqueue", "issue": "The temporary-failure retry does not work. After a non-200 response or an httpx error, fetch_photo leaves photo_checked_at None. But ingest.process_queue marks the player_photo task status 'done' (result 'missing'). On the next plan(), enqueue() upserts on (task, key) and only sets status 'pending' through $setOnInsert. So the existing 'done' doc stays 'done' and the player is never fetched again. plan() still counts him in 'queued'. Reproduced on a scratch DB in test_temporary_failure_is_retried. Live DB today: 7 done/missing tasks, all with photo_checked_at set, so nothing is affected yet."},
+      {"endpoint": "pitch_photos.fetch_photo", "issue": "An empty-dict PitchAPI response ({}) is treated like a failure (`if d:` is falsy), so it is not marked checked. A NotFound (404) from client.fetch is raised and, after 3 attempts, the queue marks the task 'failed' while photo_checked_at stays None. plan() then keeps 'queuing' the player every day as a no-op. This is low impact."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Header/footer fallback", "issues": ["When /public config fails (for example on a 429), the brand falls back to the hardcoded 'Prediciotn' (Layout.jsx lines 108 and 188, public/index.html title). This looks like a typo of 'Prediction'. Check whether it is intended."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter20_round_photos_retry.py", "/app/test_reports/pytest/iter20.xml"],
+  "action_items": [
+    "Make plan() actually re-queue players whose last photo attempt was temporary. For example, in plan() use update_one({'task':'player_photo','key':ext,'status':{'$in':['done','skipped']}}, {'$set':{'status':'pending','next_run_at':utcnow()}}) for players with photo_checked_at None. Or have process_queue set the task back to 'pending' with next_run_at +24h when the result is 'missing' and photo_checked_at is still None.",
+    "Optional: treat NotFound from /v1/players/{id} as a real outcome (set photo_checked_at), so failed tasks are not re-planned forever."
+  ],
+  "critical_code_review_comments": [
+    "enqueue() never revives a finished task. Any 'retry by re-planning' design that relies on it is a no-op.",
+    "BookingBell: refetches triggered by the follows-change event are not aborted or ordered, so quick toggles could resolve out of order. This is minor.",
+    "referee_assignments: _names() is computed for every match in the 8-day window before trimming to one round. This is harmless but does extra work. If the first scheduled match is a lone rescheduled game, the 'round' merges it with the next matchday until a repeat. This is acceptable."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter20_round_photos_retry.py", "/app/backend/tests/iter20_users.py"],
+  "success_rate": {"backend": "96% (25/26)", "frontend": "100%"},
+  "seed_data_creation": "TEST user test_iter20_ui@example.com (its follows and sessions) and TEST player iid -920001: all deleted. The plan() test used scratch DBs test_iter20_scratch_*, which were dropped. The live ingest_queue was not touched. No PitchAPI or API-Football calls were made.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: export REACT_APP_BACKEND_URL and pytest tests/test_iter20_round_photos_retry.py. test_temporary_failure_is_retried fails until the plan/enqueue revive fix lands. The UI user helper is tests/iter20_users.py create|delete. The site rate-limits (429) under heavy browsing, so wait about 30-45 s between browser runs. Card tags can only be checked by intercepting the API response, because no Serie A referee has 5 or more games yet.",
+  "rca of the issue": "Repro: plan(force) inserts a pending task -> fetch_photo gets 503 -> 'missing' with photo_checked_at None -> the worker sets the task to done -> plan(force) returns 1, but the task status is still 'done'. Cause: ingest.enqueue uses $setOnInsert for status, and the unique (task, key) index means the old doc is reused. Mitigation: reset status/next_run_at for non-pending player_photo tasks in plan(), or reschedule inside process_queue."
+}
