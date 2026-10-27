@@ -478,6 +478,12 @@ def _dispatch(db, event, notify):
         elif r["was_new"]:
             db.events.insert_one({"name": "subscribed", "at": utcnow(), "day": utcnow().strftime("%Y-%m-%d"), "user_id": r["user"]["id"], "props": {"plan": r["plan_key"]}})
             _emit(db, "subscription.started", r["user"], {"plan": r["plan_key"]})
+            if obj.get("status") in ("active", "trialing"):
+                te = ts(obj.get("trial_end"))
+                sub = db.subscriptions.find_one({"_id": obj["id"]}) or {}
+                nxt = te or sub.get("current_period_end")
+                notify("pro_welcome", r["user"], {"plan": _plan_name(db, r["plan_key"]), "date": nxt.strftime("%d %B %Y") if nxt else "shown in your account",
+                                               "trial": f"Your free trial runs until {te.strftime('%d %B %Y')}. " if te else "", "sub": obj["id"]})
     elif typ in ("invoice.paid", "invoice.payment_succeeded"):
         r = upsert_invoice(db, obj, "paid", created)
         if r.get("stale"):

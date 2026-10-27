@@ -27,9 +27,9 @@ log = logging.getLogger("billing")
 def make_notify(db):
     def notify(kind, user, ctx):
         v = dict(ctx)
-        if kind in ("payment_failed", "trial_ending"):
+        if kind in ("payment_failed", "trial_ending", "pro_welcome"):
             v["link"] = E.base_url() + "/account/billing"
-        E.send_template(db, kind, to=user["email"], user=user, vars=v, idem=f"{kind}-{user['id']}-{ctx.get('invoice_url') or ctx.get('date') or ctx.get('plan') or ''}"[:200])
+        E.send_template(db, kind, to=user["email"], user=user, vars=v, idem=f"{kind}-{user['id']}-{ctx.get('sub') or ctx.get('invoice_url') or ctx.get('date') or ctx.get('plan') or ''}"[:200])
     return notify
 
 

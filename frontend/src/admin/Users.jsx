@@ -1,5 +1,6 @@
 // Users (docs/10 §3.3): filters, responsive table, user drawer with actions. Every action is checked on the server.
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { post, del } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
@@ -74,7 +75,9 @@ function UserDrawer({ id, onClose, onChanged }) {
 
 export default function Users() {
   const [f, setF] = useState({ q: "", role: "", plan: "", verified: "", disabled: "", page: 1 });
-  const [open, setOpen] = useState(null);
+  const [sp, setSp] = useSearchParams();
+  const [open, setOpenRaw] = useState(sp.get("open"));
+  const setOpen = (v) => { setOpenRaw(v); if (!v && sp.get("open")) setSp({}, { replace: true }); };
   const q = useApi("/admin/users", f);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value, page: 1 });
   return (

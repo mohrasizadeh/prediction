@@ -1,21 +1,56 @@
 // Admin Money (docs/10 §3.5, docs/14 §3): Subscriptions (cancel / resume), Payments (refund with a reason), Coupons, Revenue.
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { post } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { Confirm, Drawer, Field, FormError, useToast } from "../components/Ui";
+import { ErrorBox, Loading, Empty } from "../components/States";
 import { Chip, DataState, KV, PageHead, Pager, ResponsiveTable, StatTile, num, when } from "./parts";
 
 const cents = (c, cur) => (c == null ? "No data" : `${(c / 100).toFixed(2)} ${String(cur || "").toUpperCase()}`);
 const TONE = { active: "up", trialing: "up", past_due: "warn", canceled: "muted", succeeded: "up", paid: "up", refunded: "warn", failed: "down" };
 
+const Who = ({ r, onOpen }) => (r.user_id && r.email !== "Deleted member"
+  ? <button type="button" className="a-link" onClick={(e) => { e.stopPropagation(); onOpen(r.user_id); }} data-testid={`member-open-${r.id}`}>{r.email || r.user_id}</button>
+  : <span>{r.email || "Deleted member"}</span>);
+
+function MemberPanel({ id, onClose }) {
+  const q = useApi(id ? `/admin/users/${id}` : null);
+  const d = q.data;
+  const p = d?.profile || {};
+  return (
+    <Drawer open={!!id} onClose={onClose} title={p.email || "Member"} testid="member-panel" wide>
+      {q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : (q.loading || !d) ? <Loading /> : (
+        <div className="a-stack">
+          <div className="a-person-head"><span className="a-avatar">{(p.display_name || p.email || "?")[0].toUpperCase()}</span><div><strong data-testid="member-email">{p.email}</strong><small data-testid="member-plan">{d.plan?.plan_name} ({d.plan?.source})</small></div></div>
+          <Link className="btn btn--secondary btn--sm" to={`/admin/users?open=${id}`} data-testid="member-full-profile">Open full profile</Link>
+          <h3 className="a-h3">Subscriptions ({d.subscriptions?.length || 0})</h3>
+          {d.subscriptions?.length ? <ResponsiveTable testid="member-subs" rows={d.subscriptions} columns={[
+            { key: "plan_key", label: "Plan", primary: true, render: (s) => <b>{s.plan_key} · {s.interval || "month"}</b> },
+            { key: "status", label: "Status", render: (s) => <Chip tone={TONE[s.status] || "muted"}>{s.status}{s.cancel_at_period_end ? " (ends)" : ""}</Chip> },
+            { key: "end", label: "Period ends", render: (s) => when(s.current_period_end || s.period_end) },
+          ]} /> : <Empty>No subscriptions.</Empty>}
+          <h3 className="a-h3">Payments ({d.payments?.length || 0})</h3>
+          {d.payments?.length ? <ResponsiveTable testid="member-pays" rows={d.payments} columns={[
+            { key: "amt", label: "Amount", primary: true, render: (x) => <b>{cents(x.amount_cents ?? x.amount_paid, x.currency)}</b> },
+            { key: "status", label: "Status", render: (x) => <Chip tone={TONE[x.status] || "muted"}>{x.status}</Chip> },
+            { key: "at", label: "When", render: (x) => when(x.created_at) },
+          ]} /> : <Empty>No payments.</Empty>}
+        </div>
+      )}
+    </Drawer>
+  );
+}
+
 export function Subscriptions() {
+  const [member, setMember] = useState(null);
   const toast = useToast();
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [act, setAct] = useState(null);
   const q = useApi("/admin/subscriptions", { status, page });
   const cols = [
-    { key: "user", label: "Member", primary: true, render: (r) => <span className="a-person"><b>{r.email || r.user_email || r.user_id}</b><small>{r.plan_key} · {r.interval}</small></span> },
+    { key: "user", label: "Member", primary: true, render: (r) => <span className="a-person"><b><Who r={r} onOpen={setMember} /></b><small>{r.plan_key} · {r.interval}</small></span> },
     { key: "status", label: "Status", render: (r) => <Chip tone={TONE[r.status] || "muted"}>{r.status}{r.cancel_at_period_end ? " (ends)" : ""}</Chip> },
     { key: "amount", label: "Amount", render: (r) => cents(r.amount_cents ?? r.amount, r.currency) },
     { key: "period_end", label: "Period ends", render: (r) => when(r.period_end || r.current_period_end) },
@@ -33,18 +68,20 @@ export function Subscriptions() {
       <div className="a-filters"><select aria-label="Status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} data-testid="sub-status"><option value="">Every status</option>{["active", "trialing", "past_due", "canceled"].map((s) => <option key={s}>{s}</option>)}</select></div>
       <DataState q={q} empty="No subscriptions yet.">{(d) => <><ResponsiveTable columns={cols} rows={d.rows} testid="sub-table" /><Pager page={d.page} limit={d.limit} total={d.total} onPage={setPage} /></>}</DataState>
       <Confirm open={!!act} danger={act?.kind === "cancel"} title={act?.kind === "cancel" ? "Cancel at the end of the period?" : "Resume this subscription?"} body="The member keeps access until the period ends." confirmLabel={act?.kind === "cancel" ? "Cancel subscription" : "Resume"} onClose={() => setAct(null)} onConfirm={go} testid="sub-confirm" />
+      <MemberPanel id={member} onClose={() => setMember(null)} />
     </div>
   );
 }
 
 export function Payments() {
   const toast = useToast();
+  const [member, setMember] = useState(null);
   const [page, setPage] = useState(1);
   const [pick, setPick] = useState(null);
   const [amt, setAmt] = useState("");
   const q = useApi("/admin/payments", { page });
   const cols = [
-    { key: "who", label: "Payment", primary: true, render: (r) => <span className="a-person"><b>{cents(r.amount_cents ?? r.amount_paid, r.currency)}</b><small>{r.email || r.user_id || ""} {r.number || ""}</small></span> },
+    { key: "who", label: "Payment", primary: true, render: (r) => <span className="a-person"><b>{cents(r.amount_cents ?? r.amount_paid, r.currency)}</b><small><Who r={r} onOpen={setMember} /> {r.number || ""}</small></span> },
     { key: "status", label: "Status", render: (r) => <Chip tone={TONE[r.status] || "muted"}>{r.status}</Chip> },
     { key: "refunded", label: "Refunded", render: (r) => (r.refunded_cents ? cents(r.refunded_cents, r.currency) : "None") },
     { key: "at", label: "When", render: (r) => when(r.at || r.created_at) },
@@ -61,6 +98,7 @@ export function Payments() {
       <DataState q={q} empty="No payments yet.">{(d) => <><ResponsiveTable columns={cols} rows={d.rows} testid="pay-table" /><Pager page={d.page} limit={d.limit} total={d.total} onPage={setPage} /></>}</DataState>
       <Confirm open={!!pick} danger title="Refund this payment?" reason="Reason (required)" confirmLabel="Refund" onClose={() => setPick(null)} onConfirm={go} testid="refund-confirm"
                body={pick && <><p>{cents(pick.amount_cents ?? pick.amount_paid, pick.currency)}</p><Field label="Amount to refund (empty = full)" value={amt} onChange={(e) => setAmt(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" testid="refund-amount" /></>} />
+      <MemberPanel id={member} onClose={() => setMember(null)} />
     </div>
   );
 }

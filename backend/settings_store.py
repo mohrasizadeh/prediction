@@ -38,7 +38,7 @@ def get_many(db, prefix: str) -> dict:
     return out
 
 
-_ENUMS = {"email.provider": ("resend", "postmark", "sendgrid", "brevo", "smtp"), "integrations.audience_provider": ("none", "mailchimp", "brevo", "mailerlite"),
+_ENUMS = {"email.provider": ("emergent", "resend", "postmark", "sendgrid", "brevo", "smtp"), "integrations.audience_provider": ("none", "mailchimp", "brevo", "mailerlite"),
           "email.smtp_security": ("starttls", "ssl"), "billing.mode": ("test", "live"),
           "context.start_model": ("off", "auto", "on"), "engine.tactic_layers": ("off", "auto", "on"), "engine.shape_layer": ("off", "auto", "on")}
 _RANGES = {"email.smtp_port": (1, 65535), "popups.max_per_session": (0, 10), "popups.min_gap_seconds": (0, 3600), "admin.alert_signup_drop_pct": (10, 100),

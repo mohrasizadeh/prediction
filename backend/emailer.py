@@ -97,6 +97,10 @@ DEFAULTS = {
         "subject": "Welcome to {{brand}}",
         "html": "<p>Hi {{name}},</p><p>Your account is ready. Start with today's matches and the Finder.</p><p><a href=\"{{link}}\" style=\"{{button}}\">Open {{brand}}</a></p>",
         "text": "Hi {{name}},\n\nYour account is ready. Start with today's matches and the Finder:\n{{link}}"},
+    "pro_welcome": {"category": "transactional", "vars": ["name", "plan", "date", "trial", "link"],
+        "subject": "Welcome to {{brand}} {{plan}}",
+        "html": "<p>Hi {{name}},</p><p>Your {{plan}} plan is active. {{trial}}Your first renewal date is <strong>{{date}}</strong>.</p><p>You now have unlimited Finder searches and every forecast detail.</p><p><a href=\"{{link}}\" style=\"{{button}}\">See your plan</a></p><p>You can change or cancel any time from your account.</p>",
+        "text": "Hi {{name}},\n\nYour {{plan}} plan is active. {{trial}}Your first renewal date is {{date}}.\nYou now have unlimited Finder searches and every forecast detail.\nSee your plan: {{link}}\nYou can change or cancel any time from your account."},
     "receipt": {"category": "transactional", "vars": ["name", "amount", "plan", "period_end", "invoice_url"],
         "subject": "Your {{brand}} receipt: {{amount}}",
         "html": "<p>Hi {{name}},</p><p>Thanks. We received {{amount}} for {{plan}}. Your access runs to {{period_end}}.</p><p><a href=\"{{invoice_url}}\">View your invoice</a></p>",
@@ -270,7 +274,7 @@ def _deliver(db, *, to, subject, html_body, text_body, category, template, user=
         return skip("skipped_disabled")
     cl = client or get_client(db)
     from_addr = S.get(db, "email.from_address")
-    if cl is None or not from_addr:
+    if cl is None or (not from_addr and not isinstance(cl, T.Emergent)):
         return skip("skipped_unconfigured")
     if is_suppressed(db, to, category):
         return skip("skipped_suppressed")
@@ -283,7 +287,7 @@ def _deliver(db, *, to, subject, html_body, text_body, category, template, user=
         if _sent_today(db) >= int(S.get(db, "email.daily_send_cap")):
             return skip("skipped_cap")
     unsub = f"{base_url()}/api/email/unsubscribe?t={sign_unsub(to)}" if category != "transactional" else None
-    payload = {"from": f"{S.get(db, 'email.from_name')} <{from_addr}>", "to": [to], "subject": subject,
+    payload = {"from": f"{S.get(db, 'email.from_name')} <{from_addr or 'managed'}>", "to": [to], "subject": subject,
                "html": layout(db, html_body, category, unsub), "text": text_body,
                "tags": [{"name": "template", "value": re.sub(r"[^A-Za-z0-9_-]", "_", template)}]}
     if S.get(db, "email.reply_to"):
@@ -300,6 +304,9 @@ def _deliver(db, *, to, subject, html_body, text_body, category, template, user=
     except ResendError as e:
         db.email_log.update_one({"_id": log_id}, {"$set": {"status": "failed", "error": f"{e.status} {e.name}: {e.message}"[:300]}, "$inc": {"attempts": 1}})
         return {"status": "failed", "id": str(log_id), "error": e.name or str(e.status)}
+    except ValueError as e:
+        db.email_log.update_one({"_id": log_id}, {"$set": {"status": "failed", "error": f"blocked: {e}"[:300]}, "$inc": {"attempts": 1}})
+        return {"status": "failed", "id": str(log_id), "error": "blocked_by_safety_check"}
 
 
 def send_template(db, key: str, *, to: str, user: dict | None = None, vars: dict | None = None,
@@ -421,6 +428,8 @@ def send_campaign(db, campaign_id: str, actor: str, client=None) -> dict:
         raise ValueError("No such campaign.")
     if not S.get(db, "email.enabled") or not S.get(db, "email.marketing_enabled"):
         raise ValueError("Turn on e-mail and marketing e-mail in settings first.")
+    if T.get_provider(db) == "emergent":
+        raise ValueError("Campaigns can't go through the managed e-mail service, which is for account and payment e-mails only. Connect your own e-mail provider under Integrations to send campaigns.")
     if not S.get(db, "email.footer_address").strip():
         raise ValueError("Marketing e-mail needs a postal address in the footer (settings > Email).")
     room = int(S.get(db, "email.daily_send_cap")) - _sent_today(db)

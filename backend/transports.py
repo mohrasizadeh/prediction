@@ -11,6 +11,7 @@ Brevo request shapes are written from their public docs and have NOT been run ag
 """
 from __future__ import annotations
 
+import os
 import re
 import smtplib
 import ssl
@@ -51,6 +52,7 @@ class SendError(Exception):
 
 
 PROVIDERS = {
+    "emergent": {"label": "Emergent managed e-mail", "key": "emergent", "env": "EMERGENT_EMAIL_KEY", "re": r"^ek_[A-Za-z0-9]{10,}$", "hint": "is set by the platform", "bounces": "manual"},
     "resend": {"label": "Resend", "key": "resend", "env": "RESEND_API_KEY", "re": r"^re_[A-Za-z0-9_]{10,}$", "hint": "starts with re_", "bounces": "automatic"},
     "postmark": {"label": "Postmark", "key": "postmark", "env": "POSTMARK_SERVER_TOKEN", "re": r"^[A-Za-z0-9-]{20,60}$", "hint": "is the Server API token (letters, numbers, dashes)", "bounces": "manual"},
     "sendgrid": {"label": "SendGrid", "key": "sendgrid", "env": "SENDGRID_API_KEY", "re": r"^SG\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}$", "hint": "starts with SG.", "bounces": "manual"},
@@ -85,6 +87,21 @@ def _post(url: str, headers: dict, body: dict, ok=(200, 201, 202), retries: int 
                 raise last
         _SLEEP(0.5 * (2 ** attempt))
     raise last
+
+
+class Emergent:
+    API = "https://integrations.emergentagent.com"
+
+    def __init__(self, key):
+        self.key = key
+
+    def send(self, payload: dict, idem: str | None = None) -> dict:
+        import email_gate
+        email_gate.assert_safe(payload["subject"], payload["html"])
+        body = {"to": payload["to"], "subject": payload["subject"], "html": payload["html"], "from_name": os.environ["EMAIL_FROM_NAME"]}
+        if payload.get("reply_to"):
+            body["contact_email"] = payload["reply_to"]
+        return _post(f"{self.API}/api/v1/email/send", {"X-Email-Key": self.key, "Content-Type": "application/json"}, body, ok=(200, 201, 202), retries=1).json()
 
 
 class Resend:
@@ -197,6 +214,9 @@ def get_client(db):
     """The sender for the provider chosen in settings, or None when its key is missing."""
     p = get_provider(db)
     spec = PROVIDERS[p]
+    if p == "emergent":
+        k = os.environ.get("EMERGENT_EMAIL_KEY")
+        return Emergent(k) if k and os.environ.get("EMAIL_FROM_NAME") else None
     key = security.get_provider_key(db, spec["key"], spec["env"])
     if not key:
         return None
@@ -214,6 +234,8 @@ def get_client(db):
 def test_key(db, pid: str) -> dict:
     """A harmless read-only call that proves the key works. For SMTP it opens a connection and logs in (nothing is sent)."""
     spec = PROVIDERS[pid]
+    if pid == "emergent":
+        return {"ok": bool(os.environ.get("EMERGENT_EMAIL_KEY")), "code": None if os.environ.get("EMERGENT_EMAIL_KEY") else "no_key"}
     key = security.get_provider_key(db, spec["key"], spec["env"])
     if not key:
         return {"ok": False, "code": "no_key"}

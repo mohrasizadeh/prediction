@@ -201,7 +201,7 @@ with TestClient(srv.app) as owner:
     check(admin.get("/api/admin/email/suppressions").json()["total"] == 1 and admin.delete("/api/admin/email/suppressions/gone@example.com").status_code == 200, "admin sees and clears a suppression")
 
     # ---------------- e-mail admin
-    check(len(analyst.get("/api/admin/email/templates").json()["templates"]) == 15, "15 e-mail templates listed")
+    check(len(analyst.get("/api/admin/email/templates").json()["templates"]) == 16, "16 e-mail templates listed")
     check(admin.put("/api/admin/email/templates/welcome", json={"subject": "Hi", "html": "<script>x</script>", "text": "t"}).status_code == 400, "script in a template refused")
     check(admin.put("/api/admin/email/templates/welcome", json={"subject": "Hello {{name}}", "html": "<p>Custom {{name}}</p>", "text": "Custom"}).status_code == 200 and "Custom" in admin.get("/api/admin/email/templates/welcome/preview").json()["html"], "template saved and previewed")
     n = len(sent); check(admin.post("/api/admin/email/templates/welcome/test").json()["status"] == "sent" and sent[-1]["to"] == ["admin@example.com"] and sent[-1]["subject"].startswith("[TEST]") and len(sent) == n + 1, "test send goes to the signed-in staff member only")

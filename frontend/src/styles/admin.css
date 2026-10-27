@@ -106,6 +106,9 @@
 .a-bars span { flex: 1; min-width: 0; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--brand), color-mix(in srgb, var(--brand) 45%, transparent)); transition: opacity .15s; }
 .a-bars span:hover { opacity: .75; }
 .a-link-btn { background: none; border: 0; color: var(--brand); font-weight: 650; cursor: pointer; min-height: 36px; text-decoration: none; display: inline-flex; align-items: center; }
+.a-link { background: none; border: 0; padding: 0; color: var(--brand); font: inherit; font-weight: 650; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; text-align: left; }
+.a-link:hover { text-decoration-thickness: 2px; }
+.a-h3 { font-size: 0.95rem; font-weight: 700; margin: 8px 0 0; }
 .a-scroll-y { max-height: 220px; overflow-y: auto; }
 .a-mini-table { width: 100%; border-collapse: collapse; font-size: 13px; } .a-mini-table td { padding: 4px 0; border-bottom: 1px solid var(--border); } .a-mini-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 .a-alerts { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
