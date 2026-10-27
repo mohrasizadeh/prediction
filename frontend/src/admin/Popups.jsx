@@ -181,7 +181,7 @@ export default function Popups() {
         ? <ResponsiveTable columns={cols} rows={d.popups} onRow={(r) => setEdit(r.id)} testid="popups-table" />
         : <Empty icon="layers" testid="popups-empty">No popups yet. Start from a template above: the e-mail sign-up is a good first one.</Empty>)}</DataState>
       {meta.data && <Editor id={edit} meta={meta.data} onClose={() => setEdit(null)} onSaved={q.reload} />}
-      <Stats p={stats} onClose={() => setStats(null)} />
+      {stats && <Stats p={stats} onClose={() => setStats(null)} />}
       <Confirm open={!!gone} danger title="Delete this popup?" body="Its results are deleted too." confirmLabel="Delete" onClose={() => setGone(null)} testid="popup-delete-confirm"
                onConfirm={async () => { await del(`/admin/popups/${gone.id}`); toast("Popup deleted"); setGone(null); q.reload(); }} />
     </div>
