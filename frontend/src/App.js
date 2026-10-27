@@ -1,9 +1,8 @@
 // Every screen in docs/01 section 5, docs/13 section 2 and the admin (docs/10, docs/17) has a route here.
-// Phase 0: account screens, account area and the admin are real. Each <Spec> is a data screen for a later phase.
+// Public site routes, account area and the admin.
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
-import Spec from "./components/Spec";
 import Today from "./pages/Today";
 import Match from "./pages/Match";
 import League, { Leagues } from "./pages/League";
@@ -20,9 +19,9 @@ import AdminApp from "./admin/AdminApp";
 import { useAuth } from "./lib/auth";
 import { resolveMode, useSite } from "./lib/site";
 import { Loading } from "./components/States";
+import Contact from "./pages/Contact";
 import { NewsletterConfirm, Unsubscribe } from "./pages/EmailLinks";
 
-const P = (props) => <Spec {...props} />;
 
 export function NotFound() {
   return <div className="state state-404" data-testid="not-found"><p className="big-404">404</p><p>We could not find that page.</p></div>;
@@ -87,7 +86,7 @@ export default function App() {
           <Route path="search" element={<Search />} />
           <Route path="pricing" element={<Pricing />} />
           <Route path="account/*" element={<Account />} />
-          <Route path="contact" element={<P title="Contact" docs="docs/13 §2" routes={["POST /api/contact"]} />} />
+          <Route path="contact" element={<Contact />} />
           <Route path="unsubscribe" element={<Unsubscribe />} />
           <Route path="newsletter/confirm" element={<NewsletterConfirm />} />
           <Route path="learn" element={<MarkdownPage slug="learn" />} />

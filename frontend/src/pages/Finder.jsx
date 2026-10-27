@@ -30,7 +30,7 @@ function Result({ r, mode, f }) {
 }
 
 export default function Finder() {
-  const { entitlements } = useAuth();
+  const { entitlements, me, refresh } = useAuth();
   const [sp, setSp] = useSearchParams();
   const f = { ...DEF, ...Object.fromEntries(sp.entries()) };
   const set = (k) => (v) => {
@@ -58,12 +58,21 @@ export default function Finder() {
       const rows = await get("/finder", { mode: f.mode, stat: f.stat, threshold: Number(f.n), scope: f.scope, last_n: f.last_n, leagues: f.leagues,
         venue: f.venue || undefined, started: f.started || undefined, positions: f.scope === "player" ? f.positions : "", min_reached: f.mode === "form" ? 0.5 : undefined });
       setRes({ rows, err: null, busy: false });
-    } catch (x) { setRes({ rows: null, err: x, busy: false }); }
+      if (me?.user) refresh();
+    } catch (x) { setRes({ rows: null, err: x, busy: false }); if (me?.user) refresh(); }
   };
+  const cap = me?.user ? entitlements?.finder_searches_per_day : me?.limits?.anonymous_finder_searches_per_day;
+  const used = me?.usage?.finder_today;
   return (
     <section data-testid="finder-page">
       <h1>Forecast Finder</h1>
       <p className="muted lead">Find the players and teams that meet your line.</p>
+      {cap != null && cap >= 0 && (
+        <p className={"finder-usage" + (used != null && used >= cap ? " is-out" : "")} data-testid="finder-usage">
+          {used != null ? `${Math.min(used, cap)} of ${cap} searches today` : `Up to ${cap} searches a day without an account`}
+          {used != null && used >= cap ? <> · <Link to="/pricing" data-testid="finder-usage-upgrade">Unlimited with Pro</Link></> : !me?.user ? <> · <Link to="/sign-up">Sign up for more</Link></> : null}
+        </p>
+      )}
       <form className="card finder" onSubmit={run} data-testid="finder-form">
         <div className="finder-block"><span className="flabel">Leagues {max >= 0 ? `(up to ${max})` : ""}</span>
           {lg.loading && !lg.data ? <Loading rows={1} /> : lg.error ? <ErrorBox error={lg.error} onRetry={lg.reload} /> : (
