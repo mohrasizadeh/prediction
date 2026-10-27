@@ -196,8 +196,7 @@ def list_subscriptions(db, actor, *, status=None, plan=None, page=1, limit=25):
     q = {}
     if status: q["status"] = status
     if plan: q["plan_key"] = plan
-    r = paged(db, "subscriptions", q, [("updated_at", -1)], page, limit)
-    return r
+    return _with_emails(db, paged(db, "subscriptions", q, [("updated_at", -1)], page, limit))
 
 
 def list_payments(db, actor, *, status=None, user_id=None, date_from=None, date_to=None, page=1, limit=25):
@@ -208,7 +207,15 @@ def list_payments(db, actor, *, status=None, user_id=None, date_from=None, date_
     if date_from: rng["$gte"] = date_from
     if date_to: rng["$lt"] = date_to
     if rng: q["created_at"] = rng
-    return paged(db, "payments", q, [("created_at", -1)], page, limit)
+    return _with_emails(db, paged(db, "payments", q, [("created_at", -1)], page, limit))
+
+
+def _with_emails(db, r):
+    ids = list({x["user_id"] for x in r["rows"] if x.get("user_id")})
+    em = {u["id"]: u["email"] for u in db.users.find({"id": {"$in": ids}}, {"id": 1, "email": 1})}
+    for x in r["rows"]:
+        x.setdefault("email", em.get(x.get("user_id")) or "Deleted member")
+    return r
 
 
 def list_staff(db):

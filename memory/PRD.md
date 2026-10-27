@@ -51,7 +51,8 @@ Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
 - Pricing page, Stripe checkout, Confirming poll, Manage billing (portal), trial label. Admin Money: Plans Sync, Subscriptions, Payments + refund, Coupons, Revenue. Admin E-mail: Templates, Blocked addresses, Campaigns.
 - Cards print home v away (home_iid added in queries._decorate and insights).
 - Testing agent iteration_9: full checkout to Pro works; 5 display bugs fixed afterwards.
-- Tax: automatic tax off (Stripe processes payment only). Owner to choose tax handling + give business address.
+- Tax: owner chose to handle tax in Stripe directly (prices tax-included, not registered yet); no app change.
+- 2026-10-26: Admin Subscriptions and Payments rows show the member's e-mail ("Deleted member" if the account is gone).
 
 ## Backlog
 - P0: Phase 4c (popups, footer e-mail form, cookie/tag loader, growth admin screens).
