@@ -14,7 +14,7 @@ function Realtime() {
   const q = useApi("/admin/analytics/realtime");
   return <Card title="Right now" testid="an-realtime" actions={<button className="a-link-btn" onClick={q.reload} data-testid="an-realtime-refresh">Refresh</button>}>
     <DataState q={q}>{(d) => <><div className="a-tiles"><StatTile label={`Active in the last ${d.window_minutes} minutes`} value={d.active_now} testid="an-active" /><StatTile label="Signed in" value={d.signed_in} />{Object.entries(d.devices).map(([k, v]) => <StatTile key={k} label={k} value={v} />)}</div>
-      {d.pages.length ? <ResponsiveTable testid="an-rt-pages" rowKey={(r) => r.path} rows={d.pages} columns={[{ key: "path", label: "Page", primary: true }, { key: "visitors", label: "Visitors" }]} /> : <p className="muted">Nobody on the site in the last few minutes.</p>}</>}</DataState>
+      {d.pages.length ? <ResponsiveTable testid="an-rt-pages" rowKey={(r) => r.path} rows={d.pages} columns={[{ key: "path", label: "Page", primary: true }, { key: "visitors", label: "Visitors" }]} /> : <p className="muted">No page views in the last few minutes.</p>}</>}</DataState>
   </Card>;
 }
 
@@ -28,7 +28,7 @@ function Compare({ days }) {
 
 function Sources({ days }) {
   const q = useApi("/admin/analytics/acquisition", { days });
-  return <Card title="Where people come from" testid="an-sources"><DataState q={q} empty="No campaign links or referrals yet. Add utm_source to links you share, for example ?utm_source=twitter.">{(d) => <><p className="muted small">{d.note}</p>{d.rows.length ? <ResponsiveTable testid="an-sources-table" rowKey={(r) => r.source + r.medium + r.campaign} rows={d.rows} columns={[{ key: "source", label: "Source", primary: true, render: (r) => <span className="a-person"><b>{r.source}</b><small>{r.medium} · {r.campaign}</small></span> }, { key: "visitors", label: "Visitors" }, { key: "signups", label: "Sign-ups" }, { key: "paid", label: "Paying" }, { key: "r", label: "Sign-up rate", render: (r) => pct(r.signup_rate) }]} /> : <p className="muted">No campaign links or referrals yet. Add utm_source to links you share.</p>}</>}</DataState></Card>;
+  return <Card title="Where people come from" testid="an-sources"><DataState q={q} empty="No campaign links yet. Add utm_source to links you share, for example ?utm_source=twitter.">{(d) => <><p className="muted small">{d.note}</p>{d.rows.length ? <ResponsiveTable testid="an-sources-table" rowKey={(r) => r.source + r.medium + r.campaign} rows={d.rows} columns={[{ key: "source", label: "Source", primary: true, render: (r) => <span className="a-person"><b>{r.source}</b><small>{r.medium} · {r.campaign}</small></span> }, { key: "visitors", label: "Visitors" }, { key: "signups", label: "Sign-ups" }, { key: "paid", label: "Paying" }, { key: "r", label: "Sign-up rate", render: (r) => pct(r.signup_rate) }]} /> : <p className="muted">No campaign links or referrals yet. Add utm_source to links you share.</p>}</>}</DataState></Card>;
 }
 
 function EmailHealth({ days }) {

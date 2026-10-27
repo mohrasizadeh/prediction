@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 13 retest of iteration-12 fixes (Phase 4c). Backend: test_phase4c_growth.py extended with TestIter13Fixes (blank create mirrors frontend payload, submit counted once, clean_path UUIDs, collect stores /match/:id, re-subscribe clears confirmed_at + new confirm e-mail next minute) -> 29/29 pass. Frontend (1920 + 390): FOUND AND FIXED a 1-word bug that made the cookie-wait fix ineffective (Layout passed waitForCookies={cfg.cookies.enabled} but site config key is cookies.banner, so popups still appeared before consent and blocked cookie-accept at 390px; Playwright click timed out). After fix: no /api/popups call and no popup while banner unanswered, cookie-accept/reject clickable at 390, popup appears right after 'No thanks' and after 'Allow optional'. Popup form submit sends only POST /submit (no client submit event) and stats show submit=1. Beacon: exactly 1 POST /analytics/collect per route change (/, /teams, /finder, /match/<uuid>), 0 on /sign-in, /unsubscribe, /newsletter/confirm, /admin. Admin: New popup (no template) -> 200, 'Popup created as a draft', editor opens with 'Your headline'; Who tab hint reads '/* = every page'; Analytics Sources empty state shows utm_source hint at 7/30/90; E-mail list pending re-subscribed row shows Confirmed 'No data'. Regression OK: footer form (disabled until consent, neutral message), confirm + unsubscribe pages (valid token flow + missing token), Integrations cards + webhook drawer, Health alerts 'No open alerts' + Check now, all 6 Analytics cards, no 4xx/5xx.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "analytics events (data)", "issue": "Historic page_view rows written before the fix still hold raw/broken paths ('/match/2c69...uuid', '/match/:idf93e-2c95-...', '/league/:ida56-...'); 3+ rows. Consider a one-off migration that re-runs clean_path over existing events."},
+      {"endpoint": "/api/admin/analytics/acquisition", "issue": "Only counts page_views with utm and sign-ups' acq; referral page_views (events.ref_host, 29 rows e.g. app.emergent.sh) are never shown, yet the empty state says 'No campaign links or referrals yet'."},
+      {"endpoint": "/api/admin/analytics/export", "issue": "Known open: CSV of an empty report has no header line (not retested)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Layout PopupHost waitForCookies", "issue": "FIXED by testing agent: used cfg.cookies.enabled (undefined) instead of cfg.cookies.banner, so popups were not held until consent and the modal bottom sheet covered the cookie banner at 390px", "selector": "[data-testid='cookie-accept']", "priority": "HIGH (fixed)"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin > Analytics 'Right now'", "issues": ["Tiles show 'Active in last 5 minutes 1 / Signed in 1 / Desktop 1' while the card also says 'Nobody on the site in the last few minutes.' (active count includes events without a path, pages list empty) - contradictory copy"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_phase4c_growth.py", "/app/test_reports/pytest/pytest_iter13.xml", "/app/backend/tests/iter13_popup.py"],
+  "action_items": [
+    "Keep the Layout fix waitForCookies={!!cfg?.cookies?.banner} (testing agent change) - verify you agree",
+    "Optional: migrate historic events.path through clean_path",
+    "Optional: show referral hosts in 'Where people come from' or change the empty-state wording",
+    "Optional: make Realtime empty text consistent with active_now (e.g. only show 'Nobody...' when active_now == 0, or 'No page views yet' when pages empty)",
+    "Note: the owner's '8 newsletter rows' mentioned in the brief did not exist at test start (newsletter had only resend.dev test rows from this run; 0 non-resend rows) - likely removed by the iteration-12 cleanup's @resend.dev regex if they were resend.dev addresses",
+    "Owner popup 'Newsletter sign-up' still carries ab.group 'test-t12ab' (left untouched)"
+  ],
+  "critical_code_review_comments": [
+    "Layout.jsx passed a non-existent config key (cookies.enabled) to PopupHost; config schema in site_studio.py uses cookies.banner - fixed",
+    "PopupHost fires the GET /api/popups up to 4x on first load in dev (StrictMode + deps); harmless but could be deduped like the beacon",
+    "usePageBeacon dedupe uses a module-level 1s window keyed on path: correct for StrictMode, but A->B->A within 1s would drop the second A (edge case)",
+    "analytics.track drops HeadlessChrome/python-requests UAs via _BOT (expected); tests must send a browser UA"
+  ],
+  "updated_files": ["/app/frontend/src/components/Layout.jsx", "/app/backend/tests/test_phase4c_growth.py", "/app/backend/tests/iter13_popup.py"],
+  "success_rate": {"backend": "100% (29/29)", "frontend": "100% after 1 fix (cookie-wait was broken before the fix)"},
+  "seed_data_creation": "Temporary TEST staff users (delivered+t12admin/owner/analyst@resend.dev), TEST popup 'TEST iter13 modal' + 'New popup' draft, resend.dev newsletter rows - all deleted (popups, popup_stats, newsletter, suppressions, email_log, rate limits, users, sessions). Owner's 3 popups untouched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Users: python backend/tests/iter12_users.py create -> REACT_APP_BACKEND_URL=... python backend/tests/iter12_login.py admin (writes /tmp/t12_cookies.json; delete /tmp/t12_*_totp.json after users are recreated) -> inject cookies into Playwright. Live test popup: python backend/tests/iter13_popup.py make / clean (priority 100, /* pages, immediate). pytest needs REACT_APP_BACKEND_URL exported. Popups now wait for cookie choice: set localStorage consent='essential' before loading pages to see popups. Beacon rows from Playwright/requests are bot-filtered (not stored). Cleanup: iter13_popup.py clean, iter12_cleanup.py, iter12_users.py delete."
+}

@@ -61,7 +61,12 @@ class TestPopups:
         assert any("consent_text" in p for p in paths), paths
 
     def test_create_blank(self, admin):
-        r = admin.post(f"{API}/admin/popups", json={"data": {}})
+        # mirrors frontend admin/Popups.jsx create() with no template (iteration 13 fix)
+        meta = admin.get(f"{API}/admin/popups/meta").json()
+        r = admin.post(f"{API}/admin/popups", json={"data": {"name": "TEST New popup", "content": {**meta["blank"]["content"], "title": "Your headline"}}})
+        if r.status_code in (200, 201):
+            d = admin.get(f"{API}/admin/popups/{r.json()['id']}").json()
+            assert d["status"] == "draft" and d["content"]["title"] == "Your headline"
         if r.status_code in (200, 201):
             admin.delete(f"{API}/admin/popups/{r.json()['id']}")
         assert r.status_code in (200, 201), "blank 'New popup' fails: " + r.text[:200]
@@ -188,3 +193,51 @@ class TestAnalytics:
 
     def test_alerts_run(self, admin):
         assert admin.post(f"{API}/admin/alerts/run").status_code == 200
+
+
+# Iteration 13 retest: submit counted once, clean_path UUIDs, re-subscribe clears confirmed_at
+class TestIter13Fixes:
+    def test_submit_counted_once(self, admin, popup):
+        before = admin.get(f"{API}/admin/popups/{popup}/stats", params={"days": 30}).json()["totals"].get("submit", 0)
+        r = requests.post(f"{API}/popups/{popup}/submit", json={"email": EM("pop1x"), "consent": True})
+        assert r.status_code == 200, r.text
+        after = admin.get(f"{API}/admin/popups/{popup}/stats", params={"days": 30}).json()["totals"].get("submit", 0)
+        assert after - before == 1, (before, after)
+
+    def test_clean_path(self):
+        import analytics as AN
+        assert AN.clean_path("/match/3f2b8c1e-1a2b-4c3d-9e8f-0123456789ab") == "/match/:id"
+        assert AN.clean_path("/league/3F2B8C1E-1A2B-4C3D-9E8F-0123456789AB/table") == "/league/:id/table"
+        assert AN.clean_path("/team/12345") == "/team/:id"
+        assert AN.clean_path("/learn/how-it-works") == "/learn/how-it-works"
+
+    def test_collect_stores_clean_path(self):
+        marker = "t13" + RUN
+        uid = "3f2b8c1e-1a2b-4c3d-9e8f-0123456789ab"
+        r = requests.post(f"{API}/analytics/collect", json={"name": "page_view", "path": f"/match/{uid}", "ref": f"https://{marker}.example.org/x"},
+                          headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0 Safari/537.36"})
+        assert r.status_code == 204
+        time.sleep(0.5)
+        row = db.events.find_one({"ref_host": f"{marker}.example.org"})
+        assert row and row["path"] == "/match/:id", row
+        db.events.delete_many({"ref_host": f"{marker}.example.org"})
+
+    def test_resubscribe_clears_confirmed_at(self, admin):
+        e = EM("resub")
+        assert requests.post(f"{API}/newsletter/subscribe", json={"email": e, "consent": True}).status_code == 200
+        tok = accounts.issue_token(db, None, "newsletter_confirm", timedelta(days=3), {"email": e})
+        assert requests.post(f"{API}/newsletter/confirm", json={"token": tok}).status_code == 200
+        assert db.newsletter.find_one({"email": e})["confirmed_at"]
+        assert requests.post(f"{API}/email/unsubscribe", json={"t": emailer.sign_unsub(e)}).status_code in (200, 204)
+        n_before = db.email_log.count_documents({"to": e})
+        time.sleep(61 - time.gmtime().tm_sec)  # idem key is per minute; move to the next minute
+        assert requests.post(f"{API}/newsletter/subscribe", json={"email": e, "consent": True}).status_code == 200
+        row = db.newsletter.find_one({"email": e})
+        assert row["status"] == "pending" and row.get("confirmed_at") is None, row
+        rows = admin.get(f"{API}/admin/newsletter", params={"status": "pending"}).json()["rows"]
+        r = [x for x in rows if x["email"] == e][0]
+        assert not r.get("confirmed_at"), r
+        time.sleep(2)
+        logs = list(db.email_log.find({"to": e}, {"_id": 0, "template": 1, "status": 1, "idem": 1}))
+        print("email_log", logs)
+        assert db.email_log.count_documents({"to": e}) > n_before

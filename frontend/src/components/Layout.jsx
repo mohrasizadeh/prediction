@@ -208,7 +208,7 @@ export default function Layout({ children }) {
       </nav>
       <MoreSheet open={more} onClose={closeMore} items={rest} user={user} signOut={signOut} />
       <CookieBanner c={cfg?.cookies} />
-      {!maint && !preview && <PopupHost enabled={!!cfg?.popups_enabled} waitForCookies={!!cfg?.cookies?.enabled} />}
+      {!maint && !preview && <PopupHost enabled={!!cfg?.popups_enabled} waitForCookies={!!cfg?.cookies?.banner} />}
     </div>
   );
 }

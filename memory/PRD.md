@@ -57,6 +57,8 @@ Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
 - 2026-10-26: Emergent Managed Email (Resend) wired as e-mail provider "emergent" (transports.Emergent + email_gate safety check; .env EMERGENT_EMAIL_KEY, EMAIL_FROM_NAME=Forecast). email.enabled on. New template pro_welcome, sent once when a subscription first becomes active/trialing (plan, trial end, first renewal date). Campaigns are refused while the managed provider is active (account/payment e-mails only).
 
 ## Backlog
+- 2026-10-27: Phase 4c frontend built: admin Popups (templates, editor with live preview, go live/pause, results, A/B, copy, delete), public PopupHost (triggers, frequency, per-visit limits, waits for cookie answer, never on private pages), footer e-mail sign-up with consent + /newsletter/confirm and /unsubscribe pages, admin E-mail list (counts, filter, remove, CSV), Integrations (e-mail provider, list sync, webhooks with one-time secret, owner-only tracking tags), Analytics (right now, compare, sources, list growth, e-mail health, popups, CSV), Health alerts with Mark fixed. First-party page-view beacon; tags load only after "Allow optional", never with DNT/GPC. Tests iteration_12/13 pass.
+- Known minor: CSV export of an empty report has no header line; referral hosts not shown in Sources.
 - P0: Phase 4c (popups, footer e-mail form, cookie/tag loader, growth admin screens).
 - P1: Member e-mail in admin Subscriptions/Payments rows; turn off Stripe adaptive pricing (shows USD); e-mail key for sending.
 - P2: ForecastCard shows home v away order; Finder rejects player-only stats for teams.
