@@ -118,6 +118,23 @@ def league_leaderboard(league_id: str, response: Response, stat: str = "shots", 
     return Q.leaderboard(db, lg["iid"], _stat(stat), per90=per90, min_minutes=min_minutes, limit=limit)
 
 
+@router.get("/leagues/{league_id}/booking-risk")
+def league_booking_risk(league_id: str, response: Response, db=Depends(D.get_db)):
+    lg = _league(db, league_id)
+    _cache(response)
+    return Q.booking_risk(db, lg["iid"])
+
+
+@router.get("/referees/{name}")
+def referee(name: str, response: Response, db=Depends(D.get_db)):
+    n = name.strip()[:80]
+    out = Q.referee_detail(db, n) if n else None
+    if not out:
+        raise D.err(404, "NOT_FOUND", "We could not find that referee.")
+    _cache(response)
+    return out
+
+
 @router.get("/leagues/{league_id}/referees")
 def league_referees(league_id: str, response: Response, db=Depends(D.get_db)):
     lg = _league(db, league_id)

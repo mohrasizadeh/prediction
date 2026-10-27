@@ -5,7 +5,8 @@ import { useApi } from "../lib/useApi";
 import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
-import { MatchRow, STATS, Seg, Select, num1, posLabel, useTitle } from "../components/Football";
+import { MatchRow, STATS, Seg, Select, kickoff, num1, posLabel, useTitle } from "../components/Football";
+import { refPath } from "./Referee";
 
 export function Leagues() {
   const [q, setQ] = useState("");
@@ -71,9 +72,30 @@ function Referees({ id }) {
     <div className="tbl-wrap"><table className="tbl" data-testid="referee-table">
       <thead><tr><th scope="col">Referee</th><th scope="col">Games</th><th scope="col">Yellows a game</th><th scope="col">Reds a game</th><th scope="col">Penalties a game</th><th scope="col">Home wins</th></tr></thead>
       <tbody>{q.data.map((r) => (
-        <tr key={r.name} data-testid="referee-row"><td><b>{r.name}</b></td><td className="num">{r.matches}</td><td className="num">{r.yellow_pg == null ? "–" : r.yellow_pg.toFixed(2)}</td><td className="num">{r.red_pg == null ? "–" : r.red_pg.toFixed(2)}</td><td className="num">{r.pens_pg == null ? "–" : r.pens_pg.toFixed(2)}</td><td className="num">{pc(r.home_win_pct)}</td></tr>
+        <tr key={r.name} data-testid="referee-row"><td><Link to={refPath(r.name)} data-testid="referee-link"><b>{r.name}</b></Link></td><td className="num">{r.matches}</td><td className="num">{r.yellow_pg == null ? "–" : r.yellow_pg.toFixed(2)}</td><td className="num">{r.red_pg == null ? "–" : r.red_pg.toFixed(2)}</td><td className="num">{r.pens_pg == null ? "–" : r.pens_pg.toFixed(2)}</td><td className="num">{pc(r.home_win_pct)}</td></tr>
       ))}</tbody>
     </table></div>
+  );
+}
+
+function Bookings({ id }) {
+  const q = useApi(`/leagues/${id}/booking-risk`);
+  if (q.loading && !q.data) return <Loading />;
+  if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  if (!q.data.rows.length) return <Empty icon="flag" testid="bookings-empty">No card forecasts for the next round yet. They appear once the next matches are loaded.</Empty>;
+  return (
+    <>
+      <p className="muted small" data-testid="bookings-range">Players most likely to get a yellow card in the next round, {kickoff(q.data.from)} onwards. Uses each player's card rate, the opponent and the referee when named.</p>
+      <ol className="book-list" data-testid="bookings-list">{q.data.rows.map((f, i) => (
+        <li key={f.id} className="book-row" data-testid={`booking-${i}`}>
+          <span className="book-rank">{i + 1}</span>
+          <PlayerAvatar player={f.player} size={36} />
+          <span className="book-who"><Link to={`/player/${f.player?.id}`}><b>{f.player?.name}</b></Link>
+            <small className="muted">{f.team?.name} {f.home_iid === f.team_iid ? "v" : "at"} <Link to={`/match/${f.match_id}`}>{f.opp?.name}</Link>{f.referee ? <> · <Link to={refPath(f.referee)}>{f.referee}</Link></> : ""}</small></span>
+          <span className="book-p"><b>{Math.round(f.p * 100)}%</b><span className="book-bar"><i style={{ width: `${Math.round(f.p * 100)}%` }} /></span></span>
+        </li>
+      ))}</ol>
+    </>
   );
 }
 
@@ -101,11 +123,12 @@ export default function League() {
   return (
     <section data-testid="league-page">
       <header className="phead"><LeagueMark league={d} size={40} decorative={false} /><div><h1>{d.name}</h1><p className="muted">{[d.country, d.current_season].filter(Boolean).join(" · ")}</p></div></header>
-      <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "fixtures", label: "Fixtures" }, { id: "results", label: "Results" }, { id: "leaders", label: "Leaderboards" }, { id: "referees", label: "Referees" }, { id: "teams", label: "Teams" }]} />
+      <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "fixtures", label: "Fixtures" }, { id: "results", label: "Results" }, { id: "leaders", label: "Leaderboards" }, { id: "bookings", label: "Bookings" }, { id: "referees", label: "Referees" }, { id: "teams", label: "Teams" }]} />
       {tab === "fixtures" && <List rows={d.next} empty="No upcoming fixtures loaded." />}
       {tab === "results" && <Results id={id} />}
       {tab === "leaders" && <Leaders id={id} />}
       {tab === "referees" && <Referees id={id} />}
+      {tab === "bookings" && <Bookings id={id} />}
       {tab === "teams" && <Teams id={id} next={d.next} />}
     </section>
   );

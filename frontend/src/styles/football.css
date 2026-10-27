@@ -93,6 +93,22 @@
 .fg-dot { grid-area: dot; width: 10px; height: 10px; border-radius: 50%; } .fg-dot--us { background: var(--up); } .fg-dot--them { background: var(--down); } .fg-dot--none { background: var(--border-strong, var(--border)); }
 .fg-opp { grid-area: opp; font-weight: 600; } .fg-games .small { grid-area: who; } .fg-res { grid-area: res; font-variant-numeric: tabular-nums; }
 .fg-res--w { color: var(--up); } .fg-res--l { color: var(--down); }
+.ref-badge { width: 64px; height: 64px; border-radius: 18px; flex: none; background: linear-gradient(135deg, #f5c518 0 50%, #e5484d 50% 100%); box-shadow: inset 0 0 0 3px var(--surface1); }
+.ref-eyebrow { margin: 0; text-transform: uppercase; letter-spacing: .08em; }
+.ref-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+@media (min-width: 900px) { .ref-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.ref-tiles div { padding: 12px 14px; border-radius: 14px; background: var(--surface1); border: 1px solid var(--border); }
+.ref-tiles dt { font-size: .75rem; color: var(--text2); } .ref-tiles dd { margin: 4px 0 0; font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ref-section { margin-top: 24px; display: grid; gap: 10px; }
+.ref-row { display: grid; gap: 2px; padding: 10px 12px; color: var(--text); text-decoration: none; }
+.hero-meta a, .book-who a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.book-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.book-row { display: grid; grid-template-columns: 22px 36px minmax(0, 1fr) 88px; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--surface1); border: 1px solid var(--border); animation: rise .2s ease both; }
+.book-rank { font-weight: 700; color: var(--text2); font-variant-numeric: tabular-nums; text-align: center; }
+.book-who { display: grid; min-width: 0; } .book-who b { overflow-wrap: anywhere; } .book-who small { overflow-wrap: anywhere; }
+.book-who > a { text-decoration: none; }
+.book-p { display: grid; gap: 4px; justify-items: end; } .book-p b { font-variant-numeric: tabular-nums; }
+.book-bar { width: 100%; height: 6px; border-radius: 999px; background: var(--surface2); overflow: hidden; } .book-bar i { display: block; height: 100%; background: #f5c518; border-radius: inherit; }
 .fg-pair { display: grid; gap: 14px; } @media (min-width: 900px) { .fg-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 @media (max-width: 480px) { .hero-team .chips { display: none; } .hero-mid time { font-size: 12px; } }
 

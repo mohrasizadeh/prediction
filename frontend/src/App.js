@@ -8,6 +8,7 @@ import Match from "./pages/Match";
 import League, { Leagues } from "./pages/League";
 import Team from "./pages/Team";
 import Player from "./pages/Player";
+import Referee from "./pages/Referee";
 import Pricing from "./pages/Pricing";
 import Finder from "./pages/Finder";
 import { Insights, TrackRecord } from "./pages/Insights";
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="league/:id" element={<League />} />
           <Route path="team/:id" element={<Team />} />
           <Route path="player/:id" element={<Player />} />
+          <Route path="referee/:name" element={<Referee />} />
           <Route path="following" element={<Following />} />
           <Route path="track-record" element={<TrackRecord />} />
           <Route path="search" element={<Search />} />

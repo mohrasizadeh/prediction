@@ -36,7 +36,7 @@ function Hero({ d }) {
       </div>
       <ProbBar probs={d.probs} />
       {d.probs && <p className="muted small hero-xg">Expected goals {num1(d.probs.xg_home)} – {num1(d.probs.xg_away)}</p>}
-      {(m.referee || m.stadium) && <p className="muted small hero-meta" data-testid="match-meta">{[m.referee && `Referee: ${m.referee}`, m.stadium].filter(Boolean).join(" · ")}</p>}
+      {(m.referee || m.stadium) && <p className="muted small hero-meta" data-testid="match-meta">{m.referee && <>Referee: <Link to={`/referee/${encodeURIComponent(m.referee)}`} data-testid="match-referee-link">{m.referee}</Link></>}{m.referee && m.stadium ? " · " : ""}{m.stadium}</p>}
       <ShareCard d={d} />
     </section>
   );

@@ -307,6 +307,51 @@ def team_first_goal(db, team_iid: int, last_n: int = 20) -> dict:
     return out
 
 
+def referee_detail(db, name: str, limit: int = 60) -> dict | None:
+    ms = list(db.matches.find({"referee": name, "status": "final"}, {"_id": 0, "iid": 1, "id": 1, "league_iid": 1, "home_iid": 1, "away_iid": 1,
+                                                                       "hg": 1, "ag": 1, "kickoff": 1}).sort("kickoff", -1).limit(limit))
+    up = list(db.matches.find({"referee": name, "status": "scheduled"}, {"_id": 0, "id": 1, "league_iid": 1, "home_iid": 1, "away_iid": 1, "kickoff": 1}).sort("kickoff", 1).limit(5))
+    if not ms and not up:
+        return None
+    ev = {d["match_iid"]: d["events"] for d in db.match_events.find({"match_iid": {"$in": [m["iid"] for m in ms]}}, {"match_iid": 1, "events": 1})}
+    tm = _names(db, "teams", [t for m in ms + up for t in (m["home_iid"], m["away_iid"])])
+    lg = {d["iid"]: {"id": d["id"], "name": d["name"]} for d in db.leagues.find({"iid": {"$in": list({m["league_iid"] for m in ms + up})}}, {"iid": 1, "id": 1, "name": 1})}
+    tot = {"matches": len(ms), "with_events": 0, "yellow": 0, "red": 0, "pens": 0, "home_wins": 0, "draws": 0, "away_wins": 0}
+    games = []
+    for m in ms:
+        e = ev.get(m["iid"])
+        c = {"yellow": None, "red": None, "pens": None}
+        if e is not None:
+            tot["with_events"] += 1
+            c = {"yellow": sum(x["type"] == "yellow" for x in e), "red": sum(x["type"] == "red" for x in e), "pens": sum(x["type"] == "goal" and x["penalty"] for x in e)}
+            for k in c: tot[k] += c[k]
+        tot["home_wins" if m["hg"] > m["ag"] else "draws" if m["hg"] == m["ag"] else "away_wins"] += 1
+        games.append({"match_id": m["id"], "kickoff": m["kickoff"], "league": lg.get(m["league_iid"]), "home": tm.get(m["home_iid"]), "away": tm.get(m["away_iid"]),
+                      "score": f"{m['hg']}-{m['ag']}", **c})
+    n = tot["with_events"] or None
+    per = {k: (tot[k] / n if n else None) for k in ("yellow", "red", "pens")}
+    leagues = [{**r, "league": lg.get(r["league_iid"])} for r in db.referee_stats.find({"referee": name}, {"_id": 0})]
+    return {"name": name, "totals": tot, "per_game": per, "leagues": leagues, "games": games,
+            "upcoming": [{"match_id": m["id"], "kickoff": m["kickoff"], "league": lg.get(m["league_iid"]), "home": tm.get(m["home_iid"]), "away": tm.get(m["away_iid"])} for m in up]}
+
+
+def booking_risk(db, league_iid: int, days: int = 8, limit: int = 25) -> dict:
+    """Current 'Gets a yellow card' forecasts for the league's next round (matches in the next `days`)."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    first = db.matches.find_one({"league_iid": league_iid, "status": "scheduled", "kickoff": {"$gte": now}}, sort=[("kickoff", 1)])
+    if not first:
+        return {"rows": [], "from": None, "to": None}
+    end = first["kickoff"] + timedelta(days=days)
+    fc = list(db.forecasts.find({**NOT_HIDDEN, "league_iid": league_iid, "is_current": True, "stat": "yellow_cards", "scope": "player",
+                                 "kickoff": {"$gte": now, "$lte": end}}, {"_id": 0}).sort("p", -1).limit(limit))
+    _decorate(db, fc)
+    ms = {m["iid"]: m for m in db.matches.find({"iid": {"$in": list({f["match_iid"] for f in fc})}}, {"iid": 1, "id": 1, "referee": 1, "home_iid": 1})}
+    for f in fc:
+        m = ms.get(f["match_iid"], {})
+        f["match_id"], f["referee"], f["home_iid"] = m.get("id"), m.get("referee"), m.get("home_iid")
+    return {"rows": fc, "from": first["kickoff"], "to": end}
+
+
 def leaderboard(db, league_iid: int, stat: str, per90: bool = False, min_minutes: int = 450, limit: int = 50) -> list[dict]:
     assert stat in STAT_FIELDS
     rows = list(db.player_match_stats.aggregate([
