@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 14 tested the four Phase 4 gaps, on both backend and frontend, at 1920 and 390. Backend: the new test_phase4d_gaps.py passes 14 of 15. The one failure is a real UI/data mismatch (see below). Frontend: Images, Contact, the Finder usage pill and mobile all work, with 2 bugs. (1) The E-mail log Status filter cannot match any real row. (2) Contact does not prefill name and e-mail when the signed-in user loads /contact directly or refreshes it. Verified working: E-mail log table newest first; addresses masked for the analyst role ('t***@example.com') and shown in full for admin; template filter (verify_email -> 2 rows); drawer shows all fields. Images: empty state; oversize file gives a client toast; PNG upload with thumbnail; 'Copy address' puts /api/site/assets/<id> on the clipboard; delete confirm; an in-use image (referenced by a TEST popup) shows the 409 toast and stays; delete after the reference is removed -> 'Image deleted' and the empty state comes back. Contact: Send stays disabled below 5 trimmed characters; counter works; success copy shows; messages appear in Admin > Inbox; the 4th send in an hour gets 429 and shows 'Too many requests. Try again soon.' Finder pill: signed-out sees 'Up to 3 searches a day without an account · Sign up for more'; free user 0 -> 1 -> 2 of 10; at 10 it shows 'Unlimited with Pro' (/pricing) with the is-out style, and the 11th search shows 'You have used today's searches on your plan.'; a Pro (comp) user sees no pill. Mobile 390: none of the 4 screens overflow sideways (scrollWidth 390); the Images grid has 2 columns.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/contact", "issue": "ContactBody.email is a plain str with no format check (e.g. 'abc' is accepted server-side; only the browser's type=email input guards it)."},
+      {"endpoint": "DELETE /api/admin/site/assets/{id}", "issue": "Returns 200 for an id that does not exist (no 404)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Admin E-mail log Status filter (Email.jsx LOG_TONE)", "issue": "The dropdown offers sent/delivered/failed/bounced/complained/skipped/queued. emailer.py writes skipped_disabled, skipped_unconfigured, skipped_suppressed, skipped_optout, skipped_cap and delayed. 'skipped' matches nothing ('No e-mails match.'), although all 9 current rows are skipped_disabled. These statuses also get the default 'muted' chip tone only by accident.", "selector": "[data-testid='elog-status']", "priority": "MEDIUM"},
+      {"component": "Contact.jsx prefill", "issue": "useState({name: user?.display_name, email: user?.email}) runs only once, at mount. On a direct load or refresh of /contact, auth has not finished yet, so the fields stay empty for a signed-in user. Moving there inside the app does prefill. Fix: a useEffect that fills empty fields when user arrives.", "selector": "[data-testid='contact-name'], [data-testid='contact-email']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin > Images", "issues": ["kb() uses 1e3, so the 512 KB limit (524288 bytes) shows as 'up to 524 KB' and 'That file is over 524 KB.', while the server error says 'limited to 512 KB'. Use 1024.", "Small files show '0 KB' (70-byte PNG); show bytes, or '<1 KB'."]},
+      {"screen": "Admin > E-mail log", "issues": ["Every mobile card shows an empty 'Why' label because skipped rows have no error/reason. Hide it when empty, or show the skip reason taken from the status.", "Drawer prints raw values: 'At 2026-10-26T23:55:32.814000' (not formatted with when()), 'Campaign id null', and internal 'To hash'. Format the dates and hide null or internal fields."]},
+      {"screen": "Finder pill (signed out)", "issues": ["A signed-out visitor never sees how many searches they have used. After 3 searches the pill still reads 'Up to 3...' (the error message does say to create an account). Optional."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_phase4d_gaps.py", "/app/test_reports/pytest/pytest_iter14.xml"],
+  "action_items": [
+    "Email.jsx: build the Status filter options from the real emailer statuses (sent, delivered, delayed, queued, failed, bounced, complained, skipped_disabled, skipped_unconfigured, skipped_suppressed, skipped_optout, skipped_cap) with readable labels, or make 'skipped' a prefix filter on the backend.",
+    "Contact.jsx: prefill name and e-mail once auth finishes (useEffect on user, fill only empty fields).",
+    "Media.jsx: use 1024 in kb() so the limit reads 512 KB; show '<1 KB' for tiny files.",
+    "Optional: E-mail log drawer: format 'at', hide null and to_hash fields; hide the empty 'Why' column/label.",
+    "Optional: validate the e-mail format on POST /api/contact; return 404 when deleting an unknown asset."
+  ],
+  "critical_code_review_comments": [
+    "Email.jsx LOG_TONE doubles as the status filter list but does not match emailer.py statuses (skipped_* / delayed)",
+    "Contact.jsx sets its initial state from auth before auth has loaded (common race on a direct load)",
+    "The template filter list comes from /admin/email/templates, so rows with template 'test' (send_test) or campaign rows cannot be filtered",
+    "Masking is driven by logs.pii (admin_queries.list_logs), not users.pii as written in the brief; the support role has users.pii but not logs.pii, so support sees masked addresses. Confirm this is intended."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase4d_gaps.py"],
+  "success_rate": {"backend": "93% (14/15; the failing test catches the UI status-filter mismatch)", "frontend": "~90% (2 medium bugs: status filter, contact prefill on direct load)"},
+  "seed_data_creation": "Recreated test_e1_admin, test_e1_user and the iteration-12 resend.dev admin/owner/analyst users. Created TEST images (TEST_pixel.png, TEST_grid_*), TEST contact messages (test_contact*@example.com), a 'TEST inuse ref' popup doc, finder_usage rows and a pro comp on test_e1_user. ALL deleted: users, their sessions, finder usage, assets (0 left), contact messages (0 left), contact rate limits, the TEST popup. No owner data touched. Pre-existing email_log rows were left as they were.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: python backend/tests/recreate_test_users.py; python backend/tests/iter12_users.py create; REACT_APP_BACKEND_URL=... python backend/tests/iter12_login.py analyst (the analyst sees masked addresses in the e-mail log). Admin session: admin_login_helper.admin_session() (delete /tmp/test_admin_totp.json after recreating users). Then run pytest backend/tests/test_phase4d_gaps.py with REACT_APP_BACKEND_URL exported; it needs the analyst cookie from /tmp/t12_cookies.json. Set localStorage consent='essential' before loading pages. To test an in-use image, insert a popups doc {content.image: '/api/site/assets/<id>'} and delete it afterwards. Contact rate-limit keys are rate_limits _id ^contact:. Finder cap: set finder_usage {subject:'u:<id>', day, name:'finder', count}. Cleanup as in seed_data_creation."
+}

@@ -76,7 +76,11 @@ def match_detail(db, match_iid: int) -> dict | None:
     lp = _names(db, "players", [x["player_iid"] for x in lu])
     for x in lu:
         x["player"] = lp.get(x["player_iid"])
-    return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]],
+    ev = (db.match_events.find_one({"match_iid": match_iid}, {"_id": 0, "events": 1}) or {}).get("events") or []
+    ep = _names(db, "players", [i for e in ev for i in (e.get("player_iid"), e.get("in_iid")) if i])
+    for e in ev:
+        e["player"], e["player_in"] = ep.get(e.get("player_iid")), ep.get(e.get("in_iid"))
+    return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]], "events": ev,
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
             "forecasts": fc, "styles": styles, "starters": lu,
             "rotation": {c["team_iid"]: {"level": c["level"], "why": c["why"], "rest_days": c["rest_days"], "next_gap": c["next_gap"]}
@@ -140,7 +144,8 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
 
 
 # --------------------------------------------------------------- Squad grid
-STAT_FIELDS = {"shots", "sot", "tackles", "goals", "assists", "minutes", "interceptions", "clearances", "saves", "fouls_committed", "fouls_won", "xg"}
+STAT_FIELDS = {"shots", "sot", "tackles", "goals", "assists", "minutes", "interceptions", "clearances", "saves", "fouls_committed", "fouls_won", "xg",
+               "yellow_cards", "red_cards", "pen_goals"}
 
 
 def squad_grid(db, team_iid: int, stat: str, last_n: int = 10, venue: str | None = None) -> list[dict]:
@@ -350,6 +355,9 @@ def player_history(db, player_iid: int, last_n: int = 20, venue: str | None = No
         reached[stat] = {str(t): sum(1 for v in vals if v >= t) for t in thresholds}
         reached[stat]["games"] = len(vals)
     for r in rows: r["opp"] = opp.get(r["opp_iid"])
+    sw = _names(db, "players", [i for r in rows for i in (r.get("replaced_iid"), r.get("replaced_by_iid")) if i])
+    for r in rows:
+        r["replaced"], r["replaced_by"] = sw.get(r.get("replaced_iid")), sw.get(r.get("replaced_by_iid"))
     return {"games": rows, "reached": reached}
 
 

@@ -35,6 +35,7 @@ function Hero({ d }) {
       </div>
       <ProbBar probs={d.probs} />
       {d.probs && <p className="muted small hero-xg">Expected goals {num1(d.probs.xg_home)} – {num1(d.probs.xg_away)}</p>}
+      {(m.referee || m.stadium) && <p className="muted small hero-meta" data-testid="match-meta">{[m.referee && `Referee: ${m.referee}`, m.stadium].filter(Boolean).join(" · ")}</p>}
       <ShareCard d={d} />
     </section>
   );
@@ -114,6 +115,36 @@ function H2H({ d }) {
   );
 }
 
+const EV = { goal: ["ball", "Goal"], yellow: ["card-y", "Yellow card"], red: ["card-r", "Red card"], sub: ["swap", "Substitution"] };
+const mins = (e) => `${e.minute}${e.added ? `+${e.added}` : ""}'`;
+
+function Events({ d }) {
+  const [only, setOnly] = useState("all");
+  const ev = d.events.filter((e) => only === "all" || (only === "cards" ? e.type === "yellow" || e.type === "red" : e.type === only));
+  const count = (s, t) => d.events.filter((e) => e.side === s && (t === "cards" ? e.type === "yellow" || e.type === "red" : e.type === t)).length;
+  if (!d.events.length) return <Empty icon="clock" testid="events-empty">{d.match.status === "final" ? "Goals, cards and substitutions for this match are still loading." : "Goals, cards and substitutions show here after full time."}</Empty>;
+  return (
+    <>
+      <div className="ev-sum" data-testid="events-summary">
+        {[["goal", "Goals"], ["cards", "Cards"], ["sub", "Subs"]].map(([t, l]) => <span key={t}><b>{count("home", t)}</b><em>{l}</em><b>{count("away", t)}</b></span>)}
+      </div>
+      <Seg label="Show" value={only} onChange={setOnly} options={[{ id: "all", label: "All" }, { id: "goal", label: "Goals" }, { id: "cards", label: "Cards" }, { id: "sub", label: "Subs" }]} testid="events-filter" />
+      <ol className="ev-list" data-testid="events-list">
+        {ev.map((e, i) => (
+          <li key={i} className={`ev ev--${e.side} ev--${e.type}`} data-testid={`event-${i}`}>
+            <span className="ev-min">{mins(e)}</span>
+            <span className={`ev-ico ev-ico--${e.type}`} aria-label={EV[e.type][1]} role="img" />
+            <span className="ev-txt">
+              {e.type === "sub" ? <><b>{e.player_in?.name || e.in_name}</b><small>on for {e.player?.name || e.player_name}</small></>
+                : <><b>{e.player?.id ? <Link to={`/player/${e.player.id}`}>{e.player.name}</Link> : e.player_name}</b><small>{EV[e.type][1]}{e.penalty ? " (penalty)" : ""}{e.own_goal ? " (own goal)" : ""}</small></>}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
 export default function Match() {
   const { id } = useParams();
   const q = useApi(`/matches/${id}`);
@@ -127,9 +158,10 @@ export default function Match() {
     <section data-testid="match-page">
       <h1 className="sr-only">{d.home.name} v {d.away.name}</h1>
       <Hero d={d} />
-      <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[{ id: "forecasts", label: `Forecasts (${d.forecasts.length})` }, { id: "lineups", label: "Lineups" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
+      <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[{ id: "forecasts", label: `Forecasts (${d.forecasts.length})` }, { id: "lineups", label: "Lineups" }, { id: "events", label: "Events" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
       {tab === "forecasts" && <Forecasts d={d} teams={teams} />}
       {tab === "lineups" && <Pitch d={d} />}
+      {tab === "events" && <Events d={d} />}
       {tab === "players" && <Players d={d} />}
       {tab === "h2h" && <H2H d={d} />}
       {tab === "matchup" && (d.matchup_locked ? <Empty icon="padlock" testid="matchup-locked">The style comparison is part of a bigger plan.</Empty>

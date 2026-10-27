@@ -300,6 +300,8 @@ def asset_upload(body: AssetBody, user=Depends(perm("site.write")), db=Depends(D
 
 @admin.delete("/site/assets/{aid}")
 def asset_delete(aid: str, user=Depends(perm("site.write")), db=Depends(D.get_db)):
+    if not db.site_assets.find_one({"_id": aid}, {"_id": 1}):
+        raise D.err(404, "NOT_FOUND", "That image no longer exists.")
     try:
         SS.delete_asset(db, user["email"], aid)
     except ValueError as e:

@@ -12,11 +12,36 @@ export const shortDay = (s) => kickoff(s, { day: "numeric", month: "short" });
 export const num1 = (v) => (v === null || v === undefined ? "–" : Number.isInteger(v) ? String(v) : v.toFixed(1));
 
 export const STATS = [
-  { id: "shots", label: "Shots" }, { id: "sot", label: "Shots on target" }, { id: "tackles", label: "Tackles" },
-  { id: "goals", label: "Goals" }, { id: "assists", label: "Assists" }, { id: "minutes", label: "Minutes" },
+  { id: "shots", label: "Shots", core: true }, { id: "sot", label: "Shots on target", core: true }, { id: "tackles", label: "Tackles", core: true },
+  { id: "goals", label: "Goals", core: true }, { id: "assists", label: "Assists", core: true }, { id: "minutes", label: "Minutes", core: true },
+  { id: "xg", label: "Expected goals (xG)" }, { id: "interceptions", label: "Interceptions" }, { id: "clearances", label: "Clearances" },
+  { id: "fouls_committed", label: "Fouls committed" }, { id: "fouls_won", label: "Fouls won" }, { id: "saves", label: "Saves" },
+  { id: "yellow_cards", label: "Yellow cards" }, { id: "red_cards", label: "Red cards" }, { id: "pen_goals", label: "Penalty goals" },
 ];
-export const TEAM_STATS = [{ id: "shots", label: "Shots" }, { id: "sot", label: "Shots on target" }, { id: "corners", label: "Corners" }, { id: "tackles", label: "Tackles" }];
+export const TEAM_STATS = [{ id: "shots", label: "Shots", core: true }, { id: "sot", label: "Shots on target", core: true }, { id: "corners", label: "Corners", core: true }, { id: "tackles", label: "Tackles", core: true },
+  { id: "xg", label: "Expected goals (xG)" }, { id: "yellow_cards", label: "Yellow cards" }, { id: "red_cards", label: "Red cards" }];
 const TACTICS = { low_block: "Low block", high_press: "High press", possession: "Possession" };
+
+// Per-browser table preferences (columns shown, hidden games).
+export function useStored(key, init) {
+  const [v, setV] = useState(() => { try { const s = JSON.parse(localStorage.getItem(key)); return s ?? init; } catch { return init; } });
+  const set = (n) => { setV(n); localStorage.setItem(key, JSON.stringify(n)); };
+  return [v, set];
+}
+
+export function ColumnPicker({ options, value, onChange, testid }) {
+  return (
+    <details className="colpick" data-testid={testid}>
+      <summary className="btn btn--ghost btn--sm">Columns ({value.length})</summary>
+      <div className="colpick-menu">
+        {options.map((o) => (
+          <label key={o.id} className="check-inline"><input type="checkbox" checked={value.includes(o.id)} data-testid={`${testid}-${o.id}`}
+            onChange={(e) => onChange(e.target.checked ? options.map((x) => x.id).filter((id) => id === o.id || value.includes(id)) : value.filter((x) => x !== o.id))} />{o.label}</label>
+        ))}
+      </div>
+    </details>
+  );
+}
 const POS = { GK: "Goalkeeper", DEF: "Defender", MID: "Midfielder", FWD: "Forward" };
 export const posLabel = (p) => POS[p] || "Position unknown";
 

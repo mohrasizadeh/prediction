@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { Crest, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
-import { ForecastCard, STATS, Seg, Select, kickoff, num1, posLabel, shortDay, useTitle } from "../components/Football";
+import { ColumnPicker, ForecastCard, STATS, Seg, Select, kickoff, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
 import { useAuth } from "../lib/auth";
 import { del, put } from "../lib/api";
@@ -61,6 +61,8 @@ function History({ id }) {
   const [venue, setVenue] = useState("all");
   const [started, setStarted] = useState(false);
   const [table, setTable] = useState(false);
+  const [cols, setCols] = useStored("cols:history", ["minutes", "shots", "sot", "tackles", "goals"]);
+  const shown = STATS.filter((s) => cols.includes(s.id));
   const q = useApi(`/players/${id}/history`, { last, started, ...(venue !== "all" ? { venue } : {}) });
   return (
     <section className="card" data-testid="quick-view">
@@ -76,12 +78,14 @@ function History({ id }) {
         <>
           <Chart games={q.data.games} stat={stat} line={line} />
           <button type="button" className="linkish" onClick={() => setTable(!table)} data-testid="qv-table-toggle">{table ? "Hide table" : "Show table"}</button>
+          {table && <ColumnPicker options={STATS} value={cols} onChange={setCols} testid="history-cols" />}
           {table && (
             <div className="tbl-wrap"><table className="tbl" data-testid="history-table">
-              <thead><tr><th scope="col">Match</th><th scope="col">Min</th><th scope="col">Shots</th><th scope="col">On target</th><th scope="col">Tackles</th><th scope="col">Goals</th></tr></thead>
+              <thead><tr><th scope="col">Match</th>{shown.map((s) => <th key={s.id} scope="col">{s.label}</th>)}<th scope="col">Cards</th></tr></thead>
               <tbody>{q.data.games.map((g) => (
-                <tr key={g.match_iid}><td><span className="team"><Crest team={g.opp} size={20} /> {g.home ? "v" : "at"} {g.opp?.name}<small className="muted"> {shortDay(g.kickoff)}</small></span></td>
-                  <td className="num">{num1(g.minutes)}</td><td className="num">{num1(g.shots)}</td><td className="num">{num1(g.sot)}</td><td className="num">{num1(g.tackles)}</td><td className="num">{num1(g.goals)}</td></tr>
+                <tr key={g.match_iid}><td><span className="team"><Crest team={g.opp} size={20} /> {g.home ? "v" : "at"} {g.opp?.name}<small className="muted"> {shortDay(g.kickoff)}</small></span>
+                  {(g.sub_on != null || g.sub_off != null) && <small className="sub-note" data-testid="history-sub">{g.sub_on != null ? `On ${g.sub_on}'${g.replaced ? ` for ${g.replaced.name}` : ""}` : ""}{g.sub_on != null && g.sub_off != null ? " · " : ""}{g.sub_off != null ? `Off ${g.sub_off}'${g.replaced_by ? `, ${g.replaced_by.name} on` : ""}` : ""}</small>}</td>
+                  {shown.map((s) => <td key={s.id} className="num">{num1(g[s.id])}</td>)}<td className="num">{g.red_cards ? <span className="card-dot card-dot--r" title="Red card" /> : null}{g.yellow_cards ? <span className="card-dot card-dot--y" title="Yellow card" /> : null}{!g.red_cards && !g.yellow_cards ? "–" : null}</td></tr>
               ))}</tbody>
             </table></div>
           )}

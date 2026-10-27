@@ -167,6 +167,8 @@ def ingest_match(client: PitchClient, match: dict) -> bool:
 
     save_lineups(db, match, out["lineups"], iid_of_team)
     db.matches.update_one({"iid": match["iid"]}, {"$set": {"ingested_at": utcnow(), "lineups_confirmed": True}})
+    if S.get(db, "ingest.match_extra_detail") or S.get(db, "ingest.match_extra_events"):
+        enqueue(db, "match_extras", ext, priority=6, payload={"match_iid": match["iid"]})
     return True
 
 
@@ -215,6 +217,7 @@ def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
     db = client.db
     done = skipped = failed = 0
     stop = None
+    ref_leagues = set()
     while done + skipped + failed < max_tasks:
         t = db.ingest_queue.find_one_and_update(
             {"status": "pending", "next_run_at": {"$lte": utcnow()}},
@@ -227,6 +230,13 @@ def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
                 ok = ingest_match(client, m) if m and not m.get("ingested_at") else True
                 db.ingest_queue.update_one({"_id": t["_id"]}, {"$set": {"status": "done" if ok else "skipped", "finished_at": utcnow()}})
                 done += ok; skipped += (not ok)
+            elif t["task"] == "match_extras":
+                import match_extras as MX
+                m = db.matches.find_one({"ext_id": t["key"]})
+                ok = bool(m) and MX.ingest_extras(client, m)
+                db.ingest_queue.update_one({"_id": t["_id"]}, {"$set": {"status": "done" if ok else "skipped", "finished_at": utcnow()}})
+                done += ok; skipped += (not ok)
+                if m: ref_leagues.add(m["league_iid"])
             else:
                 raise ValueError("unknown task " + t["task"])
         except (BudgetExhausted, BreakerOpen, Unauthorized) as e:
@@ -242,6 +252,10 @@ def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
                 db.ingest_queue.update_one({"_id": t["_id"]}, {"$set": {"status": "pending", "attempts": attempts,
                                                                         "next_run_at": utcnow() + hours(24)}})
                 skipped += 1
+    if ref_leagues:
+        import match_extras as MX
+        for lg in ref_leagues:
+            MX.rebuild_referees(db, lg)
     return {"done": done, "skipped": skipped, "failed": failed, "stopped_by": stop}
 
 

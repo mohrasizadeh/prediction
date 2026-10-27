@@ -8,7 +8,7 @@ import { Empty } from "../components/States";
 import { DataState, PageHead, when } from "./parts";
 
 const BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "");
-const kb = (b) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.round(b / 1e3)} KB`);
+const kb = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b < 1024 ? `${b} bytes` : `${Math.round(b / 1024)} KB`);
 
 export default function Media() {
   const toast = useToast();

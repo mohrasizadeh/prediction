@@ -328,8 +328,7 @@ def unsubscribe(request: Request, t: str | None = None, body: UnsubBody | None =
 
 class ContactBody(BaseModel):
     name: str = Field("", max_length=80)
-    email: str = Field(max_length=254)
-    message: str = Field(max_length=4000)
+    email: str = Field(max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 @router.post("/contact", status_code=202)

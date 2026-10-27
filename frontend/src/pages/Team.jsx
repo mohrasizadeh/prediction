@@ -5,7 +5,7 @@ import { useApi } from "../lib/useApi";
 import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
-import { FormPills, MatchRow, STATS, Seg, Select, TEAM_STATS, TacticChip, num1, posLabel, shortDay, useTitle } from "../components/Football";
+import { FormPills, MatchRow, STATS, Seg, Select, TEAM_STATS, TacticChip, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
 
 const WINDOWS = [{ id: 5, label: "Last 5" }, { id: 10, label: "Last 10" }, { id: 20, label: "Last 20" }];
@@ -16,11 +16,15 @@ function Grid({ id }) {
   const [last, setLast] = useState(10);
   const [line, setLine] = useState(1);
   const q = useApi(`/teams/${id}/squad-grid`, { stat, last });
-  const cols = useMemo(() => {
+  const [hidden, setHidden] = useStored(`hide:${id}`, []);
+  const all = useMemo(() => {
     const m = new Map();
     (q.data?.rows || []).forEach((r) => r.games.forEach((g) => m.set(g.match_iid, g)));
     return [...m.values()].sort((a, b) => (a.kickoff < b.kickoff ? 1 : -1)).slice(0, last);
   }, [q.data, last]);
+  const cols = all.filter((c) => !hidden.includes(c.match_iid));
+  const nHidden = all.length - cols.length;
+  const avg = (r) => { const v = r.games.filter((g) => !hidden.includes(g.match_iid) && g.v != null).map((g) => g.v); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
   return (
     <>
       <div className="filters">
@@ -29,16 +33,17 @@ function Grid({ id }) {
         <Seg label="Line" value={line} onChange={(v) => setLine(Number(v))} options={LINES} testid="grid-line" />
       </div>
       {q.data?.capped && <p className="notice small" data-testid="grid-capped">Showing the last {q.data.last} games. Longer windows come with a bigger plan.</p>}
+      <p className="muted small grid-hint">Tap a game's × to leave it out of the averages.{nHidden > 0 && <> <button type="button" className="linkish" onClick={() => setHidden([])} data-testid="grid-show-hidden">Show {nHidden} hidden</button></>}</p>
       {q.loading && !q.data ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.rows.length ? <Empty icon="grid">No player data for this club yet.</Empty> : (
         <div className="tbl-wrap"><table className="tbl grid" data-testid="squad-grid">
-          <thead><tr><th scope="col" className="sticky">Player</th>{cols.map((c) => <th key={c.match_iid} scope="col" className="gcol" title={`${c.opp?.name || ""} ${shortDay(c.kickoff)}`}><Crest team={c.opp} size={20} /><small>{shortDay(c.kickoff)}</small></th>)}<th scope="col">Avg</th></tr></thead>
+          <thead><tr><th scope="col" className="sticky">Player</th>{cols.map((c) => <th key={c.match_iid} scope="col" className="gcol" title={`${c.opp?.name || ""} ${shortDay(c.kickoff)}`}><Crest team={c.opp} size={20} /><small>{shortDay(c.kickoff)}</small><button type="button" className="gcol-hide" aria-label={`Hide the game against ${c.opp?.name || "this team"}`} onClick={() => setHidden([...hidden, c.match_iid])} data-testid={`grid-hide-${c.match_iid}`}>×</button></th>)}<th scope="col">Avg</th></tr></thead>
           <tbody>{q.data.rows.map((r) => {
             const by = Object.fromEntries(r.games.map((g) => [g.match_iid, g]));
             return (
               <tr key={r.player_iid}>
                 <th scope="row" className="sticky"><Link className="cell-person" to={`/player/${r.player?.id}`}><PlayerAvatar player={r.player} size={28} /><span>{r.player?.name}<small className="muted"> {r.player?.pos || ""}</small></span></Link></th>
                 {cols.map((c) => { const g = by[c.match_iid]; const v = g?.v; return <td key={c.match_iid} className={"num gcell" + (v != null && v >= line && stat !== "minutes" ? " hit" : "")}>{g ? num1(v) : <span className="muted">–</span>}</td>; })}
-                <td className="num"><b>{num1(r.avg)}</b></td>
+                <td className="num"><b>{num1(avg(r))}</b></td>
               </tr>
             );
           })}</tbody>

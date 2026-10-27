@@ -61,6 +61,22 @@ function Leaders({ id }) {
   );
 }
 
+const pc = (v) => (v == null ? "–" : `${Math.round(v * 100)}%`);
+function Referees({ id }) {
+  const q = useApi(`/leagues/${id}/referees`);
+  if (q.loading && !q.data) return <Loading />;
+  if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  if (!q.data.length) return <Empty icon="flag" testid="referees-empty">Referee records are still loading for this league.</Empty>;
+  return (
+    <div className="tbl-wrap"><table className="tbl" data-testid="referee-table">
+      <thead><tr><th scope="col">Referee</th><th scope="col">Games</th><th scope="col">Yellows a game</th><th scope="col">Reds a game</th><th scope="col">Penalties a game</th><th scope="col">Home wins</th></tr></thead>
+      <tbody>{q.data.map((r) => (
+        <tr key={r.name} data-testid="referee-row"><td><b>{r.name}</b></td><td className="num">{r.matches}</td><td className="num">{num1(r.yellow_pg)}</td><td className="num">{r.red_pg == null ? "–" : r.red_pg.toFixed(2)}</td><td className="num">{r.pens_pg == null ? "–" : r.pens_pg.toFixed(2)}</td><td className="num">{pc(r.home_win_pct)}</td></tr>
+      ))}</tbody>
+    </table></div>
+  );
+}
+
 function Teams({ id, next }) {
   const q = useApi(`/leagues/${id}/fixtures`, { status: "final", limit: 200 });
   const teams = useMemo(() => {
@@ -85,10 +101,11 @@ export default function League() {
   return (
     <section data-testid="league-page">
       <header className="phead"><LeagueMark league={d} size={40} decorative={false} /><div><h1>{d.name}</h1><p className="muted">{[d.country, d.current_season].filter(Boolean).join(" · ")}</p></div></header>
-      <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "fixtures", label: "Fixtures" }, { id: "results", label: "Results" }, { id: "leaders", label: "Leaderboards" }, { id: "teams", label: "Teams" }]} />
+      <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "fixtures", label: "Fixtures" }, { id: "results", label: "Results" }, { id: "leaders", label: "Leaderboards" }, { id: "referees", label: "Referees" }, { id: "teams", label: "Teams" }]} />
       {tab === "fixtures" && <List rows={d.next} empty="No upcoming fixtures loaded." />}
       {tab === "results" && <Results id={id} />}
       {tab === "leaders" && <Leaders id={id} />}
+      {tab === "referees" && <Referees id={id} />}
       {tab === "teams" && <Teams id={id} next={d.next} />}
     </section>
   );

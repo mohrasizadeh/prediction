@@ -54,6 +54,20 @@ def jobs_status(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
             "enabled_leagues": db.leagues.count_documents({"enabled": True})}
 
 
+@router.get("/ingest/extras")
+def extras_status(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    import match_extras as MX
+    return MX.status(db)
+
+
+@router.post("/ingest/extras/backfill")
+def extras_backfill(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    import match_extras as MX
+    n = MX.backfill(db)
+    db.audit_log.insert_one({"actor": user["email"], "action": "ingest.extras_backfill", "target": str(n), "at": datetime.now(timezone.utc)})
+    return {"queued": n}
+
+
 @router.get("/issues")
 def issues(resolved: bool = False, kind: str = "", page: int = 1, limit: int = 50, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     page, limit = max(1, page), max(1, min(limit, 100))

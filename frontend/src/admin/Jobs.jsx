@@ -25,6 +25,20 @@ const RECENT = [
   { key: "error", label: "Error", render: (r) => r.error || "None" },
 ];
 
+function Extras() {
+  const toast = useToast();
+  const q = useApi("/admin/ingest/extras");
+  if (!q.data) return null;
+  const x = q.data;
+  const go = async () => { try { const r = await post("/admin/ingest/extras/backfill"); toast(`${r.queued} matches queued`); q.reload(); } catch (e) { toast(e.message, "err"); } };
+  return (
+    <Card title="Referees, cards and substitutions" testid="jobs-extras" actions={<button className="btn btn--secondary btn--sm" onClick={go} data-testid="extras-backfill">Queue missing matches</button>}>
+      <p className="muted small">{x.detail || x.events ? `On. Each finished match costs ${x.calls_per_new_match} extra PitchAPI calls.` : "Off. Turn on ingest.match_extra_detail and ingest.match_extra_events in Settings."} {x.pending ? `About ${x.calls_needed} calls left for the backlog (daily budget ${x.daily_budget}).` : ""}</p>
+      <div className="a-tiles"><StatTile label="Matches done" value={`${x.done} / ${x.ingested}`} testid="extras-done" /><StatTile label="Waiting" value={x.pending} testid="extras-pending" /></div>
+    </Card>
+  );
+}
+
 export default function Jobs() {
   const q = useApi("/admin/jobs");
   const toast = useToast();
@@ -40,6 +54,7 @@ export default function Jobs() {
       <PageHead title="Jobs" lead="Everything runs inside the tick, which an outside pinger calls every 5 minutes. Manual runs wait for the next tick."
                 actions={<button className="btn btn--secondary btn--sm" onClick={q.reload} data-testid="jobs-refresh"><Icon name="refresh" size={16} />Refresh</button>} />
       {d.paused_reason && <p className="a-notice a-notice--warn" data-testid="jobs-paused"><Icon name="alert" size={16} />Calls are paused: {d.paused_reason}</p>}
+      <Extras />
       <div className="a-tiles-grid">
         <StatTile label="Leagues on" value={num(d.enabled_leagues)} testid="jobs-leagues" />
         <StatTile label="Seasons queued" value={num(d.seasons_queued)} testid="jobs-seasons" />

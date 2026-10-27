@@ -5,7 +5,11 @@ import { useApi } from "../lib/useApi";
 import { Confirm, Drawer, Field, FormError, useToast } from "../components/Ui";
 import { Chip, DataState, PageHead, Pager, ResponsiveTable, when } from "./parts";
 
-const LOG_TONE = { sent: "up", delivered: "up", failed: "down", bounced: "down", complained: "down", skipped: "muted", queued: "info" };
+const LOG_TONE = { sent: "up", delivered: "up", failed: "down", bounced: "down", complained: "down", delayed: "warn", queued: "info",
+  skipped_disabled: "muted", skipped_unconfigured: "muted", skipped_suppressed: "muted", skipped_optout: "muted", skipped_cap: "muted" };
+const SKIP = { skipped_disabled: "Sending was off", skipped_unconfigured: "No provider key", skipped_suppressed: "Address is blocked", skipped_optout: "They opted out", skipped_cap: "Daily limit reached" };
+const HIDE = new Set(["id", "_id", "to_hash", "idem"]);
+const fmt = (k, v) => (v && typeof v === "string" && /_at$|^at$/.test(k) ? when(v) : typeof v === "object" ? JSON.stringify(v) : String(v));
 
 export function EmailLog() {
   const [status, setStatus] = useState("");
@@ -18,18 +22,18 @@ export function EmailLog() {
     { key: "to", label: "To", primary: true, render: (r) => <span className="a-person"><b className="a-wrap">{r.to}</b><small>{r.template} · {r.category}</small></span> },
     { key: "status", label: "Status", render: (r) => <Chip tone={LOG_TONE[r.status] || "muted"}>{r.status}</Chip> },
     { key: "at", label: "When", render: (r) => when(r.at) },
-    { key: "error", label: "Why", render: (r) => r.error || r.reason || "" },
+    { key: "error", label: "Why", render: (r) => r.error || r.reason || SKIP[r.status] || "–" },
   ];
   return (
     <div className="a-page" data-testid="admin-email-log">
       <PageHead title="E-mail log" lead="Every e-mail the site tried to send, newest first. Addresses are partly hidden unless your role can see them." />
       <div className="a-filters">
-        <select aria-label="Status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} data-testid="elog-status"><option value="">Every status</option>{Object.keys(LOG_TONE).map((s) => <option key={s}>{s}</option>)}</select>
+        <select aria-label="Status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} data-testid="elog-status"><option value="">Every status</option>{Object.keys(LOG_TONE).map((s) => <option key={s} value={s}>{SKIP[s] ? `Skipped: ${SKIP[s].toLowerCase()}` : s}</option>)}</select>
         <select aria-label="E-mail" value={template} onChange={(e) => { setTemplate(e.target.value); setPage(1); }} data-testid="elog-template"><option value="">Every e-mail</option>{(tpl.data?.templates || []).map((t) => <option key={t.key} value={t.key}>{t.label || t.key}</option>)}</select>
       </div>
       <DataState q={q} empty="No e-mails match.">{(d) => <><ResponsiveTable columns={cols} rows={d.rows} onRow={setOpen} testid="elog-table" /><Pager page={d.page} limit={d.limit} total={d.total} onPage={setPage} /></>}</DataState>
       <Drawer open={!!open} onClose={() => setOpen(null)} title={open?.template || "E-mail"} testid="elog-drawer">
-        {open && <dl className="a-dl">{Object.entries(open).filter(([k]) => !["id", "_id"].includes(k)).map(([k, v]) => <div key={k}><dt>{k.replace(/_/g, " ")}</dt><dd className="a-wrap">{typeof v === "object" ? JSON.stringify(v) : String(v ?? "")}</dd></div>)}</dl>}
+        {open && <dl className="a-dl">{Object.entries(open).filter(([k, v]) => !HIDE.has(k) && v != null && v !== "").map(([k, v]) => <div key={k}><dt>{k.replace(/_/g, " ")}</dt><dd className="a-wrap">{fmt(k, v)}</dd></div>)}</dl>}
       </Drawer>
     </div>
   );

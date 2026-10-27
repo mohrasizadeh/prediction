@@ -35,7 +35,7 @@ export default function Finder() {
   const f = { ...DEF, ...Object.fromEntries(sp.entries()) };
   const set = (k) => (v) => {
     const n = { ...f, [k]: v };
-    if (k === "scope" && !(v === "team" ? TEAM_STATS : STATS).some((s) => s.id === n.stat)) n.stat = "shots";
+    if ((k === "scope" || k === "mode") && !(n.scope === "team" ? TEAM_STATS : STATS).some((s) => s.id === n.stat && (n.mode !== "likelihood" || s.core))) n.stat = "shots";
     setRes({ rows: null, err: null, busy: false });
     setSp(Object.fromEntries(Object.entries(n).filter(([kk, vv]) => vv !== "" && DEF[kk] !== vv)));
   };
@@ -83,7 +83,7 @@ export default function Finder() {
           <Seg label="Scope" value={f.scope} onChange={set("scope")} options={[{ id: "player", label: "Players" }, { id: "team", label: "Teams" }]} testid="finder-scope" />
         </div>
         <div className="filters">
-          <Select label="Stat" value={f.stat} onChange={set("stat")} options={f.scope === "team" ? TEAM_STATS : STATS.filter((s) => s.id !== "minutes")} testid="finder-stat" />
+          <Select label="Stat" value={f.stat} onChange={set("stat")} options={(f.scope === "team" ? TEAM_STATS : STATS.filter((s) => s.id !== "minutes")).filter((s) => f.mode !== "likelihood" || s.core)} testid="finder-stat" />
           <Select label="Line" value={f.n} onChange={set("n")} options={[1, 2, 3, 4, 5].map((n) => ({ id: String(n), label: `${n} or more` }))} testid="finder-n" />
           {f.mode !== "likelihood" && <Select label="Window" value={f.last_n} onChange={set("last_n")} options={["5", "10", "20"].map((n) => ({ id: n, label: `Last ${n}` }))} testid="finder-window" />}
           {f.mode !== "likelihood" && <Seg label="Venue" value={f.venue} onChange={set("venue")} options={[{ id: "", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid="finder-venue" />}

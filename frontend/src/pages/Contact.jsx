@@ -1,5 +1,5 @@
 // Contact (docs/13 §2): a plain message form. Staff read messages in Admin > Inbox; no auto-reply is sent.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { post } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTitle } from "../components/Football";
@@ -14,6 +14,7 @@ export default function Contact() {
   const [done, setDone] = useState(false);
   const [err, setErr] = useState(null);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  useEffect(() => { if (user) setF((x) => ({ ...x, name: x.name || user.display_name || "", email: x.email || user.email || "" })); }, [user]);
   const send = async (e) => {
     e.preventDefault();
     setBusy(true); setErr(null);
