@@ -28,10 +28,15 @@ import Quality from "./Quality";
 import Engine from "./Engine";
 import { Coupons, Payments, Revenue, Subscriptions } from "./Money";
 import { Campaigns, Suppressions, Templates } from "./Email";
+import Popups from "./Popups";
+import Newsletter from "./Newsletter";
+import Integrations from "./Integrations";
+import Analytics from "./Analytics";
 
 const SCREENS = { dashboard: Dashboard, users: Users, staff: Staff, settings: Settings, keys: Keys, logs: Logs, security: Security, health: Health,
   studio: Studio, pages: Content, inbox: Inbox, announcements: Announcements, plans: Plans, explorer: Explorer, cache: Cache, leagues: Leagues, jobs: Jobs, quality: Quality, engine: Engine,
-  subscriptions: Subscriptions, payments: Payments, coupons: Coupons, revenue: Revenue, templates: Templates, suppressions: Suppressions, campaigns: Campaigns };
+  subscriptions: Subscriptions, payments: Payments, coupons: Coupons, revenue: Revenue, templates: Templates, suppressions: Suppressions, campaigns: Campaigns,
+  popups: Popups, newsletter: Newsletter, integrations: Integrations, analytics: Analytics };
 const SHORT = { "Site Studio": "Studio", "E-mail templates": "Templates", "E-mail list": "List", "Blocked addresses": "Blocked", "Endpoint explorer": "Explorer", "Cache and usage": "Cache", "Data quality": "Quality", Announcements: "News" };
 
 export function useAdminShell() {

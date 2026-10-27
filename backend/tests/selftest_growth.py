@@ -187,7 +187,7 @@ with TestClient(srv.app) as owner:
 
     # ================================================================ E-MAIL PROVIDERS
     ov = admin.get("/api/admin/integrations").json()
-    check(ov["email"]["provider"] == "resend" and ov["email"]["key_set"] and ov["email"]["bounces"] == "automatic" and {p["id"] for p in ov["email"]["providers"]} == {"resend", "postmark", "sendgrid", "brevo", "smtp"}, "integrations page: Resend active, five choices")
+    check(ov["email"]["provider"] == "resend" and ov["email"]["key_set"] and ov["email"]["bounces"] == "automatic" and {p["id"] for p in ov["email"]["providers"]} == {"emergent", "resend", "postmark", "sendgrid", "brevo", "smtp"}, "integrations page: Resend active, six choices")
     check(support.get("/api/admin/integrations").status_code == 403 and analyst.get("/api/admin/integrations").status_code == 403, "support and analyst cannot open Integrations")
     check(admin.put("/api/admin/integrations/email", json={"provider": "mailgun"}).status_code == 400, "unknown provider refused")
     r = admin.put("/api/admin/integrations/email", json={"provider": "postmark"}).json()

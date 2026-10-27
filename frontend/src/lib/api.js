@@ -36,6 +36,7 @@ export async function api(path, { method = "GET", body, raw, query, signal } = {
   if (!res.ok) {
     const e = (data && data.error) || {};
     const err = new ApiError(res.status, e.code || "SERVER_ERROR", e.message, e.request_id);
+    if (e.problems) err.problems = e.problems;
     listeners.forEach((fn) => fn(err));
     throw err;
   }

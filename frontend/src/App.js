@@ -20,6 +20,7 @@ import AdminApp from "./admin/AdminApp";
 import { useAuth } from "./lib/auth";
 import { resolveMode, useSite } from "./lib/site";
 import { Loading } from "./components/States";
+import { NewsletterConfirm, Unsubscribe } from "./pages/EmailLinks";
 
 const P = (props) => <Spec {...props} />;
 
@@ -87,7 +88,8 @@ export default function App() {
           <Route path="pricing" element={<Pricing />} />
           <Route path="account/*" element={<Account />} />
           <Route path="contact" element={<P title="Contact" docs="docs/13 §2" routes={["POST /api/contact"]} />} />
-          <Route path="unsubscribe" element={<P title="Unsubscribe" docs="docs/13 §2, docs/14" routes={["GET /api/email/unsubscribe?t=", "POST /api/email/unsubscribe"]} />} />
+          <Route path="unsubscribe" element={<Unsubscribe />} />
+          <Route path="newsletter/confirm" element={<NewsletterConfirm />} />
           <Route path="learn" element={<MarkdownPage slug="learn" />} />
           <Route path="learn/:slug" element={<MarkdownPage />} />
           <Route path="legal/:slug" element={<MarkdownPage />} />

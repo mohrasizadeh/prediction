@@ -288,7 +288,7 @@ def _deliver(db, *, to, subject, html_body, text_body, category, template, user=
             return skip("skipped_cap")
     unsub = f"{base_url()}/api/email/unsubscribe?t={sign_unsub(to)}" if category != "transactional" else None
     payload = {"from": f"{S.get(db, 'email.from_name')} <{from_addr or 'managed'}>", "to": [to], "subject": subject,
-               "html": layout(db, html_body, category, unsub), "text": text_body,
+               "html": layout(db, html_body, category, unsub and f"{base_url()}/unsubscribe?t={sign_unsub(to)}"), "text": text_body,
                "tags": [{"name": "template", "value": re.sub(r"[^A-Za-z0-9_-]", "_", template)}]}
     if S.get(db, "email.reply_to"):
         payload["reply_to"] = S.get(db, "email.reply_to")

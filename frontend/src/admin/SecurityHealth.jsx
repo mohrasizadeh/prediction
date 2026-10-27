@@ -1,5 +1,7 @@
 // Security (docs/10 §3.15) and Health (§3.16).
 import { useApi } from "../lib/useApi";
+import { post } from "../lib/api";
+import { useToast } from "../components/Ui";
 import { ErrorBox, Loading, Empty } from "../components/States";
 import { AlertList } from "./Dashboard";
 import { Bars, Card, Chip, KV, PageHead, ResponsiveTable, StatTile, num, when } from "./parts";
@@ -40,6 +42,23 @@ export function Security() {
   );
 }
 
+function OpenAlerts() {
+  const toast = useToast();
+  const q = useApi("/admin/alerts");
+  const run = async (fn, msg) => { try { await fn(); toast(msg); q.reload(); } catch (x) { toast(x.message, "err"); } };
+  return (
+    <Card title="Growth and money alerts" testid="health-open-alerts" actions={<button className="a-link-btn" onClick={() => run(() => post("/admin/alerts/run"), "Checked again")} data-testid="alerts-run">Check now</button>}>
+      <p className="muted small">Sign-up drops, error spikes, failed payments and sync failures. One alert per problem; it is e-mailed to owners and admins.</p>
+      {q.loading ? <Loading rows={1} /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.open.length ? <Empty icon="check" testid="alerts-none">No open alerts.</Empty> : (
+        <ResponsiveTable testid="alerts-table" rows={q.data.open} columns={[
+          { key: "text", label: "Alert", primary: true, render: (r) => <b>{r.text}</b> },
+          { key: "at", label: "Since", render: (r) => when(r.at) },
+          { key: "x", label: "", render: (r) => <span onClick={(e) => e.stopPropagation()} role="presentation"><button className="btn btn--secondary btn--sm" onClick={() => run(() => post(`/admin/alerts/${r.id}/resolve`), "Marked as fixed")} data-testid={`alert-resolve-${r.id}`}>Mark fixed</button></span> }]} />
+      )}
+    </Card>
+  );
+}
+
 export function Health() {
   const q = useApi("/admin/health");
   if (q.loading && !q.data) return <Loading rows={5} />;
@@ -49,6 +68,7 @@ export function Health() {
     <div className="a-page" data-testid="admin-health">
       <PageHead title="Health" actions={<button className="btn btn--secondary btn--sm" onClick={q.reload} data-testid="health-refresh">Refresh</button>} />
       <Card title="Alerts" testid="health-alerts"><AlertList alerts={h.alerts} /></Card>
+      <OpenAlerts />
       <div className="a-tiles-grid">
         <StatTile label="Database" value={h.db_ok ? "OK" : "Down"} tone={h.db_ok ? "up" : "down"} testid="health-db" />
         <StatTile label="Last job" value={h.last_job_run ? when(h.last_job_run.started_at || h.last_job_run.at) : "None yet"} sub={h.last_job_run?.job} testid="health-job" />

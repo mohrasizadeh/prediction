@@ -11,6 +11,9 @@ import { audienceOk, route, useSite } from "../lib/site";
 import Icon from "./Icon";
 import { BrandLogo } from "./Media";
 import { useEsc } from "./Ui";
+import PopupHost from "./Popups";
+import NewsletterForm from "./Newsletter";
+import { setConsent, usePageBeacon, useTagLoader } from "../lib/growth";
 
 function ago(iso) {
   if (!iso) return null;
@@ -48,7 +51,7 @@ function CookieBanner({ c }) {
   const [choice, setChoice] = useState(() => localStorage.getItem("consent"));
   const { pathname } = useLocation();
   if (!c?.banner || choice || NO_BANNER.test(pathname)) return null;
-  const pick = (v) => { localStorage.setItem("consent", v); setChoice(v); };
+  const pick = (v) => { setConsent(v); setChoice(v); };
   return (
     <div className="cookie" role="region" aria-label="Privacy choices" data-testid="cookie-banner">
       <p>{c.text} {c.policy_route && <Link to={route(c.policy_route)}>Read more</Link>}</p>
@@ -99,6 +102,7 @@ function Footer({ cfg, updated, mode }) {
   return (
     <footer className="footer" data-testid="site-footer">
       <div className="wrap">
+        <NewsletterForm />
         <div className="footer-cols">
           <div className="footer-brand"><BrandLogo brand={cfg?.brand} mode={mode} /><strong>{cfg?.brand?.name || "Prediciotn"}</strong><p>{cfg?.brand?.tagline}</p></div>
           {(f.columns || []).map((c) => (
@@ -153,6 +157,8 @@ export default function Layout({ children }) {
   const staff = user && user.role !== "user";
   const maint = cfg?.maintenance?.on && !staff && !/^\/(sign-in|enroll-2fa|reset-password)/.test(loc.pathname);
   useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname]);
+  usePageBeacon(loc.pathname);
+  useTagLoader(cfg?.tracking, loc.pathname);
 
   return (
     <div className={"app" + (rail ? " app--rail" : "")}>
@@ -202,6 +208,7 @@ export default function Layout({ children }) {
       </nav>
       <MoreSheet open={more} onClose={closeMore} items={rest} user={user} signOut={signOut} />
       <CookieBanner c={cfg?.cookies} />
+      {!maint && !preview && <PopupHost enabled={!!cfg?.popups_enabled} />}
     </div>
   );
 }
