@@ -145,7 +145,7 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
 
 # --------------------------------------------------------------- Squad grid
 STAT_FIELDS = {"shots", "sot", "tackles", "goals", "assists", "minutes", "interceptions", "clearances", "saves", "fouls_committed", "fouls_won", "xg",
-               "yellow_cards", "red_cards", "pen_goals"}
+               "yellow_cards", "red_cards", "pen_goals", "match_yellow_cards"}
 
 
 def squad_grid(db, team_iid: int, stat: str, last_n: int = 10, venue: str | None = None) -> list[dict]:
@@ -273,6 +273,40 @@ def _homes(db, fc) -> dict:
 
 
 # ------------------------------------------------------------ Leaderboards
+def team_first_goal(db, team_iid: int, last_n: int = 20) -> dict:
+    """Who scored first in this team's recent finished matches, what happened next, and who scores first most."""
+    ms = list(db.matches.find({"$or": [{"home_iid": team_iid}, {"away_iid": team_iid}], "status": "final", "first_goal_side": {"$ne": None}},
+                              {"_id": 0, "iid": 1, "id": 1, "home_iid": 1, "away_iid": 1, "hg": 1, "ag": 1, "kickoff": 1, "first_goal_side": 1, "first_scorer_iid": 1})
+              .sort("kickoff", -1).limit(last_n))
+    out = {"played": len(ms), "scored_first": 0, "conceded_first": 0, "goalless": 0,
+           "after_scoring": {"w": 0, "d": 0, "l": 0}, "after_conceding": {"w": 0, "d": 0, "l": 0}, "games": [], "scorers": []}
+    cnt = {}
+    ev = {d["match_iid"]: d["events"] for d in db.match_events.find({"match_iid": {"$in": [m["iid"] for m in ms]}}, {"match_iid": 1, "events": 1})}
+    opp = _names(db, "teams", [m["away_iid"] if m["home_iid"] == team_iid else m["home_iid"] for m in ms])
+    for m in ms:
+        home = m["home_iid"] == team_iid
+        side = "home" if home else "away"
+        gf, ga = (m["hg"], m["ag"]) if home else (m["ag"], m["hg"])
+        res = "w" if gf > ga else "d" if gf == ga else "l"
+        fg = m["first_goal_side"]
+        who = "none" if fg == "none" else "us" if fg == side else "them"
+        if who == "us":
+            out["scored_first"] += 1; out["after_scoring"][res] += 1
+            if m.get("first_scorer_iid"): cnt[m["first_scorer_iid"]] = cnt.get(m["first_scorer_iid"], 0) + 1
+        elif who == "them":
+            out["conceded_first"] += 1; out["after_conceding"][res] += 1
+        else:
+            out["goalless"] += 1
+        g = next((e for e in ev.get(m["iid"], []) if e["type"] == "goal"), None)
+        out["games"].append({"match_id": m["id"], "kickoff": m["kickoff"], "home": home, "opp": opp.get(m["away_iid"] if home else m["home_iid"]),
+                             "who": who, "minute": g and g["minute"], "score": f"{gf}-{ga}", "result": res, "scorer_iid": m.get("first_scorer_iid") if who == "us" else None})
+    pl = _names(db, "players", list(cnt) + [g["scorer_iid"] for g in out["games"] if g["scorer_iid"]])
+    for g in out["games"]:
+        g["scorer"] = pl.get(g.pop("scorer_iid"))
+    out["scorers"] = [{"player": pl.get(p), "n": n} for p, n in sorted(cnt.items(), key=lambda x: -x[1])[:5] if pl.get(p)]
+    return out
+
+
 def leaderboard(db, league_iid: int, stat: str, per90: bool = False, min_minutes: int = 450, limit: int = 50) -> list[dict]:
     assert stat in STAT_FIELDS
     rows = list(db.player_match_stats.aggregate([

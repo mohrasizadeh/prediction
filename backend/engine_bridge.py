@@ -201,6 +201,8 @@ def run_league(db, league_iid: int, now=None) -> dict:
         if docs:
             db.forecasts.insert_many(docs)
         n_f += len(docs)
+    import cards_model as CM   # separate yellow-card model (owner's choice: soccer_brain untouched)
+    n_f += CM.run_league(db, league_iid, run_id, now)
     db.engine_runs.update_one({"run_id": run_id}, {"$set": {"status": "done", "finished_at": utcnow(), "as_of": as_of,
                                                              "matches_in_fit": int(len(ms)), "fixtures": len(upcoming), "forecasts": n_f}})
     return {"run_id": run_id, "status": "done", "forecasts": n_f, "fixtures": len(upcoming)}
@@ -316,9 +318,14 @@ def score_finished(db) -> int:
         if not m or not m.get("ingested_at"):
             continue
         if f["scope"] == "player":
+            if f["stat"] in ("yellow_cards", "red_cards") and not m.get("extras_at"):
+                continue                                               # cards arrive with the match-extras call
             r = db.player_match_stats.find_one({"match_iid": f["match_iid"], "player_iid": f["player_iid"]})
             actual = (r or {}).get(f["stat"]) if r else 0.0           # did not play: 0 and flagged
             played = r is not None
+        elif f["stat"] == "match_yellow_cards":
+            rows = [r.get("yellow_cards") for r in db.team_match_stats.find({"match_iid": f["match_iid"]}, {"yellow_cards": 1})]
+            actual = sum(rows) if len(rows) == 2 and None not in rows else None; played = True
         else:
             r = db.team_match_stats.find_one({"match_iid": f["match_iid"], "team_iid": f["team_iid"]})
             actual = (r or {}).get(f["stat"]); played = True

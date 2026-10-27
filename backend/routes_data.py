@@ -177,6 +177,12 @@ def team_totals(team_id: str, response: Response, stat: str = "shots", last: int
     return {"last": n, "capped": n < last, "rows": Q.team_totals_grid(db, _iid(db, "teams", team_id), _stat(stat), last_n=n)}
 
 
+@router.get("/teams/{team_id}/first-goal")
+def team_first_goal(team_id: str, response: Response, last: int = Query(20, ge=5, le=38), db=Depends(D.get_db)):
+    _cache(response)
+    return Q.team_first_goal(db, _iid(db, "teams", team_id), last_n=last)
+
+
 @router.get("/teams/{team_id}/against")
 def team_against(team_id: str, response: Response, stat: str = "shots", last: int = Query(10, ge=1, le=38), db=Depends(D.get_db)):
     _cache(response)

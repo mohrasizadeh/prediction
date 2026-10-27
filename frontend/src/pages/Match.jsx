@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { ForecastCard, MatchRow, ProbBar, Seg, TacticChip, kickoff, num1, posLabel, useTitle } from "../components/Football";
 import { ShareCard } from "../components/Share";
+import FirstGoal from "../components/FirstGoal";
 
 function Side({ team, rot, tactics, align }) {
   return (
@@ -158,10 +159,11 @@ export default function Match() {
     <section data-testid="match-page">
       <h1 className="sr-only">{d.home.name} v {d.away.name}</h1>
       <Hero d={d} />
-      <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[{ id: "forecasts", label: `Forecasts (${d.forecasts.length})` }, { id: "lineups", label: "Lineups" }, { id: "events", label: "Events" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
+      <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[{ id: "forecasts", label: `Forecasts (${d.forecasts.length})` }, { id: "lineups", label: "Lineups" }, { id: "events", label: "Events" }, { id: "first", label: "First goal" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
       {tab === "forecasts" && <Forecasts d={d} teams={teams} />}
       {tab === "lineups" && <Pitch d={d} />}
       {tab === "events" && <Events d={d} />}
+      {tab === "first" && <div className="fg-pair" data-testid="match-first-goal"><FirstGoal team={d.home} compact testid="first-goal-home" /><FirstGoal team={d.away} compact testid="first-goal-away" /></div>}
       {tab === "players" && <Players d={d} />}
       {tab === "h2h" && <H2H d={d} />}
       {tab === "matchup" && (d.matchup_locked ? <Empty icon="padlock" testid="matchup-locked">The style comparison is part of a bigger plan.</Empty>

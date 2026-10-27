@@ -16,10 +16,11 @@ export const STATS = [
   { id: "goals", label: "Goals", core: true }, { id: "assists", label: "Assists", core: true }, { id: "minutes", label: "Minutes", core: true },
   { id: "xg", label: "Expected goals (xG)" }, { id: "interceptions", label: "Interceptions" }, { id: "clearances", label: "Clearances" },
   { id: "fouls_committed", label: "Fouls committed" }, { id: "fouls_won", label: "Fouls won" }, { id: "saves", label: "Saves" },
-  { id: "yellow_cards", label: "Yellow cards" }, { id: "red_cards", label: "Red cards" }, { id: "pen_goals", label: "Penalty goals" },
+  { id: "yellow_cards", label: "Yellow cards", core: true }, { id: "red_cards", label: "Red cards" }, { id: "pen_goals", label: "Penalty goals" },
 ];
 export const TEAM_STATS = [{ id: "shots", label: "Shots", core: true }, { id: "sot", label: "Shots on target", core: true }, { id: "corners", label: "Corners", core: true }, { id: "tackles", label: "Tackles", core: true },
   { id: "xg", label: "Expected goals (xG)" }, { id: "yellow_cards", label: "Yellow cards" }, { id: "red_cards", label: "Red cards" }];
+export const MATCH_STATS = [{ id: "match_yellow_cards", label: "Yellow cards in the match", core: true }];
 const TACTICS = { low_block: "Low block", high_press: "High press", possession: "Possession" };
 
 // Per-browser table preferences (columns shown, hidden games).
@@ -93,8 +94,8 @@ export function ForecastCard({ f, teams = {}, showMatch, homeIid }) {
       <header className="fcard-head">
         {f.player ? <PlayerAvatar player={f.player} size={40} /> : <Crest team={team} size={40} />}
         <div className="fcard-who">
-          {f.player ? <Link to={`/player/${f.player.id}`}><b>{f.player.name}</b></Link> : <b>{team?.name || "Team"}</b>}
-          <span className="muted small">{f.player && f.pos ? `${posLabel(f.pos)} · ` : ""}{fixture}{showMatch ? ` · ${kickoff(f.kickoff)}` : ""}</span>
+          {f.player ? <Link to={`/player/${f.player.id}`}><b>{f.player.name}</b></Link> : <b>{f.stat?.startsWith("match_") ? fixture || "Match" : team?.name || "Team"}</b>}
+          <span className="muted small">{f.player && f.pos ? `${posLabel(f.pos)} · ` : ""}{f.stat?.startsWith("match_") ? "Both teams" : fixture}{showMatch ? ` · ${kickoff(f.kickoff)}` : ""}</span>
         </div>
         <TierBadge tier={f.tier} />
         {f.fkey && <SaveButton fkey={f.fkey} />}

@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { FormPills, MatchRow, STATS, Seg, Select, TEAM_STATS, TacticChip, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
+import FirstGoal from "../components/FirstGoal";
 
 const WINDOWS = [{ id: 5, label: "Last 5" }, { id: 10, label: "Last 10" }, { id: 20, label: "Last 20" }];
 const LINES = [1, 2, 3, 4, 5].map((n) => ({ id: n, label: `${n}+` }));
@@ -110,10 +111,11 @@ export default function Team() {
           <div className="phead-row"><FormPills form={d.form} /><div className="chips">{(d.style?.tactics || []).map((t) => <TacticChip key={t} t={t} />)}</div><FollowButton kind="team" refId={d.team.id} name={d.team.name} /></div>
         </div>
       </header>
-      <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "grid", label: "Squad grid" }, { id: "totals", label: "Team totals" }, { id: "against", label: "Against" }, { id: "fixtures", label: "Fixtures" }]} />
+      <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "grid", label: "Squad grid" }, { id: "totals", label: "Team totals" }, { id: "against", label: "Against" }, { id: "first", label: "First goal" }, { id: "fixtures", label: "Fixtures" }]} />
       {tab === "grid" && <Grid id={id} />}
       {tab === "totals" && <Totals id={id} />}
       {tab === "against" && <Against id={id} />}
+      {tab === "first" && <FirstGoal team={d.team} />}
       {tab === "fixtures" && (d.next.length ? <ul className="mlist card">{d.next.map((m) => <MatchRow key={m.id} m={m} />)}</ul> : <Empty icon="calendar">No upcoming fixtures loaded.</Empty>)}
     </section>
   );
