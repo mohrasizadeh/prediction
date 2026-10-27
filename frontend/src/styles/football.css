@@ -28,7 +28,8 @@
 .fcard:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 .fcard-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .fcard-who { display: grid; min-width: 0; flex: 1; }
-.fcard-who a { color: var(--text); text-decoration: none; }
+.fcard-who a { color: var(--text); text-decoration: none; display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fcard-head > :not(.fcard-who) { flex: none; }
 .fcard-who b, .fcard-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fcard-market { margin: 0; font-weight: 700; font-size: 1.0625rem; }
 .fcard-reason { margin: 0; color: var(--text2); }

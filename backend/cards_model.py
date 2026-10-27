@@ -168,7 +168,9 @@ def notify_bookings(db, league_iid: int) -> int:
             continue
         names = ", ".join(f"{f['player']['name']} ({round(f['p'] * 100)}% v {f['opp']['name'] if f.get('opp') else 'next opponent'})" for _, f in items)
         r = E.send_template(db, "booking_alert", to=u["email"], user=u, vars={"players": names, "link": E.base_url() + "/following"},
-                            idem=f"booking-{uid}-{items[0][1]['match_iid']}")
+                            idem="booking-" + uid + "-" + "-".join(sorted(k.split(":", 1)[1] for k, _ in items)))
+        if r.get("status") not in ("sent", "duplicate"):
+            continue                                        # e-mail off, over the cap or failed: try again next run
         for key, _ in items:
             db.booking_alerts.update_one({"_id": key}, {"$set": {"at": utcnow(), "status": r.get("status")}}, upsert=True)
         sent += r.get("status") == "sent"

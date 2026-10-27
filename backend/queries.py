@@ -364,7 +364,10 @@ def booking_risk(db, league_iid: int, days: int = 8, limit: int = 25) -> dict:
         return {"rows": [], "from": None, "to": None}
     end = first["kickoff"] + timedelta(days=days)
     fc = list(db.forecasts.find({**NOT_HIDDEN, "league_iid": league_iid, "is_current": True, "stat": "yellow_cards", "scope": "player",
-                                 "kickoff": {"$gte": now, "$lte": end}}, {"_id": 0}).sort("p", -1).limit(limit))
+                                 "kickoff": {"$gte": now, "$lte": end}}, {"_id": 0}).sort("kickoff", 1))
+    seen = set()
+    fc = [f for f in fc if not (f["player_iid"] in seen or seen.add(f["player_iid"]))]   # each player's next match only
+    fc = sorted(fc, key=lambda f: -f["p"])[:limit]
     _decorate(db, fc)
     ms = {m["iid"]: m for m in db.matches.find({"iid": {"$in": list({f["match_iid"] for f in fc})}}, {"iid": 1, "id": 1, "referee": 1, "home_iid": 1})}
     for f in fc:

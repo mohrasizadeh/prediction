@@ -11,7 +11,7 @@ const f2 = (v) => (v == null ? "–" : v.toFixed(2));
 
 export default function Referees() {
   useTitle("Referees");
-  const [min, setMin] = useState("3");
+  const [min, setMin] = useState("5");
   const [sort, setSort] = useState("yellow_pg");
   const q = useApi("/referees", { min_matches: min });
   const rows = [...(q.data || [])].sort((a, b) => b[sort] - a[sort]);

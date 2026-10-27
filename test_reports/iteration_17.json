@@ -1,0 +1,40 @@
+{
+  "summary": "Tested the 7-day forecast window across leagues, the Referee Leaderboard, Booking Alerts (API, UI and e-mail) and the AF client handling of account errors, plus regressions. New pytest file: 21 tests. 20 of 21 passed on the first run. The one failure is a real issue: duplicate players in the booking top 10. On a re-run, the CL/EL finder tests returned 402 because the test admin had used its 10 daily searches; that is a quota artifact, not a bug. Finder (signed in as a TEST user): Shots 2+ returns 100 results each for Bundesliga, LaLiga and Premier League. Champions League shows the normal empty state ('Nothing meets that line'). Match pages for PL, LaLiga and BL show forecast cards (24 shown + Show more), including yellow-card cards. /referees: reached from rail-referees, from the phone More sheet (more-item-referees) and from the League > Referees tab (referees-all-link). It lists 68 referees at 3+ games, 152 at 1+ and 34 at 5+. Every sort is descending with bars and aria-sort set. Names link to /referee/:name. Booking alerts: /me/booking-risk returns 401 when signed out. The Following feed shows the card at the top with rank, opponent link and %. notify_bookings sent 1 e-mail (status 'sent') to delivered@resend.dev and 0 on the second call. A user with alert_emails=false got nothing. AF client: a mocked 'Your account is suspended' error raises ImageError and is not cached (2 calls = 2 HTTP hits). At 390px, /referees and /following do not overflow (the table scrolls inside .tbl-wrap). No page errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "queries.booking_risk / GET /api/leagues/{id}/booking-risk, /api/me/booking-risk, cards_model.notify_bookings", "issue": "The 8-day window starts from the league's first upcoming kickoff, so it covers two rounds when midweek games are played. Serie A now: Pavlovic (iid 160) is #1 (v Bologna, 28 Oct) and #2 (v Inter, 31 Oct), and Gaspar (2371) appears twice too, so the top 10 has only 8 distinct players. This makes 'this round' wrong, puts the same player twice on the Following card, gives duplicate data-testid following-booking-160, and lists the same player twice in the e-mail."},
+      {"endpoint": "cards_model.notify_bookings", "issue": "booking_alerts is upserted whatever the send status was (skipped_disabled, skipped_cap, failed, duplicate). If e-mail is off, over the cap or fails once, that user+player+match is marked done and never retried. Only record keys when status is 'sent' (or duplicate)."},
+      {"endpoint": "cards_model.notify_bookings", "issue": "The idem key is booking-{uid}-{first item's match_iid}. Players added to the top 10 later for the same match are swallowed as 'duplicate' by emailer, but are still recorded in booking_alerts."},
+      {"endpoint": "queries.referee_leaderboard", "issue": "Per-game values are weighted by referee_stats.matches. The docstring says 'weighted by games with card data'. If yellow_pg is computed over the with-events subset, the combined average is slightly off. Low impact."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Following BookingRisk", "issue": "The same player is shown twice (once per match in the 8-day window), with duplicate data-testid. This follows from the backend window issue.", "selector": "[data-testid=following-booking-160]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/referees", "issues": ["The default 'At least 3 games' plus the Yellows sort puts 3-game referees at the top (6.33/game). Consider a default of 5 games or a note about sample size.", "At 390px only # and Referee are visible. The sorted stat column needs a horizontal scroll (no page overflow, but the key data is hidden)."]},
+      {"screen": "Finder / ForecastCard", "issues": ["Long player names (e.g. 'Pierre-Emerick Aubameyang') overlap the 'Watch' badge in the card header."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter17_leagues_referees_bookings.py", "/app/test_reports/pytest/iter17.xml"],
+  "action_items": [
+    "booking_risk: limit to each team's next match (or to the first matchday / one forecast per player), so the top 10 is 10 distinct players for 'this round'. This fixes Following duplicates and e-mail duplicates.",
+    "notify_bookings: only write booking_alerts when send status is 'sent' (or 'duplicate'), so skipped or failed sends can retry.",
+    "Optional: referees page default min 5 games, or a sample-size hint; fix the ForecastCard name/badge overlap."
+  ],
+  "critical_code_review_comments": [
+    "notify_bookings marks alerts done even when the send was skipped or failed (no retry).",
+    "The booking_risk window (first kickoff + 8 days) spans multiple rounds, so there are duplicate players.",
+    "AFClient.get account-error detection works for errors={'access':...} or 'suspended'. Order is fine ('limit'/'request' first). A non-dict errors list holding 'access' only matches if it contains 'suspended'."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter17_leagues_referees_bookings.py"],
+  "success_rate": {"backend": "95% (20/21; 1 failing = real duplicate-player issue)", "frontend": "100% of requested flows work; 1 medium UI issue (duplicate rows)"},
+  "seed_data_creation": "Recreated test_e1_user/test_e1_admin, plus temporary TEST users delivered@resend.dev and test_bk_optout@example.com (ids prefixed test_), with follows. All removed: users, follows, sessions, auth_tokens, events, booking_alerts and email_log rows (verified 0 left). The admin TOTP state is in /tmp/test_admin_totp.json (admin deleted).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run tests/recreate_test_users.py first and tests/iter15_cleanup.py afterwards. The test admin used its 10 finder searches today (CL/EL finder tests return 402 until tomorrow); test_e1_user used 4. App clock is 27 Oct 2026. Serie A iid 61; top booking players: Pavlovic iid 160 / id c36d59db-008b-4e79-8a9d-ea211e54103c, Deiola iid 82 / id fa6ac31f-9b42-4142-91b1-7e4953a3f8c4. No real API-Football/PitchAPI calls were made; the AF test uses httpx.MockTransport and a monkeypatched security.get_provider_key.",
+  "rca of the issue": "Duplicate booking rows: booking_risk takes forecasts with kickoff between now and first_kickoff+8 days, sorted by p and limited, with no per-player dedupe. Serie A has a midweek round (27-29 Oct) and a weekend round (31 Oct-1 Nov) inside that window, so players with two matches show up twice. Mitigation: keep only each player's earliest match (dedupe by player_iid after sorting by kickoff), or cap the window at the end of the first matchday."
+}
