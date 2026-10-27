@@ -34,8 +34,14 @@ def normalize_events(data: dict, home_ext: str, away_ext: str) -> list[dict]:
         out.append({"type": k, "minute": e.get("minute"), "added": e.get("minute_added") or 0, "side": side,
                     "player_ext": p.get("id"), "player_name": p.get("name"), "in_ext": pin.get("id"), "in_name": pin.get("name"),
                     "own_goal": bool(e.get("is_own_goal")), "penalty": bool(e.get("is_penalty"))})
-    out.sort(key=lambda x: ((x["minute"] or 0), x["added"]))
-    return out
+    out.sort(key=lambda x: ((x["minute"] or 0), x["added"], x["type"] == "red"))
+    return dedupe(out)
+
+
+def dedupe(ev: list[dict]) -> list[dict]:
+    """A second yellow arrives as a yellow and a red at the same minute: keep only the red."""
+    reds = {(e.get("player_iid") or e.get("player_ext"), e["minute"], e["added"]) for e in ev if e["type"] == "red"}
+    return [e for e in ev if not (e["type"] == "yellow" and (e.get("player_iid") or e.get("player_ext"), e["minute"], e["added"]) in reds)]
 
 
 def _pid(db, ext, name, team_iid):
@@ -105,7 +111,25 @@ def _apply(db, match, ev, tid):
     for pid, v in per.items():
         db.player_match_stats.update_one({"match_iid": match["iid"], "player_iid": pid}, {"$set": v})
     for s, v in team.items():
+        o = "away" if s == "home" else "home"
+        opp = db.team_match_stats.find_one({"match_iid": match["iid"], "team_iid": tid[o]}, {"yellow_cards": 1}) or {}
+        v.update({"red_cards_against": team[o]["red_cards"], "pen_goals_against": team[o]["pen_goals"],
+                  "yellow_cards_against": opp.get("yellow_cards") if opp.get("yellow_cards") is not None else team[o]["yellow_cards_ev"]})
         db.team_match_stats.update_one({"match_iid": match["iid"], "team_iid": tid[s]}, {"$set": v})
+
+
+def reapply_all(db) -> int:
+    """Re-derive card/sub fields from saved events (no API calls)."""
+    n = 0
+    for doc in db.match_events.find({}):
+        m = db.matches.find_one({"iid": doc["match_iid"]})
+        ev = dedupe(doc["events"])
+        db.match_events.update_one({"_id": doc["_id"]}, {"$set": {"events": ev}})
+        _apply(db, m, ev, {"home": m["home_iid"], "away": m["away_iid"]})
+        n += 1
+    for lg in {d["league_iid"] for d in db.match_events.find({}, {"league_iid": 1})}:
+        rebuild_referees(db, lg)
+    return n
 
 
 def rebuild_referees(db, league_iid: int) -> int:

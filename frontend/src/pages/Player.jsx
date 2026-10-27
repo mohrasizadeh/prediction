@@ -85,7 +85,7 @@ function History({ id }) {
               <tbody>{q.data.games.map((g) => (
                 <tr key={g.match_iid}><td><span className="team"><Crest team={g.opp} size={20} /> {g.home ? "v" : "at"} {g.opp?.name}<small className="muted"> {shortDay(g.kickoff)}</small></span>
                   {(g.sub_on != null || g.sub_off != null) && <small className="sub-note" data-testid="history-sub">{g.sub_on != null ? `On ${g.sub_on}'${g.replaced ? ` for ${g.replaced.name}` : ""}` : ""}{g.sub_on != null && g.sub_off != null ? " · " : ""}{g.sub_off != null ? `Off ${g.sub_off}'${g.replaced_by ? `, ${g.replaced_by.name} on` : ""}` : ""}</small>}</td>
-                  {shown.map((s) => <td key={s.id} className="num">{num1(g[s.id])}</td>)}<td className="num">{g.red_cards ? <span className="card-dot card-dot--r" title="Red card" /> : null}{g.yellow_cards ? <span className="card-dot card-dot--y" title="Yellow card" /> : null}{!g.red_cards && !g.yellow_cards ? "–" : null}</td></tr>
+                  {shown.map((s) => <td key={s.id} className="num">{num1(g[s.id])}</td>)}<td className="num">{Array.from({ length: g.red_cards || 0 }, (_, i) => <span key={`r${i}`} className="card-dot card-dot--r" title="Red card" />)}{Array.from({ length: g.yellow_cards || 0 }, (_, i) => <span key={`y${i}`} className="card-dot card-dot--y" title="Yellow card" />)}{!g.red_cards && !g.yellow_cards ? "–" : null}</td></tr>
               ))}</tbody>
             </table></div>
           )}

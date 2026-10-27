@@ -62,7 +62,7 @@
 .ev-ico--goal { background: radial-gradient(circle at 50% 50%, var(--text) 0 30%, transparent 31%), var(--up); }
 .ev-ico--yellow, .card-dot--y { width: 13px; height: 18px; border-radius: 3px; background: #f5c518; }
 .ev-ico--red, .card-dot--r { width: 13px; height: 18px; border-radius: 3px; background: #e5484d; }
-.ev-ico--sub { background: conic-gradient(var(--up) 0 50%, var(--down) 0 100%); }
+.ev-ico--sub { border-radius: 4px; background: linear-gradient(135deg, var(--up) 0 50%, var(--down) 50% 100%); clip-path: polygon(50% 0, 100% 40%, 70% 40%, 70% 100%, 30% 100%, 30% 40%, 0 40%); }
 .card-dot { display: inline-block; width: 9px; height: 13px; margin: 0 1px; vertical-align: middle; }
 .sub-note { display: block; font-size: .75rem; color: var(--text3, var(--text2)); margin-top: 2px; }
 .colpick { position: relative; margin: 8px 0; }

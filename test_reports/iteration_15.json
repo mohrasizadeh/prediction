@@ -1,0 +1,42 @@
+{
+  "summary": "Phase 5 extras tested backend (pytest 28 tests, 26 pass) and frontend (Playwright desktop 1920 + mobile 390). Working: Match hero referee/stadium meta, Events tab (summary 0-2 / 3-0 / 5-4, All/Goals/Cards/Subs filter 14/2/3/9, home left x=504 / away right x=938, goal/card player links go to /player, 'X on for Y' subs, (penalty)/(own goal) flags in API), scheduled match shows events-empty; League Referees tab (34 rows Serie A, correct columns); Leaderboards with all 9 extra stats non-empty; Squad grid 15 stat options, x hides a game and Avg recalculates (2 -> 2.3 -> 2.5), 'Show N hidden' restores, persists per team after reload; Team totals adds xG/Yellow/Red; Finder Likelihood shows only 5 core stats, Form/Run show extras and searches return results (Form interceptions 2+ = 24 rows, Run fouls_won = 100), switching back to Likelihood resets the stat to shots; Player Show table Columns picker saves to localStorage and survives reload, Cards column markers, history-sub 'On 60' for Tiago Gabriel' / 'Off 66', Jamil Siebert on'; Admin Jobs extras card 430 / 430, Waiting 0, '2 extra PitchAPI calls', Queue missing matches -> toast '0 matches queued'; mobile 390 shows no horizontal page overflow on any of the 4 screens. One real bug: Team totals Against column is always empty for Yellow/Red cards.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/teams/{id}/totals?stat=yellow_cards|red_cards", "issue": "The 'against' value is always null. team_totals_grid reads r.get(stat + '_against'), but team_match_stats has no yellow_cards_against / red_cards_against (0 of 860 docs). xg_against exists, so xG works. The UI shows '–' in Against for every game."},
+      {"endpoint": "match_extras.normalize_events / _apply", "issue": "A second yellow is stored as a red AND a yellow event at the same minute (Lecce v Juventus, Kialonda Gaspar 90+4: red is listed before the yellow). Cards are double-counted: the match summary says Cards 3 when it was 2 yellows that led to a red, team yellow_cards_ev=2 while the stats feed says 1, and referee yellow_pg is inflated. Keep one event and sort yellow before red at the same minute."},
+      {"endpoint": "GET /api/leagues/{id}/leaderboard?stat=red_cards", "issue": "Returns 30 rows with only 4 above 0; the other 26 have total 0. Filter out total == 0 for sparse stats (red cards, pen goals)."},
+      {"endpoint": "GET /api/leagues/{disabled_id}/referees", "issue": "Disabled leagues return 404 and every enabled league has referees, so the referees-empty state can't be reached with the current data (not tested in UI)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Team > Team totals (Yellow/Red cards)", "issue": "Against bars always show '–' (caused by the backend gap above)", "selector": "[data-testid='team-totals']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Match > Events", "issues": ["Substitution names (player in and player out) are plain text, not links. Goal and card names are linked.", "The sub icon (red/green circle) looks a lot like the card icons when small."]},
+      {"screen": "League > Referees", "issues": ["Yellows a game mixes formats: '5' and '1' next to '3.8' (num1 drops the decimal for whole numbers). Reds and Penalties use toFixed(2). Use one consistent format."]},
+      {"screen": "Player > Show table > Cards", "issue_note": "", "issues": ["A player with 2 yellows in a game shows only one yellow marker.", "The Columns picker (details element) does not close on an outside click and overlays the table."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_phase5_extras.py", "/app/test_reports/pytest/pytest_phase5.xml", "/app/backend/tests/iter15_cleanup.py"],
+  "action_items": [
+    "Team totals: write yellow_cards_against / red_cards_against into team_match_stats (mirror from the opponent row, as for xg_against), or compute 'against' from the opponent's row in team_totals_grid.",
+    "Second yellow: collapse a yellow plus red at the same minute for the same player into a single 'Second yellow (red)' event; fix the order and the counts (match summary, team yellow_cards_ev, referee yellow_pg).",
+    "Leaderboard: drop rows with total 0.",
+    "Optional: link substitution player names; use one number format in the referee table."
+  ],
+  "critical_code_review_comments": [
+    "queries.team_totals_grid assumes a '<stat>_against' field for every TEAM_STATS entry. Only xg has one among the new stats.",
+    "match_extras._apply puts card counts on team_match_stats as yellow_cards_ev, but Team totals reads yellow_cards (stats feed). That's two sources of truth and they disagree (1 vs 2 for Lecce v Juventus).",
+    "rebuild_referees runs one find_one per match (N+1). Fine at 430 matches; use one $in query as data grows.",
+    "useStored keys 'hide:<teamId>' and 'cols:history' are never pruned. Stale ids are harmless but pile up."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase5_extras.py", "/app/backend/tests/iter15_cleanup.py"],
+  "success_rate": {"backend": "93% (26/28)", "frontend": "95%"},
+  "seed_data_creation": "Recreated test_e1_admin and test_e1_user via tests/recreate_test_users.py, then deleted both plus their sessions/auth_tokens/auth_log/events/app_logs with tests/iter15_cleanup.py. The extras backfill was clicked (queued 0, writes 1 audit_log row). No PitchAPI jobs were run.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Fixtures: final match with all event types 113a875c-88df-46d4-8e6b-fa52e1c74508 (Lecce 0-2 Juventus, ref Fabio Maresca); pen match ad59124d-...; own goal 48dac464-...; scheduled 76a8f86d-2137-4ec1-8362-6815feb8165f; Serie A 1e2b1fe0-57a2-4084-9c33-095eb7ad7e49; Lecce 6b66a173-7dc8-4cad-82ce-edc68eab17e0; sub player Corrie Ndaba 6294481b-...; carded player Kialonda Gaspar 5f92c709-.... Admin Jobs route is /admin/data/jobs. Anonymous finder quota is 3/day, so the pytest finder tests use the admin session. Run recreate_test_users.py before the tests and iter15_cleanup.py after."
+}

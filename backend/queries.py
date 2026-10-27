@@ -279,7 +279,7 @@ def leaderboard(db, league_iid: int, stat: str, per90: bool = False, min_minutes
         {"$match": {"league_iid": league_iid, stat: {"$ne": None}}},
         {"$group": {"_id": "$player_iid", "total": {"$sum": "$" + stat}, "minutes": {"$sum": "$minutes"}, "games": {"$sum": 1},
                     "team": {"$last": "$team_iid"}}},
-        {"$match": {"minutes": {"$gte": min_minutes}}}]))
+        {"$match": {"minutes": {"$gte": min_minutes}, "total": {"$gt": 0}}}]))
     for r in rows:
         r["per90"] = r["total"] / r["minutes"] * 90 if r["minutes"] else 0.0
     rows.sort(key=lambda r: -(r["per90"] if per90 else r["total"]))

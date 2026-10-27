@@ -135,7 +135,7 @@ function Events({ d }) {
             <span className="ev-min">{mins(e)}</span>
             <span className={`ev-ico ev-ico--${e.type}`} aria-label={EV[e.type][1]} role="img" />
             <span className="ev-txt">
-              {e.type === "sub" ? <><b>{e.player_in?.name || e.in_name}</b><small>on for {e.player?.name || e.player_name}</small></>
+              {e.type === "sub" ? <><b>{e.player_in?.id ? <Link to={`/player/${e.player_in.id}`}>{e.player_in.name}</Link> : e.in_name}</b><small>on for {e.player?.id ? <Link to={`/player/${e.player.id}`}>{e.player.name}</Link> : e.player_name}</small></>
                 : <><b>{e.player?.id ? <Link to={`/player/${e.player.id}`}>{e.player.name}</Link> : e.player_name}</b><small>{EV[e.type][1]}{e.penalty ? " (penalty)" : ""}{e.own_goal ? " (own goal)" : ""}</small></>}
             </span>
           </li>

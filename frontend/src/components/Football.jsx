@@ -1,6 +1,6 @@
 // Shared pieces for the public data screens (docs/04 §7): TierBadge, LikelihoodBar, TacticChip, ForecastCard,
 // MatchRow, ProbBar, FormPills. Times are parsed with utc(); images only through Media.jsx.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { pct, TIER } from "../lib/copy";
 import { utc } from "../lib/time";
@@ -30,8 +30,14 @@ export function useStored(key, init) {
 }
 
 export function ColumnPicker({ options, value, onChange, testid }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const off = (e) => { if (ref.current?.open && !ref.current.contains(e.target)) ref.current.open = false; };
+    document.addEventListener("pointerdown", off);
+    return () => document.removeEventListener("pointerdown", off);
+  }, []);
   return (
-    <details className="colpick" data-testid={testid}>
+    <details ref={ref} className="colpick" data-testid={testid}>
       <summary className="btn btn--ghost btn--sm">Columns ({value.length})</summary>
       <div className="colpick-menu">
         {options.map((o) => (
