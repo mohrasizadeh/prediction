@@ -1,0 +1,17 @@
+{
+  "summary": "Retest of iteration_17 fixes. All passed. Backend: new pytest file tests/test_iter18_booking_dedupe_alert_retry.py, 11 of 11 passed. booking_risk lists each player once in all 4 leagues (25 rows = 25 distinct players), and each row is that player's earliest current yellow forecast. /me/booking-risk with 6 follows across Serie A and PL returned 6 distinct rows. notify_bookings flow, in-process with delivered@resend.dev only: (1) alert_emails=false gave 0 sent, no email_log and no booking_alerts. (2) Alerts on but address suppressed gave a skipped_suppressed log and no booking_alerts. (3) After unsuppressing, 1 sent; the idem contains both player:match keys and 2 booking_alerts were recorded with status 'sent'. (4) A repeat call sent 0. (5) After following a 3rd top player, a new e-mail went out with a different idem for only that player, and alerts went to 3. /referees: the min 5 filter works, values sort descending, min 0 gives 422. Finder returned results for PL, LaLiga and Bundesliga (TEST user). Frontend: /following 'May be booked this round' showed 5 distinct rows with no duplicate data-testids and no overflow at 390px. /referees defaults to '5 games' (aria-pressed), 34 rows, vs 152 at 1 game and 68 at 3. The Reds sort sets aria-sort and orders descending. Forecast card for 'Pierre-Emerick Aubameyang' (match 33f8f5b1): the name has an ellipsis (overflow hidden, nowrap), and .fcard-who ends 10px before the tier badge at both 1920px and 390px. There is no page horizontal overflow. The Finder UI for LaLiga returned 100 cards. No page errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iter18_booking_dedupe_alert_retry.py", "/app/test_reports/pytest/iter18.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "booking_risk dedupes after the kickoff sort, so a player with no yellow forecast for his team's first match (not in the squad) shows with his later match inside the 8-day window. That is acceptable, but 'this round' can then be a later match.",
+    "The GET /api/referees API default is still min_matches=3; only the page defaults to 5. That is fine, just noting it."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter18_booking_dedupe_alert_retry.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Temporary TEST users (test_ prefixed ids: delivered@resend.dev, test_iter18_finder@example.com, test_iter18_ui@example.com), follows, a temporary manual suppression of delivered@resend.dev, and booking_alerts/email_log rows. All removed afterwards: 0 test users, 0 booking_alerts, no suppression row.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run the pytest with REACT_APP_BACKEND_URL exported from frontend/.env. notify_bookings is called in-process against the real DB; real users have no follows on the top booking players right now, so no real e-mails are sent. Re-check that before running. The test_iter18_finder and test_iter18_ui users each used 3 and 1 finder searches. No PitchAPI or API-Football calls were made, and no settings were changed."
+}
