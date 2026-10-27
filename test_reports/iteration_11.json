@@ -1,0 +1,19 @@
+{
+  "summary": "Retest of iteration_10 fixes. Backend 9/9 pass: pro_welcome is sent on the first move into active/trialing (incomplete->active via subscription.updated sends exactly one; active/past_due->active, trialing->active and replay send nothing more; unpaid->active calls notify again but the idem key blocks the second e-mail). A trial start includes 'Your free trial runs until DD Month YYYY.' Both e-mails were really sent (status sent) to delivered+t11member@resend.dev. Admin/owner see full e-mails in subscriptions and payments; analyst sees d***@resend.dev and the full address appears nowhere in the response. A campaign send is refused with the managed-provider message while marketing e-mail is off. The preview shows the trial sentence and the '01 December 2026' date. Frontend at 390px all pass: the phone card is now a DIV; member-open opens member-panel and 'Open full profile' opens /admin/users?open=<id> with the drawer; sub-cancel and sub-resume open sub-confirm; pay-refund opens refund-confirm; coupon-off opens coupon-confirm; camp-send opens camp-confirm; no button-inside-button warning; the canceled row has no empty chip. Regression: on Admin Users at 390px the card is still a button and tapping it opens the drawer. Desktop subscriptions table, panel and confirm still work.",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "stripe_billing._dispatch pro_welcome guard", "issue": "prev_status 'unpaid' (also paused/incomplete_expired) is not in the guard list, so the welcome block runs again on unpaid->active. The idem key stops a second e-mail, so nothing is visible to users. Optional: add 'unpaid' and 'paused' to the guard."}
+  ]},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iter11_welcome_masking.py", "/app/backend/tests/iter11_users.py", "/app/test_reports/pytest/iter11.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "The canceled-row actions column still renders a zero-width empty <span> inside .a-rowcard-chips. It has no visible chip but adds a flex gap. It is cosmetic only.",
+    "Optional: widen the pro_welcome prev_status guard (unpaid/paused) so the code does not rely only on the idem key."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter11_welcome_masking.py (new)", "/app/backend/tests/iter11_users.py (new)"],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (all 390px in-row flows + Users regression + desktop spot check)"},
+  "seed_data_creation": "Created TEST admin/analyst/member (delivered+t11*@resend.dev), synthetic subs sub_TEST_t11_inc/trial/canceled, payment in_TEST_t11_1, coupon TEST_T11 (DB only), campaign 'TEST_t11 campaign'. All were deleted afterwards, along with sessions, email_log, events, auth_log and the 10 evt_TEST_t11 webhook_events. One audit_log row was kept. The owner was not touched. 2 real welcome e-mails went to delivered+t11member@resend.dev.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Recreate users with `python backend/tests/iter11_users.py` (delete with `... delete`, which also removes the synthetic sub_TEST_t11*, in_TEST_t11*, evt_TEST_t11* and TEST_t11 campaigns). Run with REACT_APP_BACKEND_URL exported. For the browser, sign in via admin_login_helper (CREDS/STATE overridden) and inject the __Host-sid cookie with add_cookies(url=...)."
+}

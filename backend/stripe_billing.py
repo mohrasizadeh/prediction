@@ -478,7 +478,7 @@ def _dispatch(db, event, notify):
         elif r["was_new"]:
             db.events.insert_one({"name": "subscribed", "at": utcnow(), "day": utcnow().strftime("%Y-%m-%d"), "user_id": r["user"]["id"], "props": {"plan": r["plan_key"]}})
             _emit(db, "subscription.started", r["user"], {"plan": r["plan_key"]})
-        if not typ.endswith("deleted") and obj.get("status") in ("active", "trialing") and r.get("prev_status") not in ("active", "trialing", "past_due"):
+        if not typ.endswith("deleted") and obj.get("status") in ("active", "trialing") and r.get("prev_status") not in ("active", "trialing", "past_due", "unpaid", "paused"):
             te = ts(obj.get("trial_end"))
             sub = db.subscriptions.find_one({"_id": obj["id"]}) or {}
             nxt = te or sub.get("current_period_end")
