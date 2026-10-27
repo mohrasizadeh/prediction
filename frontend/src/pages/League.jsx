@@ -63,6 +63,31 @@ function Leaders({ id }) {
 }
 
 const pc = (v) => (v == null ? "–" : `${Math.round(v * 100)}%`);
+function Assignments({ id }) {
+  const q = useApi(`/leagues/${id}/referee-assignments`);
+  if (q.loading && !q.data) return <Loading rows={2} />;
+  if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  const d = q.data;
+  if (!d.rows.length) return null;
+  const avg = d.league_avg;
+  return (
+    <section className="ref-assign" data-testid="referee-assignments">
+      <h3 className="h3">Next round referees</h3>
+      <p className="muted small">Referees are usually named a day or two before kickoff.{avg ? ` League average: ${avg.yellow_pg.toFixed(2)} yellows and ${(avg.pens_pg || 0).toFixed(2)} penalties a game.` : ""}</p>
+      <ul className="ra-list">{d.rows.map((r) => (
+        <li key={r.match_id} className="ra-row" data-testid={`assign-${r.match_id}`}>
+          <Link to={`/match/${r.match_id}`} className="ra-fix"><span className="team"><Crest team={r.home} size={18} />{r.home?.name}</span><span className="team"><Crest team={r.away} size={18} />{r.away?.name}</span><small className="muted">{kickoff(r.kickoff)}</small></Link>
+          {r.referee ? (
+            <span className="ra-ref"><Link to={refPath(r.referee)} data-testid="assign-referee"><b>{r.referee}</b></Link>
+              <small className="muted">{r.stats?.yellow_pg != null ? `${r.stats.yellow_pg.toFixed(2)} yellows · ${(r.stats.pens_pg || 0).toFixed(2)} pens a game · ${r.stats.matches} games` : "No games here yet"}</small>
+              {r.stats?.yellow_pg != null && avg && <span className={`ra-tag ${r.stats.yellow_pg > avg.yellow_pg * 1.1 ? "is-high" : r.stats.yellow_pg < avg.yellow_pg * 0.9 ? "is-low" : ""}`}>{r.stats.yellow_pg > avg.yellow_pg * 1.1 ? "Cards above average" : r.stats.yellow_pg < avg.yellow_pg * 0.9 ? "Cards below average" : "Around average"}</span>}</span>
+          ) : <span className="ra-ref muted small" data-testid="assign-tbc">Referee not named yet</span>}
+        </li>
+      ))}</ul>
+    </section>
+  );
+}
+
 function Referees({ id }) {
   const q = useApi(`/leagues/${id}/referees`);
   if (q.loading && !q.data) return <Loading />;
@@ -70,6 +95,7 @@ function Referees({ id }) {
   if (!q.data.length) return <Empty icon="flag" testid="referees-empty">Referee records are still loading for this league.</Empty>;
   return (
     <>
+    <Assignments id={id} />
     <p className="muted small"><Link to="/referees" data-testid="referees-all-link">Compare referees across all leagues</Link></p>
     <div className="tbl-wrap"><table className="tbl" data-testid="referee-table">
       <thead><tr><th scope="col">Referee</th><th scope="col">Games</th><th scope="col">Yellows a game</th><th scope="col">Reds a game</th><th scope="col">Penalties a game</th><th scope="col">Home wins</th></tr></thead>

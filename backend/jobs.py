@@ -109,6 +109,9 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
             import cards_model as CM
             _run(db, "referee_watch", lambda: CM.plan_referees(db, now), now)
         if left():
+            import pitch_photos as PP
+            _run(db, "photo_plan", lambda: PP.plan(db), now)
+        if left():
             res = _run(db, "queue", lambda: I.process_queue(client, max_tasks=200), now)
             if res and (res["done"] or res["skipped"]): out["ran"].append("queue")
 

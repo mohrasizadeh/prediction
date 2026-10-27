@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
-import { patch } from "../lib/api";
+import { get, patch } from "../lib/api";
 import { DISCLAIMER } from "../lib/copy";
 import { utc } from "../lib/time";
 import { audienceOk, route, useSite } from "../lib/site";
@@ -140,6 +140,22 @@ export function Maintenance({ message }) {
   return <div className="maint" data-testid="maintenance-page"><Icon name="clock" size={32} /><h1>Back shortly</h1><p>{message}</p></div>;
 }
 
+function BookingBell() {
+  const { pathname } = useLocation();
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const ac = new AbortController();
+    get("/me/booking-risk", null, { signal: ac.signal }).then((r) => setN(r.rows?.length || 0)).catch(() => {});
+    return () => ac.abort();
+  }, [pathname]);
+  const label = n ? `${n} followed player${n === 1 ? "" : "s"} may be booked this round` : "No booking alerts";
+  return (
+    <Link to="/following" className="icon-btn bell-btn" aria-label={label} title={label} data-testid="header-bell">
+      <Icon name="bell" />{n > 0 && <span className="bell-badge" data-testid="header-bell-count">{n > 9 ? "9+" : n}</span>}
+    </Link>
+  );
+}
+
 export default function Layout({ children }) {
   const { user, me, signOut } = useAuth();
   const { cfg, preview } = useSite();
@@ -176,6 +192,7 @@ export default function Layout({ children }) {
             {user ? (
               <>
                 {staff && <Link to="/admin" className="btn btn--ghost btn--sm only-desk" data-testid="header-admin">Admin</Link>}
+                <BookingBell />
                 <Link to="/account" className="avatar-btn" aria-label="Account" data-testid="header-account">{(user.display_name || user.email || "?")[0].toUpperCase()}</Link>
               </>
             ) : (

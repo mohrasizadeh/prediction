@@ -430,6 +430,23 @@ def search(db, q: str, limit: int = 8) -> dict:
 
 
 # ---------------------------------------------------------------- Referees
+def referee_assignments(db, league_iid: int, days: int = 8) -> dict:
+    """The league's next round: each fixture with its referee (once named) and that referee's card averages here."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    first = db.matches.find_one({"league_iid": league_iid, "status": "scheduled", "kickoff": {"$gte": now}}, sort=[("kickoff", 1)])
+    if not first:
+        return {"rows": [], "from": None}
+    ms = list(db.matches.find({"league_iid": league_iid, "status": "scheduled", "kickoff": {"$gte": now, "$lte": first["kickoff"] + timedelta(days=days)}},
+                              {"_id": 0, "id": 1, "home_iid": 1, "away_iid": 1, "kickoff": 1, "referee": 1}).sort("kickoff", 1))
+    tm = _names(db, "teams", [t for m in ms for t in (m["home_iid"], m["away_iid"])])
+    refs = {r["referee"]: r for r in db.referee_stats.find({"league_iid": league_iid, "referee": {"$in": [m["referee"] for m in ms if m.get("referee")]}}, {"_id": 0})}
+    avg = list(db.referee_stats.aggregate([{"$match": {"league_iid": league_iid, "yellow_pg": {"$ne": None}}},
+                                           {"$group": {"_id": None, "y": {"$avg": "$yellow_pg"}, "p": {"$avg": "$pens_pg"}}}]))
+    rows = [{"match_id": m["id"], "kickoff": m["kickoff"], "home": tm.get(m["home_iid"]), "away": tm.get(m["away_iid"]),
+             "referee": m.get("referee"), "stats": refs.get(m.get("referee"))} for m in ms]
+    return {"rows": rows, "from": first["kickoff"], "league_avg": {"yellow_pg": avg[0]["y"], "pens_pg": avg[0]["p"]} if avg else None}
+
+
 def referee_table(db, league_iid: int) -> list[dict]:
     """Needs ingest.match_extra_detail on (referee name) and match_extra_events (cards)."""
     return list(db.referee_stats.find({"league_iid": league_iid}, {"_id": 0}).sort("matches", -1))
