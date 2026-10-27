@@ -146,7 +146,9 @@ function BookingBell() {
   useEffect(() => {
     const ac = new AbortController();
     get("/me/booking-risk", null, { signal: ac.signal }).then((r) => setN(r.rows?.length || 0)).catch(() => {});
-    return () => ac.abort();
+    const on = () => get("/me/booking-risk").then((r) => setN(r.rows?.length || 0)).catch(() => {});
+    window.addEventListener("follows-change", on);
+    return () => { ac.abort(); window.removeEventListener("follows-change", on); };
   }, [pathname]);
   const label = n ? `${n} followed player${n === 1 ? "" : "s"} may be booked this round` : "No booking alerts";
   return (

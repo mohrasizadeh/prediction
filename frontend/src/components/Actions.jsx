@@ -57,6 +57,7 @@ export function FollowButton({ kind, refId, name }) {
     try {
       if (on) { await del("/me/follows", { kind, ref_id: refId }); setOn(false); toast(`Stopped following ${name}`); }
       else { await put("/me/follows", { kind, ref_id: refId }); setOn(true); toast(`Following ${name}`); }
+      window.dispatchEvent(new Event("follows-change"));
     } catch (x) { toast(x.message || "Could not do that", "err"); }
   };
   return <button type="button" className={"btn btn--sm " + (on ? "btn--secondary" : "btn--primary")} onClick={go} aria-pressed={on} data-testid={`follow-${kind}`}><Icon name={on ? "check" : "plus"} size={16} />{on ? "Following" : "Follow"}</button>;

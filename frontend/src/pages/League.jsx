@@ -80,7 +80,7 @@ function Assignments({ id }) {
           {r.referee ? (
             <span className="ra-ref"><Link to={refPath(r.referee)} data-testid="assign-referee"><b>{r.referee}</b></Link>
               <small className="muted">{r.stats?.yellow_pg != null ? `${r.stats.yellow_pg.toFixed(2)} yellows · ${(r.stats.pens_pg || 0).toFixed(2)} pens a game · ${r.stats.matches} games` : "No games here yet"}</small>
-              {r.stats?.yellow_pg != null && avg && <span className={`ra-tag ${r.stats.yellow_pg > avg.yellow_pg * 1.1 ? "is-high" : r.stats.yellow_pg < avg.yellow_pg * 0.9 ? "is-low" : ""}`}>{r.stats.yellow_pg > avg.yellow_pg * 1.1 ? "Cards above average" : r.stats.yellow_pg < avg.yellow_pg * 0.9 ? "Cards below average" : "Around average"}</span>}</span>
+              {r.stats?.yellow_pg != null && avg && r.stats.matches >= 5 && <span className={`ra-tag ${r.stats.yellow_pg > avg.yellow_pg * 1.1 ? "is-high" : r.stats.yellow_pg < avg.yellow_pg * 0.9 ? "is-low" : ""}`}>{r.stats.yellow_pg > avg.yellow_pg * 1.1 ? "Cards above average" : r.stats.yellow_pg < avg.yellow_pg * 0.9 ? "Cards below average" : "Around average"}</span>}</span>
           ) : <span className="ra-ref muted small" data-testid="assign-tbc">Referee not named yet</span>}
         </li>
       ))}</ul>

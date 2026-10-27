@@ -1,0 +1,41 @@
+{
+  "summary": "Tested three things: PitchAPI player photos (fetch_photo with a mocked client and mocked http, plus public pages), the header booking bell (1920 and 390 px), and League > Referees 'Next round referees', plus regressions. Backend: 30 of 34 new tests passed. All 4 failures come from one bug: 'Next round' lists about two rounds of fixtures. Photos work. Stored player photos load from /api/media/player/... on the player page (7 of 7 images loaded), the team squad grid (9 of 9) and the match Lineups tab (7 of 7). The finder API returns 35 /api/media player URLs. No request to or URL for cdn.pitchapi.dev was seen on any page or API. fetch_photo stores the image when the URL is https on cdn.pitchapi.dev and the download returns 200 with PNG bytes. It returns 'missing' for http URLs, other hosts, lookalike hosts (cdn.pitchapi.dev.evil.com, x.cdn.pitchapi.dev), javascript:, an empty or missing image_url, non-200 responses and httpx errors. It returns 'bad' for SVG, GIF or empty bytes, and 'skipped' for an unknown player without calling the API. The PitchAPI lookup is cached forever (ttl None). Bell: hidden when signed out at both sizes. A TEST user following 2 top Serie A booking risks sees badge '2' with aria-label '2 followed players may be booked this round'. The bell links to /following, which shows the booking card. Unfollowing one, then navigating, gives '1'. Unfollowing both, then navigating, removes the badge (aria 'No booking alerts'). No overflow at 1920 or 390. /me/booking-risk returns 401 when signed out and responds in about 0.3 s. Referee assignments: Serie A has 8 named referees with yellows, pens, games and tags (above, below or around average), and 12 'Referee not named yet'. Referee links go to /referee/:name. The API returns rows, from and league_avg, and 404 for an unknown league. Regression: /referees, the booking-risk lists (unique players), /me/booking-risk unique, the finder and the Following booking card all pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/leagues/{id}/referee-assignments", "issue": "This is not one round. queries.referee_assignments takes every scheduled match within first_kickoff + 8 days, so it spans two rounds. Serie A returns 20 fixtures and all 20 clubs appear twice: the Oct 27-29 midweek round plus the Oct 31-Nov 2 weekend round. Bundesliga, LaLiga and the Premier League return 15 fixtures each, with 10-12 clubs appearing twice. The UI title 'Next round referees' and the request ('each fixture of the next round') say one round. Fix: use the round/matchday field if there is one, or stop at the first match where a team already listed plays again."},
+      {"endpoint": "pitch_photos.fetch_photo", "issue": "photo_checked_at is set before the download. plan() only queues players with photo_checked_at None, so a temporary failure (httpx error, 5xx, timeout) or an empty client.fetch result marks the player as checked for good and he is never retried. Consider setting photo_checked_at only for 'stored', 'bad' or 'missing image_url', or retrying after N days."},
+      {"endpoint": "pitch_photos.fetch_photo", "issue": "r.content is read fully before store_media checks images.max_bytes. There is no streaming size cap. Low risk, because the host is limited to the CDN and redirects are off."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BookingBell", "issue": "The count only refreshes on a pathname change. After following or unfollowing a player on his page, the badge stays stale until the user goes to another page. Consider refetching after follow/unfollow (an event or a shared context).", "selector": "[data-testid='header-bell-count']", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "League > Referees > Next round referees", "issue": "Shows two rounds (Serie A 20 rows, with each club listed twice), because of the backend window above.", "affected_selectors": ["[data-testid='referee-assignments']", "[data-testid^='assign-']"]}
+    ],
+    "design_issues": [
+      {"screen": "Next round referees", "issues": ["The above/below average tag is shown for referees with only 2 games in the league, for example 'Cards below average' for Luca Zufferli on 2 games. Consider requiring a minimum number of games (such as 3-5) before tagging."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter19_photos_bell_assignments.py", "/app/test_reports/pytest/iter19.xml"],
+  "action_items": [
+    "Limit referee_assignments to one round (matchday/round field, or stop before any club appears twice).",
+    "Do not mark photo_checked_at on temporary download or API failures, so those players get retried.",
+    "Optional: refetch the bell count after follow/unfollow; add a minimum games threshold for the referee card tag."
+  ],
+  "critical_code_review_comments": [
+    "referee_assignments: the fixed days=8 window is wrong for leagues with midweek rounds.",
+    "fetch_photo: photo_checked_at is written even when client.fetch returns None, so failures become permanent.",
+    "/me/booking-risk runs booking_risk for every enabled league on each navigation. It currently takes about 0.3 s, but it grows with the number of leagues. Consider caching per league.",
+    "The referee-assignments response includes internal team 'iid' and the full referee_stats docs (league_iid). This is harmless, but it is more data than the page needs."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter19_photos_bell_assignments.py"],
+  "success_rate": {"backend": "88% (30/34; the 4 failures are the same one-round bug)", "frontend": "95%"},
+  "seed_data_creation": "Temporary TEST users test_iter19_bell, test_iter19_ui and test_iter19_zero (alert_emails off, @example.com), their follows, and a TEST player with iid -919001 and its media. All deleted after testing.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run the pytest with REACT_APP_BACKEND_URL exported. test_one_round_each_team_once fails until the round fix lands. The fetch_photo tests use only FakeClient/FakeHttp; no PitchAPI or API-Football calls were made, and the background photo ingest was not touched (about 247 pitchapi photos stored at test time). The iter17 TestFinderLeagues tests error because the test admin is deleted; that is a test setup problem, not an app bug. The iter18 TestNotifyRetry tests (which send real e-mail) were deselected.",
+  "rca of the issue": "referee_assignments queries kickoff within [first, first + 8 days]. Serie A has a midweek round (Oct 27-29) followed by a weekend round (Oct 31-Nov 2) inside that window, so both rounds are returned and each club appears twice."
+}

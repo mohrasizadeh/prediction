@@ -41,8 +41,10 @@ def fetch_photo(client: PitchClient, ext_id: str, http=None) -> str:
         return "skipped"
     d = client.fetch(f"/v1/players/{ext_id}", ttl=FOREVER, purpose="player_photo")
     url = (d or {}).get("image_url") or ""
-    db.players.update_one({"iid": p["iid"]}, {"$set": {"photo_checked_at": utcnow()}})
+    checked = lambda: db.players.update_one({"iid": p["iid"]}, {"$set": {"photo_checked_at": utcnow()}})
     if urlparse(url).scheme != "https" or urlparse(url).hostname != CDN:
+        if d:
+            checked()                                 # the player simply has no picture
         return "missing"
     own = http is None
     http = http or httpx.Client(timeout=15, follow_redirects=False)
@@ -54,7 +56,8 @@ def fetch_photo(client: PitchClient, ext_id: str, http=None) -> str:
         if own:
             http.close()
     if r.status_code != 200:
-        return "missing"
+        return "missing"                             # temporary: retried at the next daily plan
+    checked()
     try:
         IM.store_media(db, "player", p["iid"], r.content, source="pitchapi")
     except IM.ImageError:

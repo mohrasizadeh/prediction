@@ -439,6 +439,12 @@ def referee_assignments(db, league_iid: int, days: int = 8) -> dict:
     ms = list(db.matches.find({"league_iid": league_iid, "status": "scheduled", "kickoff": {"$gte": now, "$lte": first["kickoff"] + timedelta(days=days)}},
                               {"_id": 0, "id": 1, "home_iid": 1, "away_iid": 1, "kickoff": 1, "referee": 1}).sort("kickoff", 1))
     tm = _names(db, "teams", [t for m in ms for t in (m["home_iid"], m["away_iid"])])
+    seen, one = set(), []
+    for m in ms:                                  # one round: stop when a club already listed plays again
+        if m["home_iid"] in seen or m["away_iid"] in seen:
+            break
+        seen |= {m["home_iid"], m["away_iid"]}; one.append(m)
+    ms = one
     refs = {r["referee"]: r for r in db.referee_stats.find({"league_iid": league_iid, "referee": {"$in": [m["referee"] for m in ms if m.get("referee")]}}, {"_id": 0})}
     avg = list(db.referee_stats.aggregate([{"$match": {"league_iid": league_iid, "yellow_pg": {"$ne": None}}},
                                            {"$group": {"_id": None, "y": {"$avg": "$yellow_pg"}, "p": {"$avg": "$pens_pg"}}}]))
