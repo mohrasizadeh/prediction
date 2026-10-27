@@ -23,7 +23,7 @@ function Result({ r, mode, f }) {
         <div className="fcard-who">{r.player ? <Link to={`/player/${r.player.id}`}><b>{who?.name}</b></Link> : <Link to={`/team/${r.team?.id}`}><b>{who?.name}</b></Link>}
           <span className="muted small">{r.player ? `${r.team?.name || ""} · ` : ""}{nx ? `next ${nx.home?.name} v ${nx.away?.name}, ${kickoff(nx.kickoff)}` : ""}</span></div>
       </header>
-      <p className="fcard-market">{mode === "form" ? `${f.n} or more in ${r.reached} of ${r.games} games` : `${r.run} games in a row with ${f.n} or more`}</p>
+      <p className="fcard-market">{mode === "form" ? `${f.n} or more in ${r.reached} of ${r.games} games` : `${r.run} game${r.run === 1 ? "" : "s"} in a row with ${f.n} or more`}</p>
       {r.forecast && <p className="muted small">Next-match likelihood {pct(r.forecast.p)}</p>}
     </article>
   );
@@ -35,7 +35,9 @@ export default function Finder() {
   const f = { ...DEF, ...Object.fromEntries(sp.entries()) };
   const set = (k) => (v) => {
     const n = { ...f, [k]: v };
-    if ((k === "scope" || k === "mode") && !(n.scope === "team" ? [...TEAM_STATS, ...MATCH_STATS] : STATS).some((s) => s.id === n.stat && (n.mode !== "likelihood" || s.core))) n.stat = "shots";
+    const pool = n.scope === "team" ? [...TEAM_STATS, ...MATCH_STATS.filter(() => n.mode === "likelihood")] : STATS;
+    if ((k === "scope" || k === "mode") && !pool.some((s) => s.id === n.stat && (n.mode !== "likelihood" || s.core))) n.stat = "shots";
+    if (k === "stat" && n.mode === "likelihood") n.n = v === "yellow_cards" ? "1" : v === "match_yellow_cards" ? "4" : n.n;
     setRes({ rows: null, err: null, busy: false });
     setSp(Object.fromEntries(Object.entries(n).filter(([kk, vv]) => vv !== "" && DEF[kk] !== vv)));
   };
@@ -83,7 +85,7 @@ export default function Finder() {
           <Seg label="Scope" value={f.scope} onChange={set("scope")} options={[{ id: "player", label: "Players" }, { id: "team", label: "Teams" }]} testid="finder-scope" />
         </div>
         <div className="filters">
-          <Select label="Stat" value={f.stat} onChange={set("stat")} options={(f.scope === "team" ? [...TEAM_STATS, ...MATCH_STATS] : STATS.filter((s) => s.id !== "minutes")).filter((s) => f.mode !== "likelihood" || s.core)} testid="finder-stat" />
+          <Select label="Stat" value={f.stat} onChange={set("stat")} options={(f.scope === "team" ? [...TEAM_STATS, ...(f.mode === "likelihood" ? MATCH_STATS : [])] : STATS.filter((s) => s.id !== "minutes")).filter((s) => f.mode !== "likelihood" || s.core)} testid="finder-stat" />
           <Select label="Line" value={f.n} onChange={set("n")} options={[1, 2, 3, 4, 5].map((n) => ({ id: String(n), label: `${n} or more` }))} testid="finder-n" />
           {f.mode !== "likelihood" && <Select label="Window" value={f.last_n} onChange={set("last_n")} options={["5", "10", "20"].map((n) => ({ id: n, label: `Last ${n}` }))} testid="finder-window" />}
           {f.mode !== "likelihood" && <Seg label="Venue" value={f.venue} onChange={set("venue")} options={[{ id: "", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid="finder-venue" />}

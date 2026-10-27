@@ -46,7 +46,7 @@ function Forecasts({ d, teams }) {
   const [side, setSide] = useState("all");
   const [scope, setScope] = useState("all");
   const [shown, setShown] = useState(24);
-  const rows = d.forecasts.filter((f) => (side === "all" || f.team_iid === (side === "home" ? d.match.home_iid : d.match.away_iid)) && (scope === "all" || f.scope === scope));
+  const rows = d.forecasts.filter((f) => (side === "all" || f.stat?.startsWith("match_") || f.team_iid === (side === "home" ? d.match.home_iid : d.match.away_iid)) && (scope === "all" || f.scope === scope));
   return (
     <>
       <div className="filters">

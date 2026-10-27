@@ -34,7 +34,8 @@
 .fcard-reason { margin: 0; color: var(--text2); }
 .fcard-why { display: grid; gap: 6px; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surface2); }
 .fcard-why div { display: flex; justify-content: space-between; }
-.fcard-why dt { color: var(--text2); } .fcard-why dd { margin: 0; font-weight: 600; text-transform: capitalize; }
+.fcard-why dt { color: var(--text2); } .fcard-why dd { margin: 0; font-weight: 600; text-transform: capitalize; } .fcard-why dd.fcard-reason { text-transform: none; font-weight: 400; }
+.fcard-crests { display: inline-flex; } .fcard-crests > * + * { margin-left: -12px; }
 
 .hero { display: grid; gap: 14px; padding: 18px 14px; background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--brand) 14%, transparent), transparent 70%), var(--surface1); }
 .hero-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: start; }

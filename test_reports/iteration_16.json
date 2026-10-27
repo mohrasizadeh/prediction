@@ -1,0 +1,40 @@
+{
+  "summary": "Tested First Goal (team + match pages, API) and the yellow-card forecasts (cards model) on match pages, the Finder (Likelihood/Form/Run, Players/Teams), Track Record and Insights, plus regressions (Events tab, League Referees, Squad grid hide) and mobile at 390px. New pytest file test_first_goal_cards.py (15 tests) plus the regression test_phase5_extras.py (28 tests): 43/43 pass after fixing two bugs in my own test file. Checked all 430 final matches in the DB: first_goal_side matches the first goal event every time (own goals included). Every UI flow works and there were no page errors. Only minor UX issues were found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/finder mode=form/run scope=team stat=match_yellow_cards", "issue": "match_yellow_cards is the same on both team rows of a match, so Form/Run results list each team separately ('Lazio · 5 or more in 4 of 8 games'). The card shows a team name for what is a whole-match stat, and the two teams of one fixture can both appear for the same match totals."},
+      {"endpoint": "cards_model.run_match", "issue": "Match yellow forecasts are stored with team_iid = home. On the match page, the Team filter set to the away team (fc-side = Bologna) hides both match-yellow cards. The 'Both teams' card also shows only the home crest."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ForecastCard 'Why' panel (football.css .fcard-why dd has text-transform: capitalize)", "issues": ["The referee reason shows in Title Case: 'No Referee Named Yet, So The League Average Is Used.' Only apply capitalize to short value dds such as rotation, not to the reason sentence (dd.fcard-reason)."]},
+      {"screen": "FirstGoal", "issues": ["Percentages are rounded separately, so they can add up to 101% (Lecce: Scored first 38% + Conceded first 63%). Cosmetic."]},
+      {"screen": "Finder Likelihood / Players", "issues": ["Picking 'Yellow cards' keeps the default line '2 or more'. There are no 2+ yellow forecasts, so that search returns nothing. Suggest snapping the line to 1 for yellow_cards (and to 4 for match_yellow_cards)."]},
+      {"screen": "Finder Run mode", "issues": ["Says '1 games in a row with 1 or more'. Should be '1 game' (probably an older issue)."]},
+      {"screen": "Insights", "issues": ["The stat filter only offers Shots/SOT/Tackles/Corners, with no Yellow cards option. Fine if this is by design."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_first_goal_cards.py", "/app/backend/tests/test_phase5_extras.py", "/app/test_reports/pytest/pytest_iter16.xml"],
+  "action_items": [
+    "Optional: stop capitalising the long reason text in .fcard-why dd (text-transform: capitalize makes the referee sentence Title Case)",
+    "Optional: snap the Finder line to 1 for yellow_cards and to 4 for match_yellow_cards when the stat is picked in Likelihood mode",
+    "Optional: show match yellow cards under both teams' side filter on the match page; show the fixture (not one team) and remove duplicates in Form/Run team results for match_yellow_cards",
+    "Optional: fix the '1 games in a row' plural"
+  ],
+  "critical_code_review_comments": [
+    "queries.team_first_goal: games[].minute comes from the first goal event in match_events. If match_events is missing for a match where first_goal_side is set, minute is None (fine). Logic verified against all 430 finals.",
+    "cards_model.run_match: player yellow forecasts depend on existing engine player forecasts for p_play. If the engine has not run for a match, there are no player card forecasts (by design, but worth noting).",
+    "cards_model.league_numbers scans every player_match_stats row for the league on each run_league call. Fine at the current size."
+  ],
+  "updated_files": ["/app/backend/tests/test_first_goal_cards.py"],
+  "success_rate": {"backend": "100% (43/43)", "frontend": "100% of the flows tested (minor UX notes only)"},
+  "seed_data_creation": "Recreated test_e1_user/test_e1_admin with recreate_test_users.py and deleted them afterwards with iter15_cleanup.py. Nothing else created. No PitchAPI, ingest or engine jobs were run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Upcoming Serie A match with card forecasts: Milan v Bologna 4530cfaa-3977-4e68-a02f-c22c0e2ad100 (no referee yet). The anonymous Finder quota on the shared IP is used up, so sign in as test_e1_user (10 searches a day; the Sign in button is main >> button 'Sign in') or use admin_session in pytest. Run recreate_test_users.py first and iter15_cleanup.py afterwards.",
+  "rca of the issue": "No functional bugs. The Title Case referee reason comes from the CSS rule '.fcard-why dd { text-transform: capitalize }' in frontend/src/styles/football.css line 37."
+}

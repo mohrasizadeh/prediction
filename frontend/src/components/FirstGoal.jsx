@@ -23,7 +23,7 @@ export default function FirstGoal({ team, compact, testid = "first-goal" }) {
       </div>
       <dl className="fg-stats">
         <div><dt>Scored first</dt><dd data-testid={`${testid}-scored`}>{d.scored_first} <small>({pc(d.scored_first, d.played)})</small></dd></div>
-        <div><dt>Conceded first</dt><dd data-testid={`${testid}-conceded`}>{d.conceded_first} <small>({pc(d.conceded_first, d.played)})</small></dd></div>
+        <div><dt>Conceded first</dt><dd data-testid={`${testid}-conceded`}>{d.conceded_first} <small>({!d.conceded_first ? "0%" : `${100 - Math.round((d.scored_first / d.played) * 100) - Math.round((d.goalless / d.played) * 100)}%`})</small></dd></div>
         <div><dt>After scoring first</dt><dd>{wdl(d.after_scoring)}</dd></div>
         <div><dt>After conceding first</dt><dd>{wdl(d.after_conceding)}</dd></div>
       </dl>
