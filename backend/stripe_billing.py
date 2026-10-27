@@ -400,7 +400,7 @@ def upsert_subscription(db, obj: dict, event_created: int) -> dict:
         upd["had_trial"] = True
     if upd:
         db.users.update_one({"id": user["id"]}, {"$set": upd})
-    return {"user": user, "plan_key": plan_key, "was_new": prev is None}
+    return {"user": user, "plan_key": plan_key, "was_new": prev is None, "prev_status": prev and prev.get("status")}
 
 
 def upsert_invoice(db, inv: dict, status: str, event_created: int) -> dict:
@@ -478,12 +478,12 @@ def _dispatch(db, event, notify):
         elif r["was_new"]:
             db.events.insert_one({"name": "subscribed", "at": utcnow(), "day": utcnow().strftime("%Y-%m-%d"), "user_id": r["user"]["id"], "props": {"plan": r["plan_key"]}})
             _emit(db, "subscription.started", r["user"], {"plan": r["plan_key"]})
-            if obj.get("status") in ("active", "trialing"):
-                te = ts(obj.get("trial_end"))
-                sub = db.subscriptions.find_one({"_id": obj["id"]}) or {}
-                nxt = te or sub.get("current_period_end")
-                notify("pro_welcome", r["user"], {"plan": _plan_name(db, r["plan_key"]), "date": nxt.strftime("%d %B %Y") if nxt else "shown in your account",
-                                               "trial": f"Your free trial runs until {te.strftime('%d %B %Y')}. " if te else "", "sub": obj["id"]})
+        if not typ.endswith("deleted") and obj.get("status") in ("active", "trialing") and r.get("prev_status") not in ("active", "trialing", "past_due"):
+            te = ts(obj.get("trial_end"))
+            sub = db.subscriptions.find_one({"_id": obj["id"]}) or {}
+            nxt = te or sub.get("current_period_end")
+            notify("pro_welcome", r["user"], {"plan": _plan_name(db, r["plan_key"]), "date": nxt.strftime("%d %B %Y") if nxt else "shown in your account",
+                                           "trial": f"Your free trial runs until {te.strftime('%d %B %Y')}. " if te else "", "sub": obj["id"]})
     elif typ in ("invoice.paid", "invoice.payment_succeeded"):
         r = upsert_invoice(db, obj, "paid", created)
         if r.get("stale"):

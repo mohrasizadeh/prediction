@@ -332,7 +332,7 @@ def preview(db, key: str, vars: dict | None = None) -> dict:
     t = get_template(db, key)
     sample = {"brand": SS.brand_name(db), "support": "support@example.com", "name": "Sam", "link": f"{base_url()}/example-link",
               "hours": "48", "minutes": "60", "new_email": "new@example.com", "role": "support", "amount": "CA$9.99", "plan": "Pro",
-              "period_end": "2026-12-01", "invoice_url": f"{base_url()}/invoice", "days": "7", "date": "2026-12-01", **(vars or {})}
+              "period_end": "2026-12-01", "invoice_url": f"{base_url()}/invoice", "days": "7", "date": "01 December 2026", "trial": "Your free trial runs until 01 December 2026. ", **(vars or {})}
     return {"subject": render(t["subject"], sample, False), "html": layout(db, render(t["html"], sample, True), t["category"], f"{base_url()}/unsubscribe-preview"),
             "text": render(t["text"], sample, False)}
 
@@ -426,10 +426,10 @@ def send_campaign(db, campaign_id: str, actor: str, client=None) -> dict:
     c = db.email_campaigns.find_one({"_id": ObjectId(campaign_id)})
     if not c:
         raise ValueError("No such campaign.")
-    if not S.get(db, "email.enabled") or not S.get(db, "email.marketing_enabled"):
-        raise ValueError("Turn on e-mail and marketing e-mail in settings first.")
     if T.get_provider(db) == "emergent":
         raise ValueError("Campaigns can't go through the managed e-mail service, which is for account and payment e-mails only. Connect your own e-mail provider under Integrations to send campaigns.")
+    if not S.get(db, "email.enabled") or not S.get(db, "email.marketing_enabled"):
+        raise ValueError("Turn on e-mail and marketing e-mail in settings first.")
     if not S.get(db, "email.footer_address").strip():
         raise ValueError("Marketing e-mail needs a postal address in the footer (settings > Email).")
     room = int(S.get(db, "email.daily_send_cap")) - _sent_today(db)

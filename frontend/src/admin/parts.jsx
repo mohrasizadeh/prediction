@@ -86,13 +86,16 @@ export function ResponsiveTable({ columns, rows, onRow, testid = "table", rowKey
     <ul className="a-cards" data-testid={testid}>
       {rows.map((r) => (
         <li key={rowKey(r)}>
-          <button type="button" className="a-rowcard" onClick={onRow ? () => onRow(r) : undefined} disabled={!onRow} data-testid={`${testid}-row-${rowKey(r)}`}>
+          {(() => { const Tag = onRow ? "button" : "div"; return (
+          <Tag {...(onRow ? { type: "button", onClick: () => onRow(r) } : {})} className="a-rowcard" data-testid={`${testid}-row-${rowKey(r)}`}>
             <strong>{primary.render ? primary.render(r) : num(r[primary.key])}</strong>
             <span className="a-rowcard-chips">
-              {columns.filter((c) => c !== primary).map((c) => <span key={c.key} className="a-kv"><em>{c.label}</em>{c.render ? c.render(r) : num(r[c.key])}</span>)}
+              {columns.filter((c) => c !== primary).map((c) => (c.label
+                ? <span key={c.key} className="a-kv"><em>{c.label}</em>{c.render ? c.render(r) : num(r[c.key])}</span>
+                : <span key={c.key}>{c.render ? c.render(r) : num(r[c.key])}</span>))}
             </span>
             {onRow && <Icon name="chevron-right" size={18} className="a-rowcard-go" />}
-          </button>
+          </Tag>); })()}
         </li>
       ))}
     </ul>

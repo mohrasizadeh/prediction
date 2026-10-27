@@ -1,0 +1,41 @@
+{
+  "summary": "Tested Member Lookup (Money > Subscriptions/Payments e-mail link, side panel, Open full profile -> /admin/users?open=), Pro welcome e-mail end to end (real Stripe sandbox checkout with 4242 card, trial), webhook replay idempotency, templates (16, pro_welcome preview), campaign refusal, and regression of Pricing/checkout/Account billing/Coupons/Revenue/Plans/Campaigns. Backend 12/12 pass. Desktop UI all pass. One HIGH bug on phones (<wide breakpoint): the member e-mail link, 'Cancel at period end', 'Refund' (and any other in-row button) are dead because ResponsiveTable wraps the card in a DISABLED <button>.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "backend/stripe_billing.py _dispatch (pro_welcome)", "issue": "Welcome only fires when the FIRST subscription event (was_new) has status active/trialing. If a subscription starts 'incomplete' (3-D Secure / SCA card) and later becomes active via customer.subscription.updated, was_new is False and no pro_welcome is ever sent. Consider sending on the first transition into active/trialing (idem key already prevents duplicates)."},
+      {"endpoint": "GET /api/admin/subscriptions, /api/admin/payments (_with_emails)", "issue": "Raw e-mails are attached for any role with billing.read, including 'analyst' which lacks users.pii; /api/admin/users/{id} masks e-mail for the same role. Mask in _with_emails when actor lacks users.pii."},
+      {"endpoint": "emailer.send_campaign", "issue": "The marketing_enabled check runs before the managed-provider check, so with marketing off the admin first sees 'Turn on e-mail and marketing e-mail', turns it on, then gets refused for a different reason. Check the provider first. (Managed refusal itself verified by a unit call: correct ValueError text, 0 e-mails logged.)"},
+      {"endpoint": "emailer.preview (pro_welcome)", "issue": "Preview has no sample 'trial' value and uses date '2026-12-01' while real sends use '01 November 2026' format; preview never shows the trial sentence."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "admin/parts.jsx ResponsiveTable (phone card view) used by Subscriptions, Payments, Coupons, Campaigns", "issue": "When onRow is not passed the card is rendered as <button disabled>. Clicks on nested buttons inside a disabled button are swallowed, so at 390px the member e-mail link (member-open-*), sub-cancel-*, sub-resume-*, pay-refund-*, coupon-off-*, camp-send-* do nothing. Verified: outer .a-rowcard disabled=true, clicking link/cancel opens neither member-panel nor sub-confirm. Also React warns validateDOMNesting <button> inside <button>. Fix: render a <div> (not a button) when !onRow, or avoid nesting buttons.", "selector": "[data-testid^='member-open-'], [data-testid^='sub-cancel-'], [data-testid^='pay-refund-']", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Subscriptions (390px)", "issues": ["Canceled rows show an empty pill/chip for the blank actions column (the '' label column renders an empty .a-kv)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter10_member_lookup_pro_welcome.py", "/app/backend/tests/iter10_users.py"],
+  "action_items": [
+    "Fix ResponsiveTable phone cards: do not render a disabled <button> wrapper when onRow is absent (use div/li), so in-row links and action buttons work on mobile; re-check Subscriptions, Payments, Coupons, Campaigns at 390px.",
+    "Send pro_welcome on the first move into active/trialing (not only on was_new) to cover subscriptions that start 'incomplete'.",
+    "Mask e-mails in _with_emails for roles without users.pii.",
+    "Optional: order send_campaign checks so the managed-provider refusal shows first; add sample trial text to the pro_welcome preview and align date format.",
+    "Optional: hide empty action-column chip on phone cards."
+  ],
+  "critical_code_review_comments": [
+    "Users.jsx: open state is initialised from ?open only once (useState(sp.get('open'))); navigating to /admin/users?open=<other> while already on Users will not open the new drawer. Derive from searchParams or sync with useEffect.",
+    "Who component: a soft-deleted user (deleted_at set but user_id kept) would show a link to 'deleted+<id>@invalid' and the panel 404s; delete_account nulls user_id so this is only a theoretical path.",
+    "Verified good: idem key pro_welcome-<uid>-<sub> plus webhook_events dedupe -> replay of the same event id returns 'duplicate', a new event id for the same subscription is processed but sends no second e-mail."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter10_member_lookup_pro_welcome.py (new)", "/app/backend/tests/iter10_users.py (new, create/delete TEST users)"],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "~85% (desktop flows all pass; mobile in-row actions broken)"},
+  "seed_data_creation": "Created TEST admin delivered+t10admin@resend.dev and TEST member delivered+t10member@resend.dev, temporary rows sub_TEST_t10_deleted, sub_TEST_t10_ghost, in_TEST_t10_deleted, campaigns TEST_t10*. All deleted after testing; Stripe sandbox subscription sub_1UUxzPGfBF8i81Yj4paTYrwH canceled (customer cus_VVzzeCmhCNsDnN remains in the Stripe sandbox). 2 audit_log rows for the test admin were kept (audit trail). Owner account untouched.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Recreate users with `python backend/tests/iter10_users.py` (delete with `... delete`). Admin first login enrols TOTP via admin_login_helper with CREDS/STATE overridden (see the test file). Admin screen URLs come from the backend menu: templates is /admin/email/templates; campaigns /admin/campaigns. Phone cards: ResponsiveTable uses <button disabled> when no onRow. Run e2e pro_welcome tests with T10_E2E=1 after a browser checkout. Real e-mails are sent: only use delivered+*@resend.dev.",
+  "rca of the issue": "Mobile dead buttons: parts.jsx ResponsiveTable line ~89 renders <button className='a-rowcard' disabled={!onRow}> around the card content. Money/Email tables never pass onRow, so the wrapper is disabled; browsers do not dispatch click events to descendants of a disabled button, so stopPropagation-based inner buttons never fire. Repro: 390x844, /admin/subscriptions, tap the e-mail link or 'Cancel at period end' -> nothing. Mitigation: use a non-interactive element when onRow is absent."
+}
