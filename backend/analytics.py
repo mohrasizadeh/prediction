@@ -44,7 +44,8 @@ def anon_id(ip: str, ua: str, day: str) -> str:
 
 def clean_path(p: str | None) -> str:
     p = (p or "/").split("?")[0].split("#")[0][:120]
-    p = re.sub(r"/[0-9a-f]{12,}", "/:id", p)                    # long ids -> :id
+    p = re.sub(r"/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=/|$)", "/:id", p, flags=re.I)
+    p = re.sub(r"/[0-9a-f-]{12,}(?=/|$)", "/:id", p, flags=re.I)  # long ids -> :id
     p = re.sub(r"/\d{3,}", "/:id", p)
     return p if p.startswith("/") else "/" + p
 

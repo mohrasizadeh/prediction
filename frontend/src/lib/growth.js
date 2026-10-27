@@ -26,9 +26,12 @@ function utmFromUrl() {
   return u.source || u.medium || u.campaign ? Object.fromEntries(Object.entries(u).map(([k, v]) => [k, (v || "").slice(0, 80)])) : null;
 }
 
+let lastBeacon = { path: null, at: 0 };
 export function usePageBeacon(pathname) {
   useEffect(() => {
-    if (pathname.startsWith("/admin")) return;
+    if (PRIVATE_PATHS.test(pathname)) return;
+    if (lastBeacon.path === pathname && Date.now() - lastBeacon.at < 1000) return;
+    lastBeacon = { path: pathname, at: Date.now() };
     const utm = utmFromUrl();
     const ref = document.referrer && !document.referrer.startsWith(window.location.origin) ? document.referrer.slice(0, 300) : undefined;
     post("/analytics/collect", { name: "page_view", path: pathname.slice(0, 200), ref, ...(utm ? { utm } : {}) }).catch(() => {});

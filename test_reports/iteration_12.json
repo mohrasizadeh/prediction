@@ -1,0 +1,52 @@
+{
+  "summary": "Phase 4c frontend + backend regression (iteration 12). Backend: test_phase4c_growth.py 24/25 pass (only failure: blank 'New popup' create -> 422). Frontend tested at 1920 and 390 with a TEST admin (2FA via helper, session cookie injected): Popups admin (templates, editor tabs, live preview, server field errors, save toast + warning, Go live/Pause, Results drawer, Copy, Delete confirm), public popup (shows on home for logged-out visitor, consent-gated form + thank-you, Close + not shown again in session, never on /sign-in, /admin, /account/billing, /unsubscribe, /newsletter/confirm; modal = bottom sheet at 390, slide-in above bottom tabs, no overflow), footer sign-up (disabled until consent, same neutral message), confirm + unsubscribe pages (bad/missing/valid/reused tokens), E-mail list admin (tiles, filter, Remove confirm, CSV), Integrations (provider select incl. Emergent managed, Send me a test, list sync save/test/reset, owner-only tracking notice, webhook add/https validation/secret dialog/test/turn off/new secret/delete/recent deliveries), Analytics (all 6 cards, 7/30/90 reload, CSV for all 6 reports), Health alerts card (No open alerts + Check now), cookie banner (No thanks -> essential, Allow optional -> all, no gtag/fbq scripts), beacon 204 on public routes and none on /admin. Fixed 1 small UI bug (missing-token message). Found 3 real bugs + several minor ones.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/admin/popups {data:{}} (the 'New popup' button)", "issue": "Always 422 'Add a title or some text.' because popups.create validates blank() whose content is empty. The 'New popup' button (no template chosen) can never create a popup; UI only shows toast 'Some fields need fixing.'", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/popups/{id}/submit + POST /api/popups/{id}/event", "issue": "Popup sign-ups counted twice: popups.submit() records 'submit' server-side and PopupHost.act('submit') also posts event 'submit'. One real sign-up on TEST popup gave submit=2, sign-up rate 200% in list/Analytics. Remove one of the two (simplest: don't track() when ev === 'submit' in components/Popups.jsx act)."},
+      {"endpoint": "analytics.clean_path", "issue": "UUID paths are not normalised: '/match/2c690161-8aa0-...' stored raw, others stored half-replaced like '/match/:idf93e-2c95-...' and '/league/:ida56-00d6-...'. Pages report/CSV fragments per match. Use a UUID-aware regex (e.g. /[0-9a-f]{8}-[0-9a-f-]{27}|/[0-9a-f-]{12,})."},
+      {"endpoint": "GET /api/admin/analytics/export?report=acquisition", "issue": "With no rows the CSV is just the BOM, no header line."},
+      {"endpoint": "newsletter.subscribe", "issue": "Re-subscribing an unsubscribed address sets status pending but keeps the old confirmed_at (admin table shows a Confirmed date on a pending row); confirm-mail idem key is per hour so a re-subscribe in the same hour sends no new confirm e-mail."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "admin/Popups.jsx 'New popup' button", "issue": "Fails every time (see backend critical) - toast 'Some fields need fixing.'", "selector": "[data-testid='popup-new'] (no template selected)", "priority": "HIGH"},
+      {"component": "PopupHost vs cookie banner at 390px", "issue": "Bottom banner (owner's 'Upgrade banner') and slide-in popups sit on top of the cookie banner; elementFromPoint at cookie-accept returns the popup, Playwright click times out. Visitor must close the popup before they can choose Allow optional / No thanks.", "selector": "[data-testid='cookie-accept']", "priority": "MEDIUM"},
+      {"component": "Popup editor 'Who and how often' tab", "issue": "Label says 'one per line, * = anything' but '*' is rejected by the server ('Up to 30 paths like /finder or /teams/*'); '/*' is required. Fix the label/hint or accept '*'.", "selector": "[data-testid='popup-pages']", "priority": "LOW"},
+      {"component": "pages/EmailLinks.jsx (FIXED by testing agent)", "issue": "/newsletter/confirm and /unsubscribe with no token showed 'Something went wrong on our side.' because the synthetic error had no code (sayError treats no code as server error). Added code LINK_EXPIRED / TOKEN_INVALID; now shows the intended text.", "selector": "[data-testid='newsletter-confirm'], [data-testid='unsubscribe']", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Page-view beacon in preview", "issue": "Dev StrictMode runs usePageBeacon twice per route -> duplicate page_view rows (two '/' rows 1 ms apart) and pv counter doubled (affects 'pageviews' trigger). Production build unaffected. Beacon also fires on /sign-in, /unsubscribe, /newsletter/confirm (only /admin skipped) - consider reusing PRIVATE_PATHS.", "affected_selectors": []},
+      {"flow": "Analytics 'Where people come from'", "issue": "With zero rows DataState shows generic 'Nothing here yet.' so the card's note and the utm_source hint never render.", "affected_selectors": ["[data-testid='an-sources']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_phase4c_growth.py", "/app/test_reports/pytest/pytest_iter12.xml", "/app/backend/tests/iter12_users.py", "/app/backend/tests/iter12_login.py", "/app/backend/tests/iter12_tokens.py", "/app/backend/tests/iter12_slide_ops.py", "/app/backend/tests/iter12_cleanup.py"],
+  "action_items": [
+    "Make 'New popup' work: create drafts without requiring content (validate content on save/go-live) or seed blank() with a placeholder title",
+    "Stop double-counting popup submits (client track + server record)",
+    "At 390px keep popups from covering the cookie banner (wait until consent chosen, or stack/offset, or higher z-index for the banner)",
+    "Fix pages_include hint ('*' vs '/*') or accept '*'",
+    "Normalise UUIDs in analytics.clean_path",
+    "Minor: header-only CSV for empty acquisition export; clear confirmed_at on re-subscribe; sources card empty state; wrap Confirm onConfirm deletes in try/catch",
+    "Owner popup 'Newsletter sign-up' (6ae01aabb9a354f428999af6) still has ab.group 'test-t12ab' left by an earlier test run - owner should clear it (testing agent did not touch owner popups)"
+  ],
+  "critical_code_review_comments": [
+    "components/Popups.jsx act(): track(open.id, 'submit') duplicates server-side record in popups.submit()",
+    "admin/Popups.jsx, Newsletter.jsx, Integrations.jsx: Confirm onConfirm async handlers have no try/catch - a failed delete/remove leaves an unhandled rejection and no error toast",
+    "admin/Integrations.jsx AudienceCard: list_id state starts '' and is always sent on Save, so saving after only changing provider may overwrite a saved list id (backend behaviour not verified)",
+    "lib/api.getBlob error text is 'Could not load that image.' - CSV export failures (non-403) would show that message",
+    "Headless Playwright traffic is filtered as bot by analytics.track (collect returns 204 but stores nothing) - expected, but means UI tests can't verify realtime counts"
+  ],
+  "updated_files": ["/app/frontend/src/pages/EmailLinks.jsx", "/app/backend/tests/iter12_probe.py", "/app/backend/tests/iter12_tokens.py", "/app/backend/tests/iter12_resub_probe.py", "/app/backend/tests/iter12_slide_ops.py", "/app/backend/tests/iter12_cleanup.py"],
+  "success_rate": {"backend": "96% (24/25)", "frontend": "~88% (core flows pass; New popup broken, cookie banner overlap at 390, double-count stats)"},
+  "test_credentials": "TEST staff created by iter12_users.py: delivered+t12admin@resend.dev (admin), delivered+t12owner@resend.dev (owner, API-only for tracking PUT), delivered+t12analyst@resend.dev; password Test-Admin-Pass-2026!q; 2FA via iter12_login.py/admin_login_helper.py. All deleted after testing.",
+  "seed_data_creation": "Created TEST popups (TEST modal t12, TEST slide t12), webhook https://example.com/t12-hook, newsletter rows for delivered+t12*@resend.dev. All removed: popups deleted, iter12_cleanup.py removed resend.dev newsletter rows (13 - all rows in the collection were resend.dev test addresses), resend.dev suppressions, orphan webhook deliveries, rate limits, email_log to resend.dev; TEST users deleted. Owner's 3 popups untouched.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use iter12_users.py create -> iter12_login.py admin (writes /tmp/t12_cookies.json) -> inject __Host-sid cookie into Playwright (add_cookies with url+secure). Popup pages_include must be '/*'. Owner's live 'Upgrade banner' popup shows on public pages; give TEST popups priority 100 to win. Rate limits: nlsub/popsub 10/h per IP - clear rate_limits ids ^(nlsub|popsub) if 429. Confirm tokens: iter12_tokens.py <email>. Clean with iter12_slide_ops.py cleanup + iter12_cleanup.py + iter12_users.py delete.",
+  "rca of the issue": "New popup: popups.create() runs validate({**blank(), **data}) and validate requires title or body; blank() has neither. Double submit: popups.submit() calls record(db,pid,'submit') and the client PopupHost onDone->act('submit')->track(id,'submit'). Missing-token message: EmailLinks built {error:{message}} without code; lib/errors.sayError returns the generic server-error text when code is missing."
+}

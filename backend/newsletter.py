@@ -37,9 +37,7 @@ def subscribe(db, email: str, *, source: str, consent_text: str, consent: bool, 
         return "already"
     double = bool(S.get(db, "newsletter.double_optin"))
     fields = {"status": "pending" if double else "confirmed", "source": source[:60], "consent_text": consent_text[:300], "consent_at": now,
-              "ip_hash": ip_hash, "unsub_at": None}
-    if not double:
-        fields["confirmed_at"] = now
+              "ip_hash": ip_hash, "unsub_at": None, "confirmed_at": None if double else now}
     db.newsletter.update_one({"email": email}, {"$set": fields, "$setOnInsert": {"created_at": now}}, upsert=True)
     # the e-mail address may also belong to an unsubscribed suppression; a fresh opt-in lifts only that kind
     sup = db.email_suppressions.find_one({"email": email})
@@ -47,7 +45,7 @@ def subscribe(db, email: str, *, source: str, consent_text: str, consent: bool, 
         db.email_suppressions.delete_one({"email": email})
     if double:
         raw = A.issue_token(db, None, "newsletter_confirm", timedelta(days=3), {"email": email})
-        E.send_template(db, "newsletter_confirm", to=email, vars={"link": f"{E.base_url()}/newsletter/confirm?token={raw}"}, idem=f"nlc-{email}-{now:%Y%m%d%H}")
+        E.send_template(db, "newsletter_confirm", to=email, vars={"link": f"{E.base_url()}/newsletter/confirm?token={raw}"}, idem=f"nlc-{email}-{now:%Y%m%d%H%M}")
         return "pending"
     _confirmed_side_effects(db, email, source)
     return "confirmed"

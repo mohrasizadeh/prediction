@@ -96,7 +96,7 @@ function Editor({ id, meta, onClose, onSaved }) {
             <Field type="number" label="Priority (0 to 100, higher shows first)" value={d.priority} onChange={(e) => s(["priority"])(Number(e.target.value))} error={P("priority")} />
           </>}
           {tab === "who" && <>
-            <Field as="textarea" label="Show on these pages (one per line, * = anything)" value={lines(d.targeting.pages_include)} onChange={(e) => s(["targeting", "pages_include"])(unlines(e.target.value))} error={P("targeting.pages_include")} rows={3} testid="popup-pages" />
+            <Field as="textarea" label="Show on these pages (one per line, /* = every page)" value={lines(d.targeting.pages_include)} onChange={(e) => s(["targeting", "pages_include"])(unlines(e.target.value))} error={P("targeting.pages_include")} rows={3} testid="popup-pages" />
             <Field as="textarea" label="Never on these pages" value={lines(d.targeting.pages_exclude)} onChange={(e) => s(["targeting", "pages_exclude"])(unlines(e.target.value))} error={P("targeting.pages_exclude")} rows={2} hint={`Always skipped: ${meta.always_excluded.join(", ")}`} />
             <Sel label="Who" value={d.targeting.audience} onChange={s(["targeting", "audience"])} options={meta.audiences} testid="popup-audience" />
             <Sel label="Visitors" value={d.targeting.visitors} onChange={s(["targeting", "visitors"])} options={["all", "new", "returning"]} />
@@ -150,7 +150,7 @@ export default function Popups() {
   const [gone, setGone] = useState(null);
   const [tpl, setTpl] = useState("");
   const create = async (template) => {
-    try { const r = await post("/admin/popups", template ? { template } : { data: {} }); toast("Popup created as a draft"); q.reload(); setEdit(r.id); }
+    try { const r = await post("/admin/popups", template ? { template } : { data: { name: "New popup", content: { ...meta.data.blank.content, title: "Your headline" } } }); toast("Popup created as a draft"); q.reload(); setEdit(r.id); }
     catch (x) { toast(x.message, "err"); }
   };
   const status = async (p, st) => {

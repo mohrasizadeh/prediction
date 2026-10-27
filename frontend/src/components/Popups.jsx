@@ -107,21 +107,28 @@ function useTrigger(p, fire) {
   }, [p, fire]);
 }
 
-export default function PopupHost({ enabled }) {
+export default function PopupHost({ enabled, waitForCookies }) {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const [limits, setLimits] = useState(null);
   const [cand, setCand] = useState(null);
   const [open, setOpen] = useState(null);
+  const [choice, setChoice] = useState(() => localStorage.getItem("consent"));
+  useEffect(() => {
+    const on = () => setChoice(localStorage.getItem("consent"));
+    window.addEventListener("consent-change", on);
+    return () => window.removeEventListener("consent-change", on);
+  }, []);
+  const held = waitForCookies && !choice;
   useEffect(() => {
     setCand(null);
-    if (!enabled || PRIVATE_PATHS.test(pathname)) return undefined;
+    if (!enabled || held || PRIVATE_PATHS.test(pathname)) return undefined;
     const ac = new AbortController();
     const device = matchMedia("(max-width: 768px)").matches ? "mobile" : "desktop";
     get("/popups", { path: pathname, device, visitor: visitorType(), vid: visitorId() }, { signal: ac.signal })
       .then((r) => { setLimits(r.limits); setCand((r.popups || []).find(allowedByFrequency) || null); }).catch(() => {});
     return () => ac.abort();
-  }, [pathname, enabled, user?.id]);
+  }, [pathname, enabled, held, user?.id]);
   const fire = useCallback(() => {
     if (!cand || open) return;
     const shown = shownThisSession();
@@ -137,6 +144,6 @@ export default function PopupHost({ enabled }) {
   useTrigger(cand, fire);
   if (!open) return null;
   const close = () => { track(open.id, "dismiss"); setOpen(null); };
-  const act = (ev, leave) => { track(open.id, ev); remember(open.id, "acted"); if (leave) setOpen(null); };
+  const act = (ev, leave) => { if (ev !== "submit") track(open.id, ev); remember(open.id, "acted"); if (leave) setOpen(null); };
   return <PopupView p={open} onClose={close} onAct={act} />;
 }
