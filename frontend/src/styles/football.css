@@ -109,6 +109,8 @@
 .book-who > a { text-decoration: none; }
 .book-p { display: grid; gap: 4px; justify-items: end; } .book-p b { font-variant-numeric: tabular-nums; }
 .book-bar { width: 100%; height: 6px; border-radius: 999px; background: var(--surface2); overflow: hidden; } .book-bar i { display: block; height: 100%; background: #f5c518; border-radius: inherit; }
+.ref-bar { display: block; margin-top: 4px; height: 4px; }
+.book-alert { display: grid; gap: 8px; padding: 18px; margin-bottom: 16px; border-color: color-mix(in srgb, #f5c518 45%, var(--border)); }
 .fg-pair { display: grid; gap: 14px; } @media (min-width: 900px) { .fg-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 @media (max-width: 480px) { .hero-team .chips { display: none; } .hero-mid time { font-size: 12px; } }
 

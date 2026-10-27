@@ -125,6 +125,12 @@ def league_booking_risk(league_id: str, response: Response, db=Depends(D.get_db)
     return Q.booking_risk(db, lg["iid"])
 
 
+@router.get("/referees")
+def referees(response: Response, min_matches: int = Query(3, ge=1, le=20), db=Depends(D.get_db)):
+    _cache(response)
+    return Q.referee_leaderboard(db, min_matches)
+
+
 @router.get("/referees/{name}")
 def referee(name: str, response: Response, db=Depends(D.get_db)):
     n = name.strip()[:80]

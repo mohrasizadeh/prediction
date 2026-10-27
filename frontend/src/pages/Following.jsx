@@ -27,6 +27,25 @@ function Follows() {
   );
 }
 
+function BookingRisk() {
+  const q = useApi("/me/booking-risk");
+  if (!q.data?.rows?.length) return null;
+  return (
+    <section className="card book-alert" data-testid="following-booking-risk">
+      <h2 className="h3">May be booked this round</h2>
+      <p className="muted small">Players you follow who are in their league's top 10 for a yellow card. We e-mail you once per match unless you turn off alert e-mails in your account.</p>
+      <ol className="book-list">{q.data.rows.map((f) => (
+        <li key={f.id} className="book-row" data-testid={`following-booking-${f.player_iid}`}>
+          <span className="book-rank">{f.rank}</span>
+          <PlayerAvatar player={f.player} size={36} />
+          <span className="book-who"><Link to={`/player/${f.player?.id}`}><b>{f.player?.name}</b></Link><small className="muted">{f.home_iid === f.team_iid ? "v" : "at"} <Link to={`/match/${f.match_id}`}>{f.opp?.name}</Link></small></span>
+          <span className="book-p"><b>{Math.round(f.p * 100)}%</b><span className="book-bar"><i style={{ width: `${Math.round(f.p * 100)}%` }} /></span></span>
+        </li>
+      ))}</ol>
+    </section>
+  );
+}
+
 function Feed() {
   const q = useApi("/me/following-feed");
   if (q.loading && !q.data) return <Loading />;
@@ -35,6 +54,7 @@ function Feed() {
   if (!matches.length) return <Empty icon="calendar">No upcoming matches for what you follow.</Empty>;
   return (
     <>
+      <BookingRisk />
       <ul className="mlist card" data-testid="feed-matches">{matches.map((m) => <MatchRow key={m.id} m={m} />)}</ul>
       {forecasts.length > 0 && <><h2 className="h3">Forecasts</h2><div className="fgrid">{forecasts.slice(0, 24).map((f) => <ForecastCard key={f.id} f={f} showMatch />)}</div></>}
     </>

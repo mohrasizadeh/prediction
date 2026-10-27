@@ -137,7 +137,42 @@ def run_league(db, league_iid: int, run_id=None, now=None) -> int:
     for m in db.matches.find({"league_iid": league_iid, "status": "scheduled", "kickoff": {"$gte": now - timedelta(hours=1),
                               "$lte": now + timedelta(days=S.get(db, "engine.window_days"))}}):
         n += run_match(db, m, run_id, now, ln)
+    try:
+        notify_bookings(db, league_iid)
+    except Exception:   # an e-mail problem never blocks forecasts
+        pass
     return n
+
+
+TOP_N, MIN_P = 10, 0.2
+
+
+def notify_bookings(db, league_iid: int) -> int:
+    """E-mail followers once per player and match when the player is in the league's top 10 booking risks."""
+    import emailer as E
+    from queries import booking_risk
+    rows = [f for f in booking_risk(db, league_iid, limit=TOP_N)["rows"] if f["p"] >= MIN_P and f.get("player")]
+    if not rows:
+        return 0
+    per_user: dict = {}
+    for f in rows:
+        for fo in db.follows.find({"kind": "player", "ref_iid": f["player_iid"]}, {"user_id": 1}):
+            key = f"{fo['user_id']}:{f['player_iid']}:{f['match_iid']}"
+            if db.booking_alerts.find_one({"_id": key}):
+                continue
+            per_user.setdefault(fo["user_id"], []).append((key, f))
+    sent = 0
+    for uid, items in per_user.items():
+        u = db.users.find_one({"id": uid, "disabled": {"$ne": True}})
+        if not u or not u.get("email_verified") or (u.get("prefs") or {}).get("alert_emails", True) is False:
+            continue
+        names = ", ".join(f"{f['player']['name']} ({round(f['p'] * 100)}% v {f['opp']['name'] if f.get('opp') else 'next opponent'})" for _, f in items)
+        r = E.send_template(db, "booking_alert", to=u["email"], user=u, vars={"players": names, "link": E.base_url() + "/following"},
+                            idem=f"booking-{uid}-{items[0][1]['match_iid']}")
+        for key, _ in items:
+            db.booking_alerts.update_one({"_id": key}, {"$set": {"at": utcnow(), "status": r.get("status")}}, upsert=True)
+        sent += r.get("status") == "sent"
+    return sent
 
 
 def fill_match_totals(db) -> int:

@@ -215,6 +215,8 @@ class AFClient:
             msg = "; ".join(f"{k}: {v}" for k, v in (errs.items() if isinstance(errs, dict) else [("error", errs)]))
             if "limit" in msg.lower() or "request" in msg.lower():
                 raise BudgetExhausted(msg)
+            if "access" in (errs if isinstance(errs, dict) else {}) or "suspended" in msg.lower():
+                raise ImageError(f"API-Football account problem: {msg}")   # never cached: retried once the account is fixed
             data = {"response": [], "errors": errs}                  # for example, a season the plan cannot read
         self.db.image_api_cache.update_one({"_id": ck}, {"$set": {"payload": data, "expires_at": utcnow().replace(tzinfo=None) + timedelta(days=30)}}, upsert=True)
         return data

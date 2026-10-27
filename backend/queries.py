@@ -307,6 +307,27 @@ def team_first_goal(db, team_iid: int, last_n: int = 20) -> dict:
     return out
 
 
+def referee_leaderboard(db, min_matches: int = 3) -> list[dict]:
+    """Every referee across the enabled leagues, cards and penalties per game (weighted by games with card data)."""
+    lg = {d["iid"]: {"id": d["id"], "name": d["name"]} for d in db.leagues.find({"enabled": True}, {"iid": 1, "id": 1, "name": 1})}
+    agg = {}
+    for r in db.referee_stats.find({"league_iid": {"$in": list(lg)}}, {"_id": 0}):
+        a = agg.setdefault(r["referee"], {"name": r["referee"], "matches": 0, "y": 0.0, "r": 0.0, "p": 0.0, "hw": 0.0, "leagues": [], "last_match": None})
+        a["matches"] += r["matches"]
+        a["y"] += (r.get("yellow_pg") or 0) * r["matches"]; a["r"] += (r.get("red_pg") or 0) * r["matches"]; a["p"] += (r.get("pens_pg") or 0) * r["matches"]
+        a["hw"] += (r.get("home_win_pct") or 0) * r["matches"]
+        a["leagues"].append(lg[r["league_iid"]])
+        a["last_match"] = max(filter(None, [a["last_match"], r.get("last_match")]), default=None)
+    out = []
+    for a in agg.values():
+        if a["matches"] < min_matches:
+            continue
+        n = a["matches"]
+        out.append({"name": a["name"], "matches": n, "yellow_pg": a["y"] / n, "red_pg": a["r"] / n, "pens_pg": a["p"] / n,
+                    "home_win_pct": a["hw"] / n, "leagues": a["leagues"], "last_match": a["last_match"]})
+    return sorted(out, key=lambda x: -x["yellow_pg"])
+
+
 def referee_detail(db, name: str, limit: int = 60) -> dict | None:
     ms = list(db.matches.find({"referee": name, "status": "final"}, {"_id": 0, "iid": 1, "id": 1, "league_iid": 1, "home_iid": 1, "away_iid": 1,
                                                                        "hg": 1, "ag": 1, "kickoff": 1}).sort("kickoff", -1).limit(limit))

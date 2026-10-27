@@ -69,12 +69,15 @@ function Referees({ id }) {
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   if (!q.data.length) return <Empty icon="flag" testid="referees-empty">Referee records are still loading for this league.</Empty>;
   return (
+    <>
+    <p className="muted small"><Link to="/referees" data-testid="referees-all-link">Compare referees across all leagues</Link></p>
     <div className="tbl-wrap"><table className="tbl" data-testid="referee-table">
       <thead><tr><th scope="col">Referee</th><th scope="col">Games</th><th scope="col">Yellows a game</th><th scope="col">Reds a game</th><th scope="col">Penalties a game</th><th scope="col">Home wins</th></tr></thead>
       <tbody>{q.data.map((r) => (
         <tr key={r.name} data-testid="referee-row"><td><Link to={refPath(r.name)} data-testid="referee-link"><b>{r.name}</b></Link></td><td className="num">{r.matches}</td><td className="num">{r.yellow_pg == null ? "–" : r.yellow_pg.toFixed(2)}</td><td className="num">{r.red_pg == null ? "–" : r.red_pg.toFixed(2)}</td><td className="num">{r.pens_pg == null ? "–" : r.pens_pg.toFixed(2)}</td><td className="num">{pc(r.home_win_pct)}</td></tr>
       ))}</tbody>
     </table></div>
+    </>
   );
 }
 

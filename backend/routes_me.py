@@ -44,6 +44,20 @@ class FollowBody(BaseModel):
     ref_id: str = Field(min_length=1, max_length=64)
 
 
+@router.get("/booking-risk")
+def my_booking_risk(response: Response, user=Depends(D.require_user), db=Depends(D.get_db)):
+    """Followed players who are in their league's top 10 booking risks for the next round."""
+    _private(response)
+    mine = {r["ref_iid"] for r in db.follows.find({"user_id": user["id"], "kind": "player"}, {"ref_iid": 1})}
+    if not mine:
+        return {"rows": []}
+    out = []
+    for lg in db.leagues.find({"enabled": True}, {"iid": 1}):
+        rows = Q.booking_risk(db, lg["iid"], limit=10)["rows"]
+        out += [{**f, "rank": i + 1} for i, f in enumerate(rows) if f["player_iid"] in mine]
+    return {"rows": sorted(out, key=lambda f: -f["p"])}
+
+
 @router.get("/follows")
 def follows(response: Response, user=Depends(D.require_user), db=Depends(D.get_db)):
     _private(response)
