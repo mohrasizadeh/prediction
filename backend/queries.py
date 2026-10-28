@@ -89,7 +89,25 @@ def match_detail(db, match_iid: int) -> dict | None:
                         for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "form_fp" in c},
             "h2h": h2h(db, m["home_iid"], m["away_iid"]),
             "availability": _availability(db, (m["home_iid"], m["away_iid"])),
-            "live": m.get("live"), "live_events": _live_events(db, m)}
+            "live": m.get("live"), "live_events": _live_events(db, m), "recap": _recap(db, m, ev)}
+
+
+def _recap(db, m, ev):
+    """Finished match: half-time score (SportAPI, else goal minutes) and how our Strong/Solid forecasts did."""
+    if m.get("status") != "final":
+        return None
+    ht = None
+    lf = db.live_fixtures.find_one({"match_iid": m["iid"]}, {"score": 1})
+    sc = (lf or {}).get("score") or {}
+    if sc.get("ht_home") is not None:
+        ht = [sc["ht_home"], sc["ht_away"]]
+    elif ev:
+        g = [e for e in ev if e.get("type") == "goal" and (e.get("minute") or 99) <= 45]
+        ht = [sum(1 for e in g if e.get("side") == "home"), sum(1 for e in g if e.get("side") == "away")]
+    ids = [f["id"] for f in db.forecasts.find({"match_iid": m["iid"], "tier": {"$in": ["Strong", "Solid"]}}, {"id": 1})]
+    outs = list(db.forecast_outcomes.find({"forecast_id": {"$in": ids}, "player_played": {"$ne": False}}, {"_id": 0, "reached": 1, "tier": 1}))
+    return {"ht": ht, "scored": len(outs), "hit": sum(1 for o in outs if o.get("reached")),
+            "by_tier": {t: [sum(1 for o in outs if o["tier"] == t and o.get("reached")), sum(1 for o in outs if o["tier"] == t)] for t in ("Strong", "Solid")}}
 
 
 def _live_events(db, m):
@@ -275,7 +293,8 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
             continue
         if playing is not None and r["team"] not in playing:
             continue
-        out.append({"id": r["_id"], "team_iid": r["team"], "games": len(vals), "reached": reached, "run": run, "score": score})
+        out.append({"id": r["_id"], "team_iid": r["team"], "games": len(vals), "reached": reached, "run": run, "score": score,
+                    "hits": [v >= threshold for v in vals]})
     out.sort(key=lambda x: (-x["score"], -x["games"]))
     out = out[:limit]
     # attach the next fixture and its forecast

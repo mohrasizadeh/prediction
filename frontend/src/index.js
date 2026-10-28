@@ -17,6 +17,7 @@ import "./components/ui/kit.css";
 import "./styles/teams.css";
 import "./styles/shell.css";
 import "./styles/matchday.css";
+import "./styles/power.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

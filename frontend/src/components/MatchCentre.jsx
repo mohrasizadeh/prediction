@@ -49,7 +49,8 @@ export function Hero({ d }) {
       <div className="mc-row">
         <Side team={d.home} align="home" />
         <div className="mc-mid">
-          {st === "final" ? <><strong className="mc-score" data-testid="match-score">{m.hg} – {m.ag}</strong><span className="status-chip">Full time</span></>
+          {st === "final" ? <><strong className="mc-score" data-testid="match-score">{m.hg} – {m.ag}</strong><span className="status-chip">Full time</span>
+              {d.recap?.ht && <small className="k-faint" data-testid="match-ht">Half-time {d.recap.ht[0]} – {d.recap.ht[1]}</small>}</>
             : st === "live" ? <><strong className="mc-score" data-testid="match-live-score">{lv.hs} – {lv.as}</strong><LiveStatus status="LIVE" minute={lv.minute} testid="match-live-status" />
               {last && <small className="mc-last" data-testid="match-last-event">{last.type.replace(/_/g, " ")}{last.player_name ? `, ${last.player_name}` : ""} {last.minute}</small>}</>
             : <><span className="mc-v">v</span><time className="mc-ko">{utc(m.kickoff).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>
@@ -59,6 +60,8 @@ export function Hero({ d }) {
         <Side team={d.away} align="away" />
       </div>
       {st !== "final" && d.probs && <WdlBar home={d.probs.p_home} draw={d.probs.p_draw} away={d.probs.p_away} homeName={d.home.name} awayName={d.away.name} testid="match-wdl" />}
+      {st === "final" && d.recap?.scored > 0 && <p className="mc-recap" data-testid="match-recap">How our forecasts did: <b>{d.recap.hit} of {d.recap.scored}</b> Strong and Solid forecasts came true
+        {["Strong", "Solid"].filter((t) => d.recap.by_tier[t][1]).map((t) => ` · ${t} ${d.recap.by_tier[t][0]}/${d.recap.by_tier[t][1]}`).join("")}</p>}
       {st !== "final" && <Situation d={d} />}
       {d.probs && <p className="k-faint k-small">Expected goals {num1(d.probs.xg_home)} – {num1(d.probs.xg_away)}</p>}
       {(m.referee || m.stadium) && <p className="k-faint k-small" data-testid="match-meta">{m.referee && <>Referee: <Link to={`/referee/${encodeURIComponent(m.referee)}`} data-testid="match-referee-link">{m.referee}</Link></>}{m.referee && m.stadium ? " · " : ""}{m.stadium}</p>}

@@ -104,7 +104,7 @@ def league(league_id: str, response: Response, db=Depends(D.get_db)):
 
 @router.get("/leagues/{league_id}/fixtures")
 def league_fixtures(league_id: str, response: Response, status: str = Query("scheduled", pattern="^(scheduled|final)$"),
-                    limit: int = Query(50, ge=1, le=200), db=Depends(D.get_db)):
+                    limit: int = Query(50, ge=1, le=400), db=Depends(D.get_db)):
     lg = _league(db, league_id)
     _cache(response)
     return Q.league_matches(db, lg["iid"], status, limit=limit)

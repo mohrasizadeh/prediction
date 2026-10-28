@@ -6,6 +6,8 @@ import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import TeamMatrix from "../components/TeamMatrix";
+import Standings from "../components/Standings";
+import { Segmented } from "../components/ui";
 import { MatchRow, STATS, Seg, Select, kickoff, num1, posLabel, useTitle } from "../components/Football";
 import { refPath } from "./Referee";
 
@@ -133,10 +135,31 @@ function Teams({ id }) {
   return <TeamMatrix leagueId={id} />;
 }
 
+function Overview({ id, d }) {
+  return (
+    <div className="lg-ov" data-testid="league-overview">
+      <section><h2 className="k-sec">Next up</h2><List rows={(d.next || []).slice(0, 6)} empty="No upcoming fixtures loaded." /></section>
+      <Assignments id={id} />
+    </div>
+  );
+}
+
+function FixturesTab({ id, d }) {
+  const [v, setV] = useState("next");
+  return <><Segmented options={[{ id: "next", label: "Upcoming" }, { id: "results", label: "Results" }]} value={v} onChange={setV} label="Fixtures" testid="league-fixtures-view" />
+    {v === "next" ? <List rows={d.next} empty="No upcoming fixtures loaded." /> : <Results id={id} />}</>;
+}
+
+function LeadersTab({ id }) {
+  const [v, setV] = useState("players");
+  return <><Segmented options={[{ id: "players", label: "Players" }, { id: "bookings", label: "Bookings" }, { id: "referees", label: "Referees" }]} value={v} onChange={setV} label="Leaders" testid="league-leaders-view" />
+    {v === "players" ? <Leaders id={id} /> : v === "bookings" ? <Bookings id={id} /> : <Referees id={id} />}</>;
+}
+
 export default function League() {
   const { id } = useParams();
   const q = useApi(`/leagues/${id}`);
-  const [tab, setTab] = useState("fixtures");
+  const [tab, setTab] = useState("overview");
   useTitle(q.data?.name || "League");
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
@@ -144,13 +167,14 @@ export default function League() {
   return (
     <section data-testid="league-page">
       <header className="phead"><LeagueMark league={d} size={40} decorative={false} /><div><h1>{d.name}</h1><p className="muted">{[d.country, d.current_season].filter(Boolean).join(" · ")}</p></div></header>
-      <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "fixtures", label: "Fixtures" }, { id: "results", label: "Results" }, { id: "leaders", label: "Leaderboards" }, { id: "bookings", label: "Bookings" }, { id: "referees", label: "Referees" }, { id: "teams", label: "Teams" }]} />
-      {tab === "fixtures" && <List rows={d.next} empty="No upcoming fixtures loaded." />}
-      {tab === "results" && <Results id={id} />}
-      {tab === "leaders" && <Leaders id={id} />}
-      {tab === "referees" && <Referees id={id} />}
-      {tab === "bookings" && <Bookings id={id} />}
-      {tab === "teams" && <Teams id={id} />}
+      <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "overview", label: "Overview" }, { id: "table", label: "Table" }, { id: "teams", label: "Teams" }, { id: "fixtures", label: "Fixtures" }, { id: "leaders", label: "Leaders" }]} />
+      <div className="lg-tab">
+        {tab === "overview" && <Overview id={id} d={d} />}
+        {tab === "table" && <Standings id={id} />}
+        {tab === "teams" && <Teams id={id} />}
+        {tab === "fixtures" && <FixturesTab id={id} d={d} />}
+        {tab === "leaders" && <LeadersTab id={id} />}
+      </div>
     </section>
   );
 }

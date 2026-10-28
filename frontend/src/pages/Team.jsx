@@ -108,7 +108,7 @@ export default function Team() {
         <div className="phead-main">
           <h1>{d.team.name}</h1>
           {d.league && <Link to={`/league/${d.league.id}`} className="muted small inline"><LeagueMark league={d.league} size={20} /> {d.league.name}</Link>}
-          <div className="phead-row"><FormPills form={d.form} /><div className="chips">{(d.style?.tactics || []).map((t) => <TacticChip key={t} t={t} />)}</div><FollowButton kind="team" refId={d.team.id} name={d.team.name} /></div>
+          <div className="phead-row"><FormPills form={d.form} /><div className="chips">{(d.style?.tactics || []).map((t) => <TacticChip key={t} t={t} />)}</div><FollowButton kind="team" refId={d.team.id} name={d.team.name} /><Link to={`/compare?a=${d.team.id}`} className="btn btn--secondary btn--sm" data-testid="team-compare">Compare with…</Link></div>
         </div>
       </header>
       <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "grid", label: "Squad grid" }, { id: "totals", label: "Team totals" }, { id: "against", label: "Against" }, { id: "first", label: "First goal" }, { id: "fixtures", label: "Fixtures" }]} />

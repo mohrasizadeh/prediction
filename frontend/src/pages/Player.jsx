@@ -9,6 +9,7 @@ import { FollowButton } from "../components/Actions";
 import { useAuth } from "../lib/auth";
 import { del, put } from "../lib/api";
 import { useToast } from "../components/Ui";
+import { HitStrip } from "../components/ui";
 
 function Note({ id }) {
   const { user } = useAuth();
@@ -95,6 +96,19 @@ function History({ id }) {
   );
 }
 
+function FormStrips({ id }) {
+  const q = useApi(`/players/${id}/history`, { last: 10 });
+  const games = q.data?.games || [];
+  if (!games.length) return null;
+  const lines = [["shots", 1, "1+ shots"], ["shots", 2, "2+ shots"], ["sot", 1, "1+ on target"], ["tackles", 2, "2+ tackles"]];
+  return (
+    <section className="card pl-form" data-testid="player-form">
+      <h2 className="k-sec">Last {games.length} games</h2>
+      <ul>{lines.map(([s, n, label]) => { const hits = games.filter((g) => g[s] != null).map((g) => g[s] >= n).reverse(); return hits.length ? <li key={label}><span>{label}</span><HitStrip hits={hits} label={label} testid={`player-strip-${s}-${n}`} /></li> : null; })}</ul>
+    </section>
+  );
+}
+
 export default function Player() {
   const { id } = useParams();
   const q = useApi(`/players/${id}`);
@@ -122,6 +136,7 @@ export default function Player() {
         {nx && (forecasts.length ? <div className="fgrid">{forecasts.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} homeIid={nx.home_iid} />)}</div>
           : <p className="muted small">No forecasts for this player yet.</p>)}
       </section>
+      <FormStrips id={id} />
       <History id={id} />
       <Note id={id} />
     </section>
