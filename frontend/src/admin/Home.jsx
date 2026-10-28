@@ -25,7 +25,7 @@ function line(t) {
     case "live": return t.enabled ? `${t.provider} ${num(t.used)} of ${num(t.cap)} · ${num(t.live_now)} live` : `${t.provider} is off`;
     case "engine": return `Run ${at(t.last_run)} · ${num(t.forecasts)} forecasts · map ${t.map}${t.errors_24h ? ` · ${t.errors_24h} failed` : ""}`;
     case "images": return t.review ? `${num(t.review)} to review` : `Nothing to review · ${num(t.stored)} player photos`;
-    case "users": return `${num(t.signups_today)} sign-up${t.signups_today === 1 ? "" : "s"} today · ${num(t.total)} members`;
+    case "users": return `${num(t.signups_today)} sign-up${t.signups_today === 1 ? "" : "s"} today · ${num(t.total)} member${t.total === 1 ? "" : "s"}`;
     case "money": return t.billing ? `Billing on (${t.mode})${t.past_due ? ` · ${t.past_due} past due` : ""}${t.webhook_errors_24h ? ` · ${t.webhook_errors_24h} webhook errors` : ""}` : "Billing off";
     default: return "";
   }
@@ -81,7 +81,7 @@ function NeedItem({ n, onDone }) {
     buttons = <button type="button" className="btn btn--secondary btn--sm" disabled={busy} onClick={() => act(() => post(`/admin/alerts/${n.id}/resolve`), "Marked fixed")} data-testid={`${tid}-fixed`}>Mark fixed</button>;
   } else if (n.kind === "issue") {
     text = n.text;
-    buttons = <button type="button" className="btn btn--secondary btn--sm" disabled={busy} onClick={() => act(() => Promise.all(n.ids.map((id) => post(`/admin/issues/${id}/resolve`, { note: "" }))), "Marked fixed")} data-testid={`${tid}-fixed`}>Mark fixed</button>;
+    buttons = <button type="button" className="btn btn--secondary btn--sm" disabled={busy} onClick={() => act(() => post("/admin/issues/resolve-many", { ids: n.ids }), "Marked fixed")} data-testid={`${tid}-fixed`}>Mark fixed</button>;
   } else {
     text = <>{n.count} new message{n.count === 1 ? "" : "s"} from the contact form</>;
     buttons = <Link to="/admin/inbox" className="btn btn--secondary btn--sm" data-testid={`${tid}-open`}>Open inbox</Link>;

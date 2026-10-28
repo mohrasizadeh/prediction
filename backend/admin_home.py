@@ -85,5 +85,5 @@ def needs(db, user, now: datetime) -> list[dict]:
 
 def home(db, user) -> dict:
     now = datetime.now(timezone.utc)
-    return {"now": now, "name": (user.get("name") or user.get("email", "")).split(" ")[0].split("@")[0],
-            "tiles": tiles(db, now), "needs": needs(db, user, now)}
+    return {"now": now, "name": (user.get("display_name") or user.get("name") or user.get("email", "").split("@")[0]).split(" ")[0],
+            "tiles": tiles(db, now), "needs": needs(db, user, now) if A.can(user, "logs.read") else []}

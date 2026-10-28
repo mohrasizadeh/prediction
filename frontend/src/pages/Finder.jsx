@@ -65,7 +65,7 @@ function useReset() {
 
 function Reminder() {
   const r = useReset();
-  return <p className="fs-reset" data-testid="finder-reset"><Icon name="clock" size={14} />Your searches come back at {r.time}, in about {r.left}.</p>;
+  return <p className="fs-reset" data-testid="finder-reset-time"><Icon name="clock" size={14} />Your searches come back at {r.time}, in about {r.left}.</p>;
 }
 
 function Wall({ visitor, cap, freeCap, next }) {

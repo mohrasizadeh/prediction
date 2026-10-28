@@ -83,6 +83,23 @@ class ResolveBody(BaseModel):
     note: str = Field(default="", max_length=300)
 
 
+class ManyBody(BaseModel):
+    ids: list[str] = Field(max_length=1000)
+
+
+@router.post("/issues/resolve-many")
+def issues_resolve_many(body: ManyBody, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    oids = []
+    for i in body.ids:
+        try:
+            oids.append(ObjectId(i))
+        except InvalidId:
+            continue
+    r = db.ingest_issues.update_many({"_id": {"$in": oids}}, {"$set": {"resolved": True, "resolved_at": datetime.now(timezone.utc), "resolved_by": user["email"], "note": ""}})
+    AQ.audit(db, user, "issue.resolve_many", str(r.modified_count))
+    return {"resolved": r.modified_count}
+
+
 @router.post("/issues/{iid}/resolve")
 def issue_resolve(iid: str, body: ResolveBody, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     try:

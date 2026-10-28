@@ -1,0 +1,44 @@
+{
+  "summary": "Tested R6 (admin home, needs, stats, settings provenance, Engine Switches, Availability photo cards, phone bottom bar, SportAPI resets line) and the Finder free search reminder, on the live preview URL. Backend 9/10 pytest pass; 1 minor bug: the home greeting uses the e-mail instead of display_name. Frontend: every requested flow works. Mark fixed resolved all 27 photo_plan issues in the DB. Availability cycling and the sheet save and restore correctly. The engine.absence_model toggle showed 'changed by' plus history, and Reset to default worked. The visitor and free-user walls show the reminder with the correct time left. Phone 390px has no horizontal overflow and tabs are Home | Needs you | Jobs | Engine | More. The R5 pages render. photo_plan has run OK since the fix (13:15 UTC). check-copy passes. The two-tap Reject/None of these buttons were NOT tested in the UI, because no match or image review items exist.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/home", "issue": "'name' is built from user.get('name') or the e-mail, but users store 'display_name'. The greeting reads 'Good afternoon, test_e1_admin' even with display_name='TEST Admin'. Fix in admin_home.home(): use user.get('display_name') or user.get('name') or the e-mail local part."},
+      {"endpoint": "GET /api/admin/home vs admin_shell MODULES", "issue": "The 'dashboard' (Home) module is shown to anyone with analytics.read, but /admin/home needs logs.read. A role with only analytics.read would see Home in the nav and get a 403 ErrorBox."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Finder.jsx", "issue": "Duplicate data-testid 'finder-reset': used by both the 'Reset' link button (line ~171) and the new Reminder <p>. Two elements match. Rename one (e.g. finder-reset-time for the reminder, or finder-reset-btn for the button).", "selector": "[data-testid=finder-reset]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Home Users tile", "issues": ["'1 members': the plural is not handled for the total (signups_today is handled)."]},
+      {"screen": "Admin Home Needs", "issues": ["Mark fixed on a grouped issue fires one POST per id (27 in parallel via Promise.all). A partial failure leaves the group half-resolved, and the rate limiter could be hit. Consider a bulk resolve endpoint."]},
+      {"screen": "Availability sheet", "issues": ["'Until' uses the browser's native <input type=date> instead of the app's date picker component."]},
+      {"screen": "Engine Switches / Settings", "issues": ["Help text shows developer references like '(docs/22)', '(docs/21)', which don't fit the plain-label goal."]},
+      {"screen": "Availability cards", "issues": ["Card heights and name positions vary when 'pos' is missing. Initials badges are rounded squares while photos are round."]},
+      {"screen": "/admin/stats (pre-existing)", "issues": ["The Monthly revenue card says 'Billing is off until the owner turns it on' while the alert and the Money tile say billing is on (test)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter26_r6_admin_home.py", "/app/test_reports/pytest/iter26.xml"],
+  "action_items": [
+    "admin_home.home(): use display_name for the greeting name",
+    "Finder.jsx: fix the duplicate data-testid 'finder-reset' (Reset button vs reminder)",
+    "Align the permissions of the dashboard (Home) module with GET /admin/home (logs.read), or relax the endpoint",
+    "Optional: bulk issue resolve endpoint for grouped 'Mark fixed'; pluralise 'members'; remove docs/NN references from help text"
+  ],
+  "critical_code_review_comments": [
+    "admin_home.py:88 reads user['name'], which does not exist; it should read display_name",
+    "Home.jsx TwoTap disarms onBlur. On iOS Safari, buttons don't always take focus, so this is fine, but there is no timeout to disarm. Acceptable.",
+    "Home.jsx NeedItem issue action: Promise.all over n.ids with no batching (up to 500 ids are grouped server-side)",
+    "SportAPI.jsx computes 'resets' on the client, while Budget uses the server reset_at. Both are next UTC midnight, so this is consistent."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter26_r6_admin_home.py"],
+  "success_rate": {"backend": "90% (9/10; 1 minor)", "frontend": "95% (all flows pass; 1 duplicate testid)"},
+  "seed_data_creation": "Recreated test_e1_admin (TOTP enrolled via tests/admin_login_helper.py) and test_e1_user, then deleted both and their sessions, events and logs. Restored engine.absence_model to its default and the Alessio Castro-Montes availability to Available (row deleted). Marked the photo_plan TypeError issue group (27) fixed, as requested. Nothing else changed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Admin session: python tests/recreate_test_users.py, then admin_login_helper.admin_session() (wait about 30s between logins for a fresh TOTP code). Inject the __Host-sid cookie into Playwright with add_cookies to skip the 2FA UI. Visitor quota: new browser context with a TEST_ua_ user agent, then call /api/finder 3 times via fetch. Free user cap = 10/day. The two-tap Reject/None buttons are still untested because there are no review items.",
+  "rca of the issue": "Greeting name: admin_home.home() reads a non-existent 'name' field, so it falls back to the e-mail local part."
+}

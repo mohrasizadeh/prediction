@@ -72,7 +72,7 @@ def dashboard(user=Depends(perm("analytics.read")), db=Depends(D.get_db)):
 
 
 @router.get("/home")
-def admin_home(user=Depends(perm("logs.read")), db=Depends(D.get_db)):
+def admin_home(user=Depends(perm("analytics.read")), db=Depends(D.get_db)):
     import admin_home as AH
     return AH.home(db, user)
 
