@@ -13,6 +13,7 @@ import "./styles/football.css";
 import "./styles/admin.css";
 import "./styles/growth.css";
 import "./styles/live.css";
+import "./components/ui/kit.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

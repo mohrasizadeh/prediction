@@ -1,0 +1,527 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+.light{--bg:#F5F7FB;--s1:#FFFFFF;--s2:#F0F3F9;--s3:#E6EBF4;--bd:#E2E8F2;--bd2:#C9D2E3;--tx:#0B1220;--tx2:#475269;--tx3:#6B7690;--br:#4F46E5;--brs:#EEF0FF;--onbr:#fff;--strong:#0D9488;--solid:#2563EB;--watch:#B45309;--up:#059669;--down:#DC2626;--draw:#6B7690;--away:#0D9488;--sh:0 1px 2px rgba(11,18,32,.06),0 8px 24px rgba(11,18,32,.06);--live:#DC2626;--hl:#FFF7E6}
+.dark{--bg:#0A0E17;--s1:#111827;--s2:#182033;--s3:#212B42;--bd:#243049;--bd2:#33415F;--tx:#E9EEF7;--tx2:#A3AFC6;--tx3:#75819B;--br:#7C83FF;--brs:#1E2347;--onbr:#0A0E17;--strong:#2DD4BF;--solid:#60A5FA;--watch:#FBBF24;--up:#34D399;--down:#F87171;--draw:#75819B;--away:#2DD4BF;--sh:0 8px 24px rgba(0,0,0,.35);--live:#F87171;--hl:#2A2410}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;font-feature-settings:'tnum' 1,'cv11' 1;background:#ccc;padding:20px;display:flex;flex-direction:column;gap:30px;align-items:flex-start}
+.frame{background:var(--bg);color:var(--tx);overflow:hidden;position:relative;font-size:14px}
+.phone{width:390px;height:844px;border-radius:0}
+.desk{width:1180px}
+.row{display:flex;align-items:center}
+.col{display:flex;flex-direction:column}
+.g4{gap:4px}.g6{gap:6px}.g8{gap:8px}.g10{gap:10px}.g12{gap:12px}.g16{gap:16px}.g20{gap:20px}
+.sp{justify-content:space-between}.grow{flex:1}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--sh)}
+.muted{color:var(--tx2)}.faint{color:var(--tx3)}
+.b{font-weight:700}.sb{font-weight:600}
+.xs{font-size:11px}.sm{font-size:12.5px}.md{font-size:15px}.lg{font-size:18px}.xl{font-size:22px}.xxl{font-size:30px}
+.crest{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex:none}
+.av{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex:none;font-size:14px;position:relative}
+.av .mini{position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border:2px solid var(--s1);font-size:7px}
+.chip{border:1px solid var(--bd);background:var(--s1);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--tx2);white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.chip.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.chip.br{background:var(--brs);color:var(--br);border-color:transparent}
+.badge{background:var(--br);color:var(--onbr);border-radius:999px;font-size:10px;padding:1px 6px;font-weight:700}
+.tier{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:4px}
+.tier.strong{color:var(--strong);background:color-mix(in srgb,var(--strong) 14%,transparent)}
+.tier.solid{color:var(--solid);background:color-mix(in srgb,var(--solid) 14%,transparent)}
+.tier.watch{color:var(--watch);background:color-mix(in srgb,var(--watch) 14%,transparent)}
+.dots{display:inline-flex;gap:2px}.dots i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block}.dots i.o{opacity:.25}
+.wdl{display:flex;height:8px;border-radius:999px;overflow:hidden;gap:2px}
+.wdl .h{background:var(--br)}.wdl .d{background:var(--draw);opacity:.6}.wdl .a{background:var(--away)}
+.btn{background:var(--br);color:var(--onbr);border-radius:10px;padding:9px 16px;font-weight:700;font-size:13.5px;border:0}
+.btn.ghost{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+.livedot{width:7px;height:7px;border-radius:50%;background:var(--live);box-shadow:0 0 0 4px color-mix(in srgb,var(--live) 25%,transparent);display:inline-block}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--bd);padding:0 16px}
+.tabs span{padding:10px 0;font-weight:600;color:var(--tx3);font-size:13.5px;white-space:nowrap}
+.tabs span.on{color:var(--tx);border-bottom:2px solid var(--br)}
+.hdr{height:56px;border-bottom:1px solid var(--bd);padding:0 16px;display:flex;align-items:center;justify-content:space-between;background:var(--bg)}
+.logo{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,#4F46E5,#14b8a6);display:inline-flex;align-items:center;justify-content:center}
+.logo:after{content:"";width:9px;height:9px;border:2.5px solid #fff;border-radius:50%}
+.beta{font-size:10px;font-weight:700;color:var(--strong);border:1px solid color-mix(in srgb,var(--strong) 50%,transparent);border-radius:999px;padding:1px 7px}
+.ic{width:18px;height:18px;border:2px solid var(--tx2);border-radius:5px;display:inline-block;opacity:.8}
+.ic.c{border-radius:50%}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:64px;background:var(--s1);border-top:1px solid var(--bd);display:flex;justify-content:space-around;align-items:center}
+.tabbar div{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:var(--tx3)}
+.tabbar div.on{color:var(--br)}.tabbar div.on .ic{border-color:var(--br)}
+.pill{position:absolute;background:var(--tx);color:var(--bg);border-radius:999px;padding:8px 14px;font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.days{display:flex;gap:8px;overflow:hidden}
+.day{border:1px solid var(--bd);background:var(--s1);border-radius:14px;padding:7px 0;width:62px;text-align:center;flex:none}
+.day .w{font-size:10.5px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.day .n{font-size:16px;font-weight:700;margin-top:1px}
+.day .dot{width:5px;height:5px;border-radius:50%;background:var(--br);margin:4px auto 0}
+.day .dot.no{background:transparent}
+.day.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}.day.on .w{color:var(--bg);opacity:.7}.day.on .dot{background:var(--bg)}
+.sec{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+.strip{display:flex;gap:3px}.strip i{width:12px;height:12px;border-radius:3px;background:var(--s3);display:block}.strip i.h{background:var(--strong)}
+.bar{height:6px;border-radius:999px;background:var(--s3);position:relative}
+.bar>b{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
+.slider{height:6px;border-radius:999px;background:var(--s3);position:relative;margin:14px 0 6px}
+.slider>b{position:absolute;top:0;bottom:0;background:var(--br);border-radius:999px}
+.slider>u{position:absolute;top:50%;width:24px;height:24px;border-radius:50%;background:var(--s1);border:2px solid var(--br);transform:translate(-50%,-50%);box-shadow:var(--sh)}
+.slider>s{position:absolute;top:-30px;transform:translateX(-50%);background:var(--tx);color:var(--bg);font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;text-decoration:none}
+.seg{display:inline-flex;background:var(--s2);border-radius:10px;padding:3px;gap:2px}
+.seg span{padding:5px 11px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--tx2)}
+.seg span.on{background:var(--s1);color:var(--tx);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--s1);border-radius:22px 22px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.25);padding:10px 18px 24px}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--bd2);margin:0 auto 12px}
+.scrim{position:absolute;inset:0;background:rgba(5,8,15,.45)}
+.u{border-bottom:2px dashed var(--br);color:var(--br);font-weight:700;padding:0 2px}
+.label{position:absolute;background:#FDE047;color:#111;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:9;white-space:nowrap;font-family:Inter}
+.label:before{content:attr(data-n);background:#111;color:#FDE047;border-radius:50%;display:inline-flex;width:16px;height:16px;align-items:center;justify-content:center;margin-right:6px;font-size:10px}
+.tile{padding:14px;border-radius:14px;background:var(--s1);border:1px solid var(--bd)}
+.mrow{display:grid;grid-template-columns:64px 1fr 190px 92px;align-items:center;gap:14px;padding:11px 16px;border-top:1px solid var(--bd)}
+</style></head><body>
+
+<!-- ============ 1. TODAY DESKTOP (light) ============ -->
+<div id="today-desk" class="frame desk light">
+  <div class="hdr" style="padding:0 20px">
+    <div class="row g10"><span class="logo"></span><span class="b md">Forecast</span><span class="beta">BETA</span></div>
+    <div class="row g10" style="background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:8px 14px;width:380px;color:var(--tx3)"><span class="ic c" style="width:14px;height:14px"></span>Search players, teams, leagues <span style="margin-left:auto;font-size:11px;border:1px solid var(--bd2);border-radius:5px;padding:0 5px">/</span></div>
+    <div class="row g16"><span class="pill" style="position:static;padding:6px 12px"><span class="livedot"></span>2 live</span><span class="ic c"></span><span class="sb">Sign in</span><button class="btn">Sign up free</button></div>
+  </div>
+  <div class="row" style="align-items:stretch">
+    <div class="col g4" style="width:210px;padding:16px 10px;border-right:1px solid var(--bd);min-height:700px">
+      <div class="row g10" style="padding:9px 12px;border-radius:10px;background:var(--brs);color:var(--br);font-weight:700"><span class="ic" style="border-color:var(--br)"></span>Today</div>
+      <div class="row g10 sb muted" style="padding:9px 12px"><span class="ic"></span>Insights</div>
+      <div class="row g10 sb muted" style="padding:9px 12px"><span class="ic"></span>Finder</div>
+      <div class="row g10 sb muted" style="padding:9px 12px"><span class="ic"></span>Explore</div>
+      <div class="row g10 sb muted" style="padding:9px 12px"><span class="ic"></span>You</div>
+      <div class="sec" style="padding:18px 12px 6px">Following</div>
+      <div class="row g10 sm muted" style="padding:6px 12px"><span class="crest" style="background:#8E1F2F">RM</span>Roma</div>
+      <div class="row g10 sm muted" style="padding:6px 12px"><span class="crest" style="background:#87CEEB;color:#123">LZ</span>Lazio</div>
+      <div class="row g10 sm muted" style="padding:6px 12px"><span class="crest" style="background:#EF0107">AR</span>Arsenal</div>
+      <div style="margin-top:auto;padding:12px" class="xs faint">Track record · Learn · Plans</div>
+    </div>
+    <div class="grow col g16" style="padding:22px 26px 60px">
+      <div class="row sp">
+        <div class="days">
+          <div class="day"><div class="w">Yest.</div><div class="n">26</div><div class="dot"></div></div>
+          <div class="day on"><div class="w">Today</div><div class="n">27</div><div class="dot"></div></div>
+          <div class="day"><div class="w">Tmrw</div><div class="n">28</div><div class="dot"></div></div>
+          <div class="day"><div class="w">Thu</div><div class="n">29</div><div class="dot"></div></div>
+          <div class="day"><div class="w">Fri</div><div class="n">30</div><div class="dot no"></div></div>
+          <div class="day"><div class="w">Sat</div><div class="n">31</div><div class="dot"></div></div>
+          <div class="day"><div class="w">Sun</div><div class="n">1</div><div class="dot"></div></div>
+          <div class="day" style="width:46px;display:flex;align-items:center;justify-content:center"><span class="ic"></span></div>
+        </div>
+        
+      </div>
+
+      <div class="row sp"><div class="sec">Top 3 for today</div><span class="sm sb" style="color:var(--br)">See all 24 →</span></div>
+      <div class="row g12" style="position:relative">
+        <!-- card -->
+        <div class="card grow" style="padding:14px">
+          <div class="row g10"><span class="av" style="background:#8E1F2F">AD<span class="crest mini" style="background:#8E1F2F">RM</span></span><div class="col"><span class="sb">A. Dovbyk</span><span class="xs faint">Roma vs Cagliari · 15:45</span></div><span class="tier strong" style="margin-left:auto"><span class="dots"><i></i><i></i><i></i></span>Strong</span></div>
+          <div class="row sp" style="margin-top:12px;align-items:flex-end"><span class="lg b">2+ shots on target</span><span class="xxl b" style="color:var(--strong)">78%</span></div>
+          <div class="bar" style="margin-top:8px"><b style="width:78%;background:var(--strong)"></b><i style="position:absolute;left:58%;top:-4px;width:2px;height:14px;background:var(--tx)"></i></div>
+          <div class="xs faint" style="margin-top:6px">Usually 58% · Cagliari allow the 3rd most shots</div>
+        </div>
+        <div class="card grow" style="padding:14px">
+          <div class="row g10"><span class="av" style="background:#87CEEB;color:#123">MZ<span class="crest mini" style="background:#87CEEB;color:#123">LZ</span></span><div class="col"><span class="sb">M. Zaccagni</span><span class="xs faint">Sassuolo vs Lazio · 13:30</span></div><span class="tier strong" style="margin-left:auto"><span class="dots"><i></i><i></i><i></i></span>Strong</span></div>
+          <div class="row sp" style="margin-top:12px;align-items:flex-end"><span class="lg b">2+ shots</span><span class="xxl b" style="color:var(--strong)">81%</span></div>
+          <div class="bar" style="margin-top:8px"><b style="width:81%;background:var(--strong)"></b><i style="position:absolute;left:66%;top:-4px;width:2px;height:14px;background:var(--tx)"></i></div>
+          <div class="xs faint" style="margin-top:6px">Usually 66% · lineup confirmed</div>
+        </div>
+        <div class="card grow" style="padding:14px">
+          <div class="row g10"><span class="crest" style="width:44px;height:44px;font-size:13px;background:#7A1F1F">TO</span><div class="col"><span class="sb">Torino (team)</span><span class="xs faint">Torino vs Como · 15:45</span></div><span class="tier solid" style="margin-left:auto"><span class="dots"><i></i><i></i><i class="o"></i></span>Solid</span></div>
+          <div class="row sp" style="margin-top:12px;align-items:flex-end"><span class="lg b">5+ corners</span><span class="xxl b" style="color:var(--solid)">67%</span></div>
+          <div class="bar" style="margin-top:8px"><b style="width:67%;background:var(--solid)"></b><i style="position:absolute;left:55%;top:-4px;width:2px;height:14px;background:var(--tx)"></i></div>
+          <div class="xs faint" style="margin-top:6px">Usually 55% · at home, Como press high</div>
+        </div>
+        <span class="label" data-n="2" style="left:300px;top:-38px">Top 3 carousel: the answer before any scroll</span>
+      </div>
+
+      <div class="row g8" style="position:relative">
+        <span class="chip on">All 9</span><span class="chip">Following 3</span><span class="chip"><span class="livedot" style="width:6px;height:6px;box-shadow:none"></span>Live now 2</span><span class="chip">Has insights 7</span>
+        <span class="label" data-n="3" style="left:470px;top:4px">Filter chips with counts, pinned on scroll</span>
+      </div>
+
+      <div class="card" style="overflow:hidden;position:relative">
+        <div class="row g10" style="padding:12px 16px"><span class="crest" style="background:#0B3D91">SA</span><span class="b">Serie A</span><span class="xs faint">3 matches · 4 forecasts</span><span class="muted" style="margin-left:auto">⌃</span></div>
+        <div class="mrow" style="background:color-mix(in srgb,var(--live) 5%,transparent)">
+          <div class="col"><span class="row g6 sb" style="color:var(--live)"><span class="livedot" style="width:6px;height:6px"></span>67'</span></div>
+          <div class="col g6"><div class="row g8"><span class="crest" style="background:#00A651">SS</span><span class="sb">Sassuolo</span><span class="b" style="margin-left:auto">0</span></div><div class="row g8"><span class="crest" style="background:#87CEEB;color:#123">LZ</span><span class="sb">Lazio</span><span class="b" style="margin-left:auto">2</span></div></div>
+          <div class="col g4"><div class="wdl"><b class="h" style="width:18%"></b><b class="d" style="width:19%"></b><b class="a" style="width:63%"></b></div><div class="row sp xs faint"><span>Sassuolo 18%</span><span class="sb" style="color:var(--away)">Lazio 63%</span></div></div>
+          <span class="chip br" style="justify-self:end">1 insight ›</span>
+        </div>
+        <div class="mrow">
+          <div class="col"><span class="sb">15:45</span><span class="xs faint">in 2h 10m</span></div>
+          <div class="col g6"><div class="row g8"><span class="crest" style="background:#8E1F2F">RM</span><span class="sb">Roma</span></div><div class="row g8"><span class="crest" style="background:#1B2A5C">CA</span><span class="sb">Cagliari</span></div></div>
+          <div class="col g4"><div class="wdl"><b class="h" style="width:74%"></b><b class="d" style="width:17%"></b><b class="a" style="width:9%"></b></div><div class="row sp xs faint"><span class="sb" style="color:var(--br)">Roma 74%</span><span>Cagliari 9%</span></div></div>
+          <span class="chip br" style="justify-self:end">2 insights ›</span>
+        </div>
+        <div class="mrow">
+          <div class="col"><span class="sb">15:45</span><span class="xs faint">in 2h 10m</span></div>
+          <div class="col g6"><div class="row g8"><span class="crest" style="background:#7A1F1F">TO</span><span class="sb">Torino</span></div><div class="row g8"><span class="crest" style="background:#1F4E8C">CO</span><span class="sb">Como</span></div></div>
+          <div class="col g4"><div class="wdl"><b class="h" style="width:30%"></b><b class="d" style="width:25%"></b><b class="a" style="width:45%"></b></div><div class="row sp xs faint"><span>Torino 30%</span><span class="sb" style="color:var(--away)">Como 46%</span></div></div>
+          <span class="chip br" style="justify-self:end">1 insight ›</span>
+        </div>
+        <span class="label" data-n="4" style="left:330px;top:58px">Live row tinted, clock + score in place</span>
+        <span class="label" data-n="5" style="right:420px;top:150px">Favourite's % printed under each bar →</span>
+      </div>
+    </div>
+  </div>
+  <span class="label" data-n="1" style="left:790px;top:84px">Swipeable days, dots on game days, calendar at the end</span>
+  <span class="label" data-n="6" style="left:14px;top:263px">5 sections, not 8</span>
+</div>
+
+<!-- ============ 2. TODAY PHONE (dark) ============ -->
+<div id="today-phone" class="frame phone dark">
+  <div class="hdr"><div class="row g8"><span class="logo"></span><span class="b">Forecast</span></div><div class="row g16"><span class="ic c"></span><span class="ic c"></span></div></div>
+  <div style="padding:12px 16px" class="col g12">
+    <div class="days">
+      <div class="day" style="width:58px"><div class="w">Yest.</div><div class="n">26</div><div class="dot"></div></div>
+      <div class="day on" style="width:58px"><div class="w">Today</div><div class="n">27</div><div class="dot"></div></div>
+      <div class="day" style="width:58px"><div class="w">Tmrw</div><div class="n">28</div><div class="dot"></div></div>
+      <div class="day" style="width:58px"><div class="w">Thu</div><div class="n">29</div><div class="dot"></div></div>
+      <div class="day" style="width:58px"><div class="w">Fri</div><div class="n">30</div><div class="dot no"></div></div>
+      <div class="day" style="width:58px"><div class="w">Sat</div><div class="n">31</div><div class="dot"></div></div>
+    </div>
+    <div class="row sp"><div class="sec">Top 3 for today</div><span class="sm sb" style="color:var(--br)">See all 24</span></div>
+    <div class="row g10" style="margin-right:-40px">
+      <div class="card" style="padding:14px;width:300px;flex:none">
+        <div class="row g10"><span class="av" style="background:#8E1F2F">AD<span class="crest mini" style="background:#8E1F2F">RM</span></span><div class="col"><span class="sb">A. Dovbyk</span><span class="xs faint">vs Cagliari · 15:45</span></div><span class="tier strong" style="margin-left:auto">Strong</span></div>
+        <div class="row sp" style="margin-top:10px;align-items:flex-end"><span class="md b">2+ shots on target</span><span class="xl b" style="color:var(--strong)">78%</span></div>
+        <div class="bar" style="margin-top:8px"><b style="width:78%;background:var(--strong)"></b><i style="position:absolute;left:58%;top:-4px;width:2px;height:14px;background:var(--tx)"></i></div>
+        <div class="xs faint" style="margin-top:6px">Usually 58% · Cagliari allow many shots</div>
+      </div>
+      <div class="card" style="padding:14px;width:300px;flex:none"><div class="row g10"><span class="av" style="background:#87CEEB;color:#123">MZ</span><div class="col"><span class="sb">M. Zaccagni</span></div></div></div>
+    </div>
+    <div class="row g6" style="justify-content:center"><i style="width:16px;height:5px;border-radius:9px;background:var(--br)"></i><i style="width:5px;height:5px;border-radius:9px;background:var(--bd2)"></i><i style="width:5px;height:5px;border-radius:9px;background:var(--bd2)"></i></div>
+    <div class="row g6" style="overflow:hidden"><span class="chip on">All 9</span><span class="chip">Following 3</span><span class="chip">Live 2</span><span class="chip">Has insights</span></div>
+    <div class="card" style="overflow:hidden">
+      <div class="row g8" style="padding:10px 14px"><span class="crest" style="background:#0B3D91">SA</span><span class="b">Serie A</span><span class="muted" style="margin-left:auto">⌃</span></div>
+      <div style="padding:10px 14px;border-top:1px solid var(--bd);background:color-mix(in srgb,var(--live) 7%,transparent)" class="col g8">
+        <div class="row g10"><span class="sb sm" style="color:var(--live);width:38px"><span class="livedot" style="width:6px;height:6px"></span> 67'</span><div class="col g6 grow"><div class="row g8"><span class="crest" style="background:#00A651">SS</span>Sassuolo<b style="margin-left:auto">0</b></div><div class="row g8"><span class="crest" style="background:#87CEEB;color:#123">LZ</span>Lazio<b style="margin-left:auto">2</b></div></div></div>
+        <div class="row g10"><span style="width:38px"></span><div class="wdl grow"><b class="h" style="width:18%"></b><b class="d" style="width:19%"></b><b class="a" style="width:63%"></b></div><span class="xs sb" style="color:var(--away)">LAZ 63%</span><span class="chip br" style="padding:3px 8px;font-size:11px">1 ›</span></div>
+      </div>
+      <div style="padding:10px 14px;border-top:1px solid var(--bd)" class="col g8">
+        <div class="row g10"><span class="sb sm" style="width:38px">15:45</span><div class="col g6 grow"><div class="row g8"><span class="crest" style="background:#8E1F2F">RM</span>Roma</div><div class="row g8"><span class="crest" style="background:#1B2A5C">CA</span>Cagliari</div></div></div>
+        <div class="row g10"><span style="width:38px"></span><div class="wdl grow"><b class="h" style="width:74%"></b><b class="d" style="width:17%"></b><b class="a" style="width:9%"></b></div><span class="xs sb" style="color:var(--br)">ROM 74%</span><span class="chip br" style="padding:3px 8px;font-size:11px">2 ›</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="pill" style="right:16px;bottom:80px"><span class="livedot"></span>2 live</div>
+  <div class="tabbar"><div class="on"><span class="ic"></span>Today</div><div><span class="ic"></span>Insights</div><div><span class="ic"></span>Finder</div><div><span class="ic"></span>Explore</div><div><span class="ic c"></span>You</div></div>
+  <span class="label" data-n="1" style="left:16px;top:640px">Peek of the next card says "swipe me"</span>
+  <span class="label" data-n="2" style="right:90px;bottom:116px">Floating live pill on every page</span>
+  <span class="label" data-n="3" style="left:16px;top:680px">Bottom tabs on phones ↓</span>
+</div>
+
+<!-- ============ 3. CARD + DETAIL SHEET (light) ============ -->
+<div id="card" class="frame light" style="width:880px;height:600px;display:flex;gap:30px;padding:26px">
+  <div class="col g12" style="width:360px">
+    <div class="sec">Forecast card, folded</div>
+    <div class="card" style="padding:14px;position:relative">
+      <div class="row g10"><span class="av" style="background:#8E1F2F">AD<span class="crest mini" style="background:#8E1F2F">RM</span></span><div class="col"><span class="sb">A. Dovbyk</span><span class="xs faint">Roma vs Cagliari · 15:45</span></div><span class="tier strong" style="margin-left:auto"><span class="dots"><i></i><i></i><i></i></span>Strong</span></div>
+      <div class="row sp" style="margin-top:12px;align-items:flex-end"><span class="lg b">2+ shots on target</span><span class="xxl b" style="color:var(--strong)">78%</span></div>
+      <div class="bar" style="margin-top:8px"><b style="width:78%;background:var(--strong)"></b><i style="position:absolute;left:58%;top:-4px;width:2px;height:14px;background:var(--tx)"></i></div>
+      <div class="row sp xs faint" style="margin-top:5px"><span>▲ usual 58%</span><span class="sb" style="color:var(--up)">+20 pts</span></div>
+      <div class="sm muted" style="margin-top:10px">Cagliari allow the 3rd most shots on target away.</div>
+      <div class="row sp" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)"><span class="sm sb" style="color:var(--br)">+2 more lines ⌄</span><span class="row g6 xs faint"><span class="tier" style="background:var(--s2);color:var(--tx2)">Lineup likely</span></span></div>
+    </div>
+    <div class="sec" style="margin-top:8px">Unfolded</div>
+    <div class="card" style="padding:12px 14px" >
+      <div class="row sp sm" style="padding:4px 0"><span>1+ shot on target</span><span class="b" style="color:var(--strong)">94%</span></div>
+      <div class="row sp sm" style="padding:4px 0;border-top:1px solid var(--bd)"><span>3+ shots</span><span class="b" style="color:var(--solid)">69%</span></div>
+    </div>
+    <div class="col g6 xs muted" style="margin-top:6px;line-height:1.5">
+      <span>① The headline is the boldest line in the best tier.</span>
+      <span>② The black tick is his usual rate, so "above usual" reads at a glance.</span>
+      <span>③ One reason in plain words. Tap the card for the rest.</span>
+    </div>
+  </div>
+  <div class="phone" style="width:390px;height:548px;position:relative;border-radius:22px;overflow:hidden;background:var(--bg);border:1px solid var(--bd)">
+    <div style="padding:16px" class="col g10"><div class="card" style="height:80px;opacity:.6"></div><div class="card" style="height:80px;opacity:.6"></div></div>
+    <div class="scrim"></div>
+    <div class="sheet" style="height:470px">
+      <div class="grab"></div>
+      <div class="row g10"><span class="av" style="background:#8E1F2F">AD</span><div class="col"><span class="b md">A. Dovbyk · 2+ on target</span><span class="xs faint">Roma vs Cagliari · today 15:45</span></div><span class="xl b" style="margin-left:auto;color:var(--strong)">78%</span></div>
+      <div class="sec" style="margin-top:16px">Why</div>
+      <div class="col g6 sm" style="margin-top:6px">
+        <span>• Cagliari allow the 3rd most shots on target away.</span>
+        <span>• He averages 1.9 on target per 90 at home.</span>
+        <span>• Roma's top creator returns from a ban.</span>
+      </div>
+      <div class="row g10" style="margin-top:14px">
+        <div class="tile grow" style="padding:10px"><div class="xs faint">Chance he plays</div><div class="b lg">91%</div></div>
+        <div class="tile grow" style="padding:10px"><div class="xs faint">Lineup</div><div class="b" style="color:var(--watch)">Not out yet</div></div>
+      </div>
+      <div class="sec" style="margin-top:14px">Last 10 games · 2+ on target</div>
+      <div class="row g10" style="margin-top:8px"><div class="strip"><i class="h"></i><i></i><i class="h"></i><i class="h"></i><i></i><i class="h"></i><i class="h"></i><i class="h"></i><i></i><i class="h"></i></div><span class="b sm">7/10</span></div>
+      <div class="tile sm" style="margin-top:14px;padding:10px;background:var(--s2)">Our record on Strong player forecasts: <b>81 of 100</b> came true.</div>
+      <div class="row g8" style="margin-top:14px"><button class="btn grow">Save</button><button class="btn ghost">Note</button><button class="btn ghost">Share</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 4. MATCH CENTRE (light) ============ -->
+<div id="match" class="frame phone light">
+  <div class="hdr"><span class="muted">‹ Today</span><span class="sb">Serie A · Round 9</span><span class="ic c"></span></div>
+  <div style="padding:18px 16px 12px;background:linear-gradient(180deg,var(--brs),var(--bg))">
+    <div class="row sp" style="align-items:flex-start">
+      <div class="col g6" style="align-items:center;width:110px"><span class="crest" style="width:56px;height:56px;font-size:16px;background:#8E1F2F">RM</span><span class="b">Roma</span><span class="dots" style="color:var(--up)"><i></i><i></i><i></i><i class="o"></i><i></i></span></div>
+      <div class="col g4" style="align-items:center;margin-top:6px"><span class="xs faint sb">KICK-OFF IN</span><span class="xxl b">2:10:44</span><span class="xs faint">Stadio Olimpico</span></div>
+      <div class="col g6" style="align-items:center;width:110px"><span class="crest" style="width:56px;height:56px;font-size:16px;background:#1B2A5C">CA</span><span class="b">Cagliari</span><span class="dots" style="color:var(--down)"><i></i><i class="o"></i><i></i><i></i><i class="o"></i></span></div>
+    </div>
+    <div class="wdl" style="height:12px;margin-top:16px"><b class="h" style="width:74%"></b><b class="d" style="width:17%"></b><b class="a" style="width:9%"></b></div>
+    <div class="row sp xs sb" style="margin-top:5px"><span style="color:var(--br)">Roma win 74%</span><span class="faint">Draw 17%</span><span style="color:var(--away)">Cagliari 9%</span></div>
+    <div class="row g6" style="margin-top:12px"><span class="chip" style="color:var(--watch);border-color:color-mix(in srgb,var(--watch) 40%,transparent)">Race for Europe</span><span class="chip" style="color:var(--down);border-color:color-mix(in srgb,var(--down) 40%,transparent)">Relegation fight</span></div>
+  </div>
+  <div class="tabs"><span class="on">Preview</span><span>Forecasts 9</span><span>Lineups</span><span>Stats</span><span>H2H</span></div>
+  <div style="padding:14px 16px" class="col g12">
+    <div class="card col g10" style="padding:14px">
+      <div class="row g10"><span class="crest" style="background:#8E1F2F">RM</span><span class="sm">4 wins in the last 5; scoring more than usual.</span></div>
+      <div class="row g10"><span class="crest" style="background:#1B2A5C">CA</span><span class="sm">Lost 3 of the last 4 away; 2 points above the drop.</span></div>
+      <div class="row g10"><span class="crest" style="background:#8E1F2F">RM</span><span class="sm">Pellegrini missed the last 2; likely out.</span></div>
+    </div>
+    <div class="sec">Out and doubtful</div>
+    <div class="row g12">
+      <div class="col g4" style="align-items:center;width:78px"><span class="av" style="background:#8E1F2F;filter:grayscale(.7)">LP</span><span class="xs sb">Pellegrini</span><span class="tier" style="background:color-mix(in srgb,var(--down) 14%,transparent);color:var(--down)">Out</span></div>
+      <div class="col g4" style="align-items:center;width:78px"><span class="av" style="background:#8E1F2F">MH</span><span class="xs sb">Hummels</span><span class="tier watch">Doubtful</span></div>
+      <div class="col g4" style="align-items:center;width:78px"><span class="av" style="background:#1B2A5C">GL</span><span class="xs sb">Luvumbo</span><span class="tier" style="background:color-mix(in srgb,var(--down) 14%,transparent);color:var(--down)">Out</span></div>
+    </div>
+    <div class="row sp"><div class="sec">Forecasts</div><span class="xs faint">Min. 60%</span></div>
+    <div class="slider" style="margin-top:0"><b style="left:0;width:22%"></b><u style="left:22%"></u></div>
+    <div class="card" style="padding:12px"><div class="row g10"><span class="av" style="background:#8E1F2F;width:36px;height:36px">AD</span><div class="col grow"><span class="sb">A. Dovbyk · 2+ on target</span><span class="xs" style="color:var(--br)">+2 more lines</span></div><span class="lg b" style="color:var(--strong)">78%</span></div></div>
+    <div class="card" style="padding:12px"><div class="row g10"><span class="av" style="background:#8E1F2F;width:36px;height:36px">PD</span><div class="col grow"><span class="sb">P. Dybala · 1+ on target</span><span class="xs" style="color:var(--br)">+1 more line</span></div><span class="lg b" style="color:var(--solid)">69%</span></div></div>
+  </div>
+  <span class="label" data-n="1" style="left:10px;top:58px">Hero changes with match state</span>
+  <span class="label" data-n="2" style="right:4px;top:228px">Stakes chips</span>
+  <span class="label" data-n="3" style="right:10px;top:452px">Plain sentences first</span>
+  <span class="label" data-n="4" style="right:10px;top:578px">Slider filters cards live</span>
+</div>
+
+<!-- ============ 5. MATCH STATES strip (light) ============ -->
+<div id="states" class="frame light" style="width:1180px;padding:22px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+  <div class="card col g10" style="padding:16px"><div class="sec">Before</div>
+    <div class="row sp"><span class="crest" style="width:36px;height:36px;background:#8E1F2F">RM</span><div class="col" style="align-items:center"><span class="xs faint">in</span><span class="xl b">2:10:44</span></div><span class="crest" style="width:36px;height:36px;background:#1B2A5C">CA</span></div>
+    <div class="wdl"><b class="h" style="width:74%"></b><b class="d" style="width:17%"></b><b class="a" style="width:9%"></b></div>
+    <span class="xs faint">Opens on: <b class="muted">Preview</b></span></div>
+  <div class="card col g10" style="padding:16px"><div class="sec">Lineups out</div>
+    <div class="row sp"><span class="crest" style="width:36px;height:36px;background:#8E1F2F">RM</span><div class="col" style="align-items:center"><span class="xs faint">in</span><span class="xl b">0:52:10</span></div><span class="crest" style="width:36px;height:36px;background:#1B2A5C">CA</span></div>
+    <span class="tier strong" style="align-self:center">✓ Lineups confirmed · forecasts updated</span>
+    <span class="xs faint">Opens on: <b class="muted">Preview</b></span></div>
+  <div class="card col g10" style="padding:16px;border-color:color-mix(in srgb,var(--live) 50%,transparent)"><div class="sec" style="color:var(--live)">Live</div>
+    <div class="row sp"><span class="crest" style="width:36px;height:36px;background:#8E1F2F">RM</span><div class="col" style="align-items:center"><span class="xxl b">2 – 0</span><span class="xs sb" style="color:var(--live)"><span class="livedot" style="width:6px;height:6px"></span> 67'</span></div><span class="crest" style="width:36px;height:36px;background:#1B2A5C">CA</span></div>
+    <span class="sm" style="text-align:center">⚽ Goal, Dovbyk 64'</span>
+    <span class="xs faint">Opens on: <b class="muted">Live</b></span></div>
+  <div class="card col g10" style="padding:16px"><div class="sec">Finished</div>
+    <div class="row sp"><span class="crest" style="width:36px;height:36px;background:#8E1F2F">RM</span><div class="col" style="align-items:center"><span class="xxl b">3 – 1</span><span class="xs faint">HT 1–0</span></div><span class="crest" style="width:36px;height:36px;background:#1B2A5C">CA</span></div>
+    <span class="sm" style="text-align:center">Our forecasts: <b style="color:var(--strong)">7 of 9</b> came true</span>
+    <span class="xs faint">Opens on: <b class="muted">Recap</b></span></div>
+</div>
+
+<!-- ============ 6. INSIGHTS + FILTER SHEET (dark) ============ -->
+<div id="insights" class="frame phone dark">
+  <div class="hdr"><span class="b lg">Insights</span><div class="seg"><span class="on">Cards</span><span>List</span></div></div>
+  <div style="padding:12px 16px" class="col g12">
+    <div class="row g6" style="overflow:hidden"><span class="chip on">Today</span><span class="chip">Tomorrow</span><span class="chip">This weekend</span></div>
+    <div class="row g6" style="overflow:hidden"><span class="chip br">Leagues <span class="badge">3</span></span><span class="chip">Market</span><span class="chip">Tier</span><span class="chip">⚙ More</span></div>
+    <div class="row sp xs faint"><span>24 forecasts</span><span>Sort: Most likely ⌄</span></div>
+    <div class="card" style="padding:12px;opacity:.9"><div class="row g10"><span class="av" style="background:#8E1F2F;width:36px;height:36px">AD</span><div class="col grow"><span class="sb">A. Dovbyk · 2+ on target</span><span class="xs faint">Roma vs Cagliari</span></div><span class="lg b" style="color:var(--strong)">78%</span></div></div>
+  </div>
+  <div class="scrim"></div>
+  <div class="sheet" style="height:560px;padding-bottom:20px">
+    <div class="grab"></div>
+    <div class="row sp"><span class="b lg">More filters</span><span class="sm sb" style="color:var(--br)">Reset</span></div>
+    <div class="sec" style="margin-top:18px">Minimum likelihood</div>
+    <div class="slider" style="margin-top:38px"><b style="left:0;width:44%"></b><u style="left:44%"></u><s style="left:44%">70%</s></div>
+    <div class="row sp xs faint"><span>50%</span><span>95%</span></div>
+    <div class="sec" style="margin-top:18px">Position</div>
+    <div class="row g6" style="margin-top:8px"><span class="chip">GK</span><span class="chip">DEF</span><span class="chip on">MID</span><span class="chip on">FWD</span></div>
+    <div class="sec" style="margin-top:18px">Venue</div>
+    <div class="seg" style="margin-top:8px"><span>All</span><span class="on">Home</span><span>Away</span></div>
+    <div class="row sp" style="margin-top:18px"><div class="col"><span class="sb">Lineup confirmed only</span><span class="xs faint">Hide forecasts made before lineups</span></div><span style="width:44px;height:26px;border-radius:99px;background:var(--br);position:relative"><i style="position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff"></i></span></div>
+    <button class="btn" style="width:100%;margin-top:22px;padding:13px">Show 11 forecasts</button>
+  </div>
+  <span class="label" data-n="1" style="left:16px;top:250px">Chips with counts ↑</span>
+  <span class="label" data-n="2" style="right:16px;top:350px">One slider, not two number boxes</span>
+  <span class="label" data-n="3" style="left:60px;bottom:74px">Live count on the button</span>
+</div>
+
+<!-- ============ 7. FINDER sentence builder (light, desktop) ============ -->
+<div id="finder" class="frame desk light" style="padding:28px 34px;height:470px">
+  <div class="row sp"><span class="xl b">Finder</span><div class="row g8"><span class="chip">★ My corner kings</span><span class="chip">★ Home shooters</span><span class="chip">+ Save this</span></div></div>
+  <div class="card" style="padding:20px 22px;margin-top:16px;font-size:21px;line-height:1.9;position:relative">
+    Players with <span class="u">2+</span> <span class="u">shots</span> in <span class="u">7 of the last 10</span> games, <span class="u">at home</span>, playing <span class="u">today</span> in <span class="u">Serie A</span>
+    <div class="card" style="position:absolute;left:118px;top:62px;width:250px;padding:14px;font-size:14px;line-height:1.4;z-index:3;box-shadow:0 16px 40px rgba(11,18,32,.18)">
+      <div class="sec">At least</div>
+      <div class="row sp" style="margin-top:10px"><span class="btn ghost" style="padding:6px 14px">−</span><span class="xxl b">2+</span><span class="btn ghost" style="padding:6px 14px">+</span></div>
+      <div class="row g6" style="margin-top:12px"><span class="chip">1+</span><span class="chip on">2+</span><span class="chip">3+</span><span class="chip">4+</span></div>
+    </div>
+  </div>
+  <div class="row sp" style="margin-top:18px"><div class="seg"><span class="on">Hit rate</span><span>Streak</span><span>Our forecast</span></div><span class="sm faint">8 players · updates as you tap</span></div>
+  <div class="card" style="margin-top:12px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:2fr 1fr 2fr 70px 1fr;gap:12px;padding:10px 18px" class="xs faint sb"><span>PLAYER</span><span>NEXT</span><span>LAST 10 (OLDEST → NEWEST)</span><span>HITS</span><span>OUR FORECAST</span></div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 2fr 70px 1fr;gap:12px;padding:11px 18px;border-top:1px solid var(--bd);align-items:center">
+      <div class="row g10"><span class="av" style="width:34px;height:34px;background:#8E1F2F">AD</span><div class="col"><span class="sb">A. Dovbyk</span><span class="xs faint">Roma · FWD</span></div></div><span class="sm muted">vs Cagliari</span>
+      <div class="strip"><i class="h"></i><i class="h"></i><i></i><i class="h"></i><i class="h"></i><i class="h"></i><i></i><i class="h"></i><i class="h"></i><i class="h"></i></div><span class="b">8/10</span><span class="row g6"><b style="color:var(--strong)">83%</b><span class="tier strong">Strong</span></span></div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 2fr 70px 1fr;gap:12px;padding:11px 18px;border-top:1px solid var(--bd);align-items:center">
+      <div class="row g10"><span class="av" style="width:34px;height:34px;background:#7A1F1F">CA</span><div class="col"><span class="sb">C. Adams</span><span class="xs faint">Torino · FWD</span></div></div><span class="sm muted">vs Como</span>
+      <div class="strip"><i class="h"></i><i></i><i class="h"></i><i class="h"></i><i></i><i class="h"></i><i class="h"></i><i class="h"></i><i></i><i class="h"></i></div><span class="b">7/10</span><span class="row g6"><b style="color:var(--solid)">71%</b><span class="tier solid">Solid</span></span></div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 2fr 70px 1fr;gap:12px;padding:11px 18px;border-top:1px solid var(--bd);align-items:center">
+      <div class="row g10"><span class="av" style="width:34px;height:34px;background:#8E1F2F">PD</span><div class="col"><span class="sb">P. Dybala</span><span class="xs faint">Roma · MID</span></div></div><span class="sm muted">vs Cagliari</span>
+      <div class="strip"><i class="h"></i><i class="h"></i><i class="h"></i><i></i><i class="h"></i><i></i><i class="h"></i><i class="h"></i><i></i><i class="h"></i></div><span class="b">7/10</span><span class="row g6"><b style="color:var(--watch)">58%</b><span class="tier watch">Watch</span></span></div>
+  </div>
+  <span class="label" data-n="1" style="left:560px;top:68px">The query reads as a sentence; every underlined part is a tap</span>
+  <span class="label" data-n="2" style="left:420px;top:200px">Tap opens a small picker, not a form</span>
+  <span class="label" data-n="3" style="left:470px;top:420px">10 squares beat a percentage alone</span>
+</div>
+
+<!-- ============ 8. LEAGUE phone (light) ============ -->
+<div id="league" class="frame phone light">
+  <div class="hdr"><div class="row g8"><span class="muted">‹</span><span class="crest" style="background:#0B3D91">SA</span><span class="b">Serie A</span></div><span class="btn ghost" style="padding:5px 10px;font-size:12px">Follow</span></div>
+  <div class="tabs" style="gap:16px"><span>Overview</span><span>Table</span><span class="on">Teams</span><span>Fixtures</span><span>Leaders</span></div>
+  <div style="padding:12px 16px" class="col g12">
+    <div class="row g6" style="overflow:hidden"><span class="chip on">Shots</span><span class="chip">On target</span><span class="chip">Goals</span><span class="chip">Fouls</span><span class="chip">Possession</span></div>
+    <div class="row sp"><div class="seg"><span class="on">Last 5</span><span>Season</span></div><div class="seg"><span class="on">All</span><span>Home</span><span>Away</span></div></div>
+    <div class="row sp xs faint"><span>Shots per game · current season</span><span>Show all stats ›</span></div>
+    <div class="col g8">
+      <div class="row g10"><span class="xs faint" style="width:14px">1</span><span style="width:16px;height:16px;border:2px solid var(--bd2);border-radius:4px"></span><span class="crest" style="background:#00205B">IN</span><span class="sm sb" style="width:70px">Inter</span><div class="bar grow" style="height:10px"><b style="width:94%;background:var(--br)"></b></div><b class="sm" style="width:30px;text-align:right">17.2</b></div>
+      <div class="row g10"><span class="xs faint" style="width:14px">2</span><span style="width:16px;height:16px;border-radius:4px;background:var(--br);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center">✓</span><span class="crest" style="background:#8E1F2F">RM</span><span class="sm sb" style="width:70px">Roma</span><div class="bar grow" style="height:10px"><b style="width:86%;background:var(--br)"></b></div><b class="sm" style="width:30px;text-align:right">15.8</b></div>
+      <div class="row g10"><span class="xs faint" style="width:14px">3</span><span style="width:16px;height:16px;border:2px solid var(--bd2);border-radius:4px"></span><span class="crest" style="background:#12A0D7">NA</span><span class="sm sb" style="width:70px">Napoli</span><div class="bar grow" style="height:10px"><b style="width:82%;background:var(--br)"></b></div><b class="sm" style="width:30px;text-align:right">15.1</b></div>
+      <div class="row g10"><span class="xs faint" style="width:14px">4</span><span style="width:16px;height:16px;border-radius:4px;background:var(--br);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center">✓</span><span class="crest" style="background:#87CEEB;color:#123">LZ</span><span class="sm sb" style="width:70px">Lazio</span><div class="bar grow" style="height:10px"><b style="width:76%;background:var(--br);opacity:.85"></b></div><b class="sm" style="width:30px;text-align:right">14.0</b></div>
+      <div class="row g10"><span class="xs faint" style="width:14px">5</span><span style="width:16px;height:16px;border:2px solid var(--bd2);border-radius:4px"></span><span class="crest" style="background:#000">JU</span><span class="sm sb" style="width:70px">Juventus</span><div class="bar grow" style="height:10px"><b style="width:71%;background:var(--br);opacity:.8"></b></div><b class="sm" style="width:30px;text-align:right">13.1</b></div>
+      <div class="row g10"><span class="xs faint" style="width:14px">6</span><span style="width:16px;height:16px;border:2px solid var(--bd2);border-radius:4px"></span><span class="crest" style="background:#1F4E8C">CO</span><span class="sm sb" style="width:70px">Como</span><div class="bar grow" style="height:10px"><b style="width:64%;background:var(--br);opacity:.7"></b></div><b class="sm" style="width:30px;text-align:right">11.8</b></div>
+      <div class="row g10"><span class="xs faint" style="width:14px">7</span><span style="width:16px;height:16px;border:2px solid var(--bd2);border-radius:4px"></span><span class="crest" style="background:#7A1F1F">TO</span><span class="sm sb" style="width:70px">Torino</span><div class="bar grow" style="height:10px"><b style="width:58%;background:var(--br);opacity:.6"></b></div><b class="sm" style="width:30px;text-align:right">10.7</b></div>
+      <div class="row g10"><span class="xs faint" style="width:14px">8</span><span style="width:16px;height:16px;border:2px solid var(--bd2);border-radius:4px"></span><span class="crest" style="background:#00A651">SS</span><span class="sm sb" style="width:70px">Sassuolo</span><div class="bar grow" style="height:10px"><b style="width:52%;background:var(--br);opacity:.5"></b></div><b class="sm" style="width:30px;text-align:right">9.6</b></div>
+      <div class="row g10"><span class="xs faint" style="width:14px">9</span><span style="width:16px;height:16px;border:2px solid var(--bd2);border-radius:4px"></span><span class="crest" style="background:#1B2A5C">CA</span><span class="sm sb" style="width:70px">Cagliari</span><div class="bar grow" style="height:10px"><b style="width:47%;background:var(--br);opacity:.45"></b></div><b class="sm" style="width:30px;text-align:right">8.7</b></div>
+    </div>
+  </div>
+  <div style="position:absolute;left:12px;right:12px;bottom:76px;background:var(--tx);color:var(--bg);border-radius:14px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+    <span class="row g8 sb"><span class="crest" style="background:#8E1F2F">RM</span><span class="crest" style="background:#87CEEB;color:#123">LZ</span>2 selected</span><span class="b" style="color:var(--bg)">Compare →</span></div>
+  <div class="tabbar"><div><span class="ic"></span>Today</div><div><span class="ic"></span>Insights</div><div><span class="ic"></span>Finder</div><div class="on"><span class="ic"></span>Explore</div><div><span class="ic c"></span>You</div></div>
+  <span class="label" data-n="1" style="left:16px;top:500px">↑ One stat at a time on phones</span>
+  <span class="label" data-n="2" style="left:16px;top:540px">Ranked bars, not a wide grid</span>
+  <span class="label" data-n="3" style="left:30px;bottom:132px">Tick 2 → Compare tray</span>
+</div>
+
+<!-- ============ 9. COMPARE (dark, desktop) ============ -->
+<div id="compare" class="frame desk dark" style="padding:26px 30px;height:505px">
+  <div class="row g12" style="justify-content:center">
+    <div class="card row g10" style="padding:10px 14px;width:300px"><span class="crest" style="width:34px;height:34px;background:#8E1F2F">RM</span><div class="col"><span class="b">Roma</span><span class="xs faint">4th · at home</span></div><span class="faint" style="margin-left:auto">⌄</span></div>
+    <span class="btn ghost" style="border-radius:50%;padding:9px 12px">⇄</span>
+    <div class="card row g10" style="padding:10px 14px;width:300px"><span class="crest" style="width:34px;height:34px;background:#1B2A5C">CA</span><div class="col"><span class="b">Cagliari</span><span class="xs faint">17th · away</span></div><span class="faint" style="margin-left:auto">⌄</span></div>
+    <div class="seg" style="margin-left:24px"><span class="on">Last 5</span><span>Season</span></div>
+    <div class="seg"><span>Overall</span><span class="on">As this fixture</span></div>
+  </div>
+  <div class="row g20" style="margin-top:22px;align-items:flex-start">
+    <div class="card" style="padding:16px;width:420px">
+      <div class="sec">Shape</div>
+      <svg viewBox="0 0 300 260" width="388" height="300">
+        <g transform="translate(150,135)" fill="none" stroke="#33415F">
+          <polygon points="0,-110 95,-55 95,55 0,110 -95,55 -95,-55"/><polygon points="0,-73 63,-37 63,37 0,73 -63,37 -63,-37"/><polygon points="0,-37 32,-18 32,18 0,37 -32,18 -32,-18"/>
+          <polygon points="0,-95 80,-40 70,48 0,60 -60,40 -82,-48" fill="#7C83FF33" stroke="#7C83FF" stroke-width="2"/>
+          <polygon points="0,-50 45,-30 82,45 0,90 -40,25 -40,-25" fill="#2DD4BF33" stroke="#2DD4BF" stroke-width="2"/>
+        </g>
+        <g fill="#A3AFC6" font-size="11" font-family="Inter" text-anchor="middle"><text x="150" y="16">Shots</text><text x="262" y="78">On target</text><text x="262" y="200">Fouls</text><text x="150" y="258">Conceded</text><text x="38" y="200">Possession</text><text x="38" y="78">Goals</text></g>
+      </svg>
+    </div>
+    <div class="col g16 grow">
+      <div class="card" style="padding:16px 18px">
+        <div class="row sp"><span class="sec">Edge, per game</span><span class="xs faint"><b style="color:var(--br)">■</b> Roma home &nbsp; <b style="color:var(--away)">■</b> Cagliari away</span></div>
+        <div class="col g12" style="margin-top:14px">
+          <div><div class="row sp sm"><b>16.4</b><span class="muted">Shots</span><b>9.1</b></div><div class="row" style="height:10px;margin-top:4px;gap:2px;align-items:stretch"><div style="flex:64;background:var(--br);border-radius:99px 0 0 99px"></div><div style="flex:36;background:var(--away);border-radius:0 99px 99px 0;opacity:.85"></div></div></div>
+          <div><div class="row sp sm"><b>5.8</b><span class="muted">On target</span><b>2.9</b></div><div class="row" style="height:10px;margin-top:4px;gap:2px;align-items:stretch"><div style="flex:67;background:var(--br);border-radius:99px 0 0 99px"></div><div style="flex:33;background:var(--away);border-radius:0 99px 99px 0;opacity:.85"></div></div></div>
+          <div><div class="row sp sm"><b>2.2</b><span class="muted">Goals</span><b>0.8</b></div><div class="row" style="height:10px;margin-top:4px;gap:2px;align-items:stretch"><div style="flex:73;background:var(--br);border-radius:99px 0 0 99px"></div><div style="flex:27;background:var(--away);border-radius:0 99px 99px 0;opacity:.85"></div></div></div>
+          <div><div class="row sp sm"><b>11.0</b><span class="muted">Fouls</span><b>14.6</b></div><div class="row" style="height:10px;margin-top:4px;gap:2px;align-items:stretch"><div style="flex:43;background:var(--br);border-radius:99px 0 0 99px;opacity:.85"></div><div style="flex:57;background:var(--away);border-radius:0 99px 99px 0"></div></div></div>
+          <div><div class="row sp sm"><b>58%</b><span class="muted">Possession</span><b>42%</b></div><div class="row" style="height:10px;margin-top:4px;gap:2px;align-items:stretch"><div style="flex:58;background:var(--br);border-radius:99px 0 0 99px"></div><div style="flex:42;background:var(--away);border-radius:0 99px 99px 0;opacity:.85"></div></div></div>
+        </div>
+      </div>
+      <div class="card" style="padding:16px 18px">
+        <div class="sec">What stands out</div>
+        <div class="col g8 sm" style="margin-top:10px">
+          <span>1. Roma take <b>80% more shots</b> at home than Cagliari do away.</span>
+          <span>2. Cagliari foul more: 14.6 a game, 3rd most in the league.</span>
+          <span>3. Roma: 4 wins in 5. Cagliari: 1 win in 5.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="label" data-n="1" style="left:520px;top:12px">Search pickers + swap</span>
+  <span class="label" data-n="2" style="right:30px;top:74px">Edge bars lean to the better side</span>
+  <span class="label" data-n="3" style="right:44px;top:340px">Biggest gap first, max 4 lines</span>
+</div>
+
+<!-- ============ 10. PLAYER (light) ============ -->
+<div id="player" class="frame phone light">
+  <div class="hdr"><span class="muted">‹ Roma</span><div class="row g10"><span class="btn ghost" style="padding:5px 10px;font-size:12px">+ Note</span><span class="btn" style="padding:5px 10px;font-size:12px">Follow</span></div></div>
+  <div style="padding:14px 16px" class="col g12">
+    <div class="row g12"><span class="av" style="width:64px;height:64px;font-size:20px;background:#8E1F2F">AD<span class="crest mini" style="width:22px;height:22px;background:#8E1F2F">RM</span></span><div class="col g4"><span class="xl b">Artem Dovbyk</span><span class="sm muted">#11 · Forward · Roma</span><span class="tier strong" style="align-self:flex-start">Starts usually</span></div></div>
+    <div class="card" style="padding:12px 14px"><div class="row sp"><span class="xs faint sb">NEXT · vs Cagliari · today 15:45</span><span class="xs faint">Plays: 91%</span></div><div class="row sp" style="margin-top:6px"><span class="b md">2+ shots on target</span><span class="xl b" style="color:var(--strong)">78%</span></div><span class="xs" style="color:var(--br)">+2 more lines</span></div>
+    <div class="row g6" style="overflow:hidden"><span class="chip">Shots</span><span class="chip on">On target</span><span class="chip">Tackles</span><span class="chip">Minutes</span></div>
+    <div class="card" style="padding:14px">
+      <div class="row sp"><span class="sb">Hit 2+ on target in <span style="color:var(--strong)">7 of 10</span></span><div class="seg"><span class="on">All</span><span>H</span><span>A</span></div></div>
+      <div style="position:relative;height:130px;margin-top:14px;display:flex;align-items:flex-end;gap:8px;padding-bottom:18px">
+        <div style="position:absolute;left:0;right:0;bottom:62px;border-top:2px dashed var(--tx3)"></div><span class="xs faint" style="position:absolute;right:0;bottom:64px">2+</span>
+        <script>
+          document.write([3,1,2,4,1,2,3,2,0,3].map((v,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><span class="xs b">${v}</span><div style="width:100%;height:${v*22+3}px;border-radius:5px 5px 2px 2px;background:${v>=2?'var(--strong)':'var(--s3)'}"></div><span class="faint" style="position:absolute;bottom:0;font-size:9px">${['JUV','NAP','GEN','EMP','MIL','UDI','BOL','LEC','VEN','MON'][i]}</span></div>`).join(''))
+        </script>
+      </div>
+      <div class="row sp xs faint" style="margin-top:6px"><span>Games</span><b class="muted">10</b></div>
+      <div class="slider" style="margin-top:6px"><b style="left:0;width:33%"></b><u style="left:33%"></u></div>
+      <div class="row sp xs faint"><span>5</span><span>20</span></div>
+    </div>
+    <div class="row g8">
+      <div class="tile grow" style="padding:10px"><div class="xs faint">Shots /90</div><div class="b lg">3.9</div><div class="xs" style="color:var(--up)">4th of 61 FWD</div></div>
+      <div class="tile grow" style="padding:10px"><div class="xs faint">On target /90</div><div class="b lg">1.8</div><div class="xs" style="color:var(--up)">3rd of 61</div></div>
+      <div class="tile grow" style="padding:10px"><div class="xs faint">Minutes</div><div class="b lg">742</div><div class="xs faint">9 starts</div></div>
+    </div>
+  </div>
+  <span class="label" data-n="1" style="right:10px;top:118px">Availability in the hero</span>
+  <span class="label" data-n="2" style="left:16px;top:660px">↑ Threshold line drawn, hits coloured</span>
+  <span class="label" data-n="3" style="left:16px;top:700px">↑ Window slider, 5 to 20 games</span>
+</div>
+
+<!-- ============ 11. LIVE sheet (dark) ============ -->
+<div id="live" class="frame phone dark">
+  <div class="hdr"><span class="b lg">Today</span><span class="ic c"></span></div>
+  <div style="padding:16px" class="col g10"><div class="card" style="height:120px;opacity:.5"></div><div class="card" style="height:120px;opacity:.5"></div></div>
+  <div class="scrim"></div>
+  <div class="sheet" style="height:640px">
+    <div class="grab"></div>
+    <div class="row sp"><span class="b lg row g8"><span class="livedot"></span>Live now · 2</span><span class="sm sb" style="color:var(--br)">Open full page</span></div>
+    <div class="card" style="margin-top:14px;padding:14px;border-color:color-mix(in srgb,var(--live) 60%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--live) 20%,transparent)">
+      <div class="row sp xs"><span class="faint sb">SERIE A</span><span class="tier" style="background:color-mix(in srgb,var(--live) 18%,transparent);color:var(--live)">GOAL just now</span></div>
+      <div class="row sp" style="margin-top:10px"><div class="col g4" style="align-items:center;width:90px"><span class="crest" style="width:36px;height:36px;background:#8E1F2F">RM</span><span class="sm sb">Roma</span></div><div class="col" style="align-items:center"><span class="b" style="font-size:34px">2 – 0</span><span class="sm sb" style="color:var(--live)"><span class="livedot" style="width:6px;height:6px"></span> 67'</span></div><div class="col g4" style="align-items:center;width:90px"><span class="crest" style="width:36px;height:36px;background:#1B2A5C">CA</span><span class="sm sb">Cagliari</span></div></div>
+      <div class="sm" style="text-align:center;margin-top:8px">⚽ Dovbyk 67' · assist Dybala</div>
+      <div class="xs faint" style="margin-top:12px">Momentum</div>
+      <div class="row g4" style="align-items:flex-end;height:30px;margin-top:4px">
+        <script>document.write([2,4,3,6,5,2,1,3,7,5,4,6,8,3,2].map((v,i)=>`<i style="flex:1;height:${v*3.5}px;border-radius:2px;background:${i%4==2?'var(--away)':'var(--br)'}"></i>`).join(''))</script>
+      </div>
+    </div>
+    <div class="card" style="margin-top:10px;padding:14px">
+      <div class="row sp"><div class="row g8"><span class="crest" style="background:#00A651">SS</span><span class="sb">Sassuolo</span></div><span class="b lg">0 – 2</span><div class="row g8"><span class="sb">Lazio</span><span class="crest" style="background:#87CEEB;color:#123">LZ</span></div></div>
+      <div class="row sp xs" style="margin-top:6px"><span class="faint">🟥 Berardi 58'</span><span style="color:var(--live)" class="sb">74'</span></div>
+    </div>
+    <div class="row sp" style="margin-top:16px"><span class="sec">Later today · 1</span><span class="faint">⌄</span></div>
+    <div class="row sp" style="margin-top:10px"><span class="sec">Finished · 6</span><span class="faint">⌄</span></div>
+  </div>
+  <span class="label" data-n="1" style="left:16px;top:150px">A goal flashes and lifts the card ↓</span>
+  <span class="label" data-n="2" style="left:16px;top:640px">↑ Momentum bar: who is pushing</span>
+  <span class="label" data-n="3" style="right:14px;bottom:56px">Finished folds away</span>
+</div>
+
+<!-- ============ 12. ADMIN health board (light) ============ -->
+<div id="admin" class="frame desk light" style="padding:24px 28px;height:400px">
+  <div class="row sp"><span class="xl b">Good evening, Moh</span><span class="sm faint">Tue 27 Oct · 23:30</span></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px">
+    <script>
+      const T=[['Data','PitchAPI 1,240 of 5,000 · sync 23:05','up',25],['Live','SportAPI 612 of 1,800 · 2 live','up',34],['Engine','Run 23:10 · 412 forecasts · map default','up',0],['Images','14 to review','watch',0],['Users','38 sign-ups today','up',0],['Money','Billing off','faint',0]];
+      document.write(T.map(t=>`<div class="tile" style="border-left:4px solid var(--${t[2]=='faint'?'bd2':t[2]})"><div class="row sp"><span class="b">${t[0]}</span><span class="tier" style="background:color-mix(in srgb,var(--${t[2]=='faint'?'tx3':t[2]}) 14%,transparent);color:var(--${t[2]=='faint'?'tx3':t[2]})">${t[2]=='up'?'OK':t[2]=='watch'?'Look':'Off'}</span></div><div class="sm muted" style="margin-top:6px">${t[1]}</div>${t[3]?`<div class="bar" style="margin-top:10px"><b style="width:${t[3]}%;background:var(--up)"></b></div>`:''}</div>`).join(''))
+    </script>
+  </div>
+  <div class="row sp" style="margin-top:22px"><span class="sec">Needs you · 3</span></div>
+  <div class="card" style="margin-top:10px;overflow:hidden">
+    <div class="row g12" style="padding:12px 16px"><span class="tier watch">Match</span><span class="sm grow">SportAPI team "AS Roma" → is it <b>Roma</b>?</span><button class="btn" style="padding:6px 12px">Yes, link</button><button class="btn ghost" style="padding:6px 12px">Pick another</button></div>
+    <div class="row g12" style="padding:12px 16px;border-top:1px solid var(--bd)"><span class="tier watch">Image</span><span class="sm grow">New photo for M. Zaccagni</span><button class="btn" style="padding:6px 12px">Approve</button><button class="btn ghost" style="padding:6px 12px">Reject</button></div>
+    <div class="row g12" style="padding:12px 16px;border-top:1px solid var(--bd)"><span class="tier" style="background:color-mix(in srgb,var(--down) 14%,transparent);color:var(--down)">Job</span><span class="sm grow">Injuries sync failed at 22:00 (timeout)</span><button class="btn" style="padding:6px 12px">Run again</button><button class="btn ghost" style="padding:6px 12px">See log</button></div>
+  </div>
+  <span class="label" data-n="1" style="left:300px;top:28px">Six tiles: green, amber, red</span>
+  <span class="label" data-n="2" style="left:160px;top:212px">Actions on the card itself, no hunting</span>
+</div>
+
+</body></html>
