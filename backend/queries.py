@@ -85,7 +85,7 @@ def match_detail(db, match_iid: int) -> dict | None:
             "forecasts": fc, "cards": group_cards(fc), "styles": styles, "starters": lu,
             "rotation": {c["team_iid"]: {"level": c.get("level", "low"), "why": c.get("why", ""), "rest_days": c.get("rest_days"), "next_gap": c.get("next_gap")}
                          for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "level" in c},
-            "context": {c["team_iid"]: {"form_vs_expected": c.get("form_fp"), "stakes": c.get("stakes"), "games_left": c.get("games_left"), "why": c.get("context_why", [])}
+            "context": {c["team_iid"]: {"form_vs_expected": c.get("form_fp"), "situation": c.get("stakes"), "games_left": c.get("games_left"), "why": c.get("context_why", [])}
                         for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "form_fp" in c},
             "h2h": h2h(db, m["home_iid"], m["away_iid"]),
             "availability": _availability(db, (m["home_iid"], m["away_iid"])),

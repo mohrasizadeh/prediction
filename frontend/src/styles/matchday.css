@@ -1,0 +1,69 @@
+/* Match-day pages (docs/24 R3): Today, Insights, match centre, live sheet extras. Token variables only. */
+.td { display: grid; gap: 18px; }
+.td-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.td-carousel { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 1fr); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; scrollbar-width: none; }
+.td-carousel::-webkit-scrollbar { display: none; } .td-carousel > * { scroll-snap-align: start; }
+@media (max-width: 640px) { .td-carousel { grid-auto-columns: 86%; } }
+.td-livestrip { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.td-livechip { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--down) 12%, var(--surface1)); border: 1px solid color-mix(in srgb, var(--down) 30%, var(--border)); color: var(--text); text-decoration: none; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.td-chips { position: sticky; top: var(--header-h); z-index: 10; background: var(--bg); padding: 6px 0; }
+.td-group { padding: 0; overflow: hidden; margin-bottom: 14px; }
+.td-ghead { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 16px; background: none; border: 0; border-bottom: 1px solid var(--border); color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+.td-ghead b { font-size: 16px; } .td-ghead small { color: var(--text3); flex: 1; }
+.td-ghead[aria-expanded="false"] .ico { transform: rotate(-90deg); }
+.td-list { list-style: none; margin: 0; padding: 0; }
+.td-list li + li { border-top: 1px solid var(--border); }
+.td-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 76px; padding: 10px 16px; color: var(--text); text-decoration: none; transition: background-color .15s; }
+.td-row:hover { background: var(--surface2); }
+.td-row.is-live { background: color-mix(in srgb, var(--down) 7%, transparent); }
+.td-time { display: grid; gap: 2px; font-variant-numeric: tabular-nums; } .td-time small { color: var(--text3); font-size: 12px; }
+.td-teams { display: grid; gap: 6px; min-width: 0; }
+.td-teams > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.td-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.td-sc { font-variant-numeric: tabular-nums; }
+.td-ins { font-size: 13px; font-weight: 700; color: var(--brand); padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, var(--brand) 12%, transparent); white-space: nowrap; }
+@media (max-width: 720px) {
+  .td-row { grid-template-columns: 70px minmax(0, 1fr) auto; gap: 10px; }
+  .td-time b { font-size: 13px; white-space: nowrap; } .td-time small { font-size: 11px; white-space: nowrap; }
+  .td-bar { grid-column: 2 / -1; grid-row: 2; }
+  .td-ins { grid-column: 3; grid-row: 1; padding: 4px 9px; font-size: 12px; }
+}
+
+.ins { display: grid; gap: 14px; }
+.ins-days { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.ins-days > .k-chip { min-height: 64px; border-radius: 14px; }
+.ins-chips { display: grid; gap: 8px; }
+.ins-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
+.ins-compact { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface1); }
+.ins-compact li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "t n p" "t m p"; align-items: center; gap: 2px 12px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.ins-compact li:first-child { border-top: 0; }
+.ins-compact li > :nth-child(1) { grid-area: t; } .ins-compact li > :nth-child(2) { grid-area: n; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ins-compact li > :nth-child(3) { grid-area: m; } .ins-compact li > :nth-child(4) { grid-area: p; font-size: 18px; font-variant-numeric: tabular-nums; }
+.ins-switch { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 600; } .ins-switch input { width: 20px; height: 20px; accent-color: var(--brand); }
+
+.mc-hero { display: grid; gap: 14px; padding: 22px; margin-bottom: 14px; }
+.mc-hero--live { border-color: color-mix(in srgb, var(--down) 40%, var(--border)); }
+.mc-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.mc-team { display: grid; justify-items: center; gap: 8px; text-align: center; color: var(--text); text-decoration: none; min-width: 0; }
+.mc-team b { font-size: 17px; overflow-wrap: anywhere; }
+.mc-mid { display: grid; justify-items: center; gap: 6px; text-align: center; }
+.mc-score { font-size: 44px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; }
+.mc-v { font-size: 28px; color: var(--text3); font-weight: 700; } .mc-ko { color: var(--text2); font-size: 14px; }
+.mc-cd { font-weight: 700; color: var(--brand); font-size: 14px; }
+.mc-last { color: var(--text2); text-transform: capitalize; }
+.mc-situ { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.mc-preview, .mc-fc { display: grid; gap: 16px; }
+.mc-why { margin: 0; padding: 16px 18px 16px 34px; display: grid; gap: 8px; }
+.mc-radar { padding: 18px; }
+.mc-fc-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+.mc-fc-min { flex: 1 1 260px; max-width: 420px; }
+.mc-fc-group { display: grid; gap: 10px; }
+.mc-stats { padding: 18px; }
+@media (max-width: 520px) { .mc-score { font-size: 36px; } .mc-team b { font-size: 14px; } .mc-hero { padding: 16px; } }
+
+.pp--unsure { opacity: .55; } .pp--unsure img, .pp--unsure .avatar, .pp--unsure > :first-child { outline: 2px dashed var(--border-strong); outline-offset: 2px; border-radius: 50%; }
+.pp-pct { font-size: 10px; font-weight: 700; background: var(--surface1); color: var(--text); padding: 0 5px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+
+.ls-mini { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ls-mini li { display: flex; gap: 12px; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 12px; background: var(--surface2); font-size: 14px; font-variant-numeric: tabular-nums; }
+.ls-mini time, .ls-mini b { width: 52px; flex: none; color: var(--text2); }
