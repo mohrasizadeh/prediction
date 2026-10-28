@@ -1,13 +1,12 @@
-// Screens 3 and 11: Insights (strongest forecasts across leagues, docs/24 §4) and Track record (stated vs actual).
+// Insights: strongest forecasts across leagues (docs/24 §4).
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { pct } from "../lib/copy";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
-import { ErrorBox, Loading } from "../components/States";
 import { useTitle } from "../components/Football";
-import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
+import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard, ProLock, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
 
 const MARKETS = [{ id: "shots", label: "Shots", test: (f) => f.stat === "shots" && f.scope === "player" }, { id: "sot", label: "On target", test: (f) => f.stat === "sot" },
   { id: "tackles", label: "Tackles", test: (f) => f.stat === "tackles" }, { id: "corners", label: "Corners", test: (f) => f.stat === "corners" },
@@ -65,50 +64,13 @@ export function Insights() {
       {q.loading && !q.data ? <Skeleton shape="card" count={6} testid="ins-loading" /> : q.error && !q.data ? <ErrorState message="We could not load the insights." onRetry={q.reload} testid="ins-error" />
         : !rows.length ? <EmptyState icon="sparkles" title="No forecasts match" testid="ins-empty" action={<button type="button" className="btn btn--secondary btn--sm" onClick={() => { setDay(""); setLg([]); setMk([]); setTier([]); setMore(NOF); }} data-testid="ins-clear">Clear all filters</button>}>Try another day, market or tier.</EmptyState>
         : view === "list" ? <Compact rows={rows} /> : <div className="fgrid ins-grid">{rows.map((f) => <ForecastCard key={f.id} f={f} testid={`ins-card-${f.id}`} />)}</div>}
-      {cap >= 0 && data.length >= cap && <p className="notice small" data-testid="ins-capped">Your plan shows {cap} insights a day.</p>}
+      {cap >= 0 && data.length >= cap && <p className="notice small" data-testid="ins-capped">Your plan shows {cap} insights a day. <ProLock label="Unlimited with Pro" testid="ins-capped-pro" /></p>}
       <FilterSheet open={sheet} onClose={() => setSheet(false)} onReset={() => setMore(NOF)} count={rows.length} testid="ins-filters">
         <FilterGroup label="Minimum likelihood"><RangeSlider min={50} max={95} step={5} value={more.min} onChange={(v) => setMore({ ...more, min: v })} label="Minimum likelihood" format={(v) => `${v}%`} testid="ins-min" /></FilterGroup>
         <FilterGroup label="Position"><ChipsRow multi value={more.pos} onChange={(v) => setMore({ ...more, pos: v })} label="Position" options={POS} testid="ins-pos" /></FilterGroup>
         <FilterGroup label="Venue"><Segmented value={more.venue} onChange={(v) => setMore({ ...more, venue: v })} label="Venue" options={[{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid="ins-venue" /></FilterGroup>
         <label className="ins-switch"><input type="checkbox" checked={more.confirmed} onChange={(e) => setMore({ ...more, confirmed: e.target.checked })} data-testid="ins-confirmed" /><span>Lineup confirmed only</span></label>
       </FilterSheet>
-    </section>
-  );
-}
-
-function Bars({ rows }) {
-  return (
-    <div className="rel" data-testid="tr-bins">{rows.map((b) => (
-      <div key={b.from} className="rel-row"><span className="muted small">{pct(b.from)}–{pct(b.to)}</span>
-        <span className="rel-track"><span className="rel-stated" style={{ width: `${b.stated * 100}%` }} /><span className="rel-actual" style={{ width: `${b.actual * 100}%` }} /></span>
-        <b>{pct(b.actual)}</b></div>
-    ))}<p className="muted small"><span className="key key--stated" /> Stated <span className="key key--actual" /> Actual</p></div>
-  );
-}
-
-export function TrackRecord() {
-  const q = useApi("/track-record");
-  useTitle("Track record");
-  return (
-    <section data-testid="track-record-page">
-      <h1>Track record</h1>
-      <p className="muted lead">Does the model deliver what it says? Every finished forecast is scored against what happened.</p>
-      {q.loading && !q.data ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.ready ? (
-        <div className="card" data-testid="tr-not-ready">
-          <h2 className="h3">Collecting results</h2>
-          <p className="muted">We show the record once {q.data.needed} forecasts have been scored, so the numbers mean something. {q.data.scored} so far.</p>
-          <div className="lbar-track" style={{ "--tone": "var(--brand)" }}><span className="lbar-fill" style={{ width: `${Math.min(100, (q.data.scored / q.data.needed) * 100)}%` }} /></div>
-          <p className="muted small">Beta: tiers and percentages may change as the record grows.</p>
-        </div>
-      ) : (
-        <>
-          <div className="tiles4" data-testid="tr-tiers">{Object.entries(q.data.tiers).map(([t, v]) => (
-            <div key={t} className="stile"><span className="muted small">{t} · {v.n} forecasts</span><b>{pct(v.actual)}</b><small className="muted">reached · stated {pct(v.stated)}</small></div>
-          ))}</div>
-          <section className="card"><h2 className="h3">Reliability</h2>{q.data.bins.length ? <Bars rows={q.data.bins} /> : <p className="muted">Not enough forecasts in each band yet.</p>}</section>
-          <p className="muted small">{q.data.scored} forecasts scored. Beta.</p>
-        </>
-      )}
     </section>
   );
 }

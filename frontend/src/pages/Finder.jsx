@@ -8,7 +8,7 @@ import { useAuth } from "../lib/auth";
 import { pct } from "../lib/copy";
 import { Crest, PlayerAvatar } from "../components/Media";
 import { MATCH_STATS, STATS, TEAM_STATS, kickoff, useTitle } from "../components/Football";
-import { ChipsRow, EmptyState, ErrorState, ForecastCard, HitStrip, RangeSlider, Segmented, Skeleton } from "../components/ui";
+import { ChipsRow, EmptyState, ErrorState, ForecastCard, HitStrip, ProLock, RangeSlider, Segmented, Skeleton } from "../components/ui";
 
 const DEF = { mode: "form", stat: "shots", n: "2", scope: "player", last_n: "10", min: "6", venue: "", positions: "", leagues: "" };
 const POS = ["GK", "DEF", "MID", "FWD"];
@@ -44,12 +44,39 @@ function Row({ r, f }) {
   );
 }
 
+function Meter({ used, cap, visitor }) {
+  const left = Math.max(0, cap - (used || 0));
+  return (
+    <span className="fs-meter" data-testid="finder-usage">
+      {cap <= 10 && <span className="fs-meter-dots" aria-hidden="true">{[...Array(cap)].map((_, i) => <i key={i} className={i < left ? "on" : ""} />)}</span>}
+      <span data-testid="finder-usage-left">{left} of {cap} {visitor ? "free searches" : "searches"} left today</span>
+    </span>
+  );
+}
+
+function Wall({ visitor, cap, freeCap, next }) {
+  return (
+    <div className="fs-wall card" role="status" data-testid="finder-wall">
+      <h2 className="h3">{visitor ? `That's today's ${cap} free searches` : `You've used today's ${cap} searches`}</h2>
+      {visitor ? (
+        <>
+          <p className="k-faint">A free account gives you {freeCap} searches a day, plus follows and saved forecasts. It takes a minute.</p>
+          <div className="btn-row"><Link to={`/sign-up?next=${encodeURIComponent(next)}`} className="btn btn--primary" data-testid="finder-wall-signup">Create a free account</Link>
+            <Link to={`/sign-in?next=${encodeURIComponent(next)}`} className="btn btn--secondary" data-testid="finder-wall-signin">Sign in</Link></div>
+        </>
+      ) : <p className="k-faint">They come back tomorrow. <ProLock label="Unlimited with Pro" testid="finder-wall-pro" /></p>}
+    </div>
+  );
+}
+
 export default function Finder() {
   const { entitlements, me, refresh } = useAuth();
   const [sp, setSp] = useSearchParams();
   const f = { ...DEF, ...Object.fromEntries(sp.entries()) };
   const [open, setOpen] = useState(null);
   const [res, setRes] = useState({ rows: null, err: null, busy: false });
+  const [anonUsed, setAnonUsed] = useState(null);
+  const [wall, setWall] = useState(false);
   const [presets, setPresets] = useState(() => { try { return JSON.parse(localStorage.getItem(PRESETS)) || []; } catch { return []; } });
   const lg = useApi("/leagues");
   const leagues = useMemo(() => (lg.data?.countries || []).flatMap((c) => c.leagues), [lg.data]);
@@ -57,7 +84,9 @@ export default function Finder() {
   const picked = f.leagues ? f.leagues.split(",") : [];
   const cap = me?.user ? entitlements?.finder_searches_per_day : me?.limits?.anonymous_finder_searches_per_day;
   const unlimited = cap != null && cap < 0;
-  const used = me?.usage?.finder_today;
+  const visitor = !me?.user;
+  const used = visitor ? (anonUsed ?? me?.usage?.finder_today) : me?.usage?.finder_today;
+  const out = wall || (cap != null && cap >= 0 && used != null && used >= cap);
   const pool = (f.scope === "team" ? [...TEAM_STATS, ...(f.mode === "likelihood" ? MATCH_STATS : [])] : STATS.filter((s) => s.id !== "minutes")).filter((s) => f.mode !== "likelihood" || s.core);
   const stat = pool.find((s) => s.id === f.stat) || pool[0];
   const set = (patch) => {
@@ -67,13 +96,17 @@ export default function Finder() {
     setSp(Object.fromEntries(Object.entries(n).filter(([k, v]) => v !== "" && DEF[k] !== v)), { replace: true });
   };
   const run = async () => {
-    if (!picked.length) return;
+    if (!picked.length || out) return;
     setRes((r) => ({ ...r, err: null, busy: true }));
     try {
       const rows = await get("/finder", { mode: f.mode, stat: stat.id, threshold: Number(f.n), scope: f.scope, last_n: f.last_n, leagues: f.leagues,
-        venue: f.venue || undefined, positions: f.scope === "player" ? f.positions : "", min_reached: f.mode === "form" ? Number(f.min) / Number(f.last_n) : undefined });
+        venue: f.venue || undefined, positions: f.scope === "player" ? f.positions : "", min_reached: f.mode === "form" ? Number(f.min) / Number(f.last_n) : undefined }, { quiet: true });
       setRes({ rows, err: null, busy: false });
-    } catch (x) { setRes({ rows: null, err: x, busy: false }); }
+      if (visitor) setAnonUsed((used || 0) + 1);
+    } catch (x) {
+      if (x.code === "SIGN_IN_REQUIRED" || x.status === 402) { setWall(true); if (visitor) setAnonUsed(cap); setRes((r) => ({ ...r, busy: false })); }
+      else setRes({ rows: null, err: x, busy: false });
+    }
     if (me?.user) refresh();
   };
   const key = JSON.stringify(f);
@@ -112,17 +145,18 @@ export default function Finder() {
         {f.scope === "player" && <>{", "}<Part id="pos" label={f.positions ? f.positions.split(",").join("/") : "any position"} open={open} setOpen={setOpen}>
           <ChipsRow multi label="Position" value={f.positions ? f.positions.split(",") : []} onChange={(v) => set({ positions: v.join(",") })} options={POS.map((p) => ({ id: p, label: p }))} testid="finder-pos" /></Part></>}
         {" in "}<Part id="leagues" label={lgLabel} open={open} setOpen={setOpen}>
-          <span className="fs-list">{max >= 0 && <small className="k-faint">Up to {max} on your plan</small>}{leagues.map((l) => {
+          <span className="fs-list">{max >= 0 && <small className="k-faint">Up to {max} on your plan <ProLock label="More with Pro" testid="finder-leagues-pro" /></small>}{leagues.map((l) => {
             const on = picked.includes(l.id);
             return <button key={l.id} type="button" className={`k-chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => set({ leagues: (on ? picked.filter((x) => x !== l.id) : max >= 0 && picked.length >= max ? [...picked.slice(1), l.id] : [...picked, l.id]).join(",") })} data-testid={`finder-league-${l.id}`}>{l.name}</button>;
           })}</span></Part>
       </p>
       <div className="fs-actions">
-        {!unlimited && <button type="button" className="btn btn--primary" disabled={res.busy || !picked.length} onClick={run} data-testid="finder-run">{res.busy ? "Searching…" : picked.length ? "Update results" : "Pick a league first"}</button>}
+        {!unlimited && <button type="button" className="btn btn--primary" disabled={res.busy || !picked.length || out} onClick={run} data-testid="finder-run">{res.busy ? "Searching…" : !picked.length ? "Pick a league first" : out ? "No searches left today" : "Update results"}</button>}
         {res.rows && <button type="button" className="btn btn--secondary" onClick={savePreset} data-testid="finder-save-preset">Save this search</button>}
         <button type="button" className="k-link" onClick={() => { setSp({}); setRes({ rows: null, err: null, busy: false }); }} data-testid="finder-reset">Reset</button>
-        {cap != null && cap >= 0 && <span className="k-faint k-small" data-testid="finder-usage">{used != null ? `${Math.min(used, cap)} of ${cap} searches today` : `Up to ${cap} searches a day without an account`}{used >= cap && <> · <Link to="/pricing" data-testid="finder-usage-upgrade">Unlimited with Pro</Link></>}</span>}
+        {cap != null && cap >= 0 && <Meter used={used} cap={cap} visitor={visitor} />}
       </div>
+      {out && <Wall visitor={visitor} cap={cap} freeCap={entitlements?.finder_searches_per_day} next={`/finder${sp.toString() ? `?${sp}` : ""}`} />}
       {res.busy && !res.rows ? <Skeleton shape="row" count={5} testid="finder-loading" />
         : res.err ? <ErrorState message={res.err.message || "The search did not work."} onRetry={run} testid="finder-error" />
         : !res.rows ? <EmptyState icon="search" title={picked.length ? "Ready when you are" : "Pick a league"} testid="finder-idle">Tap any underlined word to change it.</EmptyState>

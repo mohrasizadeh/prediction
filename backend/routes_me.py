@@ -8,7 +8,7 @@ Tested by tests/selftest_routes.py.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Response
@@ -109,13 +109,18 @@ def following_feed(response: Response, user=Depends(D.require_user), db=Depends(
     q = {"status": "scheduled", "kickoff": {"$gte": now}, "$or": [{"home_iid": {"$in": list(teams)}}, {"away_iid": {"$in": list(teams)}},
                                                                   {"league_iid": {"$in": leagues}}]}
     ms = list(db.matches.find(q, {"_id": 0}).sort("kickoff", 1).limit(30))
-    names = Q._names(db, "teams", [m["home_iid"] for m in ms] + [m["away_iid"] for m in ms])
+    done = list(db.matches.find({"status": "final", "kickoff": {"$gte": now - timedelta(days=7)},
+                                 "$or": [{"home_iid": {"$in": list(teams)}}, {"away_iid": {"$in": list(teams)}}]},
+                                {"_id": 0, "id": 1, "home_iid": 1, "away_iid": 1, "hg": 1, "ag": 1, "kickoff": 1}).sort("kickoff", -1).limit(10))
+    names = Q._names(db, "teams", [m["home_iid"] for m in ms + done] + [m["away_iid"] for m in ms + done])
     for m in ms:
         m["home"], m["away"] = names.get(m["home_iid"]), names.get(m["away_iid"])
+    for m in done:
+        m["home"], m["away"] = names.get(m.pop("home_iid")), names.get(m.pop("away_iid"))
     fc = list(db.forecasts.find({**Q.NOT_HIDDEN, "match_iid": {"$in": [m["iid"] for m in ms]},
                                  "$or": [{"player_iid": {"$in": players}}, {"scope": "team", "team_iid": {"$in": list(teams)}}]},
                                 {"_id": 0, "contrib": 0}).sort("p", -1).limit(100))
-    return {"matches": ms, "forecasts": Q._decorate(db, fc)}
+    return {"matches": ms, "forecasts": Q._decorate(db, fc), "results": done}
 
 
 # ------------------------------------------------------------------ saved forecasts
@@ -128,8 +133,11 @@ def saved(response: Response, user=Depends(D.require_user), db=Depends(D.get_db)
     _private(response)
     rows = list(db.saved_forecasts.find({"user_id": user["id"]}, {"_id": 0, "fkey": 1, "created_at": 1}).sort("created_at", -1))
     current = {f["fkey"]: f for f in Q._decorate(db, list(db.forecasts.find({"fkey": {"$in": [r["fkey"] for r in rows]}, **Q.NOT_HIDDEN}, {"_id": 0, "contrib": 0})))}
+    outs = {o["fkey"]: o for o in db.forecast_outcomes.find({"fkey": {"$in": [r["fkey"] for r in rows]}},
+                                                             {"_id": 0, "fkey": 1, "reached": 1, "actual": 1, "player_played": 1}).sort("scored_at", 1)}
     for r in rows:
         r["forecast"] = current.get(r["fkey"])                 # null once the match is played and the forecast is replaced
+        r["outcome"] = outs.get(r["fkey"])
     return {"items": rows, "limit": P.ent(db, user, "saved_max")}
 
 
@@ -162,6 +170,14 @@ def _player(db, player_id: str) -> int:
     if not iid:
         raise D.err(404, "NOT_FOUND", "We could not find that player.")
     return iid
+
+
+@router.get("/notes")
+def notes(response: Response, user=Depends(D.require_user), db=Depends(D.get_db)):
+    _private(response)
+    rows = list(db.notes.find({"user_id": user["id"]}, {"_id": 0, "player_iid": 1, "text": 1, "updated_at": 1}).sort("updated_at", -1).limit(100))
+    names = Q._names(db, "players", [r["player_iid"] for r in rows])
+    return {"items": [{"player": names.get(r["player_iid"]), "text": r["text"], "updated_at": r.get("updated_at")} for r in rows if r["player_iid"] in names]}
 
 
 @router.get("/notes/{player_id}")

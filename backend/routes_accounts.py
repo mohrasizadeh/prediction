@@ -82,7 +82,8 @@ def me_payload(db, user, request=None):
     if not user:
         ep = P.effective_plan(db, None)
         return {"user": None, "plan": {k: ep[k] for k in ("plan_key", "plan_name", "source")}, "entitlements": ep["entitlements"],
-                "limits": {"anonymous_finder_searches_per_day": S.get(db, "plans.anonymous_finder_searches_per_day")}}
+                "limits": {"anonymous_finder_searches_per_day": S.get(db, "plans.anonymous_finder_searches_per_day")},
+                "usage": {"finder_today": P.used_today(db, D.anon_subject(request), "finder") if request else None}}
     ep = P.effective_plan(db, user)
     day_used = P.used_today(db, f"u:{user['id']}", "finder")
     return {"user": A.public_user(user), "plan": {k: v for k, v in ep.items() if k != "entitlements"}, "entitlements": ep["entitlements"],
@@ -179,11 +180,11 @@ def reset_password(body: ResetBody, request: Request, db=Depends(D.get_db)):
 
 
 @router.get("/auth/me")
-def me(user=Depends(D.optional_user), auth=Depends(D.current), db=Depends(D.get_db)):
+def me(request: Request, user=Depends(D.optional_user), auth=Depends(D.current), db=Depends(D.get_db)):
     u, s = auth
     if u and s["scope"] != "full":                            # staff who still have to set up 2FA
         return {"user": A.public_user(u), "scope": s["scope"]}
-    return me_payload(db, user)
+    return me_payload(db, user, request)
 
 
 # ----------------------------------------------------------------------------- account

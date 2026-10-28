@@ -20,7 +20,8 @@ export const onApiError = (fn) => {
   return () => listeners.delete(fn);
 };
 
-export async function api(path, { method = "GET", body, raw, query, signal } = {}) {
+// quiet: the caller handles the error itself (no global sign-in redirect).
+export async function api(path, { method = "GET", body, raw, query, signal, quiet } = {}) {
   const qs = query
     ? "?" + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== "")).toString()
     : "";
@@ -37,7 +38,7 @@ export async function api(path, { method = "GET", body, raw, query, signal } = {
     const e = (data && data.error) || {};
     const err = new ApiError(res.status, e.code || "SERVER_ERROR", e.message, e.request_id);
     if (e.problems) err.problems = e.problems;
-    listeners.forEach((fn) => fn(err));
+    if (!quiet) listeners.forEach((fn) => fn(err));
     throw err;
   }
   return data;

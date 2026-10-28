@@ -10,7 +10,6 @@ Run:  uvicorn server:app --reload
 """
 from __future__ import annotations
 
-import hashlib
 import hmac
 import os
 
@@ -142,8 +141,7 @@ def finder(request: Request, mode: str = "likelihood", stat: str = "shots", thre
     if user:
         subject, cap = f"u:{user['id']}", ent["finder_searches_per_day"]
     else:
-        ip = getattr(request.state, "ip", "") or ""
-        subject, cap = "ip:" + hashlib.sha256((ip + request.headers.get("user-agent", "")).encode()).hexdigest()[:16], int(S.get(db, "plans.anonymous_finder_searches_per_day"))
+        subject, cap = D.anon_subject(request), int(S.get(db, "plans.anonymous_finder_searches_per_day"))
     ok, used = P.consume(db, subject, "finder", cap)
     if not ok:
         if not user:

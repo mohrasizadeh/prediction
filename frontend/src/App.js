@@ -16,7 +16,10 @@ import Compare from "./pages/Compare";
 import Explore from "./pages/Explore";
 import Pricing from "./pages/Pricing";
 import Finder from "./pages/Finder";
-import { Insights, TrackRecord } from "./pages/Insights";
+import { Insights } from "./pages/Insights";
+import TrackRecord from "./pages/TrackRecord";
+import Welcome from "./pages/Welcome";
+import { Learn, LearnArticle } from "./pages/Learn";
 import { Following, Search } from "./pages/Following";
 import MarkdownPage from "./pages/Markdown";
 import Account from "./pages/Account";
@@ -42,6 +45,19 @@ function Gates() {
     if (!me?.user) return;
     if (me.scope === "enroll_2fa" && pathname !== "/enroll-2fa") nav("/enroll-2fa", { replace: true });
     else if (me.scope !== "enroll_2fa" && me.user.must_change_password && !["/change-password", "/enroll-2fa"].includes(pathname)) nav("/change-password", { replace: true });
+  }, [me, pathname, nav]);
+  return null;
+}
+
+// New members see the 3-step welcome once; any step can be skipped.
+const NO_WELCOME = /^\/(welcome|sign-|verify|confirm|reset|forgot|change-password|enroll|legal|unsubscribe|newsletter|admin)/;
+function WelcomeGate() {
+  const { me } = useAuth();
+  const { pathname } = useLocation();
+  const nav = useNavigate();
+  useEffect(() => {
+    const u = me?.user;
+    if (u && u.role === "user" && me.scope !== "enroll_2fa" && !u.must_change_password && !u.prefs?.welcomed && !NO_WELCOME.test(pathname)) nav("/welcome", { replace: true });
   }, [me, pathname, nav]);
   return null;
 }
@@ -75,6 +91,7 @@ export default function App() {
   return (
     <>
       <Gates />
+      <WelcomeGate />
       <ThemeSync />
       <Routes>
         <Route element={<Layout />}>
@@ -101,8 +118,9 @@ export default function App() {
           <Route path="contact" element={<Contact />} />
           <Route path="unsubscribe" element={<Unsubscribe />} />
           <Route path="newsletter/confirm" element={<NewsletterConfirm />} />
-          <Route path="learn" element={<MarkdownPage slug="learn" />} />
-          <Route path="learn/:slug" element={<MarkdownPage />} />
+          <Route path="learn" element={<Learn />} />
+          <Route path="learn/:slug" element={<LearnArticle />} />
+          <Route path="welcome" element={<Welcome />} />
           <Route path="legal/:slug" element={<MarkdownPage />} />
           <Route path="sign-in" element={<SignIn />} />
           <Route path="sign-in/2fa" element={<Navigate to="/sign-in" replace />} />

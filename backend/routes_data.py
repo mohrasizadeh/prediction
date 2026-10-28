@@ -7,6 +7,8 @@ Tested by tests/selftest_routes.py.
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, Query, Response
 
 import deps as D
@@ -76,8 +78,17 @@ def leagues(response: Response, q: str = "", db=Depends(D.get_db)):
         ql = q.strip().lower()
         rows = [r for r in rows if ql in (r.get("name") or "").lower() or ql in (r.get("country") or "").lower()]
     rows = Q.attach_images(db, "leagues", rows)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    day0 = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    nxt = {g["_id"]: g for g in db.matches.aggregate([{"$match": {"status": "scheduled", "kickoff": {"$gte": now}}}, {"$sort": {"kickoff": 1}},
+                                                       {"$group": {"_id": "$league_iid", "kickoff": {"$first": "$kickoff"}, "round": {"$first": "$round"}}}])}
+    today = {g["_id"]: g["n"] for g in db.matches.aggregate([{"$match": {"kickoff": {"$gte": day0, "$lt": day0 + timedelta(days=1)}}},
+                                                             {"$group": {"_id": "$league_iid", "n": {"$sum": 1}}}])}
     groups: dict[str, list] = {}
     for r in rows:
+        g = nxt.get(r.get("iid"))
+        r["next"] = {"kickoff": g["kickoff"], "round": g.get("round")} if g else None
+        r["today"] = today.get(r.get("iid"), 0)
         r.pop("iid", None)
         groups.setdefault(r.get("country") or "Other", []).append(r)
     return {"countries": [{"country": c, "leagues": ls} for c, ls in sorted(groups.items())]}
@@ -238,7 +249,8 @@ def player_history(player_id: str, response: Response, last: int = Query(20, ge=
 
 # ------------------------------------------------------------------ track record
 @router.get("/track-record")
-def track_record(response: Response, league: str | None = None, db=Depends(D.get_db)):
+def track_record(response: Response, league: str | None = None,
+                 stat: str | None = Query(None, pattern="^(shots|sot|tackles|corners|yellow_cards|match_yellow_cards)$"), db=Depends(D.get_db)):
     _cache(response)
     lg = _iid(db, "leagues", league) if league else None
-    return Q.track_record(db, lg, min_n=int(S.get(db, "track_record.min_scored")))
+    return Q.track_record(db, lg, min_n=int(S.get(db, "track_record.min_scored")), stat=stat)

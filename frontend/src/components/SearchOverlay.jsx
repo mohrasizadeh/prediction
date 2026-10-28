@@ -58,7 +58,7 @@ function useResults(q) {
   return { ...st, retry: () => setSt((s) => ({ ...s, n: s.n + 1 })) };
 }
 
-export default function SearchOverlay({ open, onClose }) {
+export default function SearchOverlay({ open, onClose, initial = "" }) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
   const [follows, setFollows] = useState([]);
@@ -68,19 +68,19 @@ export default function SearchOverlay({ open, onClose }) {
   const r = useResults(q);
   useEffect(() => {
     if (!open) return undefined;
-    setQ(""); setSel(0);
+    setQ(initial); setSel(0);
     setTimeout(() => input.current?.focus(), 30);
     if (user) get("/me/follows").then((x) => setFollows(x.items || [])).catch(() => {});
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
-  }, [open, user]);
+  }, [open, user, initial]);
   const flat = useMemo(() => {
     const d = r.data;
     if (!d) return [];
     return [...d.players.map((p) => ({ kind: "player", to: `/player/${p.id}`, x: p })), ...d.teams.map((t) => ({ kind: "team", to: `/team/${t.id}`, x: t })), ...d.leagues.map((l) => ({ kind: "league", to: `/league/${l.id}`, x: l }))];
   }, [r.data]);
   if (!open) return null;
-  const go = (to) => { if (q.trim()) remember(q.trim()); onClose(); nav(to); };
+  const go = (to) => { if (q.trim()) remember(q.trim()); onClose(true); nav(to); };
   const key = (e) => {
     if (e.key === "Escape") onClose();
     else if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, flat.length - 1)); }
@@ -109,7 +109,7 @@ export default function SearchOverlay({ open, onClose }) {
       <div className="so-head">
         <label className="so-field"><Icon name="search" size={20} /><span className="sr-only">Search players, teams, leagues</span>
           <input ref={input} type="search" value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} placeholder="Search players, teams, leagues" autoComplete="off" data-testid="search-overlay-input" /></label>
-        <button type="button" className="k-link so-cancel" onClick={onClose} data-testid="search-overlay-cancel">Cancel</button>
+        <button type="button" className="k-link so-cancel" onClick={() => onClose()} data-testid="search-overlay-cancel">Cancel</button>
       </div>
       <div className="so-body">
         {q.trim().length < 2 ? (

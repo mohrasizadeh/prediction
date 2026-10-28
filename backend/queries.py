@@ -468,9 +468,11 @@ def against_by_position(db, team_iid: int, stat: str, last_n: int = 10) -> dict:
 
 
 # -------------------------------------------------------------- Track record
-def track_record(db, league_iid=None, min_n: int = 300) -> dict:
+def track_record(db, league_iid=None, min_n: int = 300, stat=None) -> dict:
     q = {"league_iid": league_iid} if league_iid else {}
-    rows = list(db.forecast_outcomes.find({**q, "player_played": True}, {"_id": 0, "tier": 1, "p": 1, "reached": 1}))
+    if stat:
+        q["stat"] = stat
+    rows = list(db.forecast_outcomes.find({**q, "player_played": True}, {"_id": 0, "tier": 1, "p": 1, "reached": 1, "scored_at": 1}))
     if len(rows) < min_n:
         return {"ready": False, "scored": len(rows), "needed": min_n}
     tiers = {}
@@ -483,7 +485,8 @@ def track_record(db, league_iid=None, min_n: int = 300) -> dict:
         g = [r for r in rows if lo <= r["p"] < lo + 0.1]
         if len(g) >= 30:
             bins.append({"from": lo, "to": round(lo + 0.1, 1), "n": len(g), "stated": sum(r["p"] for r in g) / len(g), "actual": sum(r["reached"] for r in g) / len(g)})
-    return {"ready": True, "scored": len(rows), "tiers": tiers, "bins": bins}
+    since = min((r["scored_at"] for r in rows if r.get("scored_at")), default=None)
+    return {"ready": True, "scored": len(rows), "tiers": tiers, "bins": bins, "since": since}
 
 
 # --------------------------------------------------------------------- Search

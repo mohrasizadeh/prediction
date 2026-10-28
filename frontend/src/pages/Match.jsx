@@ -10,6 +10,7 @@ import FirstGoal from "../components/FirstGoal";
 import { Forecasts, Hero, Preview, Stats, matchState } from "../components/MatchCentre";
 import MatchEvents from "../components/MatchEvents";
 import LiveLineups from "../components/LiveLineups";
+import { ProLock } from "../components/ui";
 
 const cardsOf = (d) => d.cards || d.forecasts;
 
@@ -144,7 +145,7 @@ export default function Match() {
       {tab === "first" && <div className="fg-pair" data-testid="match-first-goal"><FirstGoal team={d.home} compact testid="first-goal-home" /><FirstGoal team={d.away} compact testid="first-goal-away" /></div>}
       {tab === "players" && <Players d={d} />}
       {tab === "h2h" && <H2H d={d} />}
-      {tab === "matchup" && (d.matchup_locked ? <Empty icon="padlock" testid="matchup-locked">The style comparison is part of a bigger plan.</Empty>
+      {tab === "matchup" && (d.matchup_locked ? <Empty icon="padlock" testid="matchup-locked">The style comparison is part of a bigger plan. <ProLock testid="matchup-pro" /></Empty>
         : <div className="split2">{[d.home, d.away].map((t, i) => <div key={t.id} className="card"><h2 className="h3">{t.name}</h2><div className="chips">{(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).map((x) => <TacticChip key={x} t={x} />)}</div></div>)}</div>)}
     </section>
   );

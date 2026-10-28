@@ -506,6 +506,10 @@ def update_profile(db, user_id: str, fields: dict) -> dict:
         for k in ("product_emails", "marketing_emails", "alert_emails"):
             if k in fields["prefs"]:
                 upd[f"prefs.{k}"] = bool(fields["prefs"][k])
+        if "welcomed" in fields["prefs"]:
+            upd["prefs.welcomed"] = bool(fields["prefs"]["welcomed"])
+        if isinstance(fields["prefs"].get("leagues"), list):
+            upd["prefs.leagues"] = [str(x)[:64] for x in fields["prefs"]["leagues"]][:20]
         me = db.users.find_one({"id": user_id}, {"role": 1})
         if me and me.get("role") in STAFF:                                   # staff-only switches
             for k in ("admin_digest", "admin_alerts"):

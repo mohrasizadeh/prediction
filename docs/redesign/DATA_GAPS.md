@@ -23,6 +23,12 @@ Elements hidden because the API does not return the data yet. Add a row whenever
 | Live | "Follow a match" with goal alerts | match follows + alert sending | Hidden |
 | Insights | "Biggest rise vs usual" | `usual_p`; sorts by p minus p_base meanwhile | Approximate |
 | Finder | Presets saved per account | a presets route | Saved in this browser (localStorage) |
-| Finder | Remaining free searches for visitors | usage counter for anonymous users | Shows the daily cap only |
+| Finder | Remaining free searches for visitors | usage counter for anonymous users | Added in R5 (`/auth/me` usage for visitors) |
+| You feed | Lineup news ("Saka starts") | lineup-announced events per followed player | Hidden |
+| You feed | "Forecast rose to 78%" | previous forecast value per player | Shows the current forecast only |
+| Search | Next forecast beside each result | next forecast per search hit | Hidden |
+| Welcome | Separate "Lineups" and "Goals and red cards" switches | per-type alert preferences | One "Alerts for my teams and players" switch |
+| Welcome | Leagues "first everywhere" | league order on every screen | Used in Explore and the welcome team picker |
+| Track record | "Updated weekly" stamp | scoring schedule | Says "updated as matches finish" |
 | League table | Zones (Europe, relegation) | competition zone rules per league | Hidden |
 | Team | Squad cards / grid redesign details (photos with season numbers) | per-player season totals in one call | Existing squad grid kept, restyled later |

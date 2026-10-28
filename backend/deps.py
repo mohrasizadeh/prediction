@@ -1,6 +1,7 @@
 """deps.py -- FastAPI dependencies shared by every router: database, cookie, current user, permissions."""
 from __future__ import annotations
 
+import hashlib
 import os
 
 from fastapi import Depends, HTTPException, Request, Response
@@ -13,6 +14,11 @@ COOKIE = "__Host-sid" if SECURE else "sid"      # __Host- cookies must be Secure
 
 def get_db(request: Request):
     return request.app.state.db
+
+
+def anon_subject(request: Request) -> str:
+    ip = getattr(request.state, "ip", "") or ""
+    return "ip:" + hashlib.sha256((ip + request.headers.get("user-agent", "")).encode()).hexdigest()[:16]
 
 
 def err(status: int, code: str, message: str = ""):
