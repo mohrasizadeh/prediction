@@ -18,11 +18,11 @@ function build(rows) {
     .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team.name.localeCompare(b.team.name));
 }
 
-export default function Standings({ id }) {
+export default function Standings({ id, season }) {
   const q = useApi(`/leagues/${id}/fixtures`, { status: "final", limit: 400 });
   if (q.loading && !q.data) return <Skeleton shape="row" count={10} testid="table-loading" />;
   if (q.error) return <ErrorState message="We could not load the table." onRetry={q.reload} testid="table-error" />;
-  const rows = build(q.data || []);
+  const rows = build((q.data || []).filter((m) => !season || !m.season || m.season === season));
   if (!rows.length) return <EmptyState icon="list" title="No table yet" testid="table-empty">The table appears after the first finished round of the season.</EmptyState>;
   return (
     <div className="tm-scroll" data-testid="league-table">

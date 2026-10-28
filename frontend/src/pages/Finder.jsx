@@ -37,8 +37,8 @@ function Row({ r, f }) {
     <li className="fs-row" data-testid={`finder-row-${r.id}`}>
       {r.player ? <PlayerAvatar player={r.player} size={44} /> : <Crest team={r.team} size={40} />}
       <span className="fs-who"><Link to={r.player ? `/player/${r.player.id}` : `/team/${r.team?.id}`}><b>{(r.player || r.team)?.name}</b></Link>
-        <small>{r.player && r.team ? <><Crest team={r.team} size={16} /> {r.team.name}</> : null}{nx ? ` · next v ${(nx.home?.id === r.team?.id ? nx.away : nx.home)?.name}, ${kickoff(nx.kickoff)}` : ""}</small></span>
-      {r.hits ? <HitStrip hits={[...r.hits].reverse()} label={`${f.n}+ ${f.stat}`} testid={`finder-strip-${r.id}`} /> : <b>{f.mode === "run" ? `${r.run} in a row` : `${r.reached}/${r.games}`}</b>}
+        <small>{[r.player && r.team ? r.team.name : null, nx ? `next v ${(nx.home?.id === r.team?.id ? nx.away : nx.home)?.name}, ${kickoff(nx.kickoff)}` : null].filter(Boolean).join(" · ")}</small></span>
+      {f.mode === "run" ? <b data-testid={`finder-run-${r.id}`}>{r.run} in a row</b> : r.hits ? <HitStrip hits={[...r.hits].reverse()} label={`${f.n}+ ${f.stat}`} testid={`finder-strip-${r.id}`} /> : <b>{`${r.reached}/${r.games}`}</b>}
       {r.forecast ? <b className="fs-next" data-testid={`finder-next-${r.id}`}>Next {pct(r.forecast.p)}</b> : <span />}
     </li>
   );
@@ -63,6 +63,7 @@ export default function Finder() {
   const set = (patch) => {
     const n = { ...f, ...patch };
     if (!(n.scope === "team" ? [...TEAM_STATS, ...MATCH_STATS] : STATS).some((s) => s.id === n.stat)) n.stat = "shots";
+    setRes({ rows: null, err: null, busy: false });
     setSp(Object.fromEntries(Object.entries(n).filter(([k, v]) => v !== "" && DEF[k] !== v)), { replace: true });
   };
   const run = async () => {
@@ -94,7 +95,7 @@ export default function Finder() {
     <section className="fs" data-testid="finder-page">
       <h1>Forecast Finder</h1>
       <Segmented label="Mode" value={f.mode} onChange={(v) => set({ mode: v })} testid="finder-mode" options={[{ id: "form", label: "How often" }, { id: "run", label: "Streak" }, { id: "likelihood", label: "Our forecast" }]} />
-      {presets.length > 0 && <ChipsRow label="Saved searches" testid="finder-presets" options={presets.map((p, i) => ({ id: String(i), label: p.name, onClick: () => setSp(new URLSearchParams(p.q), { replace: true }) }))} />}
+      {presets.length > 0 && <ChipsRow label="Saved searches" testid="finder-presets" options={presets.map((p, i) => ({ id: String(i), label: p.name, onClick: () => { setRes({ rows: null, err: null, busy: false }); setSp(new URLSearchParams(p.q), { replace: true }); } }))} />}
       <p className="fs-sentence card" data-testid="finder-sentence">
         <Part id="scope" label={f.scope === "team" ? "Teams" : "Players"} open={open} setOpen={setOpen}>
           <Segmented label="Who" value={f.scope} onChange={(v) => set({ scope: v })} options={[{ id: "player", label: "Players" }, { id: "team", label: "Teams" }]} testid="finder-scope" /></Part>{" with "}

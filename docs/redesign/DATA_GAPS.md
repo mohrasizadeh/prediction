@@ -22,3 +22,7 @@ Elements hidden because the API does not return the data yet. Add a row whenever
 | Match lineups | Predicted eleven before any lineup arrives | a predicted XI when the lineups table is empty | Empty state until lineups exist |
 | Live | "Follow a match" with goal alerts | match follows + alert sending | Hidden |
 | Insights | "Biggest rise vs usual" | `usual_p`; sorts by p minus p_base meanwhile | Approximate |
+| Finder | Presets saved per account | a presets route | Saved in this browser (localStorage) |
+| Finder | Remaining free searches for visitors | usage counter for anonymous users | Shows the daily cap only |
+| League table | Zones (Europe, relegation) | competition zone rules per league | Hidden |
+| Team | Squad cards / grid redesign details (photos with season numbers) | per-player season totals in one call | Existing squad grid kept, restyled later |

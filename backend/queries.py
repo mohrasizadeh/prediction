@@ -291,6 +291,8 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
         score = reached / len(vals) if mode == "form" else run
         if mode == "form" and score < min_reached:
             continue
+        if mode == "run" and run == 0:
+            continue
         if playing is not None and r["team"] not in playing:
             continue
         out.append({"id": r["_id"], "team_iid": r["team"], "games": len(vals), "reached": reached, "run": run, "score": score,

@@ -1,0 +1,51 @@
+{
+  "summary": "Redesign R4 + Recap Score tested, backend and frontend, at 1920x800 and 390x844, light and dark. Backend: 12/12 pytest pass. Recap returns {ht:[1,0], scored:1, hit:1, by_tier} for finished 5ac44df1 (Sevilla 2-0 Osasuna). Scheduled matches return recap null. league fixtures accept limit up to 400 (401 gives 422). Finder form hits equal reached and the length equals games. Frontend: Finder sentence has 7 parts; each opens finder-pop-* and closes on Escape and on an outside click. n/stat/venue/pos/leagues changes update the URL and the sentence. LaLiga + Update results gave 37 rows, each with a 10-square strip and 'Next NN%'. Our forecast mode shows ForecastCards. Save this search (prompt) adds a chip to finder-presets. Reset clears the URL. League page has 5 tabs: Overview (6 next fixtures + referee assignments); Table (20 clubs sorted by Pts, P/W/D/L/GD/Pts/Form; sum P=198=2x99 finals, GD sum 0, W total = L total); Teams matrix; Fixtures Upcoming 20 / Results 60; Leaders Players/Bookings/Referees all render. Team 'Compare with…' links to /compare?a=<id>. Compare a&b shows radar, stands-out and edges. The player-form card has 4 strips that match /history values exactly. Match hero shows 'Half-time 1 – 0' and 'How our forecasts did: 1 of 1 … · Solid 1/1'. There is no page overflow at 390px on any page or tab, and dark mode looks good. Bugs found: in the Finder (stale results after a mode change; Streak mode never shows the streak length) and on Compare (?a= alone does not show club A).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/finder mode=run", "issue": "Returns teams/players with run=0 (8 of 20 LaLiga team rows for 4+ corners). A Streak search should drop run 0, or use a min run."},
+      {"endpoint": "queries._recap", "issue": "When live_fixtures has no ht score, the half-time score falls back to goal events with minute <= 45. Goals in first-half added time (stored as 45+x or 46+ depending on the provider) or own goals (side semantics) can give a wrong HT score. Worth checking against the event format."},
+      {"endpoint": "/api/leagues/{id}/fixtures (Standings)", "issue": "league_matches(final) is not filtered by the current season. The Standings table will mix seasons once previous-season matches are stored (today only 2026/2027 is in the DB). The response also leaks internal fields (iid, ext_id, lineup_fetches, ingested_at)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Finder results", "issue": "Results are not cleared when the query or mode changes on capped plans. After an 'Our forecast' search, switching to Streak renders the 100 old forecast rows through Row, which shows 'Kylian Mbappé | Real Madrid | undefined in a row'. Switching How often -> Streak also keeps the old rows under the new sentence.", "selector": "[data-testid=finder-results]", "priority": "HIGH"},
+      {"component": "Finder Row (Streak mode)", "issue": "Row renders HitStrip (reached/games, e.g. '5/10') whenever r.hits exists, which is always true. The streak length ('4 in a row') is therefore never shown in Streak mode. Example: Osasuna run=4 shows 5/10.", "selector": "[data-testid^=finder-row-]", "priority": "MEDIUM"},
+      {"component": "Compare page", "issue": "/compare?a=<id> (the Team 'Compare with…' target) shows 'Pick a club' on side A. The Picker team comes only from the compare response, which needs both a and b. Club A should be fetched/shown on its own (e.g. GET /teams/{a}).", "selector": "[data-testid=compare-pick-a]", "priority": "MEDIUM"},
+      {"component": "Finder anonymous cap", "issue": "finder-usage always reads 'Up to 3 searches a day without an account' (me.usage is undefined for anonymous users), so the count never moves. On the 4th search the API returns 401 SIGN_IN_REQUIRED and the app silently redirects to /signin, with no 'you used your 3 free searches' message.", "selector": "[data-testid=finder-usage]", "priority": "LOW"},
+      {"component": "Finder Row (team scope)", "issue": "Team rows start the subtitle with ' · next v …' (leading separator because there is no player/team prefix).", "selector": "[data-testid^=finder-row-] small", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Finder 390px", "issues": ["Row subtitle 'Club · next v Opponent, date' is clipped mid-word with no ellipsis", "Pickers that open near the bottom (leagues, scope) sit under the bottom 'See more of every match' promo banner (data-testid=popup), which blocks clicks on the picker options until the banner is closed. Raise the fs-pop z-index or flip the picker upward"]},
+      {"screen": "League Table desktop", "issues": ["The table's right edge is cut (the Form column card has no right border/padding, about 8px short of the container)"]},
+      {"screen": "League Table 390px", "issues": ["GD/Pts/Form are off-screen; the user must scroll sideways to see points. Consider hiding W/D/L or GD on phone so # Club P Pts stay visible"]},
+      {"screen": "League Leaders > Referees", "issues": ["The 'Next round referees' block repeats the Overview content"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter24_finder_league_recap.py", "/app/test_reports/pytest/pytest_iter24.xml"],
+  "action_items": [
+    "Finder: reset res (rows null) when the query key changes on capped plans, or at least on a mode/scope change. Avoid 'undefined in a row'",
+    "Finder Row: in mode=run show `${r.run} in a row` (keep the strip as a visual), and drop run=0 rows in the backend",
+    "Compare: show club A when only ?a= is given (fetch the team separately)",
+    "Finder anonymous: show used/cap (return usage for anonymous in /me or from the finder response) and handle 401 SIGN_IN_REQUIRED with an inline message instead of a silent redirect",
+    "Finder 390px: ellipsis on the row subtitle; put fs-pop above the promo banner; remove the leading ' · ' for team rows",
+    "Standings: filter by current season; fix the right-edge clipping; phone column priority",
+    "_recap: check the HT fallback for 45+x goals and own goals"
+  ],
+  "critical_code_review_comments": [
+    "Finder.jsx: res is not tied to the query key, so stale rows render with the wrong mode formatter",
+    "Finder.jsx Row: `r.hits ? HitStrip : run text`. The run text branch is unreachable for form/run",
+    "Compare.jsx: Picker team derives from d (needs a&&b)",
+    "Standings.jsx builds the table client-side from up to 400 finals. This is fine now, but a large league or a multi-season DB will need a server-side, season-scoped table",
+    "queries._recap: o['tier'] KeyError if an outcome doc lacks tier (all 856 have it today); use o.get('tier')"
+  ],
+  "updated_files": ["/app/backend/tests/test_iter24_finder_league_recap.py"],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "85%"},
+  "test_credentials": "None used (all public pages, anonymous).",
+  "seed_data_creation": "None. No TEST_ users were created. One anonymous Finder search was spent from curl with UA 'TEST_ua_iter24_a', and the browser UA hit its daily cap of 3.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "App clock 2026-10-28. LaLiga id 459108cf-...; 99 finals, 20 clubs, Barcelona 7b857061 is top (27 pts). Finished match 5ac44df1 (Sevilla 2-0 Osasuna, HT 1-0, recap 1/1 Solid); scheduled 36cf495e. Player Lamine Yamal ec412ade. The anonymous finder cap is 3 per ip+UA per day: the browser automation UA is used up for today, so to test the Finder UI intercept **/api/finder?** with saved JSON (curl with a custom -A UA gives a fresh quota). On phone, close the cookie banner ('No thanks') and the promo popup (data-testid=popup, close button). The theme toggle used is the visible [data-testid=theme-toggle]; the theme persists across navigation."
+}

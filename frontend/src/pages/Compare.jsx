@@ -54,13 +54,15 @@ export default function Compare() {
   const ready = a && b && a !== b;
   const q = useApi(ready ? "/teams/compare" : null, { a, b, window, as_fixture: fixture });
   const d = ready ? q.data : null;
+  const one = useApi(a && !ready ? `/teams/${a}` : null);
+  const soloA = one.data?.team;
   useTitle(d ? `${d.a.team.name} v ${d.b.team.name}` : "Compare");
   const swap = () => { const n = new URLSearchParams(sp); n.set("a", b); n.set("b", a); setSp(n, { replace: true }); };
   return (
     <section className="cp" data-testid="compare-page">
       <h1>Compare</h1>
       <div className="cp-hero">
-        <Picker side="a" team={d?.a.team} onPick={(id) => set("a", id)} />
+        <Picker side="a" team={d?.a.team || soloA} onPick={(id) => set("a", id)} />
         <button type="button" className="k-icon-btn cp-swap" onClick={swap} disabled={!a || !b} aria-label="Swap clubs" data-testid="compare-swap"><Icon name="refresh" size={20} /></button>
         <Picker side="b" team={d?.b.team} onPick={(id) => set("b", id)} />
       </div>

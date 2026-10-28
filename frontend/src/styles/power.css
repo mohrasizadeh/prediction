@@ -25,3 +25,4 @@
 .pl-form { padding: 18px; margin: 14px 0; } .pl-form ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .pl-form li { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .mc-recap { margin: 0; text-align: center; padding: 10px 14px; border-radius: 12px; background: var(--surface2); }
+.st-table a.tm-cell-team { text-decoration: none; color: var(--text); font-weight: 600; } .st-table a.tm-cell-team:hover { color: var(--brand); }

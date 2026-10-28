@@ -170,7 +170,7 @@ export default function League() {
       <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "overview", label: "Overview" }, { id: "table", label: "Table" }, { id: "teams", label: "Teams" }, { id: "fixtures", label: "Fixtures" }, { id: "leaders", label: "Leaders" }]} />
       <div className="lg-tab">
         {tab === "overview" && <Overview id={id} d={d} />}
-        {tab === "table" && <Standings id={id} />}
+        {tab === "table" && <Standings id={id} season={d.current_season} />}
         {tab === "teams" && <Teams id={id} />}
         {tab === "fixtures" && <FixturesTab id={id} d={d} />}
         {tab === "leaders" && <LeadersTab id={id} />}
