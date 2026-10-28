@@ -48,6 +48,9 @@ OPP_I = [1, 3, 6, 5]   # shots_against, corners_against, poss, tackles_against
 TEAM_DIMS = {"shots": (0, 1), "corners": (2, 3), "tackles": (4, 5)}
 
 DEFAULT_R_PLAYER = {"shots": 6.0, "sot": 5.0, "tackles": 10.0}
+# Prior strength of a player's share of his team's total, in team-stat units (docs/25: tackles 80 beat 40, z +5.1;
+# shots and on target are best at 40).
+DEFAULT_PLAYER_PRIOR = {"shots": 40.0, "sot": 40.0, "tackles": 40.0}
 
 # Thresholds offered for extra team metrics (editable in settings like the others).
 EXTRA_THR = {"fouls": [11.5], "yellow": [1.5]}
@@ -85,6 +88,8 @@ class Forecast:
     rotation: str = "low"          # "low" | "medium" | "high": how likely the club rests regulars (calendar)
     rotation_why: str = ""         # one plain sentence, empty when low
     p_play_usual: float | None = None   # chance he plays with no calendar pressure (shows the shift)
+    p_usual: float | None = None        # the same line from his/the team's own normalised average, before this opponent
+                                        # and match (docs/25). The feed ranks by p - p_usual.
 
 
 # Availability (docs/22). A player who has not featured in his club's last matches is often injured, suspended or
@@ -126,8 +131,14 @@ class SoccerEngine:
     def __init__(self, interactions=True, lineup=False, half_life_rounds=20.0,
                  style_k=6.0, min_round=3, n_draws=60, sigma_team=0.07,
                  lineup_l2=10.0, seed=0, tactics=False, tactic_interactions=True, shape=False,
-                 extra_stats=(), match_features=(), strength_decay=0.02):
+                 extra_stats=(), match_features=(), strength_decay=0.02,
+                 style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None):
         self.interactions = interactions
+        # Normalised team averages (docs/25). None / () = the old plain running sums.
+        self.style_half = style_half_life            # a team's game this many games ago counts half
+        self.style_opp = tuple(style_opp_adjust)     # stats judged against what each opponent usually allows / makes
+        self.style_cap_q = style_cap_q               # each game's count capped at this league quantile before averaging
+        self.player_prior = dict(DEFAULT_PLAYER_PRIOR, **(player_prior or {}))   # prior games for a player's share
         self.strength_decay = strength_decay           # Dixon-Coles time decay per match date (docs/22: how much recent form counts)
         self.lineup = lineup
         self.tactics_req = tactics                  # requested; becomes active only if tier-B columns exist
@@ -176,22 +187,69 @@ class SoccerEngine:
         st[:, 7] = np.log(np.maximum(sot_rate, 1e-9) / (league[7] / max(league[0], 1e-9)))
         return st, gd / (n + 6.0)
 
+    def _opp_pairs(self):
+        """column -> the opponent's style column it is judged against (docs/25). A team's shots are divided by how
+        many shots its opponent usually concedes; its shots conceded by how many its opponent usually takes."""
+        pairs = {}
+        for s_, (i_for, i_ag) in self.team_dims.items():
+            if s_ in self.style_opp:
+                pairs[i_for] = i_ag
+                pairs[i_ag] = i_for
+        return pairs
+
     def _snapshots(self, tg, as_of):
+        """Style snapshot before every round. Normalised (docs/25) when set:
+        * recency: before a team's new game is added, its earlier games are discounted (half-life in games);
+        * opponent: each game is judged against what that opponent usually allows (or makes), from the snapshot
+          before the game, so 22 shots against the league's leakiest defence count for less;
+        * cap: each count is capped at a high league quantile, a guard against freak games and feed errors.
+        The league mean stays the plain average of all games, as before."""
         T = len(self.teams)
-        S = np.zeros((T, len(self.sum_cols))); n = np.zeros(T); gd = np.zeros(T)
+        D = len(self.sum_cols)
+        S = np.zeros((T, D)); n = np.zeros(T); gd = np.zeros(T)
+        S0 = np.zeros(D); n0 = 0.0                       # plain league totals
+        g_dec = 0.5 ** (1.0 / self.style_half) if self.style_half else 1.0
+        pairs = self._opp_pairs()
+        seen = []
+        caps = None
+        poss_i = self.sum_cols.index("poss") if "poss" in self.sum_cols else -1
         snaps = {}
         for r, g in tg.groupby("round"):
             snaps[r] = self._snap(S, n, gd)
             ti = g["team"].map(self.tidx).values
-            np.add.at(S, ti, g[self.sum_cols].values.astype(float))
+            oi = g["opp"].map(self.tidx).values
+            X = g[self.sum_cols].values.astype(float)
+            S0 += X.sum(0); n0 += len(X)
+            Xa = X.copy()
+            if self.style_cap_q:
+                seen.append(X)
+                if caps is None or len(seen) % 10 == 0:
+                    allx = np.concatenate(seen[-200:])
+                    caps = np.quantile(allx, self.style_cap_q, axis=0) if len(allx) >= 100 else None
+                if caps is not None:
+                    c = caps.copy()
+                    if poss_i >= 0:
+                        c[poss_i] = np.inf
+                    Xa = np.minimum(Xa, c)
+            if pairs:
+                st = snaps[r][0]
+                for j, pj in pairs.items():
+                    rel = np.exp(np.clip(st[oi, pj], -0.7, 0.7))          # opponent at most 2x / 0.5x the league
+                    Xa[:, j] = Xa[:, j] / rel
+                    if j == 0 and len(self.sum_cols) > 7:
+                        Xa[:, 7] = Xa[:, 7] / rel                         # shots on target move with shots (keeps the rate)
+            if g_dec < 1.0:
+                u = np.unique(ti)
+                S[u] *= g_dec; n[u] *= g_dec; gd[u] *= g_dec
+            np.add.at(S, ti, Xa)
             np.add.at(n, ti, 1.0)
             np.add.at(gd, ti, (g["goals"] - g["goals_against"]).values.astype(float))
         snaps[as_of] = self._snap(S, n, gd)
-        self.league_mean = {s: float(S[:, i].sum() / max(n.sum(), 1)) for s, i in
+        self.league_mean = {s: float(S0[i] / max(n0, 1)) for s, i in
                             (("shots", 0), ("corners", 2), ("tackles", 4), ("sot", 7))}
         for s_, (i_, _) in self.team_dims.items():
             if s_ not in self.league_mean:
-                self.league_mean[s_] = float(S[:, i_].sum() / max(n.sum(), 1))
+                self.league_mean[s_] = float(S0[i_] / max(n0, 1))
         return snaps
 
     def _offset(self, stat, X, Y, snap):
@@ -526,6 +584,17 @@ class SoccerEngine:
                             f"{STAT_WORDS.get(stat, stat)}.")
         return (lead + top_reasons(c, stat, n=2))[:3]
 
+    def _player_reasons(self, contrib, team_contrib, stat, opp_tactics):
+        """A player's card leads with what is about HIM (his share of the team's output, his minutes, the opponent's
+        lineup), then at most one reason about the team. Before, every player of a club got the same team sentence."""
+        own = {k: v for k, v in contrib.items() if k in ("role", "opp_lineup", "own_lineup")}
+        if contrib.get("minutes", 0.0) < 0:                      # "minutes are high" is true of every starter; only a drag informs
+            own["minutes"] = contrib["minutes"]
+        lead = top_reasons(own, stat, n=1)
+        team = self._reasons(team_contrib, stat, opp_tactics)[:1]
+        out = lead + [t for t in team if t not in lead]
+        return out[:2] if out else self._reasons(contrib, stat, opp_tactics)[:2]
+
     def team_means(self, home, away, xf=None):
         """Expected count and dispersion for every team metric, both sides. Used to score the
         whole count distribution (not only one threshold) and to show 'expected' on the page.
@@ -589,6 +658,13 @@ class SoccerEngine:
                 grp[s]["own_lineup"] = own_l
                 grp[s]["opp_lineup"] = opp_l
 
+            # the team's own normalised average against an average opponent (no venue, no matchup): "usual"
+            mu_usual = {}
+            for s in self.stats:
+                dfor, _ = self.team_dims.get(s, (0, 1))
+                lu_ = np.log(max(self.league_mean[s], 1e-6)) + snap[0][X, dfor] + (snap[0][X, 7] if s == "sot" else 0.0)
+                mu_usual[s] = float(np.exp(lu_))
+
             # ---- team markets
             for s, thrs in TEAM_THR.items():
                 if s not in self.stats:
@@ -602,11 +678,12 @@ class SoccerEngine:
                     hist = self.tg_hist.get(team)
                     p_raw = float((hist[s].values[-10:] > thr).mean()) if hist is not None and len(hist) else 0.5
                     p_base = float(nb_sf(k, np.exp(offs[s]), self.glm[s].r))
+                    p_usual = float(nb_sf(k, mu_usual[s], self.glm[s].r))
                     out.append(Forecast("team", team, opp, s, thr, mu_team[s], p, float(lo), float(hi),
                                         contrib=grp[s], reasons=self._reasons(grp[s], s, opp_tac),
                                         opp_tactics=opp_tac, own_tactics=own_tac,
                                         opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
-                                        rotation=rot[team][0], rotation_why=rot[team][1]))
+                                        rotation=rot[team][0], rotation_why=rot[team][1], p_usual=p_usual))
 
             # ---- player markets
             squad = self.squads.get(team, {})
@@ -615,7 +692,7 @@ class SoccerEngine:
                 for pid, info in squad.items():
                     g = info["g"]; ap = g[g["minutes"] > 0]
                     E = (ap["team_" + s] * ap["minutes"] / 90.0).values
-                    post[pid] = shrunk_rate(ap[s].values, E, self.rho[s][info["pos"]], 40.0, self.hl)
+                    post[pid] = shrunk_rate(ap[s].values, E, self.rho[s][info["pos"]], self.player_prior.get(s, 40.0), self.hl)
                 Z = sum(post[pid].mean * scen_all[pid][1] / 90.0 for pid in squad)
                 if Z <= 0:
                     continue
@@ -635,7 +712,7 @@ class SoccerEngine:
                     pb = shrunk_rate(ap[s].values, (ap["minutes"] / 90.0).values,
                                      self.rho90[s][info["pos"]], 4.0, self.hl)
                     mus_b = np.array([pb.mean * m / 90.0 for _, m in sc])
-                    reasons = self._reasons(contrib, s, opp_tac)
+                    reasons = self._player_reasons(contrib, grp[s], s, opp_tac)
                     for thr in PLAYER_THR[s]:
                         k = int(np.floor(thr)) + 1
                         pdraw = np.sum(probs[:, None] * nb_sf(k, mus[:, None] * u[None, :], self.r_player[s]), axis=0)
@@ -650,7 +727,7 @@ class SoccerEngine:
                                             reasons=reasons, opp_tactics=opp_tac, own_tactics=own_tac,
                                             opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
                                             rotation=rot[team][0], rotation_why=rot[team][1],
-                                            p_play_usual=usual_ps.get(pid)))
+                                            p_play_usual=usual_ps.get(pid), p_usual=p_base))
         mh, ma = (1.0, 1.0)
         if self.match_context and match_ctx:
             mh, ma = context_multipliers(match_ctx.get(home) or {}, match_ctx.get(away) or {})

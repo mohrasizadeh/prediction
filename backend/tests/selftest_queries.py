@@ -35,7 +35,11 @@ d = Q.match_detail(db, fx[0]["iid"])
 check(d and d["forecasts"] and d["styles"] and d["h2h"] is not None, "match_detail: forecasts, styles, head-to-head")
 check(all(not f.get("hidden") for f in d["forecasts"]), "match_detail hides hidden forecasts")
 feed = Q.insights_feed(db, limit=20, tiers=("Strong", "Solid", "Watch"), now=now)
-check(len(feed) > 0 and feed[0]["p"] >= feed[-1]["p"] or feed[0]["tier"] != feed[-1]["tier"], "insights_feed: ordered by tier then likelihood")
+o = [(Q.CONFIDENT[f["tier"]], -(f.get("edge") or 0.0)) for f in feed]
+check(len(feed) > 0 and o == sorted(o), "insights_feed: Strong and Solid together by the lift over usual, then Watch (docs/25)")
+lk = Q.insights_feed(db, limit=20, tiers=("Strong", "Solid", "Watch"), now=now, sort="likely")
+o2 = [(Q.TIER_RANK[f["tier"]], -f["p"]) for f in lk]
+check(len(lk) > 0 and o2 == sorted(o2), "insights_feed sort=likely: ordered by tier then likelihood")
 t = fx[0]["home_iid"]
 g = Q.squad_grid(db, t, "shots", 5)
 check(g and all(len(r["games"]) <= 5 for r in g), "squad_grid: at most 5 games per player")

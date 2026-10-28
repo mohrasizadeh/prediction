@@ -32,6 +32,10 @@ Run every script from this folder, for example `python exp_tactics.py PL SA L1`.
 | `exp_tactics.py` | Do tactical indices and shape improve team-metric forecasts? | `data/res_tactics_*.pkl` |
 | `exp_oracle.py` | What if the model were handed the real lineup shape and rotation? (upper bound) | `data/res_oracle_*.pkl` |
 | `exp_shape.py oracle\|blind` | Which part of the shape matters? | `data/res_shape*_*.pkl` |
+| `exp_home.py PL\|CH` | Does each club need its own home advantage on top of the league's? (walk-forward, 2011-12 to 2024-25) | `data/res_home_*.pkl` |
+| `audit_real.py PL\|SA\|L1`, then `fit_calibration.py` | Are the forecast percentages right on real matches? Fits and checks the shipped calibration map (doc 21) | `data/audit_rows_*.pkl`, `data/calibration_default.json` |
+| `factors_strength.py PL\|CH\|L1\|L2`, then `factors_context.py`, `factors_combo.py` | How much recent form counts; promoted clubs; results form, opponent form, rest, cups, Europe, stakes (doc 22) | `data/dc_*.pkl`, `data/factor_rows.pkl` |
+| `availability_test.py`, `availability_audit.py PL\|SA\|L1` | Does "missed recent matches" predict who plays, and how much does it improve forecasts? (doc 22) | printed, `data/availability_rows_*.pkl` |
 | `pool.py`, `show_pool.py` | Pool the three leagues; paired z; z clustered by team-match | printed |
 
 ## How to read the output
@@ -60,3 +64,20 @@ Start model (who starts), 34,763 squad rows, held out later part of each season:
 
 - One season of event data (2015/16). Cups and the Europa League are missing from that season's calendar.
 - The first version of the oracle test pooled a data hole and reported a large false gain (see doc 18 §1). `load_statsbomb.py` now drops those matches. If you extend the data, keep that filter and check every per-league line.
+
+## Normalised averages, automatic lines, referees (doc 25)
+
+Extra data: football-data match statistics (shots, on target, corners, fouls, cards, referee) for 5 leagues, from the public mirror <https://github.com/datasets/football-datasets> (PDDL licence):
+
+```
+mkdir -p data/fd
+for lg in premier-league la-liga bundesliga serie-a ligue-1; do for s in 1011 1112 1213 1314 1415 1516 1617 1718 1819 1920 2021 2122 2223 2324 2425; do
+  curl -sf -o data/fd/${lg}_$s.csv https://raw.githubusercontent.com/datasets/football-datasets/main/datasets/$lg/season-$s.csv; done; done
+```
+
+| Script | Question | Output |
+|---|---|---|
+| `team_norm.py [stat]` | Which way of averaging a team's past games best predicts its next game? (recency, opponent, cap) | table, doc 25 §3a |
+| `player_norm.py` | Does capping or a different prior help player shares? | table, §3b |
+| `ref_norm.py` | Plain referee average vs normalised factor, on match cards | table, §3c |
+| `audit_norm.py LEAGUE VARIANT`, then `score_e2e.py` | The real engine end to end, before vs after | table, §3d |

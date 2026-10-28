@@ -95,7 +95,7 @@ export function ForecastCard({ f, teams = {}, showMatch, homeIid }) {
       <header className="fcard-head">
         {f.player ? <PlayerAvatar player={f.player} size={40} /> : f.stat?.startsWith("match_") && team && opp ? <span className="fcard-crests">{hid === f.opp_iid ? <><Crest team={opp} size={32} /><Crest team={team} size={32} /></> : <><Crest team={team} size={32} /><Crest team={opp} size={32} /></>}</span> : <Crest team={team} size={40} />}
         <div className="fcard-who">
-          {f.player ? <Link to={`/player/${f.player.id}`}><b>{f.player.name}</b></Link> : <b>{f.stat?.startsWith("match_") ? fixture || "Match" : team?.name || "Team"}</b>}
+          {f.player ? <Link to={`/player/${f.player.id}`}><b>{f.player.name}</b></Link> : <b>{f.stat?.startsWith("match_") ? fixture || "Match" : team?.name || ""}</b>}
           <span className="muted small">{f.player && f.pos ? `${posLabel(f.pos)} · ` : ""}{f.stat?.startsWith("match_") ? "Both teams" : fixture}{showMatch ? ` · ${kickoff(f.kickoff)}` : ""}</span>
         </div>
         <TierBadge tier={f.tier} />

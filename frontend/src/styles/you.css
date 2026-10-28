@@ -139,6 +139,9 @@
 @media (prefers-reduced-motion: reduce) { .fs-wall { animation: none; } }
 
 /* R7: data that used to be hidden */
+.k-fc-tier { display: grid; justify-items: end; gap: 2px; } .k-fc-note { font-size: 11px; color: var(--text3); text-align: right; max-width: 14ch; line-height: 1.2; }
+.mc-ref { margin: 8px 0 0; font-size: 13px; }
+.ref-up { color: var(--down); } .ref-down { color: var(--up); }
 .k-fc-bar { position: relative; }
 .k-fc-usual { position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--text); opacity: .7; }
 .k-fc-vs { display: block; margin-top: 4px; font-size: 12px; color: var(--text2); }

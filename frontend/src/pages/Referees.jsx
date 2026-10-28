@@ -1,41 +1,52 @@
-// Referee leaderboard across every enabled league: cards and penalties per game, sortable.
-import { useState } from "react";
+// Referees (docs/25 §5): per league, cards per game normalised for the teams involved, and the referee's factor
+// against the teams' usual. Reads GET /api/leagues/{id}/referees.
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
-import { Empty, ErrorBox, Loading } from "../components/States";
-import { Seg, useTitle } from "../components/Football";
+import { favFirst, useFavLeagues } from "../lib/prefs";
+import { useTitle } from "../components/Football";
+import { ChipsRow, EmptyState, ErrorState, Skeleton } from "../components/ui";
 import { refPath } from "./Referee";
 
-const COLS = [{ id: "yellow_pg", label: "Yellows" }, { id: "red_pg", label: "Reds" }, { id: "pens_pg", label: "Penalties" }, { id: "matches", label: "Games" }];
-const f2 = (v) => (v == null ? "–" : v.toFixed(2));
+const factorText = (f) => { const p = Math.round((f - 1) * 100); return `${p > 0 ? "+" : p < 0 ? "−" : "±"}${Math.abs(p)}%`; };
+
+function Table({ league }) {
+  const q = useApi(`/leagues/${league}/referees`);
+  const rows = (q.data || []).filter((r) => r.cards_per_game_normalised != null).sort((a, b) => b.matches - a.matches);
+  if (q.loading && !q.data) return <Skeleton shape="row" count={6} testid="referees-loading" />;
+  if (q.error) return <ErrorState message="We could not load the referees." onRetry={q.reload} testid="referees-error" />;
+  if (!rows.length) return <EmptyState icon="flag" title="No referee numbers yet" testid="referees-lb-empty">Referee numbers appear once matches with a named referee and cards are in.</EmptyState>;
+  return (
+    <div className="tbl-wrap"><table className="tbl" data-testid="referees-table">
+      <thead><tr><th scope="col">Referee</th><th scope="col" aria-sort="descending">Matches</th><th scope="col">Cards per game</th><th scope="col">vs teams' usual</th></tr></thead>
+      <tbody>{rows.map((r) => (
+        <tr key={r.referee} data-testid="referees-row">
+          <td><Link to={refPath(r.referee)} data-testid={`referee-link-${r.referee}`}><b>{r.referee}</b></Link></td>
+          <td className="num">{r.matches}</td>
+          <td className="num"><b data-testid="referee-norm">{r.cards_per_game_normalised.toFixed(1)}</b><small className="muted sub-note" data-testid="referee-plain">{r.cards_per_game != null ? `${r.cards_per_game.toFixed(1)} plain` : ""}</small></td>
+          <td className={`num ${r.factor > 1.03 ? "ref-up" : r.factor < 0.97 ? "ref-down" : ""}`} data-testid="referee-factor">{factorText(r.factor)}</td>
+        </tr>
+      ))}</tbody>
+    </table></div>
+  );
+}
 
 export default function Referees() {
   useTitle("Referees");
-  const [min, setMin] = useState("5");
-  const [sort, setSort] = useState("yellow_pg");
-  const q = useApi("/referees", { min_matches: min });
-  const rows = [...(q.data || [])].sort((a, b) => b[sort] - a[sort]);
-  const top = rows[0]?.[sort] || 1;
+  const lq = useApi("/leagues");
+  const fav = useFavLeagues();
+  const leagues = useMemo(() => favFirst((lq.data?.countries || []).flatMap((c) => c.leagues), fav, (l) => l.id), [lq.data, fav]);
+  const [pick, setPick] = useState("");
+  const league = pick || leagues[0]?.id;
   return (
     <section data-testid="referees-page">
       <h1>Referees</h1>
-      <p className="muted lead">Who shows the most cards and gives the most penalties, across all our leagues. Per game, from matches with card data.</p>
-      <div className="filters">
-        <Seg label="Sort by" value={sort} onChange={setSort} options={COLS} testid="referees-sort" />
-        <Seg label="At least" value={min} onChange={setMin} options={[{ id: "1", label: "1 game" }, { id: "3", label: "3 games" }, { id: "5", label: "5 games" }]} testid="referees-min" />
-      </div>
-      {q.loading && !q.data ? <Loading rows={5} /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !rows.length ? <Empty icon="flag" testid="referees-lb-empty">No referees with that many games yet.</Empty> : (
-        <div className="tbl-wrap"><table className="tbl" data-testid="referees-table">
-          <thead><tr><th scope="col">#</th><th scope="col">Referee</th>{COLS.map((c) => <th key={c.id} scope="col" aria-sort={sort === c.id ? "descending" : undefined}>{c.label}{c.id !== "matches" ? " a game" : ""}</th>)}<th scope="col">Home wins</th></tr></thead>
-          <tbody>{rows.map((r, i) => (
-            <tr key={r.name} data-testid="referees-row">
-              <td className="num">{i + 1}</td>
-              <td><Link to={refPath(r.name)}><b>{r.name}</b></Link><small className="muted sub-note">{r.leagues.map((l) => l.name).join(", ")}</small></td>
-              {COLS.map((c) => <td key={c.id} className="num">{c.id === "matches" ? r.matches : f2(r[c.id])}{sort === c.id && c.id !== "matches" && <span className="book-bar ref-bar"><i style={{ width: `${Math.round((r[c.id] / top) * 100)}%` }} /></span>}</td>)}
-              <td className="num">{Math.round(r.home_win_pct * 100)}%</td>
-            </tr>
-          ))}</tbody>
-        </table></div>
+      <p className="muted lead">Cards per game, adjusted for the teams each referee had. "vs teams' usual" compares the cards in their matches with what those teams usually pick up.</p>
+      {lq.loading && !lq.data ? <Skeleton shape="row" count={2} testid="referees-leagues-loading" /> : lq.error ? <ErrorState message="We could not load the leagues." onRetry={lq.reload} testid="referees-leagues-error" /> : (
+        <>
+          <ChipsRow label="League" value={league} onChange={setPick} testid="referees-league" options={leagues.map((l) => ({ id: l.id, label: l.name }))} />
+          {league && <Table key={league} league={league} />}
+        </>
       )}
     </section>
   );

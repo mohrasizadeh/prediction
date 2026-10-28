@@ -20,7 +20,7 @@ import settings_store as S
 from cached_fetch import BreakerOpen, BudgetExhausted, PitchClient, Unauthorized, utcnow
 
 LOCK_MINUTES = 5
-MANUAL = {"reference_sync", "fixtures_sync", "results_sync", "backfill", "engine", "alerts", "digest", "images"}
+MANUAL = {"reference_sync", "fixtures_sync", "results_sync", "backfill", "engine", "alerts", "digest", "images", "referees"}
 
 
 def _lock(db, now) -> bool:
@@ -127,6 +127,11 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
                 if _run(db, f"engine:{lg['iid']}", lambda: B.run_league(db, lg["iid"], now), now) is not None: out["ran"].append(f"engine:{lg['iid']}")
         if left():
             if _run(db, "score", lambda: B.score_finished(db), now) is not None: out["ran"].append("score")
+        if left() and ("referees" in forced or _due_every(db, "referees", timedelta(hours=24), now)):
+            import referees as RF                                        # daily: normalised referee card numbers (docs/25)
+            def refs():
+                return {"leagues": [RF.refresh(db, lg["iid"]) for lg in db.leagues.find({"enabled": True}, {"iid": 1})]}
+            if _run(db, "referees", refs, now) is not None: out["ran"].append("referees")
         if left():                                                       # copy list members out, deliver webhooks (both retry on their own)
             import integrations as INT
             res = _run(db, "integrations", lambda: {**INT.process_audience(db, now=now), **INT.deliver_pending(db, now=now)}, now)

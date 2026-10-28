@@ -113,9 +113,15 @@ def fixtures(date: str, tz: int = 0, leagues: str = "", db=Depends(D.get_db)):
 
 
 @app.get("/api/insights")
-def insights(limit: int = 50, user=Depends(D.optional_user), db=Depends(D.get_db)):
+def insights(limit: int = 50, sort: str = "", stat: str = "", scope: str = "", leagues: str = "", tiers: str = "Strong,Solid",
+             user=Depends(D.optional_user), db=Depends(D.get_db)):
+    """sort = edge (default: most different from usual) | likely | kickoff (docs/25)."""
     cap = P.effective_plan(db, user)["entitlements"]["insights_per_day"]
-    return Q.insights_feed(db, limit=min(limit, 200, cap if cap >= 0 else 200))
+    ids = [i for i in (Q.iid_of(db, "leagues", x) for x in leagues.split(",") if x) if i] or None
+    tl = tuple(t for t in tiers.split(",") if t in ("Strong", "Solid", "Watch")) or ("Strong", "Solid")
+    return Q.insights_feed(db, limit=min(limit, 200, cap if cap >= 0 else 200), tiers=tl, league_iids=ids,
+                           stat=stat or None, scope=scope if scope in ("player", "team") else None,
+                           sort=sort if sort in Q.FEED_SORTS else None)
 
 
 @app.get("/api/search")

@@ -65,7 +65,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
         <span className="k-fc-who"><small>{[fx.text, f.kickoff ? timeOf(f.kickoff) : null].filter(Boolean).join(" · ")}</small></span>
         <b className="k-fc-p">{pct(f.p)}</b>
       </div>
-      {(f.reasons || []).length > 0 && <section><h3 className="k-sec">Why</h3><ul className="k-fs-why">{f.reasons.slice(0, 3).map((r) => <li key={r}>{r}</li>)}</ul></section>}
+      {(f.reasons || []).length > 0 && <section><h3 className="k-sec">Why</h3><ul className="k-fs-why">{f.reasons.map((r) => <li key={r}>{r}</li>)}</ul></section>}
       {f.scope === "player" && (
         <div className="k-fs-tiles">
           {f.p_play != null && <div className="k-fs-tile"><small>Chance he plays</small><b data-testid={`${testid}-pplay`}>{pct(f.p_play)}</b></div>}
@@ -73,7 +73,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
         </div>
       )}
       {d.hits?.length > 0 && <section><h3 className="k-sec">Last {d.hits.length} games · {f.market}</h3><HitStrip hits={d.hits} label={f.market} testid={`${testid}-hits`} /></section>}
-      {f.usual_p != null && <p className="k-faint" data-testid={`${testid}-usual`}>Usual: {pct(f.usual_p)} of the last {f.usual_n} games got past this line.</p>}
+      {f.p_usual != null && <p className="k-faint" data-testid={`${testid}-usual`}>Usually {pct(f.p_usual)}.</p>}
       {lines.length > 1 && <section><h3 className="k-sec">All lines</h3><ul className="k-fc-lines">{lines.map((x) => <li key={x.fkey} style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}><span>{x.market}</span><b>{pct(x.p)}</b></li>)}</ul></section>}
       {tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} {f.scope} {STAT_WORD[f.stat] || f.stat} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to={`/track-record?stat=${f.stat}`}>Track record</Link></p>}
       <p className="k-faint k-small">{DISCLAIMER} <Link to="/learn/forecast-card" aria-label="How to read a forecast card" data-testid={`${testid}-learn`}>How to read this card (?)</Link></p>

@@ -11,6 +11,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 import settings_store as S
+import referees as RF
 
 NOT_HIDDEN = {"is_current": True, "hidden": {"$ne": True}}
 TIER_RANK = {"Strong": 0, "Solid": 1, "Watch": 2, None: 3}
@@ -83,7 +84,8 @@ def match_detail(db, match_iid: int) -> dict | None:
         e["player"], e["player_in"] = ep.get(e.get("player_iid")), ep.get(e.get("in_iid"))
     return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]], "events": ev,
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
-            "forecasts": fc, "cards": group_cards(fc), "styles": styles, "starters": lu,
+            "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p"))), "styles": styles, "starters": lu,
+            "referee": RF.for_match(db, m),
             "predicted": [] if lu else predicted_xi(db, fc, (m["home_iid"], m["away_iid"])),
             "rotation": {c["team_iid"]: {"level": c.get("level", "low"), "why": c.get("why", ""), "rest_days": c.get("rest_days"), "next_gap": c.get("next_gap")}
                          for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "level" in c},
@@ -127,22 +129,43 @@ def _availability(db, teams):
 
 
 # ----------------------------------------------------------- one card per player (docs/21)
-def group_cards(fc: list[dict]) -> list[dict]:
-    """Keep ONE card per player (or team) per match. The headline is the most ambitious line in the best tier;
-    the other lines go into `more_lines`, sorted by stat and line."""
+def group_cards(fc: list[dict], max_p: float = 1.0) -> list[dict]:
+    """Keep ONE card per player (or team) per match; the other lines go into `more_lines`, sorted by stat and line.
+    Lines above `max_p` never lead while another line can (docs/25). The headline: of the lines that are Strong or
+    Solid, the stat with the biggest lift over usual, then its most ambitious line. Only when no line is Strong or
+    Solid does the best tier lead."""
     groups: dict = {}
     for f in fc:
         groups.setdefault((f["match_iid"], f["scope"], f["team_iid"], f.get("player_iid")), []).append(f)
     out = []
     for g in groups.values():
-        best = min(TIER_RANK.get(f.get("tier"), 9) for f in g)
-        top = [f for f in g if TIER_RANK.get(f.get("tier"), 9) == best]
-        head = min(top, key=lambda f: (f["p"], -f["thr"]))
+        lead = [f for f in g if f["p"] <= max_p] or g
+        conf = [f for f in lead if f.get("tier") in ("Strong", "Solid")]
+        if conf:
+            ls = lead_stat(conf)
+            head = max(conf, key=lambda f: (f["stat"] == ls, f["thr"], f["p"]))
+        else:
+            best = min(TIER_RANK.get(f.get("tier"), 9) for f in lead)
+            top = [f for f in lead if TIER_RANK.get(f.get("tier"), 9) == best]
+            head = min(top, key=lambda f: (f["p"], -f["thr"]))
         card = dict(head)
-        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier")}
+        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge")}
                                      for f in g if f is not head), key=lambda x: (x["stat"], x["thr"]))
         out.append(card)
     return out
+
+
+def lead_stat(fs):
+    """The stat with the largest lift over usual leads the card."""
+    return max(fs, key=lambda f: (f.get("edge") or 0.0))["stat"]
+
+
+CONFIDENT = {"Strong": 0, "Solid": 0, "Watch": 1, None: 2}
+FEED_SORTS = {
+    "edge": lambda f: (CONFIDENT[f["tier"]], -(f.get("edge") or 0.0), -f["p"]),
+    "likely": lambda f: (TIER_RANK[f["tier"]], -f["p"]),
+    "kickoff": lambda f: (f["kickoff"], TIER_RANK[f["tier"]], -f["p"]),
+}
 
 
 def h2h(db, a: int, b: int, limit: int = 10) -> dict:
@@ -182,7 +205,8 @@ def team_form(db, team_iid: int, n: int = 5) -> list[dict]:
 
 
 # ----------------------------------------------------------- Insights feed
-def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, stat=None, scope=None, now=None) -> list[dict]:
+def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, stat=None, scope=None, now=None, sort=None) -> list[dict]:
+    """`sort`: "edge" (default, settings engine.feed_sort) | "likely" | "kickoff"."""
     now = now or datetime.now(timezone.utc)
     q = {**NOT_HIDDEN, "tier": {"$in": list(tiers)}, "kickoff": {"$gte": now}}
     if league_iids: q["league_iid"] = {"$in": league_iids}
@@ -190,8 +214,8 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     if scope: q["scope"] = scope
     fc = list(db.forecasts.find(q, {"_id": 0, "contrib": 0}).limit(3000))
     if S.get(db, "engine.feed_one_per_player"):
-        fc = group_cards(fc)
-    fc.sort(key=lambda f: (TIER_RANK[f["tier"]], -f["p"]))
+        fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")))
+    fc.sort(key=FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"]))
     fc = fc[:limit]
     _usual(db, fc)
     pl = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
@@ -712,7 +736,7 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
     team = attach_images(db, "teams", [team])[0] if team else None
     if nxt:
         _with_teams(db, [nxt])
-    return {"player": p, "team": team, "next_match": nxt, "forecasts": fc, "cards": group_cards(fc)}
+    return {"player": p, "team": team, "next_match": nxt, "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")))}
 
 
 # -------------------------------------------------------------- Team page

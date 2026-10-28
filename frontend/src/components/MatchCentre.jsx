@@ -33,8 +33,13 @@ function useCountdown(ko) {
 const SITUATION = { rel: "Relegation fight", race: "In the race at the top", dead: "Nothing left to play for" };
 function Situation({ d }) {
   const chips = [[d.home, d.match.home_iid], [d.away, d.match.away_iid]].flatMap(([t, iid]) => Object.entries(d.context?.[iid]?.situation || {}).filter(([, v]) => v).map(([k]) => `${t.name}: ${SITUATION[k] || k}`));
-  if (!chips.length) return null;
-  return <div className="mc-situ" data-testid="match-situation">{chips.map((c) => <span key={c} className="k-tag">{c}</span>)}</div>;
+  if (!chips.length && !d.referee?.sentence) return null;
+  return (
+    <>
+      {chips.length > 0 && <div className="mc-situ" data-testid="match-situation">{chips.map((c) => <span key={c} className="k-tag">{c}</span>)}</div>}
+      {d.referee?.sentence && <p className="mc-ref k-faint" data-testid="match-referee">{d.referee.sentence}</p>}
+    </>
+  );
 }
 
 function Side({ team, align }) {

@@ -73,15 +73,22 @@ def build_frames(db, league_iid: int, history_rounds: int):
 # ----------------------------------------------------------------- engine
 def configure_engine(db) -> E.SoccerEngine:
     """Constants are module-level in the engine: mutate in place, before fit()."""
-    E.PLAYER_THR.clear(); E.PLAYER_THR.update({k: list(v) for k, v in S.get(db, "engine.player_thresholds").items()})
-    E.TEAM_THR.clear(); E.TEAM_THR.update({k: list(v) for k, v in S.get(db, "engine.team_thresholds").items()})
+    auto = bool(S.get(db, "engine.auto_lines"))
+    pk, tk = ("engine.player_ladder", "engine.team_ladder") if auto else ("engine.player_thresholds", "engine.team_thresholds")
+    E.PLAYER_THR.clear(); E.PLAYER_THR.update({k: list(v) for k, v in S.get(db, pk).items()})
+    E.TEAM_THR.clear(); E.TEAM_THR.update({k: list(v) for k, v in S.get(db, tk).items()})
     eng = E.SoccerEngine(interactions=S.get(db, "engine.interactions"),
                          lineup=False,                                   # LOCKED off: see 03_rules_and_compliance.md
                          half_life_rounds=float(S.get(db, "engine.half_life_rounds")),
                          style_k=float(S.get(db, "engine.style_k")),
                          n_draws=int(S.get(db, "engine.n_draws")),
                          sigma_team=float(S.get(db, "engine.sigma_team")), seed=0,
-                         strength_decay=float(S.get(db, "engine.strength_decay")))
+                         strength_decay=float(S.get(db, "engine.strength_decay")),
+                         # normalised averages (docs/25)
+                         style_half_life=(float(S.get(db, "engine.style_half_life")) or None),
+                         style_opp_adjust=tuple(S.get(db, "engine.style_opp_adjust")),
+                         style_cap_q=(float(S.get(db, "engine.style_cap_q")) or None),
+                         player_prior=dict(S.get(db, "engine.player_prior")))
     eng.r_player = dict(S.get(db, "engine.r_player"))
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
@@ -99,9 +106,33 @@ def enabled_markets(db, league_iid: int) -> dict:
     return out
 
 
+STAT_LABEL = {"shots": ("shot", "shots"), "sot": ("shot on target", "shots on target"), "tackles": ("tackle", "tackles"),
+              "corners": ("corner", "corners"), "fouls": ("foul", "fouls"), "yellow": ("yellow card", "yellow cards")}
+
+
 def label_for(db, scope, stat, thr, labels) -> str:
+    """Words for a line. An admin label in copy.market_labels wins; otherwise the words are built (docs/25)."""
     key = f"{stat}:{thr:g}" if scope == "player" else f"team_{stat}:{thr:g}"
-    return labels.get(key, f"{thr + 0.5:g}+ {stat}")
+    if key in labels:
+        return labels[key]
+    if scope == "team" and f"{stat}:{thr:g}" in labels and stat != "shots":
+        return labels[f"{stat}:{thr:g}"]
+    n = int(np.floor(thr)) + 1
+    one, many = STAT_LABEL.get(stat, (stat, stat))
+    return f"{n}+ {one if n == 1 else many}"
+
+
+def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
+    """Automatic lines (docs/25): per player (or team) and stat, keep only lines whose likelihood sits inside `band`,
+    and of those the `max_lines` most ambitious."""
+    lo, hi = float(band[0]), float(band[1])
+    groups: dict = {}
+    for d in docs:
+        groups.setdefault((d["scope"], d["team_iid"], d.get("player_iid"), d["stat"]), []).append(d)
+    out = []
+    for g in groups.values():
+        out += sorted((d for d in g if lo <= d["p"] <= hi), key=lambda d: -d["thr"])[:max_lines]
+    return out
 
 
 def run_league(db, league_iid: int, now=None) -> dict:
@@ -156,6 +187,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
                                      "kickoff": {"$gte": now - timedelta(hours=1), "$lte": now + timedelta(days=window)}}))
     strong = tuple(S.get(db, "engine.tier_strong")); solid = tuple(S.get(db, "engine.tier_solid"))
     labels = S.get(db, "copy.market_labels")
+    likely_gate = float(S.get(db, "engine.likely_starter_p"))
+    auto_lines = bool(S.get(db, "engine.auto_lines"))
+    line_band = S.get(db, "engine.line_band"); max_lines = int(S.get(db, "engine.max_lines_per_stat"))
     pmap = CAL.current(db)         # raw likelihood -> the percentage people see (docs/21); None = off
     lgdoc = db.leagues.find_one({"iid": league_iid}, {"_id": 0}) or {"iid": league_iid}
     lctx = MC.league_context(db, lgdoc, now) if S.get(db, "engine.match_context") else {}   # results form and stakes (docs/22)
@@ -201,7 +235,13 @@ def run_league(db, league_iid: int, now=None) -> dict:
             confirmed = True if f.scope == "team" else bool(f.confirmed)
             state = "lineup" if (f.confirmed if f.scope == "player" else lineups.get(f.team)) else "pre"
             p = CAL.apply(pmap, f.p, state, f.scope); lo = CAL.apply(pmap, f.lo, state, f.scope); hi = CAL.apply(pmap, f.hi, state, f.scope)
-            t = tier(p, lo, confirmed, strong=strong, solid=solid)
+            # likely starters may carry Solid and Strong before the lineup is out (docs/25)
+            likely = f.scope == "player" and not confirmed and float(f.p_play) >= likely_gate
+            t = tier(p, lo, confirmed or likely, strong=strong, solid=solid)
+            basis = "team" if f.scope == "team" else ("lineup" if confirmed else ("likely_starter" if likely else "pre"))
+            t_full = tier(p, lo, True, strong=strong, solid=solid)
+            tier_note = "Watch until lineups are out" if (basis == "pre" and t_full != t) else None
+            p_usual = CAL.apply(pmap, f.p_usual, state, f.scope) if f.p_usual is not None else None
             fkey = f"{m['iid']}:{f.scope}:{f.team}:{f.player or 0}:{f.stat}:{f.thr:g}"
             docs.append({"id": str(uuid.uuid4()), "fkey": fkey, "run_id": run_id, "match_iid": m["iid"], "league_iid": league_iid,
                          "kickoff": m["kickoff"], "scope": f.scope, "team_iid": int(f.team), "opp_iid": int(f.opp),
@@ -210,11 +250,15 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "expected": float(f.expected), "p": float(p), "lo": float(lo), "hi": float(hi),
                          "p_model": float(f.p), "state": state, "calibration": (pmap or {}).get("version"),
                          "p_play": float(f.p_play), "lineup_confirmed": confirmed, "tier": t,
+                         "tier_basis": basis, "tier_note": tier_note,
+                         "p_usual": p_usual, "edge": (float(p) - p_usual) if p_usual is not None else 0.0,
                          "reasons": list(f.reasons), "opp_tactics": list(f.opp_tactics), "own_tactics": list(f.own_tactics),
                          "opp_key_players": [[int(p), float(v)] for p, v in f.opp_key_players],
                          "contrib": {k: round(float(v), 4) for k, v in f.contrib.items()},
                          "rotation": f.rotation, "rotation_why": f.rotation_why, "p_play_usual": f.p_play_usual,
                          "p_raw": f.p_raw, "p_base": f.p_base, "is_current": True, "hidden": False, "created_at": now})
+        if auto_lines:
+            docs = select_lines(docs, line_band, max_lines)
         for d in docs:   # an admin's Hide survives the next run
             if d["fkey"] in kept:
                 d.update(kept[d["fkey"]], hidden=True)
