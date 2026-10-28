@@ -4,6 +4,8 @@
 import { useState } from "react";
 import { Forecasts, Runs } from "./EngineRuns";
 import Availability from "./Availability";
+import { Row as SettingRow, History as SettingHistory } from "./Settings";
+import { useAuth } from "../lib/auth";
 import { del, post, put, putFile } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { Confirm, Field, FormError, Switch, Tabs, useToast } from "../components/Ui";
@@ -129,13 +131,31 @@ function Images() {
   );
 }
 
+const SWITCHES = [["engine.absence_model", "Availability model"], ["engine.match_context", "Form and situation"], ["engine.calibration", "Calibration"], ["context.start_model", "Start model"]];
+
+function Switches() {
+  const q = useApi("/admin/settings");
+  const { user } = useAuth();
+  const [hist, setHist] = useState(null);
+  if (q.loading && !q.data) return <Loading />;
+  if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  const rows = SWITCHES.map(([k, label]) => { const s = q.data.find((r) => r.key === k); return s && { ...s, label }; }).filter(Boolean);
+  return (
+    <Card title="The four switches that matter" testid="engine-switches">
+      <p className="a-muted small">Each change applies when the next engine run starts. Everything else lives in Settings.</p>
+      {rows.map((s) => <SettingRow key={s.key + JSON.stringify(s.value)} s={s} canOwner={user?.role === "owner"} onSaved={q.reload} onHistory={setHist} />)}
+      <SettingHistory s={hist} onClose={() => setHist(null)} />
+    </Card>
+  );
+}
+
 export default function Engine() {
-  const [tab, setTab] = useState("runs");
-  const body = { runs: <Runs />, forecasts: <Forecasts />, brain: <Brain />, availability: <Availability />, calendar: <Calendar />, images: <Images /> }[tab];
+  const [tab, setTab] = useState("switches");
+  const body = { switches: <Switches />, runs: <Runs />, forecasts: <Forecasts />, brain: <Brain />, availability: <Availability />, calendar: <Calendar />, images: <Images /> }[tab];
   return (
     <div className="a-page" data-testid="admin-engine">
       <PageHead title="Engine" lead="Runs, current forecasts you can hide, what the forecast brain is using, the cup calendar, and images." />
-      <Tabs tabs={[{ id: "runs", label: "Runs" }, { id: "forecasts", label: "Forecasts" }, { id: "brain", label: "Brain layers" }, { id: "availability", label: "Availability" }, { id: "calendar", label: "Calendar import" }, { id: "images", label: "Images" }]} value={tab} onChange={setTab} testid="engine-tabs" />
+      <Tabs tabs={[{ id: "switches", label: "Switches" }, { id: "runs", label: "Runs" }, { id: "forecasts", label: "Forecasts" }, { id: "brain", label: "Brain layers" }, { id: "availability", label: "Availability" }, { id: "calendar", label: "Calendar import" }, { id: "images", label: "Images" }]} value={tab} onChange={setTab} testid="engine-tabs" />
       {body}
     </div>
   );

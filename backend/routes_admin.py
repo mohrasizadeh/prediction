@@ -71,6 +71,12 @@ def dashboard(user=Depends(perm("analytics.read")), db=Depends(D.get_db)):
     return {"overview": ov, "health": h}
 
 
+@router.get("/home")
+def admin_home(user=Depends(perm("logs.read")), db=Depends(D.get_db)):
+    import admin_home as AH
+    return AH.home(db, user)
+
+
 @router.get("/analytics/overview")
 def a_overview(days: int = Query(30, ge=1, le=400), user=Depends(perm("analytics.read")), db=Depends(D.get_db)):
     return AN.overview(db, days)
@@ -576,8 +582,9 @@ def key_test(provider: str, user=Depends(perm("settings.write")), db=Depends(D.g
 # ----------------------------------------------------------------------------- settings, jobs
 @router.get("/settings")
 def settings_list(user=Depends(perm("settings.read")), db=Depends(D.get_db)):
-    cur = {r["key"]: r["value"] for r in db.settings.find({}, {"_id": 0, "key": 1, "value": 1})}
-    return [{**r, "value": cur.get(r["key"], r["default"]), "is_default": r["key"] not in cur,
+    cur = {r["key"]: r for r in db.settings.find({}, {"_id": 0, "key": 1, "value": 1, "updated_by": 1, "updated_at": 1})}
+    return [{**r, "value": cur[r["key"]]["value"] if r["key"] in cur else r["default"], "is_default": r["key"] not in cur,
+             "updated_by": cur.get(r["key"], {}).get("updated_by"), "updated_at": cur.get(r["key"], {}).get("updated_at"),
              "owner_only": r["key"].startswith(OWNER_ONLY_SETTINGS)} for r in S.registry().values()]
 
 
@@ -653,8 +660,8 @@ def availability_list(team: str, user=Depends(perm("logs.read")), db=Depends(D.g
     if not tid:
         raise D.err(404, "NOT_FOUND", "No such team.")
     rows = {r["player_iid"]: r for r in db.availability.find({"team_iid": tid}, {"_id": 0})}
-    players = list(db.players.find({"team_iid": tid}, {"_id": 0, "iid": 1, "id": 1, "name": 1, "pos": 1}).sort("name", 1))
-    return {"players": [{"id": p["id"], "name": p.get("name") or "Unnamed player", "pos": p.get("pos"),
+    players = Q.attach_images(db, "players", list(db.players.find({"team_iid": tid}, {"_id": 0, "iid": 1, "id": 1, "name": 1, "pos": 1}).sort("name", 1)))
+    return {"players": [{"id": p["id"], "name": p.get("name") or "Unnamed player", "pos": p.get("pos"), "image": p.get("image"),
                          **({k: rows[p["iid"]].get(k) for k in ("status", "source", "reason", "until", "updated_at", "by")} if p["iid"] in rows else {"status": "available"})}
                         for p in players]}
 

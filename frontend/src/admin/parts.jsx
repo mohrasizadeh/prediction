@@ -32,6 +32,20 @@ export function Chip({ children, tone = "muted", testid }) {
   return <span className={"a-chip a-chip--" + tone} data-testid={testid}>{children}</span>;
 }
 
+// API budget bar: calls today against the limit, split by kind, with the reset time (docs/24 Admin).
+export function Budget({ used = 0, cap, reset, byKind, label, testid }) {
+  const share = cap ? Math.min(100, Math.round((used / cap) * 100)) : 0;
+  const tone = share >= 100 ? "red" : share >= 80 ? "amber" : "green";
+  const kinds = Object.entries(byKind || {}).filter(([, v]) => v).map(([k, v]) => `${k} ${num(v)}`).join(" · ");
+  const r = reset ? utc(reset).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+  return (
+    <span className="a-budget" data-testid={testid}>
+      <span className="a-budget-bar" role="progressbar" aria-label={label} aria-valuenow={share} aria-valuemin={0} aria-valuemax={100}><i className={`is-${tone}`} style={{ width: `${share}%` }} /></span>
+      {(kinds || r) && <small className="a-muted">{kinds}{kinds && r ? " · " : ""}{r ? `resets ${r}` : ""}</small>}
+    </span>
+  );
+}
+
 export function StatTile({ label, value, sub, tone, testid }) {
   return (
     <div className={"a-tile" + (tone ? " a-tile--" + tone : "")} data-testid={testid}>

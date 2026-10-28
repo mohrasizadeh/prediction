@@ -131,6 +131,7 @@
 
 /* Finder meter and wall */
 .fs-meter { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); }
+.fs-reset { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--text2); }
 .fs-meter-dots { display: inline-flex; gap: 4px; } .fs-meter-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--surface3); } .fs-meter-dots i.on { background: var(--brand); }
 .fs-wall { display: grid; gap: 10px; padding: 20px; border: 1.5px solid var(--brand); animation: fs-in .25s ease-out; }
 .fs-wall h2 { margin: 0; }

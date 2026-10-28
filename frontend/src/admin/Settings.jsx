@@ -8,7 +8,7 @@ import { Drawer, Switch, useToast } from "../components/Ui";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { sayError } from "../lib/errors";
 import Icon from "../components/Icon";
-import { Chip, KV, PageHead } from "./parts";
+import { Chip, KV, PageHead, when } from "./parts";
 
 const LOCKED = { "engine.lineup_effects": "Failed its test on simulated data. Stays off until a real-data backtest passes." };
 const enumOpts = (s) => ((s.help || "").split(".")[0].includes("|") ? s.help.split(".")[0].split("|").map((x) => x.trim()) : null);
@@ -21,7 +21,7 @@ function parse(s, raw) {
   return raw;
 }
 
-function Row({ s, canOwner, onSaved, onHistory }) {
+export function Row({ s, canOwner, onSaved, onHistory }) {
   const toast = useToast();
   const [raw, setRaw] = useState(toText(s, s.value));
   const [err, setErr] = useState(null);
@@ -41,6 +41,7 @@ function Row({ s, canOwner, onSaved, onHistory }) {
         <strong>{s.label}{s.owner_only && <Icon name="padlock" size={14} className="a-padlock" />}</strong>
         <code>{s.key}</code>
         {s.help && <p>{s.help}</p>}
+        <small className="a-setting-who" data-testid={`${tid}-who`}>Default: <code>{toText(s, s.default).slice(0, 60) || "empty"}</code>{!s.is_default && (s.updated_by || s.updated_at) ? ` · changed by ${s.updated_by || "someone"}${s.updated_at ? ` on ${when(s.updated_at)}` : ""}` : ""}</small>
         <span className="a-setting-tags">{s.public && <Chip>public</Chip>}<Chip>{s.applies_at?.replace(/_/g, " ")}</Chip>{!s.is_default && <Chip tone="brand">changed</Chip>}</span>
         {lockedWhy && <p className="a-padlocked"><Icon name="padlock" size={14} />Locked: {lockedWhy}</p>}
       </div>
@@ -65,7 +66,7 @@ function Row({ s, canOwner, onSaved, onHistory }) {
   );
 }
 
-function History({ s, onClose }) {
+export function History({ s, onClose }) {
   const [h, setH] = useState(null);
   const [err, setErr] = useState(null);
   useEffect(() => { if (s) { setH(null); get(`/admin/settings/${encodeURIComponent(s.key)}/history`).then((r) => setH(r.history)).catch(setErr); } }, [s]);

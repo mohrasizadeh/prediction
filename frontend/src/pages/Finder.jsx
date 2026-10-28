@@ -7,6 +7,7 @@ import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
 import { pct } from "../lib/copy";
 import { Crest, PlayerAvatar } from "../components/Media";
+import Icon from "../components/Icon";
 import { MATCH_STATS, STATS, TEAM_STATS, kickoff, useTitle } from "../components/Football";
 import { ChipsRow, EmptyState, ErrorState, ForecastCard, HitStrip, ProLock, RangeSlider, Segmented, Skeleton } from "../components/ui";
 
@@ -54,6 +55,19 @@ function Meter({ used, cap, visitor }) {
   );
 }
 
+function useReset() {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(t); }, []);
+  const r = new Date(now); r.setUTCHours(24, 0, 0, 0);
+  const mins = Math.max(1, Math.round((r - now) / 60000));
+  return { time: r.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), left: mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min` };
+}
+
+function Reminder() {
+  const r = useReset();
+  return <p className="fs-reset" data-testid="finder-reset"><Icon name="clock" size={14} />Your searches come back at {r.time}, in about {r.left}.</p>;
+}
+
 function Wall({ visitor, cap, freeCap, next }) {
   return (
     <div className="fs-wall card" role="status" data-testid="finder-wall">
@@ -64,7 +78,8 @@ function Wall({ visitor, cap, freeCap, next }) {
           <div className="btn-row"><Link to={`/sign-up?next=${encodeURIComponent(next)}`} className="btn btn--primary" data-testid="finder-wall-signup">Create a free account</Link>
             <Link to={`/sign-in?next=${encodeURIComponent(next)}`} className="btn btn--secondary" data-testid="finder-wall-signin">Sign in</Link></div>
         </>
-      ) : <p className="k-faint">They come back tomorrow. <ProLock label="Unlimited with Pro" testid="finder-wall-pro" /></p>}
+      ) : <p className="k-faint"><ProLock label="Unlimited with Pro" testid="finder-wall-pro" /></p>}
+      <Reminder />
     </div>
   );
 }

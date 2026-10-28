@@ -6,6 +6,8 @@ Queued as ingest task "player_photo": players with current forecasts first, then
 """
 from __future__ import annotations
 
+from datetime import timezone
+
 from urllib.parse import urlparse
 
 import httpx
@@ -20,7 +22,10 @@ def plan(db, force: bool = False) -> int:
     """Queue every player without a stored photo. Runs at most once a day from the tick."""
     from ingest import enqueue
     st = db.job_state.find_one({"_id": "player_photo_plan"}) or {}
-    if not force and st.get("at") and (utcnow() - st["at"]).total_seconds() < 86400:
+    at = st.get("at")
+    if at is not None and at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    if not force and at and (utcnow() - at).total_seconds() < 86400:
         return 0
     have = set(db.media.distinct("iid", {"kind": "player"}))
     hot = set(db.forecasts.distinct("player_iid", {"is_current": True, "scope": "player"}))

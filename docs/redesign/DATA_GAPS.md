@@ -29,6 +29,8 @@ Elements hidden because the API does not return the data yet. Add a row whenever
 | Search | Next forecast beside each result | next forecast per search hit | Hidden |
 | Welcome | Separate "Lineups" and "Goals and red cards" switches | per-type alert preferences | One "Alerts for my teams and players" switch |
 | Welcome | Leagues "first everywhere" | league order on every screen | Used in Explore and the welcome team picker |
+| Admin Engine | "Tested effect" per switch ("+8% better…") and proof link | backtest results per switch (docs 21/22 are not in this project) | Hidden; switches show their help text |
+| Admin home | Players to approve | a player approval queue | Not shown (no such queue); photo reviews show as Image items |
 | Track record | "Updated weekly" stamp | scoring schedule | Says "updated as matches finish" |
 | League table | Zones (Europe, relegation) | competition zone rules per league | Hidden |
 | Team | Squad cards / grid redesign details (photos with season numbers) | per-player season totals in one call | Existing squad grid kept, restyled later |

@@ -13,7 +13,9 @@ import settings_store as S
 
 # id, label, group, icon, route, permissions (any one is enough)
 MODULES = [
-    ("dashboard", "Dashboard", "Overview", "home", "/admin", ("analytics.read",)),
+    ("dashboard", "Home", "Overview", "home", "/admin", ("analytics.read",)),
+    ("needs", "Needs you", "Overview", "bell", "/admin/needs", ("logs.read",)),
+    ("stats", "Dashboard", "Overview", "bar-chart", "/admin/stats", ("analytics.read",)),
     ("analytics", "Analytics", "Overview", "bar-chart", "/admin/analytics", ("analytics.read",)),
     ("users", "Users", "People", "users", "/admin/users", ("users.read",)),
     ("staff", "Staff", "People", "shield", "/admin/staff", ("staff.manage",)),
@@ -48,7 +50,7 @@ MODULES = [
 ]
 GROUP_ORDER = ["Overview", "People", "Growth", "Site", "Money", "E-mail", "Connect", "Data", "System"]
 # the phone bottom bar prefers these, in this order, from whatever the role may use
-DEFAULT_TABS = ["dashboard", "users", "analytics", "studio", "popups", "inbox", "subscriptions", "logs"]
+DEFAULT_TABS = ["dashboard", "needs", "jobs", "engine", "users", "analytics", "studio", "popups", "inbox", "subscriptions", "logs"]
 MAX_TABS = 4
 
 

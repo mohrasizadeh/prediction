@@ -33,8 +33,9 @@ import Popups from "./Popups";
 import Newsletter from "./Newsletter";
 import Integrations from "./Integrations";
 import Analytics from "./Analytics";
+import AdminHome, { Needs } from "./Home";
 
-const SCREENS = { dashboard: Dashboard, users: Users, staff: Staff, settings: Settings, keys: Keys, logs: Logs, security: Security, health: Health,
+const SCREENS = { dashboard: AdminHome, needs: Needs, stats: Dashboard, users: Users, staff: Staff, settings: Settings, keys: Keys, logs: Logs, security: Security, health: Health,
   studio: Studio, pages: Content, inbox: Inbox, announcements: Announcements, plans: Plans, explorer: Explorer, cache: Cache, leagues: Leagues, jobs: Jobs, quality: Quality, engine: Engine,
   subscriptions: Subscriptions, payments: Payments, coupons: Coupons, revenue: Revenue, templates: Templates, suppressions: Suppressions, campaigns: Campaigns,
   popups: Popups, newsletter: Newsletter, integrations: Integrations, analytics: Analytics, email_log: EmailLog, media: Media };

@@ -22,7 +22,7 @@ function Status({ s, reload }) {
         <StatTile label="Dates backfilled" value={num(s.dates_backfilled)} testid="sportapi-dates" />
       </div>
       <div className="sp-bar" role="progressbar" aria-valuenow={share} aria-valuemin={0} aria-valuemax={100} aria-label="Calls used today" data-testid="sportapi-bar"><span style={{ width: `${share}%` }} className={share > 75 ? "is-tight" : ""} /></div>
-      <p className="muted small" data-testid="sportapi-by-kind">{KINDS.map((k) => `${k} ${num(s.by_kind?.[k] || 0)}`).join(" · ")}</p>
+      <p className="muted small" data-testid="sportapi-by-kind">{KINDS.map((k) => `${k} ${num(s.by_kind?.[k] || 0)}`).join(" · ")} · resets {(() => { const r = new Date(); r.setUTCHours(24, 0, 0, 0); return r.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); })()}</p>
       <p className="muted small">Last run: {when(s.last_tick)}{s.last_result ? ` · ${s.last_result.status}${s.last_result.note ? `: ${s.last_result.note}` : ""}` : ""}</p>
       <p className="muted small">Clubs matched: {Object.entries(s.teams || {}).map(([k, v]) => `${k} ${v}`).join(" · ")}</p>
       <button className="btn btn--primary btn--sm self-start" onClick={run} disabled={busy} data-testid="sportapi-run-now">{busy ? "Running" : "Run now"}</button>
