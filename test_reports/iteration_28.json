@@ -1,0 +1,32 @@
+{
+  "summary": "docs/25 (fitted lines, normalised averages, referees) tested end to end. Backend: 13/13 new pytest pass (insights sort edge/likely/kickoff with correct server ordering, stat/scope/tiers/leagues filters, p_usual/edge/tier_basis/tier_note fields, varied markets 4+..7+ corners, 11+..19+ shots; match referee {sentence,factor,...}; /leagues/{id}/referees for all 6 leagues, 180 rows, factors 0.88-1.12, unknown league gives 404). Frontend: Insights sort segmented sends sort=likely/kickoff and reorders; Market chip is single-select (stat=corners, stat=shots&scope=team, tap again clears); tier and league chips send tiers=/leagues=; cards show 'Usually X%' with a tick at p_usual (20/20), no 'pts vs usual'; tier_note shown; team cards show club name and crest; the detail sheet lists all API reasons. /referees: 6 league chips, table columns Referee/Matches/Cards per game (normalised, one decimal, plain in small text)/vs teams' usual (+x%/−x%/±0%), sorted by matches desc in every league. Match page shows match-referee. Regression: Today, Finder, Following, Insights, Referees load at 390px with no horizontal overflow; 9 match tabs click without errors; dark mode OK. No page errors.",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "/api/insights?leagues=", "issue": "If none of the league ids resolve, the filter is dropped and every league is returned (ids `or None`). An empty list would be the better answer."}
+  ]},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Insights at 390px", "issues": ["The ins-sort segmented control wraps: 'Different from usual' takes 2 lines and 'Kick-off' breaks as 'Kick- / off'. Use shorter labels or white-space:nowrap with horizontal scroll."]},
+      {"screen": "Referees at 390px", "issues": ["The table scrolls sideways (490px wide), so the key 'vs teams' usual' column starts off screen. Consider stacking the plain value or hiding the Matches header text.", "There is almost no gap between the h1 'Referees' and the lead paragraph (desktop and mobile)."]},
+      {"screen": "Forecast sheet", "issues": ["'Usually 17%.' has a stray full stop compared with the card's 'Usually 17%' (cosmetic)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter28_lines_referees.py", "/app/test_reports/pytest/iter28.xml"],
+  "action_items": [
+    "Optional: stop the Insights sort labels wrapping on mobile",
+    "Optional: on mobile, keep the referees 'vs teams' usual' column visible and add a gap under the h1",
+    "Optional: return an empty list when /api/insights?leagues= has only unknown ids"
+  ],
+  "critical_code_review_comments": [
+    "The lineup chip 'Likely starter' and shortName ('R. Højlund') were checked only in code. Data has no likely_starter rows (known) and no player in the feed has a name over 16 characters, so neither could be seen on screen.",
+    "The referees empty-state text matches the spec, but every league has data, so the state was not shown on screen.",
+    "Anonymous insights are capped at 20 (insights_per_day), so the sort/filter tests saw at most 20 rows. This is expected."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter28_lines_referees.py"],
+  "success_rate": {"backend": "100%", "frontend": "100% functional (3 minor design items)"},
+  "seed_data_creation": "None. No TEST_ data created; no login used.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Match 2c690161... (Frosinone v Lecce) has referee Rosario Abisso (1 match, so 'Few matches' sentence). Feed for anonymous users = 20 rows, all team-scope Strong/Solid; player rows are only Watch tier (tier_basis pre). Run pytest tests/test_iter28_lines_referees.py."
+}

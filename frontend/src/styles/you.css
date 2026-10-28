@@ -142,6 +142,11 @@
 .k-fc-tier { display: grid; justify-items: end; gap: 2px; } .k-fc-note { font-size: 11px; color: var(--text3); text-align: right; max-width: 14ch; line-height: 1.2; }
 .mc-ref { margin: 8px 0 0; font-size: 13px; }
 .ref-up { color: var(--down); } .ref-down { color: var(--up); }
+.ins-bar [role="radiogroup"] button, .ins-bar [role="tablist"] button { white-space: nowrap; }
+@media (max-width: 560px) { .ins-bar > :first-child { max-width: 100%; overflow-x: auto; } .ins-bar [role="radiogroup"] button { font-size: 13px; padding-left: 10px; padding-right: 10px; } }
+.ins-bar { flex-wrap: wrap; gap: 8px; }
+[data-testid="referees-page"] h1 { margin-bottom: 8px; }
+@media (max-width: 560px) { [data-testid="referees-table"] th:nth-child(2), [data-testid="referees-table"] td:nth-child(2) { padding-left: 4px; padding-right: 4px; } [data-testid="referees-table"] td:first-child b { font-size: 13px; } }
 .k-fc-bar { position: relative; }
 .k-fc-usual { position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--text); opacity: .7; }
 .k-fc-vs { display: block; margin-top: 4px; font-size: 12px; color: var(--text2); }
