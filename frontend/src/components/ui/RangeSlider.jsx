@@ -16,7 +16,7 @@ export function RangeSlider({ min, max, step = 1, value, onChange, format = (v) 
     <div className="k-range" data-testid={testid}>
       <div className="k-range-track" aria-hidden="true"><b style={{ left: `${two ? pos(lo, min, max) : 0}%`, width: `${pos(hi, min, max) - (two ? pos(lo, min, max) : 0)}%` }} /></div>
       {thumbs.map(([i, v]) => (
-        <span key={i} className="k-range-tip" style={{ left: at(pos(v, min, max)) }} aria-hidden="true">{format(v, i)}</span>
+        <span key={i} className="k-range-tip" style={{ left: at(pos(v, min, max)), transform: `translateX(${pos(v, min, max) < 8 ? "-13px" : pos(v, min, max) > 92 ? "calc(-100% + 13px)" : "-50%"})` }} aria-hidden="true">{format(v, i)}</span>
       ))}
       {thumbs.map(([i, v]) => (
         <input key={i} type="range" min={min} max={max} step={step} value={v} onChange={set(i)} className={`k-range-in k-range-in--${i}${two ? "" : " k-range-in--one"}`}

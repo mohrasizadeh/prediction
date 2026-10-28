@@ -18,3 +18,7 @@ Elements hidden because the API does not return the data yet. Add a row whenever
 | Footer e-mail | "Every Friday" send day | a newsletter send-day setting | Shows "Free · weekly" |
 | Footer e-mail | Preview card | 3 Strong cards from `/api/insights` | Hidden when fewer than 3 Strong cards |
 | Desktop shell | Right column with Following and live scores | (layout, phase R3 with Today) | Following is in the left rail; live is the header pill |
+| Match hero (finished) | Half-time score, "How our forecasts did: 7 of 9" | half-time score and scored outcomes per match in `/api/matches/{id}` | Hidden |
+| Match lineups | Predicted eleven before any lineup arrives | a predicted XI when the lineups table is empty | Empty state until lineups exist |
+| Live | "Follow a match" with goal alerts | match follows + alert sending | Hidden |
+| Insights | "Biggest rise vs usual" | `usual_p`; sorts by p minus p_base meanwhile | Approximate |

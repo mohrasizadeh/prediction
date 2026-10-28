@@ -25,24 +25,27 @@ function LiveTab({ d }) {
 }
 
 function Pitch({ d }) {
+  const pp = {};
+  (d.forecasts || []).forEach((f) => { if (f.player_iid != null && f.p_play != null) pp[f.player_iid] = Math.max(pp[f.player_iid] || 0, f.p_play); });
   const by = (iid) => {
     const xs = d.starters.filter((s) => s.team_iid === iid);
     const seen = new Set();
-    return xs.filter((s) => !seen.has(s.player_iid) && seen.add(s.player_iid)).sort((a, b) => Number(!!b.confirmed) - Number(!!a.confirmed)).slice(0, 11);
+    return xs.filter((s) => !seen.has(s.player_iid) && seen.add(s.player_iid)).sort((a, b) => Number(!!b.confirmed) - Number(!!a.confirmed) || (pp[b.player_iid] ?? 1) - (pp[a.player_iid] ?? 1)).slice(0, 11);
   };
   if (!d.starters.length) return <Empty icon="users">No lineups yet. They usually arrive about an hour before kickoff.</Empty>;
   const sides = [[d.home, by(d.match.home_iid), "home"], [d.away, by(d.match.away_iid), "away"]];
   const conf = d.starters.every((s) => s.confirmed);
-  const pp = {};
-  (d.forecasts || []).forEach((f) => { if (f.player_iid != null && f.p_play != null) pp[f.player_iid] = Math.max(pp[f.player_iid] || 0, f.p_play); });
   return (
     <>
       <p className="muted small">{conf ? <span className="k-tag k-tag--up">Lineups confirmed</span> : "Predicted eleven, with each player's chance to start"} · {sides.map(([t, xs]) => `${t.name} ${xs[0]?.formation || ""}`).join(" · ")}</p>
       <div className="pitch" data-testid="pitch">
         <span className="pitch-half" aria-hidden="true" /><span className="pitch-circle" aria-hidden="true" />
-        {sides.map(([t, xs, k]) => xs.map((s) => {
+        {sides.map(([t, xs, k]) => { const used = {}; return xs.map((s) => {
           const top = k === "home" ? (s.pitch_x || 0) * 48 + 2 : 98 - (s.pitch_x || 0) * 48;
-          const left = k === "home" ? (s.pitch_y ?? 0.5) * 100 : 100 - (s.pitch_y ?? 0.5) * 100;
+          const base = k === "home" ? (s.pitch_y ?? 0.5) * 100 : 100 - (s.pitch_y ?? 0.5) * 100;
+          const key = `${Math.round(top / 7)}-${Math.round(base / 12)}`;
+          const n = used[key] = (used[key] || 0) + 1;
+          const left = Math.min(94, Math.max(6, base + (n > 1 ? (n % 2 ? -1 : 1) * Math.ceil((n - 1) / 2) * 12 : 0)));
           return (
             <Link key={`${k}-${s.player_iid}`} to={s.player ? `/player/${s.player.id}` : "#"} className={`pp pp--${k}${!conf && pp[s.player_iid] != null && pp[s.player_iid] < 0.7 ? " pp--unsure" : ""}`} style={{ top: `${top}%`, left: `${left}%` }} title={s.player?.name} data-testid={`pitch-player-${s.player_iid}`}>
               <PlayerAvatar player={s.player} size={32} />
@@ -50,7 +53,7 @@ function Pitch({ d }) {
               {!conf && pp[s.player_iid] != null && <span className="pp-pct">{Math.round(pp[s.player_iid] * 100)}%</span>}
             </Link>
           );
-        }))}
+        }); })}
       </div>
     </>
   );

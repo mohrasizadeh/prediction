@@ -187,7 +187,7 @@ export default function Layout({ children }) {
   const [liveOpen, setLiveOpen] = useState(false);
   const closeSearch = useCallback(() => setSearch(false), []);
   const closeLive = useCallback(() => setLiveOpen(false), []);
-  const live = useLiveNow();
+  const live = useLiveNow(liveOpen);
   const small = useHeaderShrink();
   const mode = useThemeMode();
   const nav = cfg?.nav || {};

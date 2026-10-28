@@ -72,3 +72,4 @@
 .ex-tile:hover { border-color: var(--border-strong); }
 .ex-tile span:last-child { display: grid; } .ex-tile small { color: var(--text2); }
 .ex-ico { width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); flex: none; }
+.cookie { z-index: 70; }

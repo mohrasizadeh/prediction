@@ -66,7 +66,7 @@
 
 .ls-mini { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ls-mini li { display: flex; gap: 12px; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 12px; background: var(--surface2); font-size: 14px; font-variant-numeric: tabular-nums; }
-.ls-mini time, .ls-mini b { width: 52px; flex: none; color: var(--text2); }
+.ls-mini time, .ls-mini b { min-width: 72px; flex: none; color: var(--text2); white-space: nowrap; }
 .td-ins { min-width: 96px; text-align: center; } .td-ins--none { background: none; padding: 0; }
 @media (max-width: 720px) { .td-ins { min-width: 0; } }
 .ins-grid { align-items: start; }
