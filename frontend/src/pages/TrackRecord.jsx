@@ -51,7 +51,8 @@ function Body({ d }) {
               <span className="tr-of"><b>{v.n >= 100 ? `${of100(v.actual)} of 100` : `${Math.round(v.actual * v.n)} of ${v.n}`}</b><small className="k-faint">came true</small></span>
             </div>
           ))}
-          {!Object.keys(d.tiers).length && <p className="k-faint">No forecasts with a tier have been scored yet.</p>}
+          {!Object.keys(d.tiers).length ? <p className="k-faint">No forecasts with a tier have been scored yet.</p>
+            : <p className="k-faint k-small" data-testid="tr-tier-note">{Object.values(d.tiers).reduce((s, v) => s + v.n, 0).toLocaleString()} of the {d.scored.toLocaleString()} scored forecasts had a tier; the rest are counted in the chart only.</p>}
           <Link to="/learn/how-we-score" className="k-link" data-testid="tr-how">How we score this →</Link>
         </div>
       </div>

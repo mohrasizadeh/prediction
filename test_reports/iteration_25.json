@@ -1,0 +1,66 @@
+{
+  "summary": "Phase R5 tested end to end on the preview URL: Explore, Search overlay, You/Following (signed out and signed in), Track record, Welcome, Pricing, the locked-feature sheet, Learn, the visitor Finder limit (meter and wall), and phone width in light and dark themes. Backend: new pytest test_iter25_r5_screens.py 6/6 PASS, run_tests.sh 18/18 PASS, yarn check-copy passes. Almost every flow works. One real bug: the 'More with Pro' sheet inside the Finder league picker closes on any click inside it, so 'See Pro' never opens /pricing. There are also a few minor UX and data issues.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/track-record", "issue": "Overall scored is 550, but the tier tiles add up to only 30 (2 Strong + 3 Solid + 25 Watch), so about 520 scored outcomes have tier null. The headline '550 forecasts scored so far' sits above tiles that show 30, which looks inconsistent. Either count only tiered rows or explain the gap."},
+      {"endpoint": "/api/me/following-feed", "issue": "A followed player's team fixtures and team forecasts are included (teams.add(p.team_iid)), but the frontend crest filter for that player shows 'Nothing here yet', because items are matched only by player id. Example: following Lamine Fanne showed 30 Venezia items under 'All' and 0 under his filter."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Finder league picker ProLock (finder-leagues-pro)", "issue": "The sheet opens, but any mousedown inside it ('See Pro', 'Not now', or the list) closes it immediately, and 'See Pro' stays on /finder instead of opening /pricing. Reproduced on desktop and at 390px. RCA: Part() in Finder.jsx adds a document mousedown 'outside click' listener and checks ref.current.contains(e.target). The BottomSheet is portaled outside the popover, so a click in the sheet counts as outside, setOpen(null) runs, the popover unmounts, and the ProLock and LockSheet unmount with it before the click lands. Fix: ignore targets inside a sheet or dialog (e.target.closest('[data-testid$=-sheet], [role=dialog]')), or render the ProLock or LockSheet outside the Part popover.", "selector": "[data-testid=finder-leagues-pro-sheet-see]", "priority": "HIGH"},
+      {"component": "Following sidebar list", "issue": "After you unfollow on the Following tab, the left rail 'FOLLOWING' list still shows the removed player until the page reloads (stale state).", "selector": "[data-testid^=unfollow-]", "priority": "LOW"},
+      {"component": "Welcome step 1 on direct load", "issue": "Opening /welcome directly does not pre-check the saved prefs.leagues, because useState(user?.prefs?.leagues) runs before user loads. A minor edge case, since redirected new users have no leagues yet.", "selector": "[data-testid^=welcome-league-]", "priority": "LOW"},
+      {"component": "Brand fallback", "issue": "Layout.jsx and public/index.html fall back to the misspelled brand 'Prediciotn'. It shows whenever /api/public/settings fails (seen when the rate limiter returned 429 after rapid navigation). Fix the spelling.", "selector": "[data-testid=brand-link]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Search overlay leagues group", "issue": "League rows show the country 'Other' (Bundesliga · Other, LaLiga · Other). Explore hides 'Other', so the overlay should too.", "affected_selectors": ["[data-testid^=search-result-league-]"]},
+      {"flow": "Welcome Start on the free plan", "issue": "finish(true) always sends alert_emails:false for free users (the switch is disabled), which overwrites the default alert_emails:true. A user who later upgrades has alerts off. Consider leaving out alert_emails when !entitlements.alerts.", "affected_selectors": ["[data-testid=welcome-next]"]}
+    ],
+    "design_issues": [
+      {"screen": "Learn article 'Read next' (desktop)", "issues": ["The 'Why lineups change the numbers' tile in the 3-column grid clips its picture ('78%' cut off at the right edge) and its title text"]},
+      {"screen": "You tabs at 390px", "issues": ["The 'Following N' tab is cut off at the right edge (the row scrolls sideways but the count is hidden)"]},
+      {"screen": "Welcome step 1, dark theme", "issues": ["The Champions League mark is dark on a dark card (low contrast), and the Serie A mark has a white square background"]},
+      {"screen": "Pricing", "issues": ["The Monthly/Yearly segmented track stretches the full content width with only two short buttons, leaving a long empty bar"]}
+    ]
+  },
+  "passed_flows": [
+    "Explore: tiles show 'Round N · Fri, Oct 30' or 'Round 29 · 5 today'. The search filters ('liga' -> Bundesliga, LaLiga). The empty state shows explore-empty with explore-search-all -> /search?q=zzqq. Tools links navigate. A signed-in user sees 'Your teams' with followed crests and Add, and the chosen leagues come first (LaLiga, Serie A).",
+    "Search: /search?q=ars opens prefilled and focused, grouped Players/Teams, arrow-down moves the 'on' row, Enter opens the player page, Cancel goes back. The header '/' shortcut opens the overlay and Escape closes it.",
+    "You: signed out shows following-signin with Create account / Sign in. Signed in: tabs show counts (Saved 2 / Notes 1 / Following 3), the feed groups by day (TODAY, SATURDAY, OCT 31...) with feed-match 30 / feed-result 4 / feed-forecast 12 / feed-saved 2 (MISS/HIT), team crest filters work, Saved shows outcome-hit and outcome-miss, Notes lists from GET /api/me/notes, and Unfollow drops the count 3 -> 2 with a toast.",
+    "Track record: headline, no-bins state, tier tiles 'X of N came true', league and market chips update the URL and refetch /api/track-record?league=&stat=, the not-ready state shows tr-clear (which resets), and tr-how -> /learn/how-we-score.",
+    "Welcome: a new role=user without prefs.welcomed is redirected from /explore and from /pricing. Leagues toggle. Team follow toggles fire PUT/DELETE /api/me/follows and the count reads 'N picked'. welcome-alert-emails is disabled with Part of Pro and the sheet opens. Start saves {welcomed:true, leagues} -> /following. Skip x3 finishes too. No redirect afterwards.",
+    "Pricing: Plans heading, Monthly/Yearly (CA$9.99 -> CA$6.67 billed yearly CA$79.99), plan-pro-row-finder_searches_per_day=Unlimited, 'Start free' for visitors and 'Current plan' for free users. A visitor pressing Choose Pro goes to /sign-in?next=/pricing. A free user reaches the checkout.stripe.com test session (not paid). No countdown or scarcity copy.",
+    "Lock sheets: matchup-pro on the match page (sheet with 3 bullets, URL unchanged, 'See Pro · CA$9.99 a month' -> /pricing, Not now closes), ins-capped-pro, welcome-alerts-pro, finder-wall-pro",
+    "Learn: 4 tiles with pictures, the topic chips filter, /learn/forecast-card renders text and Read next, /learn/xyz falls back to 'No such page.', and the forecast sheet's '{sheet}-learn' link -> /learn/forecast-card",
+    "Visitor Finder (fresh UA): the meter goes 3 -> 2 -> 1 -> 0 with dots. Then finder-wall shows with signup and signin links carrying next, and the button reads 'No searches left today' and is disabled. No redirect to /sign-in. The wall persists after reload. A mocked 401 SIGN_IN_REQUIRED shows the wall with no redirect. A mocked 402 for a signed-in free user shows the wall plus finder-wall-pro.",
+    "390px: no horizontal overflow on /explore /following /track-record /pricing /learn /learn/lineups /welcome /finder /search, signed out and signed in, light and dark"
+  ],
+  "test_report_links": ["/app/backend/tests/test_iter25_r5_screens.py", "/app/backend/tests/iter25_users.py", "/app/test_reports/pytest/pytest_iter25.xml"],
+  "action_items": [
+    "HIGH: Fix the Finder league-picker ProLock sheet, which closes on any inner click so 'See Pro' does nothing (Part outside-click handler vs portaled BottomSheet)",
+    "Make the Following crest filter for a followed player include that player's team fixtures and forecasts (or drop the team items for player-only follows)",
+    "Refresh the sidebar Following list after you unfollow",
+    "Fix the 'Prediciotn' brand fallback typo (Layout.jsx x2, public/index.html)",
+    "Hide 'Other' as a country in the search overlay league rows",
+    "Don't overwrite alert_emails from Welcome Start when the plan has no alerts",
+    "Track record: make the headline count consistent with the tiers (about 520 outcomes have tier null)",
+    "Design: Learn Read-next tile clipping, the You tabs row at 390px, the dark-theme league marks on Welcome"
+  ],
+  "critical_code_review_comments": [
+    "Finder.jsx Part(): a document mousedown outside check breaks any portaled child (sheet, toast action). Use React's synthetic onMouseDown on the container (it propagates through portals) instead of a DOM contains() check",
+    "Explore.jsx: `fav = user?.prefs?.leagues || []` creates a new array on each render, so the useMemo dependency changes every time. Memoize fav or depend on user?.prefs?.leagues",
+    "Welcome.jsx: picked and alerts state come from the user and entitlements at mount. Sync them when they load (useEffect), or the direct-load prefill is lost",
+    "SearchOverlay: the keyboard selection uses the class 'on' only. Add aria-selected / aria-activedescendant for screen readers",
+    "The rate limiter (read per minute) returns 429 on /api/public/settings and /api/auth/me after about 18 quick page loads from one IP. The UI then shows a signed-out state and the fallback brand. Consider exempting /api/public/settings and /api/auth/me, or raising their bucket"
+  ],
+  "updated_files": ["/app/backend/tests/test_iter25_r5_screens.py", "/app/backend/tests/iter25_users.py"],
+  "success_rate": {"backend": "100% (6/6 new + 18/18 suites)", "frontend": "about 93% (1 HIGH bug, several minor)"},
+  "test_credentials": "Created test_e1_user@example.com and test_r5_welcome@example.com (role user, verified) through tests/iter25_users.py create, and deleted both plus their follows, saved, notes, sessions and events afterwards (python tests/iter25_users.py delete). The owner was not touched.",
+  "seed_data_creation": "Temporary only: 2 saved forecasts (2:team:3:0:corners:4.5 HIT, 2:team:4:0:corners:4.5 MISS), 1 note, 3 follows, all removed. Anonymous Finder quota was spent for several TEST_ua_iter25_* user agents. One unpaid Stripe test checkout session was started.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Re-create the users with `python /app/backend/tests/iter25_users.py create` and delete them afterwards with `delete`. For a fresh visitor Finder quota, use browser.new_context(user_agent='... TEST_ua_<random>'). The API error shape is {error:{code,message,request_id}}, so use it when mocking 401/402. Avoid more than about 15 page loads a minute from one browser, or the rate limiter returns 429 and the UI looks signed out. Full match id for the Matchup tab: 36cf495e-6dfa-4a65-998f-2ec88f506ed2 (testid match-tabs-matchup). To re-check the main fix: /finder?leagues=459108cf-0d2e-4281-bf44-d44d406d11f5 -> finder-part-leagues -> finder-leagues-pro -> finder-leagues-pro-sheet-see should land on /pricing.",
+  "rca of the issue": "Finder lock sheet: Part() in Finder.jsx registers document.addEventListener('mousedown', out) and closes when !ref.current.contains(e.target). LockSheet renders through BottomSheet in a portal, so the sheet's DOM is outside ref. Mousedown on 'See Pro' -> setOpen(null) -> the fs-pop children (ProLock + LockSheet) unmount -> the click never reaches the Link. Repro: free user, /finder?leagues=<LaLiga>, open the league picker, press 'More with Pro', press 'See Pro'. The URL stays /finder and the sheet disappears. Mitigation: ignore targets inside the sheet, or move the ProLock out of the popover."
+}

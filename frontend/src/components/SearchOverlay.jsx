@@ -96,7 +96,7 @@ export default function SearchOverlay({ open, onClose, initial = "" }) {
           <li key={x.id} role="option" aria-selected={i === sel}>
             <button type="button" className={`so-row${i === sel ? " on" : ""}`} onMouseEnter={() => setSel(i)} onClick={() => go(to)} data-testid={`search-result-${kind}-${x.id}`}>
               {kind === "player" ? <PlayerAvatar player={x} size={44} /> : kind === "team" ? <Crest team={x} size={40} /> : <LeagueMark league={x} size={36} />}
-              <span className="so-txt"><b><Mark text={x.name} q={r.data?.fuzzy ? "" : q.trim()} /></b><small>{kind === "player" ? posLabel(x.pos) : kind === "league" ? x.country : "Club"}{r.data?.fuzzy ? " · close match" : ""}</small></span>
+              <span className="so-txt"><b><Mark text={x.name} q={r.data?.fuzzy ? "" : q.trim()} /></b><small>{kind === "player" ? posLabel(x.pos) : kind === "league" ? (x.country && x.country !== "Other" ? x.country : "League") : "Club"}{r.data?.fuzzy ? " · close match" : ""}</small></span>
             </button>
           </li>
         ))}</ul>

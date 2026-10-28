@@ -1,5 +1,5 @@
 // The 3-step welcome after sign-up (docs/24 §14): pick leagues, follow teams, choose e-mails. Every step can be skipped.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { del, patch, post, put } from "../lib/api";
 import { useApi } from "../lib/useApi";
@@ -62,11 +62,14 @@ export default function Welcome() {
   const [alerts, setAlerts] = useState(!!entitlements.alerts);
   const [weekly, setWeekly] = useState(false);
   const [busy, setBusy] = useState(false);
+  const saved = user?.prefs?.leagues;
+  useEffect(() => { if (saved?.length) setPicked(saved); }, [saved]);
+  useEffect(() => { setAlerts(!!entitlements.alerts); }, [entitlements.alerts]);
   useTitle("Welcome");
   const finish = async (save) => {
     setBusy(true);
     try {
-      const r = await patch("/account/profile", { prefs: { welcomed: true, leagues: picked, ...(save ? { alert_emails: alerts } : {}) } });
+      const r = await patch("/account/profile", { prefs: { welcomed: true, leagues: picked, ...(save && entitlements.alerts ? { alert_emails: alerts } : {}) } });
       setUser(r.user);
       if (save && weekly) await post("/newsletter/subscribe", { email: user.email, consent: true }).then(() => toast("Check your inbox to confirm the weekly e-mail")).catch(() => {});
       nav("/following", { replace: true });

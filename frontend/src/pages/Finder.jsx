@@ -18,7 +18,7 @@ function Part({ id, label, open, setOpen, children }) {
   const ref = useRef(null);
   useEffect(() => {
     if (open !== id) return undefined;
-    const out = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(null); };
+    const out = (e) => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.(".k-scrim")) setOpen(null); };
     const esc = (e) => { if (e.key === "Escape") setOpen(null); };
     document.addEventListener("mousedown", out); document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("mousedown", out); document.removeEventListener("keydown", esc); };

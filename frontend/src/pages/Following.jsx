@@ -101,7 +101,8 @@ function Feed({ follows, saved }) {
   const all = useMemo(() => (q.data ? buildFeed(q.data, saved) : []), [q.data, saved]);
   if (q.loading && !q.data) return <Skeleton shape="row" count={5} testid="feed-loading" />;
   if (q.error) return <ErrorState message="We could not load your feed." onRetry={q.reload} testid="feed-error" />;
-  const rows = pick === "all" ? all : all.filter((i) => i.ids.includes(pick));
+  const teamOf = (q.data?.forecasts || []).find((f) => f.player?.id === pick)?.team?.id;
+  const rows = pick === "all" ? all : all.filter((i) => i.ids.includes(pick) || (teamOf && i.type !== "forecast" && i.ids.includes(teamOf)));
   let last = null;
   return (
     <>
@@ -156,7 +157,7 @@ function Notes({ q }) {
 
 function Follows({ q }) {
   const toast = useToast();
-  const drop = async (i) => { try { await del("/me/follows", { kind: i.kind, ref_id: i.id }); toast(`Stopped following ${i.name}`); q.reload(); } catch (x) { toast(x.message, "err"); } };
+  const drop = async (i) => { try { await del("/me/follows", { kind: i.kind, ref_id: i.id }); toast(`Stopped following ${i.name}`); q.reload(); window.dispatchEvent(new Event("follows-changed")); } catch (x) { toast(x.message, "err"); } };
   if (q.loading && !q.data) return <Skeleton shape="row" count={3} testid="follows-loading" />;
   if (q.error) return <ErrorState message="We could not load who you follow." onRetry={q.reload} testid="follows-error" />;
   if (!q.data.items.length) return <EmptyState icon="star" title="You follow nobody yet" testid="follows-empty">Open a team or player page and press Follow.</EmptyState>;
@@ -176,7 +177,7 @@ function You() {
   const n = (q) => (q.data?.items?.length ? ` ${q.data.items.length}` : "");
   return (
     <>
-      <Tabs value={tab} onChange={setTab} testid="following-tabs" tabs={[{ id: "feed", label: "Feed" }, { id: "saved", label: `Saved${n(saved)}` }, { id: "notes", label: `Notes${n(notes)}` }, { id: "follows", label: `Following${n(follows)}` }]} />
+      <Tabs value={tab} onChange={setTab} testid="following-tabs" tabs={[{ id: "feed", label: "Feed" }, { id: "saved", label: `Saved${n(saved)}` }, { id: "notes", label: `Notes${n(notes)}` }, { id: "follows", label: `Follows${n(follows)}` }]} />
       <div className="y-body">
         {tab === "feed" ? <Feed follows={follows.data?.items || []} saved={saved.data?.items || []} /> : tab === "saved" ? <Saved q={saved} /> : tab === "notes" ? <Notes q={notes} /> : <Follows q={follows} />}
       </div>

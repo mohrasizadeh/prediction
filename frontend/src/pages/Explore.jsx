@@ -46,9 +46,9 @@ export default function Explore() {
   const [q, setQ] = useState("");
   const r = useApi("/leagues");
   useTitle("Explore");
-  const fav = user?.prefs?.leagues || [];
+  const fav = user?.prefs?.leagues;
   const leagues = useMemo(() => (r.data?.countries || []).flatMap((c) => c.leagues.map((l) => ({ ...l, country: l.country || c.country })))
-    .sort((a, b) => (fav.includes(b.id) - fav.includes(a.id))), [r.data, fav]);
+    .sort((a, b) => ((fav || []).includes(b.id) - (fav || []).includes(a.id))), [r.data, fav]);
   const shown = leagues.filter((l) => !q.trim() || norm(`${l.name} ${l.country}`).includes(norm(q.trim())));
   return (
     <section className="ex" data-testid="explore-page">
