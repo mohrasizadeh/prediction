@@ -41,8 +41,8 @@ function RailFollowing() {
   const q = useApi("/me/follows");
   const { reload } = q;
   useEffect(() => {
-    window.addEventListener("follows-changed", reload);
-    return () => window.removeEventListener("follows-changed", reload);
+    window.addEventListener("follows-change", reload);
+    return () => window.removeEventListener("follows-change", reload);
   }, [reload]);
   const items = (q.data?.items || []).slice(0, 6);
   if (!items.length) return null;

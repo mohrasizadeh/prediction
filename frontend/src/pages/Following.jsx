@@ -14,7 +14,7 @@ import { ForecastCard } from "../components/ui/ForecastCard";
 import { EmptyState, ErrorState, Skeleton, TierBadge } from "../components/ui";
 import { useTitle } from "../components/Football";
 
-const Pic = ({ i, size = 32 }) => (i.kind === "player" ? <PlayerAvatar player={i} size={size} /> : i.kind === "team" ? <Crest team={i} size={size} /> : <LeagueMark league={i} size={size} />);
+const Pic = ({ i, size = 32 }) => (i.kind === "player" ? <PlayerAvatar player={i} size={size} /> : i.kind === "team" || i.kind === "match" ? <Crest team={i} size={size} /> : <LeagueMark league={i} size={size} />);
 const DAY = 86400000;
 const dayKey = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 function dayLabel(t) {
@@ -48,6 +48,14 @@ function FeedItem({ it }) {
     const m = it.m;
     return <Link to={`/match/${m.id}`} className="y-item y-item--row" data-testid={`feed-result-${m.id}`}><span className="y-tag">FT</span><span>{m.home?.name} <b>{m.hg}–{m.ag}</b> {m.away?.name}</span></Link>;
   }
+  if (it.type === "lineup") {
+    const x = it.x;
+    return (
+      <Link to={`/match/${x.match_id}`} className="y-item y-item--row" data-testid={`feed-lineup-${x.match_id}-${x.player.id}`}>
+        <PlayerAvatar player={x.player} size={40} /><span><b>{x.player.name}</b> {x.started ? "starts" : "is not in the starting eleven"}</span><span className={`y-tag${x.started ? " y-tag--hit" : ""}`}>Lineup</span>
+      </Link>
+    );
+  }
   const f = it.f;
   if (it.type === "saved") {
     return (
@@ -59,7 +67,7 @@ function FeedItem({ it }) {
   return (
     <Link to={f.match_id ? `/match/${f.match_id}` : "#"} className="y-item y-item--row" data-testid={`feed-forecast-${f.fkey || f.id}`}>
       {f.player ? <PlayerAvatar player={f.player} size={40} /> : <Crest team={f.team} size={36} />}
-      <span><b>{subjectOf(f)}</b> · forecast: {f.market}, <b>{pct(f.p)}</b></span><TierBadge tier={f.tier} testid={`feed-tier-${f.fkey || f.id}`} />
+      <span><b>{subjectOf(f)}</b> · {f.p_prev != null ? <>forecast {f.p > f.p_prev ? "rose" : "fell"} from {pct(f.p_prev)} to <b>{pct(f.p)}</b>: {f.market}</> : <>forecast: {f.market}, <b>{pct(f.p)}</b></>}</span><TierBadge tier={f.tier} testid={`feed-tier-${f.fkey || f.id}`} />
     </Link>
   );
 }
@@ -68,6 +76,7 @@ function buildFeed(feed, saved) {
   const items = [
     ...feed.matches.map((m) => ({ type: "match", at: m.kickoff, ids: [m.home?.id, m.away?.id], key: `m${m.id}`, m })),
     ...(feed.results || []).map((m) => ({ type: "result", at: m.kickoff, ids: [m.home?.id, m.away?.id], key: `r${m.id}`, m })),
+    ...(feed.lineups || []).map((x) => ({ type: "lineup", at: x.kickoff, ids: [x.player.id], key: `l${x.match_id}${x.player.id}`, x })),
     ...feed.forecasts.slice(0, 12).map((f) => ({ type: "forecast", at: f.kickoff, ids: [f.team?.id, f.player?.id], key: `f${f.id}`, f })),
     ...saved.filter((r) => r.outcome && r.forecast).map((r) => ({ type: "saved", at: r.forecast.kickoff, ids: [r.forecast.team?.id, r.forecast.player?.id], key: `s${r.fkey}`, f: r.forecast, o: r.outcome })),
   ];
@@ -109,7 +118,7 @@ function Feed({ follows, saved }) {
       {follows.length > 0 && (
         <div className="y-filter" role="toolbar" aria-label="Filter the feed" data-testid="feed-filter">
           <button type="button" className={`y-dot${pick === "all" ? " on" : ""}`} aria-pressed={pick === "all"} onClick={() => setPick("all")} data-testid="feed-filter-all"><span className="y-all">All</span></button>
-          {follows.filter((i) => i.kind !== "league").map((i) => (
+          {follows.filter((i) => i.kind !== "league" && i.kind !== "match").map((i) => (
             <button key={`${i.kind}-${i.id}`} type="button" className={`y-dot${pick === i.id ? " on" : ""}`} aria-pressed={pick === i.id} aria-label={i.name} title={i.name} onClick={() => setPick(i.id)} data-testid={`feed-filter-${i.id}`}><Pic i={i} size={48} /></button>
           ))}
         </div>
@@ -157,13 +166,13 @@ function Notes({ q }) {
 
 function Follows({ q }) {
   const toast = useToast();
-  const drop = async (i) => { try { await del("/me/follows", { kind: i.kind, ref_id: i.id }); toast(`Stopped following ${i.name}`); q.reload(); window.dispatchEvent(new Event("follows-changed")); } catch (x) { toast(x.message, "err"); } };
+  const drop = async (i) => { try { await del("/me/follows", { kind: i.kind, ref_id: i.id }); toast(`Stopped following ${i.name}`); q.reload(); window.dispatchEvent(new Event("follows-change")); } catch (x) { toast(x.message, "err"); } };
   if (q.loading && !q.data) return <Skeleton shape="row" count={3} testid="follows-loading" />;
   if (q.error) return <ErrorState message="We could not load who you follow." onRetry={q.reload} testid="follows-error" />;
   if (!q.data.items.length) return <EmptyState icon="star" title="You follow nobody yet" testid="follows-empty">Open a team or player page and press Follow.</EmptyState>;
   return (
     <ul className="rows" data-testid="follows-list">{q.data.items.map((i) => (
-      <li key={`${i.kind}-${i.id}`} className="row-card"><Pic i={i} /><Link to={`/${i.kind}/${i.id}`} className="row-main"><b>{i.name}</b><small className="muted"> {i.kind}</small></Link>
+      <li key={`${i.kind}-${i.id}`} className="row-card"><Pic i={i} /><Link to={i.kind === "match" ? `/match/${i.id}` : `/${i.kind}/${i.id}`} className="row-main"><b>{i.name}</b><small className="muted"> {i.kind}</small></Link>
         <button type="button" className="btn btn--ghost btn--sm" onClick={() => drop(i)} data-testid={`unfollow-${i.id}`}>Unfollow</button></li>
     ))}{q.data.limit >= 0 && <li className="muted small">{q.data.items.length} of {q.data.limit} on your plan.</li>}</ul>
   );

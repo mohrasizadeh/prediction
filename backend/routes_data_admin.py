@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -161,14 +161,22 @@ def leagues(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
         cov = list(db.data_coverage.find({"league_iid": lg["iid"]}, {"_id": 0, "league_iid": 0}))
         out.append({"iid": lg["iid"], "ext_id": lg.get("ext_id"), "name": lg.get("name"), "country_code": lg.get("country_code"),
                     "image": lg.get("image"), "enabled": bool(lg.get("enabled")),
-                    "current_season": lg.get("current_season"), "backfill_seasons": lg.get("backfill_seasons", []),
+                    "current_season": lg.get("current_season"), "backfill_seasons": lg.get("backfill_seasons", []), "zones": lg.get("zones") or [],
                     "seasons": seasons, "estimate_calls": cost, "coverage": cov})
     return {"leagues": out, "budget": S.get(db, "ingest.daily_call_budget")}
+
+
+class Zone(BaseModel):
+    start: int = Field(ge=1, le=40)
+    end: int = Field(ge=1, le=40)
+    label: str = Field(min_length=1, max_length=40)
+    tone: Literal["top", "mid", "bottom"]
 
 
 class LeagueBody(BaseModel):
     enabled: Optional[bool] = None
     backfill_seasons: Optional[list[str]] = Field(default=None, max_length=30)
+    zones: Optional[list[Zone]] = Field(default=None, max_length=8)
 
 
 @router.put("/leagues/{iid}")
@@ -187,6 +195,8 @@ def league_put(iid: int, body: LeagueBody, user=Depends(perm("jobs.run")), db=De
         upd["backfill_seasons"] = sorted(set(body.backfill_seasons), reverse=True)
         db.seasons.update_many({"league_iid": iid, "label": {"$in": upd["backfill_seasons"]}, "backfilled": False}, {"$set": {"queued": True}})
         db.seasons.update_many({"league_iid": iid, "label": {"$nin": upd["backfill_seasons"]}}, {"$set": {"queued": False}})
+    if body.zones is not None:
+        upd["zones"] = sorted(({**z.model_dump(), "end": max(z.start, z.end)} for z in body.zones), key=lambda z: z["start"])
     if upd:
         db.leagues.update_one({"iid": iid}, {"$set": upd})
         AQ.audit(db, user, "league.update", str(iid), upd)

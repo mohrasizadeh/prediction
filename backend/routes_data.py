@@ -110,7 +110,37 @@ def league(league_id: str, response: Response, db=Depends(D.get_db)):
     out["image"] = Q.attach_images(db, "leagues", [dict(lg)])[0].get("image")
     out["next"] = Q.league_matches(db, iid, "scheduled", limit=20)
     out["recent"] = Q.league_matches(db, iid, "final", limit=20)
+    out["zones"] = lg.get("zones") or []
     return out
+
+
+@router.get("/teams/{team_id}/history")
+def team_history(team_id: str, response: Response, stat: str = Query(..., pattern="^(shots|sot|tackles|corners|yellow_cards|match_yellow_cards|goals|fouls)$"),
+                 last: int = Query(10, ge=1, le=40), db=Depends(D.get_db)):
+    tid = _iid(db, "teams", team_id)
+    _cache(response)
+    return Q.team_history(db, tid, stat, last)
+
+
+@router.get("/teams/{team_id}/squad-season")
+def squad_season(team_id: str, response: Response, db=Depends(D.get_db)):
+    tid = _iid(db, "teams", team_id)
+    _cache(response)
+    return Q.squad_season(db, tid)
+
+
+@router.get("/players/{player_id}/ranks")
+def player_ranks(player_id: str, response: Response, db=Depends(D.get_db)):
+    _cache(response)
+    return Q.player_ranks(db, _iid(db, "players", player_id))
+
+
+@router.get("/match-days")
+def match_days(response: Response, start: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"), days: int = Query(14, ge=1, le=31),
+               tz_offset_min: int = Query(0, ge=-840, le=840), db=Depends(D.get_db)):
+    _cache(response)
+    d0 = datetime.fromisoformat(start).replace(tzinfo=timezone.utc) - timedelta(minutes=tz_offset_min)
+    return {"days": Q.match_days(db, d0, days, tz_offset_min)}
 
 
 @router.get("/leagues/{league_id}/fixtures")
@@ -250,7 +280,8 @@ def player_history(player_id: str, response: Response, last: int = Query(20, ge=
 # ------------------------------------------------------------------ track record
 @router.get("/track-record")
 def track_record(response: Response, league: str | None = None,
-                 stat: str | None = Query(None, pattern="^(shots|sot|tackles|corners|yellow_cards|match_yellow_cards)$"), db=Depends(D.get_db)):
+                 stat: str | None = Query(None, pattern="^(shots|sot|tackles|corners|yellow_cards|match_yellow_cards)$"),
+                 scope: str | None = Query(None, pattern="^(player|team)$"), db=Depends(D.get_db)):
     _cache(response)
     lg = _iid(db, "leagues", league) if league else None
-    return Q.track_record(db, lg, min_n=int(S.get(db, "track_record.min_scored")), stat=stat)
+    return Q.track_record(db, lg, min_n=int(S.get(db, "track_record.min_scored")), stat=stat, scope=scope)

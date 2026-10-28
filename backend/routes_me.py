@@ -20,7 +20,7 @@ import plans as P
 import queries as Q
 
 router = APIRouter(prefix="/api/me")
-KIND_COLL = {"player": "players", "team": "teams", "league": "leagues"}
+KIND_COLL = {"player": "players", "team": "teams", "league": "leagues", "match": "matches"}
 NOTE_MAX = 2000
 
 
@@ -40,7 +40,7 @@ def _room(db, user, key: str, used: int) -> None:
 
 # ------------------------------------------------------------------ follows
 class FollowBody(BaseModel):
-    kind: Literal["player", "team", "league"]
+    kind: Literal["player", "team", "league", "match"]
     ref_id: str = Field(min_length=1, max_length=64)
 
 
@@ -65,11 +65,17 @@ def follows(response: Response, user=Depends(D.require_user), db=Depends(D.get_d
     out = []
     for kind, coll in KIND_COLL.items():
         iids = [r["ref_iid"] for r in rows if r["kind"] == kind]
-        names = Q._names(db, coll, iids) if iids else {}
+        if kind == "match":
+            ms = {m["iid"]: m for m in db.matches.find({"iid": {"$in": iids}}, {"_id": 0, "iid": 1, "id": 1, "home_iid": 1, "away_iid": 1, "kickoff": 1})} if iids else {}
+            tn = Q._names(db, "teams", [i for m in ms.values() for i in (m["home_iid"], m["away_iid"])]) if ms else {}
+            names = {i: {"id": m["id"], "name": f"{(tn.get(m['home_iid']) or {}).get('name', '?')} v {(tn.get(m['away_iid']) or {}).get('name', '?')}",
+                         "image": (tn.get(m["home_iid"]) or {}).get("image"), "kickoff": m["kickoff"]} for i, m in ms.items()}
+        else:
+            names = Q._names(db, coll, iids) if iids else {}
         for r in rows:
             if r["kind"] == kind and r["ref_iid"] in names:
                 n = names[r["ref_iid"]]
-                out.append({"kind": kind, "id": n.get("id"), "name": n.get("name"), "image": n.get("image"), "created_at": r["created_at"]})
+                out.append({"kind": kind, "id": n.get("id"), "name": n.get("name"), "image": n.get("image"), "kickoff": n.get("kickoff"), "created_at": r["created_at"]})
     return {"items": out, "limit": P.ent(db, user, "follows_max")}
 
 
@@ -105,9 +111,10 @@ def following_feed(response: Response, user=Depends(D.require_user), db=Depends(
     for p in db.players.find({"iid": {"$in": players}}, {"_id": 0, "team_iid": 1}):
         teams.add(p["team_iid"])
     leagues = [r["ref_iid"] for r in rows if r["kind"] == "league"]
+    followed_ms = [r["ref_iid"] for r in rows if r["kind"] == "match"]
     now = utcnow()
     q = {"status": "scheduled", "kickoff": {"$gte": now}, "$or": [{"home_iid": {"$in": list(teams)}}, {"away_iid": {"$in": list(teams)}},
-                                                                  {"league_iid": {"$in": leagues}}]}
+                                                                  {"league_iid": {"$in": leagues}}, {"iid": {"$in": followed_ms}}]}
     ms = list(db.matches.find(q, {"_id": 0}).sort("kickoff", 1).limit(30))
     done = list(db.matches.find({"status": "final", "kickoff": {"$gte": now - timedelta(days=7)},
                                  "$or": [{"home_iid": {"$in": list(teams)}}, {"away_iid": {"$in": list(teams)}}]},
@@ -120,7 +127,49 @@ def following_feed(response: Response, user=Depends(D.require_user), db=Depends(
     fc = list(db.forecasts.find({**Q.NOT_HIDDEN, "match_iid": {"$in": [m["iid"] for m in ms]},
                                  "$or": [{"player_iid": {"$in": players}}, {"scope": "team", "team_iid": {"$in": list(teams)}}]},
                                 {"_id": 0, "contrib": 0}).sort("p", -1).limit(100))
-    return {"matches": ms, "forecasts": Q._decorate(db, fc), "results": done}
+    return {"matches": ms, "forecasts": Q._decorate(db, fc), "results": done, "lineups": _lineup_news(db, ms, players)}
+
+
+def _lineup_news(db, ms, players) -> list[dict]:
+    """Followed players in a confirmed lineup: starts, or is not in the starting eleven."""
+    by_iid = {m["iid"]: m for m in ms}
+    lu = list(db.lineups.find({"match_iid": {"$in": list(by_iid)}, "confirmed": True}, {"_id": 0, "match_iid": 1, "team_iid": 1, "player_iid": 1, "started": 1}))
+    if not lu or not players:
+        return []
+    started = {(x["match_iid"], x["player_iid"]) for x in lu if x.get("started")}
+    sides = {(x["match_iid"], x["team_iid"]) for x in lu}
+    pl = {p["iid"]: p for p in db.players.find({"iid": {"$in": players}}, {"_id": 0, "iid": 1, "team_iid": 1})}
+    names = Q._names(db, "players", players)
+    out = []
+    for mi, m in by_iid.items():
+        for pid in players:
+            team = (pl.get(pid) or {}).get("team_iid")
+            if team in (m["home_iid"], m["away_iid"]) and (mi, team) in sides and pid in names:
+                out.append({"match_id": m["id"], "kickoff": m["kickoff"], "player": names[pid], "started": (mi, pid) in started})
+    return out
+
+
+# ------------------------------------------------------------------ Finder presets (per account)
+class Preset(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    q: str = Field(max_length=600)
+
+
+class PresetsBody(BaseModel):
+    items: list[Preset] = Field(max_length=8)
+
+
+@router.get("/presets")
+def presets(response: Response, user=Depends(D.require_user), db=Depends(D.get_db)):
+    _private(response)
+    return {"items": (db.users.find_one({"id": user["id"]}, {"finder_presets": 1}) or {}).get("finder_presets") or []}
+
+
+@router.put("/presets")
+def put_presets(body: PresetsBody, user=Depends(D.require_user), db=Depends(D.get_db)):
+    items = [p.model_dump() for p in body.items]
+    db.users.update_one({"id": user["id"]}, {"$set": {"finder_presets": items}})
+    return {"items": items}
 
 
 # ------------------------------------------------------------------ saved forecasts

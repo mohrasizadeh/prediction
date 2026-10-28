@@ -10,6 +10,7 @@ import { Crest, LeagueMark, PlayerAvatar } from "./Media";
 import { posLabel } from "./Football";
 import Icon from "./Icon";
 import { EmptyState, ErrorState, Skeleton } from "./ui";
+import { favFirst, useFavLeagues } from "../lib/prefs";
 
 const KEY = "recent-searches";
 const recent = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
@@ -63,6 +64,7 @@ export default function SearchOverlay({ open, onClose, initial = "" }) {
   const [sel, setSel] = useState(0);
   const [follows, setFollows] = useState([]);
   const { user } = useAuth();
+  const fav = useFavLeagues();
   const nav = useNavigate();
   const input = useRef(null);
   const r = useResults(q);
@@ -77,8 +79,8 @@ export default function SearchOverlay({ open, onClose, initial = "" }) {
   const flat = useMemo(() => {
     const d = r.data;
     if (!d) return [];
-    return [...d.players.map((p) => ({ kind: "player", to: `/player/${p.id}`, x: p })), ...d.teams.map((t) => ({ kind: "team", to: `/team/${t.id}`, x: t })), ...d.leagues.map((l) => ({ kind: "league", to: `/league/${l.id}`, x: l }))];
-  }, [r.data]);
+    return [...d.players.map((p) => ({ kind: "player", to: `/player/${p.id}`, x: p })), ...d.teams.map((t) => ({ kind: "team", to: `/team/${t.id}`, x: t })), ...favFirst(d.leagues, fav, (l) => l.id).map((l) => ({ kind: "league", to: `/league/${l.id}`, x: l }))];
+  }, [r.data, fav]);
   if (!open) return null;
   const go = (to) => { if (q.trim()) remember(q.trim()); onClose(true); nav(to); };
   const key = (e) => {
@@ -97,6 +99,7 @@ export default function SearchOverlay({ open, onClose, initial = "" }) {
             <button type="button" className={`so-row${i === sel ? " on" : ""}`} onMouseEnter={() => setSel(i)} onClick={() => go(to)} data-testid={`search-result-${kind}-${x.id}`}>
               {kind === "player" ? <PlayerAvatar player={x} size={44} /> : kind === "team" ? <Crest team={x} size={40} /> : <LeagueMark league={x} size={36} />}
               <span className="so-txt"><b><Mark text={x.name} q={r.data?.fuzzy ? "" : q.trim()} /></b><small>{kind === "player" ? posLabel(x.pos) : kind === "league" ? (x.country && x.country !== "Other" ? x.country : "League") : "Club"}{r.data?.fuzzy ? " · close match" : ""}</small></span>
+              {kind === "player" && x.next && <span className="so-next" title={`Next: ${x.next.market}`} data-testid={`search-next-${x.id}`}><small>Next</small> <b>{Math.round(x.next.p * 100)}%</b></span>}
             </button>
           </li>
         ))}</ul>

@@ -134,6 +134,9 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
         if left() and "images" in forced:
             import images as IMG
             if _run(db, "images", lambda: IMG.run_sync(db, max_seconds=max(5.0, min(40.0, max_seconds - (time.monotonic() - t0))), refresh=img_refresh), now) is not None: out["ran"].append("images")
+        if left() and ("follow_alerts" in forced or _due_every(db, "follow_alerts", timedelta(minutes=2), now)):
+            import follow_alerts as FA
+            if _run(db, "follow_alerts", lambda: FA.run(db, now), now) is not None: out["ran"].append("follow_alerts")
         if left() and ("alerts" in forced or _due_every(db, "alerts", timedelta(minutes=15), now)):
             import alerts as AL
             if _run(db, "alerts", lambda: AL.run(db, now), now) is not None: out["ran"].append("alerts")

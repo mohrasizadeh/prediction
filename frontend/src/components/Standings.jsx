@@ -18,7 +18,7 @@ function build(rows) {
     .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team.name.localeCompare(b.team.name));
 }
 
-export default function Standings({ id, season }) {
+export default function Standings({ id, season, zones = [] }) {
   const q = useApi(`/leagues/${id}/fixtures`, { status: "final", limit: 400 });
   if (q.loading && !q.data) return <Skeleton shape="row" count={10} testid="table-loading" />;
   if (q.error) return <ErrorState message="We could not load the table." onRetry={q.reload} testid="table-error" />;
@@ -29,15 +29,16 @@ export default function Standings({ id, season }) {
       <table className="tm-grid st-table">
         <caption className="sr-only">League table from finished matches this season</caption>
         <thead><tr><th scope="col">#</th><th scope="col" className="tm-sticky">Club</th><th scope="col">P</th><th scope="col">W</th><th scope="col">D</th><th scope="col">L</th><th scope="col">GD</th><th scope="col">Pts</th><th scope="col">Form</th></tr></thead>
-        <tbody>{rows.map((r, i) => (
-          <tr key={r.team.id} data-testid={`table-row-${r.team.id}`}>
+        <tbody>{rows.map((r, i) => { const z = zones.find((x) => i + 1 >= x.start && i + 1 <= x.end); return (
+          <tr key={r.team.id} className={z ? `st-zone st-zone--${z.tone}` : undefined} title={z?.label} data-testid={`table-row-${r.team.id}`}>
             <td>{i + 1}</td>
             <th scope="row" className="tm-sticky"><Link to={`/team/${r.team.id}`} className="tm-cell-team"><Crest team={r.team} size={22} />{r.team.name}</Link></th>
             <td>{r.p}</td><td>{r.w}</td><td>{r.d}</td><td>{r.l}</td><td>{r.gd > 0 ? `+${r.gd}` : r.gd}</td><td><b>{r.pts}</b></td>
             <td><span className="st-form" aria-label={`Last results: ${r.form.join(", ")}`}>{r.form.map((k, j) => <i key={j} className={`st-${k}`}>{k}</i>)}</span></td>
           </tr>
-        ))}</tbody>
+        ); })}</tbody>
       </table>
+      {zones.length > 0 && <ul className="st-legend" data-testid="table-zones">{zones.map((z) => <li key={`${z.start}-${z.label}`} className={`st-zone--${z.tone}`}><i aria-hidden="true" />{z.label} ({z.start === z.end ? z.start : `${z.start}–${z.end}`})</li>)}</ul>}
     </div>
   );
 }

@@ -153,7 +153,9 @@ function Notifications() {
   const rows = [
     ["product_emails", "Product e-mails", "News about features you use.", true],
     ["marketing_emails", "Marketing e-mails", "Occasional updates. Off unless you turn it on.", false],
-    ["alert_emails", "Alert e-mails", "Alerts you set up for teams and players.", true],
+    ["alert_emails", "Alert e-mails", "Master switch for alerts about teams, players and matches you follow.", true],
+    ["alert_lineups", "Lineup alerts", "When the lineups for a followed team, player or match are confirmed.", true],
+    ["alert_goals", "Goal and red card alerts", "During followed matches and matches of followed teams.", true],
   ];
   if (staff) rows.push(["admin_alerts", "E-mail me when something looks wrong", "Staff only.", ["owner", "admin"].includes(user.role)], ["admin_digest", "Weekly summary", "Staff only.", false]);
   return (

@@ -503,7 +503,7 @@ def update_profile(db, user_id: str, fields: dict) -> dict:
             raise AuthError("BAD_THEME", 400, "Pick system, dark or light.")
         upd["theme"] = fields["theme"]
     if "prefs" in fields and isinstance(fields["prefs"], dict):
-        for k in ("product_emails", "marketing_emails", "alert_emails"):
+        for k in ("product_emails", "marketing_emails", "alert_emails", "alert_lineups", "alert_goals"):
             if k in fields["prefs"]:
                 upd[f"prefs.{k}"] = bool(fields["prefs"][k])
         if "welcomed" in fields["prefs"]:

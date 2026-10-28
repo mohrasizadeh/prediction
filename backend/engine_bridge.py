@@ -192,6 +192,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
         db.match_probs.insert_one({"match_iid": m["iid"], "run_id": run_id, "is_current": True, "at": now, **probs})
         kept = {d["fkey"]: d for d in db.forecasts.find({"match_iid": m["iid"], "is_current": True, "hidden": True},
                                                          {"_id": 0, "fkey": 1, "hidden_reason": 1, "hidden_by": 1, "hidden_at": 1})}
+        before = {d["fkey"]: d for d in db.forecasts.find({"match_iid": m["iid"]}, {"_id": 0, "fkey": 1, "p": 1, "created_at": 1, "p_prev": 1, "p_prev_at": 1})}
         docs = []
         for f in fcs:
             mk = f"{f.scope}.{f.stat}"
@@ -217,6 +218,11 @@ def run_league(db, league_iid: int, now=None) -> dict:
         for d in docs:   # an admin's Hide survives the next run
             if d["fkey"] in kept:
                 d.update(kept[d["fkey"]], hidden=True)
+            old = before.get(d["fkey"])   # keep the last real move so the feed can say "rose from 66% to 78%"
+            if old and abs(old.get("p", d["p"]) - d["p"]) >= 0.005:
+                d["p_prev"], d["p_prev_at"] = float(old["p"]), old.get("created_at")
+            elif old and old.get("p_prev") is not None:
+                d["p_prev"], d["p_prev_at"] = old["p_prev"], old.get("p_prev_at")
         if docs:
             db.forecasts.insert_many(docs)
         # one row per forecast: the new run replaces every earlier row for this match (no duplicates, ever)

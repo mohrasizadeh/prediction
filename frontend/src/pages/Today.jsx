@@ -6,6 +6,7 @@ import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
 import { Crest, LeagueMark } from "../components/Media";
+import { favFirst, useFavLeagues, useGameDays } from "../lib/prefs";
 import LiveStatus from "../components/LiveStatus";
 import Icon from "../components/Icon";
 import { useTitle } from "../components/Football";
@@ -85,12 +86,14 @@ export default function Today() {
   const all = fx.data || [];
   const isFol = (m) => followed.has(m.home?.id) || followed.has(m.away?.id) || followed.has(m.league?.id);
   const pick = { all: () => true, following: isFol, live: isLive, insights: (m) => m.insight_count > 0 }[chip];
+  const fav = useFavLeagues();
+  const gameDays = useGameDays(-1, 7);
   const groups = useMemo(() => {
     const g = new Map();
     all.filter(pick).forEach((m) => { const k = m.league?.id || "other"; if (!g.has(k)) g.set(k, { league: m.league, rows: [], fol: false }); g.get(k).rows.push(m); if (isFol(m)) g.get(k).fol = true; });
-    return [...g.values()].sort((a, b) => Number(b.fol) - Number(a.fol));
+    return favFirst([...g.values()].sort((a, b) => Number(b.fol) - Number(a.fol)), fav, (x) => x.league?.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [all, chip, followed]);
+  }, [all, chip, followed, fav]);
   const live = all.filter(isLive);
   const chips = [{ id: "all", label: "All", count: all.length }, ...(user ? [{ id: "following", label: "Following", count: all.filter(isFol).length }] : []),
     { id: "live", label: "Live now", count: live.length }, { id: "insights", label: "Has insights", count: all.filter((m) => m.insight_count > 0).length }];
@@ -98,7 +101,7 @@ export default function Today() {
   return (
     <section className="td" data-testid="today-page">
       <h1 className="sr-only">Today</h1>
-      <DateScroller value={day} onChange={setDay} testid="today-dates" />
+      <DateScroller value={day} onChange={setDay} gameDays={gameDays} testid="today-dates" />
       <Top3 day={day} />
       {live.length > 0 && <div className="td-livestrip" aria-label="Live now" data-testid="today-livestrip">{live.map((m) => (
         <Link key={m.id} to={`/match/${m.id}`} className="td-livechip" data-testid={`today-livechip-${m.id}`}><span className="k-livedot" aria-hidden="true" /><b>{m.live.minute}</b>{m.home?.name} {m.live.hs}–{m.live.as} {m.away?.name}</Link>

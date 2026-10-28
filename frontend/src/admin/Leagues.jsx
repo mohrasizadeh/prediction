@@ -41,7 +41,36 @@ function Seasons({ lg, budget, onClose, onSaved }) {
   );
 }
 
-function LeagueCard({ lg, budget, onEdit, onChanged }) {
+const TONES = [{ id: "top", label: "Top (e.g. Europe)" }, { id: "mid", label: "Middle (e.g. play-offs)" }, { id: "bottom", label: "Bottom (e.g. relegation)" }];
+
+function Zones({ lg, onClose, onSaved }) {
+  const toast = useToast();
+  const [rows, setRows] = useState(lg.zones?.length ? lg.zones : [{ start: 1, end: 4, label: "", tone: "top" }]);
+  const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: k === "start" || k === "end" ? Number(v) : v } : r)));
+  const save = async () => {
+    try { await put(`/admin/leagues/${lg.iid}`, { zones: rows.filter((r) => r.label.trim()) }); toast("Table zones saved"); onSaved(); onClose(); } catch (x) { toast(x.message || "Could not save", "err"); }
+  };
+  return (
+    <Drawer open title={`Table zones · ${lg.name}`} onClose={onClose} testid="zones-modal">
+      <p className="a-muted small">Colour bands on the public league table, for example 1–4 Champions League, 18–20 Relegation. Rules change by season, so set them here.</p>
+      {rows.map((r, i) => (
+        <div key={i} className="a-zone-row" data-testid={`zone-row-${i}`}>
+          <input type="number" min={1} max={40} aria-label="From place" value={r.start} onChange={(e) => set(i, "start", e.target.value)} data-testid={`zone-${i}-start`} />
+          <input type="number" min={1} max={40} aria-label="To place" value={r.end} onChange={(e) => set(i, "end", e.target.value)} data-testid={`zone-${i}-end`} />
+          <input maxLength={40} aria-label="Label" placeholder="Champions League" value={r.label} onChange={(e) => set(i, "label", e.target.value)} data-testid={`zone-${i}-label`} />
+          <select aria-label="Colour" value={r.tone} onChange={(e) => set(i, "tone", e.target.value)} data-testid={`zone-${i}-tone`}>{TONES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setRows(rows.filter((_, j) => j !== i))} data-testid={`zone-${i}-remove`}>Remove</button>
+        </div>
+      ))}
+      <div className="btn-row">
+        {rows.length < 8 && <button type="button" className="btn btn--secondary btn--sm" onClick={() => setRows([...rows, { start: 1, end: 1, label: "", tone: "bottom" }])} data-testid="zone-add">Add a zone</button>}
+        <button type="button" className="btn btn--primary btn--sm" onClick={save} data-testid="zones-save">Save zones</button>
+      </div>
+    </Drawer>
+  );
+}
+
+function LeagueCard({ lg, budget, onEdit, onZones, onChanged }) {
   const toast = useToast();
   const toggle = async (v) => { try { await put(`/admin/leagues/${lg.iid}`, { enabled: v }); toast(v ? `${lg.name} switched on` : `${lg.name} switched off`); onChanged(); } catch (x) { toast(x.message || "Could not save", "err"); } };
   const done = lg.seasons.filter((s) => s.backfilled).length;
@@ -59,6 +88,7 @@ function LeagueCard({ lg, budget, onEdit, onChanged }) {
         <div><dt>Coverage</dt><dd>{lg.coverage.length ? `${lg.coverage.length} fields tracked` : "No data yet"}</dd></div>
       </dl>
       <button className="btn btn--secondary btn--sm self-start" onClick={() => onEdit(lg)} data-testid={`league-${lg.iid}-seasons`}><Icon name="calendar" size={16} />Backfill seasons</button>
+      <button className="btn btn--ghost btn--sm self-start" onClick={() => onZones(lg)} data-testid={`league-${lg.iid}-zones`}><Icon name="list" size={16} />Table zones{lg.zones?.length ? ` (${lg.zones.length})` : ""}</button>
     </article>
   );
 }
@@ -67,6 +97,7 @@ export default function Leagues() {
   const q = useApi("/admin/leagues");
   const toast = useToast();
   const [edit, setEdit] = useState(null);
+  const [zones, setZones] = useState(null);
   const [filter, setFilter] = useState("");
   const sync = async () => { try { await post("/admin/jobs/run?job=reference_sync"); toast("League list refresh queued"); } catch (x) { toast(x.message || "Could not queue it", "err"); } };
   if (q.loading && !q.data) return <Loading rows={5} />;
@@ -83,10 +114,11 @@ export default function Leagues() {
       ) : (
         <>
           <div className="a-filters"><div className="a-search"><Icon name="search" size={18} /><input type="search" placeholder="Search leagues or country" aria-label="Search leagues" value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="leagues-search" /></div></div>
-          {list.length === 0 ? <Empty>No league matches.</Empty> : <div className="a-key-grid">{list.map((l) => <LeagueCard key={l.iid} lg={l} budget={q.data.budget} onEdit={setEdit} onChanged={q.reload} />)}</div>}
+          {list.length === 0 ? <Empty>No league matches.</Empty> : <div className="a-key-grid">{list.map((l) => <LeagueCard key={l.iid} lg={l} budget={q.data.budget} onEdit={setEdit} onZones={setZones} onChanged={q.reload} />)}</div>}
         </>
       )}
       {edit && <Seasons lg={edit} budget={q.data.budget} onClose={() => setEdit(null)} onSaved={q.reload} />}
+      {zones && <Zones lg={zones} onClose={() => setZones(null)} onSaved={q.reload} />}
     </div>
   );
 }

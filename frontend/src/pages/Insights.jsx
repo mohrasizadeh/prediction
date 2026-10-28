@@ -5,6 +5,7 @@ import { useApi } from "../lib/useApi";
 import { pct } from "../lib/copy";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
+import { favFirst, useFavLeagues, useGameDays } from "../lib/prefs";
 import { useTitle } from "../components/Football";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard, ProLock, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
 
@@ -14,7 +15,8 @@ const MARKETS = [{ id: "shots", label: "Shots", test: (f) => f.stat === "shots" 
 const TIERS = ["Strong", "Solid", "Watch"];
 const POS = [{ id: "G", label: "GK" }, { id: "D", label: "DEF" }, { id: "M", label: "MID" }, { id: "F", label: "FWD" }];
 const NOF = { min: 50, pos: [], venue: "all", confirmed: false };
-const SORTS = { likely: (a, b) => b.p - a.p, rise: (a, b) => (b.p - (b.p_base ?? b.p)) - (a.p - (a.p_base ?? a.p)), time: (a, b) => utc(a.kickoff) - utc(b.kickoff) };
+const rise = (f) => (f.usual_p != null ? f.p - f.usual_p : -1);
+const SORTS = { likely: (a, b) => b.p - a.p, rise: (a, b) => rise(b) - rise(a), time: (a, b) => utc(a.kickoff) - utc(b.kickoff) };
 
 function Compact({ rows }) {
   return (
@@ -38,7 +40,9 @@ export function Insights() {
   const [view, setView] = useState("cards");
   useTitle("Insights");
   const data = useMemo(() => q.data || [], [q.data]);
-  const leagues = useMemo(() => [...new Map(data.map((f) => [f.league_iid, f.league_name || f.league?.name])).entries()], [data]);
+  const fav = useFavLeagues();
+  const gameDays = useGameDays(0, 7);
+  const leagues = useMemo(() => favFirst([...new Map(data.map((f) => [f.league_iid, f.league_name || f.league?.name])).entries()], fav, ([id]) => id), [data, fav]);
   const pos = (f) => (f.pos || f.player?.pos || "")[0];
   const rows = data.filter((f) => (!day || isoDay(utc(f.kickoff)) === day) && (!lg.length || lg.includes(f.league_iid))
     && (!mk.length || MARKETS.some((m) => mk.includes(m.id) && m.test(f))) && (!tier.length || tier.includes(f.tier)) && f.p * 100 >= more.min
@@ -50,7 +54,7 @@ export function Insights() {
     <section className="ins" data-testid="insights-page">
       <h1>Insights</h1>
       <div className="ins-days"><button type="button" className={`k-chip${!day ? " on" : ""}`} onClick={() => setDay("")} aria-pressed={!day} data-testid="ins-any-day">Any day</button>
-        <DateScroller value={day} onChange={setDay} from={0} count={7} testid="ins-dates" /></div>
+        <DateScroller value={day} onChange={setDay} from={0} count={7} gameDays={gameDays} testid="ins-dates" /></div>
       <div className="ins-chips">
         <ChipsRow multi value={tier} onChange={setTier} label="Tier" testid="ins-tier" options={TIERS.map((t) => ({ id: t, label: t }))} />
         <ChipsRow multi value={mk} onChange={setMk} label="Market" testid="ins-market" options={MARKETS.map(({ id, label }) => ({ id, label }))} />
@@ -58,7 +62,7 @@ export function Insights() {
         <ChipsRow label="More" testid="ins-more" options={[{ id: "more", label: "More filters", count: nMore || null, accent: true, onClick: () => setSheet(true) }]} />
       </div>
       <div className="ins-bar">
-        <Segmented label="Sort" value={sort} onChange={setSort} testid="ins-sort" options={[{ id: "likely", label: "Most likely" }, { id: "rise", label: "Biggest rise" }, { id: "time", label: "Kick-off" }]} />
+        <Segmented label="Sort" value={sort} onChange={setSort} testid="ins-sort" options={[{ id: "likely", label: "Most likely" }, { id: "rise", label: "Biggest rise vs usual" }, { id: "time", label: "Kick-off" }]} />
         <Segmented label="View" value={view} onChange={setView} testid="ins-view" options={[{ id: "cards", label: "Cards" }, { id: "list", label: "List" }]} />
       </div>
       {q.loading && !q.data ? <Skeleton shape="card" count={6} testid="ins-loading" /> : q.error && !q.data ? <ErrorState message="We could not load the insights." onRetry={q.reload} testid="ins-error" />

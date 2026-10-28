@@ -60,6 +60,8 @@ export default function Welcome() {
   const [picked, setPicked] = useState(user?.prefs?.leagues || []);
   const [follows, setFollows] = useState([]);
   const [alerts, setAlerts] = useState(!!entitlements.alerts);
+  const [lineups, setLineups] = useState(true);
+  const [goals, setGoals] = useState(true);
   const [weekly, setWeekly] = useState(false);
   const [busy, setBusy] = useState(false);
   const saved = user?.prefs?.leagues;
@@ -69,7 +71,7 @@ export default function Welcome() {
   const finish = async (save) => {
     setBusy(true);
     try {
-      const r = await patch("/account/profile", { prefs: { welcomed: true, leagues: picked, ...(save && entitlements.alerts ? { alert_emails: alerts } : {}) } });
+      const r = await patch("/account/profile", { prefs: { welcomed: true, leagues: picked, ...(save && entitlements.alerts ? { alert_emails: alerts, alert_lineups: lineups, alert_goals: goals } : {}) } });
       setUser(r.user);
       if (save && weekly) await post("/newsletter/subscribe", { email: user.email, consent: true }).then(() => toast("Check your inbox to confirm the weekly e-mail")).catch(() => {});
       nav("/following", { replace: true });
@@ -89,7 +91,11 @@ export default function Welcome() {
           : step === 1 ? <Teams leagues={teamLeagues} follows={follows} setFollows={setFollows} />
           : (
             <div className="switch-list card" data-testid="welcome-alerts">
-              <Switch label="Alerts for my teams and players" hint={entitlements.alerts ? "Lineups, bookings and forecasts, by e-mail" : "Part of Pro"} checked={alerts && !!entitlements.alerts} disabled={!entitlements.alerts} onChange={setAlerts} testid="welcome-alert-emails" />
+              <Switch label="Alerts for my teams and players" hint={entitlements.alerts ? "By e-mail. Pick which below." : "Part of Pro"} checked={alerts && !!entitlements.alerts} disabled={!entitlements.alerts} onChange={setAlerts} testid="welcome-alert-emails" />
+              {entitlements.alerts && alerts && <>
+                <Switch label="Lineups for my teams" hint="When the starting elevens are confirmed" checked={lineups} onChange={setLineups} testid="welcome-alert-lineups" />
+                <Switch label="Goals and red cards" hint="During matches you follow" checked={goals} onChange={setGoals} testid="welcome-alert-goals" />
+              </>}
               {!entitlements.alerts && <div className="wl-pro"><ProLock testid="welcome-alerts-pro" /></div>}
               <Switch label="Weekly e-mail" hint="The week's strongest reads. We send a link to confirm." checked={weekly} onChange={setWeekly} testid="welcome-weekly" />
               <p className="k-faint k-small">Change these any time in Account.</p>

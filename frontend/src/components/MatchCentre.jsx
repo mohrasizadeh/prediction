@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { utc } from "../lib/time";
 import { Crest } from "./Media";
+import { FollowButton } from "./Actions";
 import LiveStatus from "./LiveStatus";
 import TeamRadar from "./TeamRadar";
 import TeamNews from "./TeamNews";
@@ -56,6 +57,7 @@ export function Hero({ d }) {
             : <><span className="mc-v">v</span><time className="mc-ko">{utc(m.kickoff).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>
               {cd && <span className="mc-cd" data-testid="match-countdown">Kick-off in {cd}</span>}</>}
           {st === "lineups" && <span className="k-tag k-tag--up" data-testid="match-lineups-confirmed">Lineups confirmed</span>}
+          {st !== "final" && <FollowButton kind="match" refId={m.id} name={`${d.home?.name} v ${d.away?.name}`} />}
         </div>
         <Side team={d.away} align="away" />
       </div>

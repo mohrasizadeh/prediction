@@ -1,5 +1,5 @@
 // Forecast card (docs/24, picture forecast_card_and_sheet.png). Takes one CARD (docs/21: headline + more_lines),
-// never raw forecast rows. Tap opens the detail sheet. The "usual rate" tick is hidden until the API sends it (DATA_GAPS).
+// never raw forecast rows. Tap opens the detail sheet. The "usual" tick shows how often the line came in over the last 10 games.
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { pct } from "../../lib/copy";
@@ -43,7 +43,8 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid }) {
           <TierBadge tier={f.tier} testid={`${id}-tier`} />
         </header>
         <div className="k-fc-line"><span className="k-fc-market">{f.market}</span><b className="k-fc-p" data-testid={`${id}-p`}>{pct(f.p)}</b></div>
-        <span className="k-fc-bar" aria-hidden="true"><b style={{ width: `${Math.round((f.p || 0) * 100)}%` }} /></span>
+        <span className="k-fc-bar" aria-hidden="true"><b style={{ width: `${Math.round((f.p || 0) * 100)}%` }} />{f.usual_p != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.usual_p * 100)}%` }} />}</span>
+        {f.usual_p != null && <small className="k-fc-vs" data-testid={`${id}-usual`}>{(() => { const d = Math.round((f.p - f.usual_p) * 100); return `${d > 0 ? "+" : ""}${d} pts vs usual (${pct(f.usual_p)} in last ${f.usual_n})`; })()}</small>}
         {f.reasons?.[0] && <p className="k-fc-why">{f.reasons[0]}</p>}
       </button>
       {(more.length > 0 || lineup) && (

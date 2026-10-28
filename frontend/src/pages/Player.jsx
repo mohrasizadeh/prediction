@@ -109,6 +109,22 @@ function FormStrips({ id }) {
   );
 }
 
+const RANK_LABEL = { shots: "shots", sot: "shots on target", tackles: "tackles", goals: "goals", assists: "assists" };
+const nth = (n) => `${n}${["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`;
+
+function Ranks({ id }) {
+  const q = useApi(`/players/${id}/ranks`);
+  const r = q.data?.ranks || [];
+  if (!r.length) return null;
+  return (
+    <section className="card pl-ranks" data-testid="player-ranks">
+      <h2 className="k-sec">{q.data.league} rank this season · per 90 minutes</h2>
+      <ul>{r.map((x) => <li key={x.stat} data-testid={`player-rank-${x.stat}`}><b>{nth(x.rank)}</b><span> of {x.of}</span><small className="k-faint">{RANK_LABEL[x.stat]} · {x.per90}</small></li>)}</ul>
+      <p className="k-faint k-small">Among players with at least {q.data.min_minutes} minutes.</p>
+    </section>
+  );
+}
+
 export default function Player() {
   const { id } = useParams();
   const q = useApi(`/players/${id}`);
@@ -136,6 +152,7 @@ export default function Player() {
         {nx && (forecasts.length ? <div className="fgrid">{forecasts.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} homeIid={nx.home_iid} />)}</div>
           : <p className="muted small">No forecasts for this player yet.</p>)}
       </section>
+      <Ranks id={id} />
       <FormStrips id={id} />
       <History id={id} />
       <Note id={id} />

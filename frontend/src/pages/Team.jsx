@@ -93,10 +93,29 @@ function Against({ id }) {
   );
 }
 
+const SEASON_KEYS = [["apps", "Apps"], ["minutes", "Min"], ["goals", "Goals"], ["shots", "Shots"], ["tackles", "Tackles"], ["yellow_cards", "Cards"]];
+
+function SquadCards({ id }) {
+  const q = useApi(`/teams/${id}/squad-season`);
+  if (q.loading && !q.data) return <Loading rows={4} />;
+  if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  const rows = q.data.players;
+  if (!rows.length) return <Empty icon="users">No appearances recorded this season yet.</Empty>;
+  return (
+    <ul className="sq-cards" data-testid="squad-cards">{rows.map((r) => (
+      <li key={r.player.id}><Link to={`/player/${r.player.id}`} className="sq-card card" data-testid={`squad-card-${r.player.id}`}>
+        <PlayerAvatar player={r.player} size={56} />
+        <span className="sq-who"><b>{r.player.name}</b><small className="muted">{posLabel(r.pos || r.player.pos)} · {r.starts} start{r.starts === 1 ? "" : "s"}</small></span>
+        <dl className="sq-nums">{SEASON_KEYS.map(([k, l]) => <div key={k}><dt>{l}</dt><dd>{Math.round(r[k] || 0)}</dd></div>)}</dl>
+      </Link></li>
+    ))}</ul>
+  );
+}
+
 export default function Team() {
   const { id } = useParams();
   const q = useApi(`/teams/${id}`);
-  const [tab, setTab] = useState("grid");
+  const [tab, setTab] = useState("squad");
   useTitle(q.data?.team?.name || "Team");
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
@@ -111,7 +130,8 @@ export default function Team() {
           <div className="phead-row"><FormPills form={d.form} /><div className="chips">{(d.style?.tactics || []).map((t) => <TacticChip key={t} t={t} />)}</div><FollowButton kind="team" refId={d.team.id} name={d.team.name} /><Link to={`/compare?a=${d.team.id}`} className="btn btn--secondary btn--sm" data-testid="team-compare">Compare with…</Link></div>
         </div>
       </header>
-      <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "grid", label: "Squad grid" }, { id: "totals", label: "Team totals" }, { id: "against", label: "Against" }, { id: "first", label: "First goal" }, { id: "fixtures", label: "Fixtures" }]} />
+      <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "squad", label: "Squad" }, { id: "grid", label: "Squad grid" }, { id: "totals", label: "Team totals" }, { id: "against", label: "Against" }, { id: "first", label: "First goal" }, { id: "fixtures", label: "Fixtures" }]} />
+      {tab === "squad" && <SquadCards id={id} />}
       {tab === "grid" && <Grid id={id} />}
       {tab === "totals" && <Totals id={id} />}
       {tab === "against" && <Against id={id} />}

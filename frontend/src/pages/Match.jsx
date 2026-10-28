@@ -28,17 +28,19 @@ function LiveTab({ d }) {
 function Pitch({ d }) {
   const pp = {};
   (d.forecasts || []).forEach((f) => { if (f.player_iid != null && f.p_play != null) pp[f.player_iid] = Math.max(pp[f.player_iid] || 0, f.p_play); });
+  const predicted = !d.starters.length;
+  const list = predicted ? d.predicted || [] : d.starters;
   const by = (iid) => {
-    const xs = d.starters.filter((s) => s.team_iid === iid);
+    const xs = list.filter((s) => s.team_iid === iid);
     const seen = new Set();
     return xs.filter((s) => !seen.has(s.player_iid) && seen.add(s.player_iid)).sort((a, b) => Number(!!b.confirmed) - Number(!!a.confirmed) || (pp[b.player_iid] ?? 1) - (pp[a.player_iid] ?? 1)).slice(0, 11);
   };
-  if (!d.starters.length) return <Empty icon="users">No lineups yet. They usually arrive about an hour before kickoff.</Empty>;
+  if (!list.length) return <Empty icon="users">No lineups yet. They usually arrive about an hour before kickoff.</Empty>;
   const sides = [[d.home, by(d.match.home_iid), "home"], [d.away, by(d.match.away_iid), "away"]];
-  const conf = d.starters.every((s) => s.confirmed);
+  const conf = !predicted && d.starters.every((s) => s.confirmed);
   return (
     <>
-      <p className="muted small">{conf ? <span className="k-tag k-tag--up">Lineups confirmed</span> : "Predicted eleven, with each player's chance to start"} · {sides.map(([t, xs]) => `${t.name} ${xs[0]?.formation || ""}`).join(" · ")}</p>
+      <p className="muted small" data-testid={predicted ? "pitch-predicted" : "pitch-lineups"}>{conf ? <span className="k-tag k-tag--up">Lineups confirmed</span> : predicted ? "Our predicted eleven: the most likely starters from each player's chance to play. The real lineups replace it about an hour before kickoff" : "Predicted eleven, with each player's chance to start"}{!predicted && <> · {sides.map(([t, xs]) => `${t.name} ${xs[0]?.formation || ""}`).join(" · ")}</>}</p>
       <div className="pitch" data-testid="pitch">
         <span className="pitch-half" aria-hidden="true" /><span className="pitch-circle" aria-hidden="true" />
         {sides.map(([t, xs, k]) => { const used = {}; return xs.map((s) => {

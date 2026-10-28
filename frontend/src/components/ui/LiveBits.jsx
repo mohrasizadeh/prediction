@@ -16,7 +16,7 @@ const WORD = { goal: "Goal", own_goal: "Own goal", penalty: "Penalty goal", yell
 
 function Momentum({ events }) {
   const n = (side, half) => events.filter((e) => e.side === side && (half === 1 ? e.minute_num <= 45 : e.minute_num > 45)).length;
-  if (events.length < 3) return null;
+  if (!events.length) return null;
   const parts = [1, 2].map((h) => [n("home", h), n("away", h)]);
   return (
     <div className="k-momentum" role="img" aria-label={parts.map(([a, b], i) => `Half ${i + 1}: home ${a} events, away ${b}`).join(". ")}>

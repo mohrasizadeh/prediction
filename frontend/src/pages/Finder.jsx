@@ -2,7 +2,8 @@
 // stays in the URL. Results update live for unlimited plans; on capped plans "Update results" spends a search.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { get } from "../lib/api";
+import { get, put } from "../lib/api";
+import { favFirst, useFavLeagues } from "../lib/prefs";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
 import { pct } from "../lib/copy";
@@ -93,8 +94,18 @@ export default function Finder() {
   const [anonUsed, setAnonUsed] = useState(null);
   const [wall, setWall] = useState(false);
   const [presets, setPresets] = useState(() => { try { return JSON.parse(localStorage.getItem(PRESETS)) || []; } catch { return []; } });
+  const fav = useFavLeagues();
+  useEffect(() => {
+    if (!me?.user) return;
+    get("/me/presets").then((r) => {
+      const local = JSON.parse(localStorage.getItem(PRESETS) || "[]");
+      const merged = [...r.items, ...local.filter((p) => !r.items.some((x) => x.name === p.name))].slice(0, 8);
+      setPresets(merged);
+      if (local.length) put("/me/presets", { items: merged }).then(() => localStorage.removeItem(PRESETS)).catch(() => {});
+    }).catch(() => {});
+  }, [me?.user]);
   const lg = useApi("/leagues");
-  const leagues = useMemo(() => (lg.data?.countries || []).flatMap((c) => c.leagues), [lg.data]);
+  const leagues = useMemo(() => favFirst((lg.data?.countries || []).flatMap((c) => c.leagues), fav, (l) => l.id), [lg.data, fav]);
   const max = entitlements?.finder_leagues ?? 1;
   const picked = f.leagues ? f.leagues.split(",") : [];
   const cap = me?.user ? entitlements?.finder_searches_per_day : me?.limits?.anonymous_finder_searches_per_day;
@@ -135,7 +146,8 @@ export default function Finder() {
     const name = window.prompt("Name this search", `${f.n}+ ${stat.label}`);
     if (!name) return;
     const next = [{ name: name.slice(0, 40), q: sp.toString() }, ...presets.filter((p) => p.name !== name)].slice(0, 8);
-    setPresets(next); localStorage.setItem(PRESETS, JSON.stringify(next));
+    setPresets(next);
+    if (me?.user) put("/me/presets", { items: next }).catch(() => {}); else localStorage.setItem(PRESETS, JSON.stringify(next));
   };
   const lgLabel = picked.length ? picked.map((id) => leagues.find((l) => l.id === id)?.name || "League").join(", ") : "pick a league";
   useTitle("Forecast Finder");
