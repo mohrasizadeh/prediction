@@ -72,6 +72,7 @@ export default function Compare() {
       {!ready ? <EmptyState icon="users" title="Pick two clubs" testid="compare-empty">Search a club on each side, or tick two clubs in a league's Teams tab.</EmptyState>
         : q.loading && !q.data ? <Skeleton shape="card" count={2} testid="compare-loading" />
         : q.error ? <ErrorState message="We could not load this comparison." onRetry={q.reload} testid="compare-error" />
+        : !d ? <Skeleton shape="card" count={2} testid="compare-loading" />
         : !d.a.row || !d.b.row ? <EmptyState icon="shield" title="Not enough matches yet" testid="compare-no-data">One of these clubs has no finished matches this season for this view.</EmptyState>
         : (
           <div className="cp-body">

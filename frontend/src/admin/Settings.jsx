@@ -10,7 +10,7 @@ import { sayError } from "../lib/errors";
 import Icon from "../components/Icon";
 import { Chip, KV, PageHead } from "./parts";
 
-const LOCKED = { "features.live": "PitchAPI has no live data.", "engine.lineup_effects": "Failed its test on simulated data. Stays off until a real-data backtest passes." };
+const LOCKED = { "engine.lineup_effects": "Failed its test on simulated data. Stays off until a real-data backtest passes." };
 const enumOpts = (s) => ((s.help || "").split(".")[0].includes("|") ? s.help.split(".")[0].split("|").map((x) => x.trim()) : null);
 const toText = (s, v) => (["json", "list"].includes(s.type) ? JSON.stringify(v, null, 2) : v === null || v === undefined ? "" : String(v));
 

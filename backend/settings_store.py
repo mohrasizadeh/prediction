@@ -77,11 +77,13 @@ def put(db, key: str, value, actor: str = "system") -> None:
     if key not in _REGISTRY:
         raise KeyError(f"unknown setting: {key}")
     validate(key, value)
-    if key == "features.live" or key == "engine.lineup_effects":
-        # locked settings: see 03_rules_and_compliance.md
+    if key == "engine.lineup_effects":
+        # locked setting: see 03_rules_and_compliance.md
         if value:
             raise ValueError(f"{key} is locked off")
     now = datetime.now(timezone.utc)
+    if key == "features.live":              # the live switch drives the SportAPI job (docs/23)
+        db.settings.update_one({"key": "sportapi.enabled"}, {"$set": {"value": bool(value), "updated_at": now, "updated_by": actor}}, upsert=True)
     old = db.settings.find_one({"key": key})
     db.settings.update_one({"key": key}, {"$set": {"value": value, "updated_at": now, "updated_by": actor}}, upsert=True)
     db.settings_history.insert_one({"key": key, "old": old["value"] if old else _REGISTRY[key]["default"],

@@ -1,9 +1,10 @@
 /* Team views (update pack part A): league Teams matrix, radar, Compare */
-.tm { display: grid; gap: 14px; padding-bottom: 80px; }
+.tm { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding-bottom: 80px; min-width: 0; }
+.tm-phone, .tm-desk--forced { grid-template-columns: minmax(0, 1fr); } .tm-desk { min-width: 0; }
 .tm-controls { display: flex; flex-wrap: wrap; gap: 10px; }
 .tm-legend { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 12px; color: var(--text3); }
 .tm-legend i { width: 120px; height: 8px; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 6%, var(--surface1)), color-mix(in srgb, var(--brand) 70%, var(--surface1))); }
-.tm-phone, .tm-desk--forced { display: grid; gap: 12px; } .tm-desk { display: none; } .tm-phone-hide { display: none; }
+.tm-phone, .tm-desk.tm-desk--forced { display: grid; gap: 12px; } .tm-desk { display: none; } .tm-phone-hide { display: none; }
 @media (min-width: 900px) { .tm-phone { display: none; } .tm-desk { display: block; } .tm-back { display: none; } }
 .tm-rank { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .tm-rank li { display: grid; grid-template-columns: 22px 30px minmax(0, 1.3fr) minmax(0, 1fr) 44px; align-items: center; gap: 8px; min-height: 48px; padding: 0 8px; border-radius: 12px; background: var(--surface1); border: 1px solid var(--border); }

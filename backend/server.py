@@ -72,6 +72,25 @@ def startup():
     mongo_init.ensure_indexes(db)
     P.seed(db)
     accounts.bootstrap_owner(db)            # first start only; the owner must change this password at first sign-in
+    _start_live_loop(db)
+
+
+def _start_live_loop(db):
+    """SportAPI minute job in the server process (platform crons cannot run every minute). Off unless features.live."""
+    import threading
+    import time
+    from datetime import datetime, timezone
+    import sportapi as SP
+
+    def loop():
+        while True:
+            try:
+                if S.get(db, "features.live"):
+                    SP.live_tick(db)
+            except Exception as e:  # noqa: BLE001
+                db.app_logs.insert_one({"at": datetime.now(timezone.utc), "level": "error", "source": "sportapi.live_loop", "message": str(e)[:500]})
+            time.sleep(60)
+    threading.Thread(target=loop, name="sportapi-live", daemon=True).start()
 
 
 # ------------------------------------------------------------------- public

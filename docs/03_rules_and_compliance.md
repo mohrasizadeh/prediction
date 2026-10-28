@@ -28,7 +28,7 @@ The scan: `selftest.py` fails if any public setting, market label or reason cont
 
 | Setting | Locked value | Why |
 |---|---|---|
-| `features.live` | false | PitchAPI has no live data. |
+| `features.live` | unlocked (owner decision, 2026-10-28) | Live data now comes from SportAPI (docs/23). The switch also turns `sportapi.enabled` on or off. |
 | `engine.lineup_effects` | false | The lineup-effects layer failed its test on simulated data. It stays off until a real-data backtest passes. `settings_store.put()` refuses `true`. |
 
 Do not add UI to unlock them. The Admin shows them as read-only with the reason.

@@ -34,7 +34,7 @@ function Mark({ text, q }) {
 
 async function find(q) {
   const [s, l] = await Promise.all([get("/search", { q }), get("/leagues", { q }).catch(() => [])]);
-  const leagues = (Array.isArray(l) ? l : l.leagues || l.items || []).slice(0, 5);
+  const leagues = (Array.isArray(l) ? l : l.leagues || l.items || (l.countries || []).flatMap((c) => (c.leagues || []).map((x) => ({ ...x, country: x.country || c.country }))) || []).slice(0, 5);
   let out = { players: s.players || [], teams: s.teams || [], leagues, fuzzy: false };
   if (!out.players.length && !out.teams.length && !leagues.length && q.length >= 4) {
     const s2 = await get("/search", { q: q.slice(0, 3), limit: 30 }).catch(() => ({}));

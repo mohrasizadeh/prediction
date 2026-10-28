@@ -222,12 +222,12 @@
   {
     "key": "features.live",
     "group": "Features",
-    "label": "Live in-play data (locked: PitchAPI has no live data)",
+    "label": "Live in-play data (SportAPI)",
     "type": "boolean",
     "default": false,
     "public": true,
     "applies_at": "immediately",
-    "help": "Locked off until a live data provider is added."
+    "help": "Live scores, match events and lineups from SportAPI. Turning this on also turns on the SportAPI job. Needs the SportAPI key and the league mapping."
   },
   {
     "key": "home.sections",
