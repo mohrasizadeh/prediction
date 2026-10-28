@@ -42,7 +42,7 @@ export function Insights() {
   const data = useMemo(() => q.data || [], [q.data]);
   const fav = useFavLeagues();
   const gameDays = useGameDays(0, 7);
-  const leagues = useMemo(() => favFirst([...new Map(data.map((f) => [f.league_iid, f.league_name || f.league?.name])).entries()], fav, ([id]) => id), [data, fav]);
+  const leagues = useMemo(() => { const idOf = Object.fromEntries(data.map((f) => [f.league_iid, f.league_id])); return favFirst([...new Map(data.map((f) => [f.league_iid, f.league_name || f.league?.name])).entries()], fav, ([iid]) => idOf[iid]); }, [data, fav]);
   const pos = (f) => (f.pos || f.player?.pos || "")[0];
   const rows = data.filter((f) => (!day || isoDay(utc(f.kickoff)) === day) && (!lg.length || lg.includes(f.league_iid))
     && (!mk.length || MARKETS.some((m) => mk.includes(m.id) && m.test(f))) && (!tier.length || tier.includes(f.tier)) && f.p * 100 >= more.min
@@ -62,7 +62,7 @@ export function Insights() {
         <ChipsRow label="More" testid="ins-more" options={[{ id: "more", label: "More filters", count: nMore || null, accent: true, onClick: () => setSheet(true) }]} />
       </div>
       <div className="ins-bar">
-        <Segmented label="Sort" value={sort} onChange={setSort} testid="ins-sort" options={[{ id: "likely", label: "Most likely" }, { id: "rise", label: "Biggest rise vs usual" }, { id: "time", label: "Kick-off" }]} />
+        <Segmented label="Sort" value={sort} onChange={setSort} testid="ins-sort" options={[{ id: "likely", label: "Most likely" }, { id: "rise", label: "Rise vs usual" }, { id: "time", label: "Kick-off" }]} />
         <Segmented label="View" value={view} onChange={setView} testid="ins-view" options={[{ id: "cards", label: "Cards" }, { id: "list", label: "List" }]} />
       </div>
       {q.loading && !q.data ? <Skeleton shape="card" count={6} testid="ins-loading" /> : q.error && !q.data ? <ErrorState message="We could not load the insights." onRetry={q.reload} testid="ins-error" />

@@ -45,7 +45,7 @@ const TONES = [{ id: "top", label: "Top (e.g. Europe)" }, { id: "mid", label: "M
 
 function Zones({ lg, onClose, onSaved }) {
   const toast = useToast();
-  const [rows, setRows] = useState(lg.zones?.length ? lg.zones : [{ start: 1, end: 4, label: "", tone: "top" }]);
+  const [rows, setRows] = useState(lg.zones || []);
   const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: k === "start" || k === "end" ? Number(v) : v } : r)));
   const save = async () => {
     try { await put(`/admin/leagues/${lg.iid}`, { zones: rows.filter((r) => r.label.trim()) }); toast("Table zones saved"); onSaved(); onClose(); } catch (x) { toast(x.message || "Could not save", "err"); }
@@ -53,6 +53,7 @@ function Zones({ lg, onClose, onSaved }) {
   return (
     <Drawer open title={`Table zones · ${lg.name}`} onClose={onClose} testid="zones-modal">
       <p className="a-muted small">Colour bands on the public league table, for example 1–4 Champions League, 18–20 Relegation. Rules change by season, so set them here.</p>
+      {rows.length > 0 && <div className="a-zone-row a-zone-head" aria-hidden="true"><small>From</small><small>To</small><small>Label</small><small>Colour</small><span /></div>}
       {rows.map((r, i) => (
         <div key={i} className="a-zone-row" data-testid={`zone-row-${i}`}>
           <input type="number" min={1} max={40} aria-label="From place" value={r.start} onChange={(e) => set(i, "start", e.target.value)} data-testid={`zone-${i}-start`} />
@@ -63,7 +64,7 @@ function Zones({ lg, onClose, onSaved }) {
         </div>
       ))}
       <div className="btn-row">
-        {rows.length < 8 && <button type="button" className="btn btn--secondary btn--sm" onClick={() => setRows([...rows, { start: 1, end: 1, label: "", tone: "bottom" }])} data-testid="zone-add">Add a zone</button>}
+        {rows.length < 8 && <button type="button" className="btn btn--secondary btn--sm" onClick={() => setRows([...rows, rows.length ? { start: 18, end: 20, label: "", tone: "bottom" } : { start: 1, end: 4, label: "", tone: "top" }])} data-testid="zone-add">Add a zone</button>}
         <button type="button" className="btn btn--primary btn--sm" onClick={save} data-testid="zones-save">Save zones</button>
       </div>
     </Drawer>

@@ -1,0 +1,56 @@
+{
+  "summary": "Iteration 27 (R7, hidden fields made visible). Backend: new pytest file with 16 tests: 14 pass, 1 fails (predicted XI has no goalkeeper), 1 fails as expected (follow_alerts ignores real SportAPI card/own-goal/penalty event types). One more bug, Insights missing usual_p, was found and fixed by the tester (one line). run_tests.sh self-tests all PASS, iter25 and iter26 regression 13 pass and 3 skipped, check-copy passed. Frontend (Playwright, desktop): forecast cards show the usual tick and '+N pts vs usual'; the 'Biggest rise vs usual' sort works; the forecast sheet shows the usual line, the last-10 strip for team and player, and Note -> Save note (persisted). The record line is correctly hidden because the track record is not ready (176/300). Search 'sa' shows 'Next NN%'. The Lineups tab shows a predicted eleven with 22 dots. Follow match works: Following state, You > Follows links to /match/{id}, the match appears in the feed and in the rail. The live-sheet momentum bar renders. Admin zones drawer: add, save, public table bands and legend, then remove, all verified. Player LaLiga rank card works. The Squad tab is first, with 24 cards and photos. Today and Insights date dots show. Account Lineup and Goal switches persist. Finder presets: local presets merge on sign-in, saved presets reach the account, and a second browser context sees them. Chosen leagues first works in Explore, Today, Search and Finder, but not in Insights. /admin home and the R5/R6 pages render.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "follow_alerts.goals()", "issue": "The event filter is {type:'goal'} OR (type ~ /card/ AND extra ~ /red/). Stored SportAPI events use event_type names like red_card, second_yellow, own_goal and penalty (see the LiveBits WORD map), and extra_info holds the player name or 'Goal'. As a result, red cards, second yellows, own goals and penalty goals never trigger a goal_alert. Reproduced in test_follow_alerts_real_event_types: 0 of 4 alerts were sent. Fix: match type in {goal, own_goal, penalty} for goals and {red_card, second_yellow} for red cards, and set 'what' to match.", "priority": "HIGH"},
+      {"endpoint": "follow_alerts._users / plans entitlement 'alerts'", "issue": "The Pro-only 'alerts' entitlement (default False, 'Part of Pro' in Welcome) is never checked. Any verified free user who follows a team, player or match gets lineup_alert and goal_alert e-mails. The Account > Notifications page also shows all three alert switches to free users without a Pro lock, which does not match Welcome step 3.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/matches/{id}.predicted (queries.predicted_xi)", "issue": "The engine makes no GK forecasts (distinct forecast pos = DEF/MID/FWD). So the predicted eleven always has 0 keepers and 11 outfield players, and the keeper area of the pitch is empty. The spec says 1 GK per side. Fill the GK from the players collection (most minutes or most starts) when no GK forecast exists."},
+      {"endpoint": "GET /api/insights (queries.insights_feed)", "issue": "FIXED BY TESTER: the feed did not call _usual(), so no card had usual_p, the Insights usual line was missing and 'Biggest rise vs usual' sorted nothing. Added _usual(db, fc) after the slice in insights_feed (queries.py)."},
+      {"endpoint": "follow_alerts._send", "issue": "vars={**vars, 'link': ... + vars.pop('path')} copies vars before the pop, so 'path' is also sent to the template. Harmless."},
+      {"endpoint": "accounts.USER_DATA / delete account", "issue": "follow_alerts rows (_id 'lineup:{uid}:..', 'live:{uid}:..') are not removed when an account is deleted. Small privacy leftover."},
+      {"endpoint": "queries.squad_season", "issue": "pos uses $last without a $sort before $group, so the position shown is not deterministic for players who changed role."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Insights league chips (Insights.jsx:45)", "issue": "favFirst compares f.league_iid (an integer iid) with prefs.leagues (league uuid ids), so chosen leagues are never moved first. Verified with prefs.leagues=[Premier League]: chips stayed LaLiga, Bundesliga, Serie A, Premier League. Explore put PL first. Fix: key by f.league?.id, or map ids to iids.", "selector": "[data-testid^='ins-league']", "priority": "MEDIUM"},
+      {"component": "Lineups tab predicted eleven", "issue": "No goalkeeper dot (see the backend issue). The pitch shows 4-3-3 or 3-5-3 shapes with an empty keeper zone.", "selector": "[data-testid='pitch-predicted']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "Finder presets (Finder.jsx useEffect [me?.user])", "issue": "The effect depends on the me.user object, which changes after every Finder run (/auth/me refetch). So GET /me/presets runs again after each search. In one run, a preset saved right after a search was missing from the chips (state was overwritten by the stale GET) while the API had it. It appeared after a reload. Use [me?.user?.id] as the dependency."},
+      {"flow": "You feed lineup news / 'forecast rose from X to Y'", "issue": "NOT VERIFIED: there are no confirmed lineups and no forecasts with p_prev in the DB yet. The code paths were reviewed only."},
+      {"flow": "Welcome step 3 for Pro", "issue": "NOT VERIFIED in the UI: the test user is on the free plan. The code shows the sub-switches only when entitlements.alerts is set and the master switch is on."}
+    ],
+    "design_issues": [
+      {"screen": "Admin > Leagues > Table zones drawer", "issues": ["Opens with one blank row even when no zones exist.", "The Label input and Colour select are too narrow: text is cut off ('Champions Le', 'Top (e.g. Eu').", "Number inputs are not labelled visibly (From/To)."]},
+      {"screen": "Forecast sheet footer with the note open", "issues": ["The Share button stretches to the textarea height (a tall grey block)."]},
+      {"screen": "Forecast sheet opened from the match page", "issues": ["The context line starts with a lone '· Fri 08:00 PM' because fx.text is empty there."]},
+      {"screen": "Live sheet", "issues": ["The league label reads 'Italian Serie A' (SportAPI name) while the rest of the app uses 'Serie A'."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter27_hidden_fields.py", "/app/test_reports/pytest/iter27.xml"],
+  "action_items": [
+    "follow_alerts.goals(): match the real event types (goal/own_goal/penalty, red_card/second_yellow) and label them correctly",
+    "follow_alerts: check the P.ent(db, user, 'alerts') entitlement before sending lineup and goal alerts. In Account > Notifications, lock the alert switches for free users like Welcome does, or decide that alerts are free and update the Welcome copy",
+    "predicted_xi: add a goalkeeper from the squad when no GK forecast exists",
+    "Insights.jsx: key favFirst by league uuid (f.league?.id) instead of league_iid",
+    "Finder.jsx: change the presets effect dependency to me?.user?.id",
+    "Zones drawer: widen the label and select inputs, and do not pre-add a blank row",
+    "Optional: delete follow_alerts rows when an account is deleted. Sort before $last in squad_season"
+  ],
+  "critical_code_review_comments": [
+    "queries.insights_feed was missing _usual(); fixed by the tester (one line). Main agent: keep it and consider calling _decorate-style helpers consistently",
+    "follow_alerts.goals(): the 15-minute 'old news' guard means that if the 2-min job is paused for more than 15 minutes, goals in that gap are never sent. Acceptable, but document it",
+    "follow_alerts queries db.follows with $or per match on every tick. Add an index on follows(kind, ref_iid) if it is not there",
+    "_lineup_news only covers followed players. Followed teams and matches get no lineup item in the feed, though follow_alerts e-mails them"
+  ],
+  "updated_files": ["/app/backend/queries.py (insights_feed: added _usual(db, fc))", "/app/backend/tests/test_iter27_hidden_fields.py"],
+  "success_rate": {"backend": "88% (14/16; 2 real bugs; 1 more fixed by the tester)", "frontend": "90% (all requested flows render; Insights fav order broken; predicted XI has no GK)"},
+  "seed_data_creation": "Recreated test_e1_user and test_e1_admin (TOTP via admin_login_helper), set prefs.welcomed and display_name 'TEST User'. During tests the tester created a note, a match follow, Finder presets, prefs.leagues, and LaLiga zones (zones removed through the UI, now []). follow_alerts unit tests used throwaway DBs (<DB_NAME>_test_fa27, _test_fa27b), both dropped, with a monkeypatched mailer and example.com addresses only. Finally both users were deleted along with their notes, follows, sessions, auth_tokens, auth_log, events, app_logs and email_log rows. The production follow_alerts collection is empty.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "LaLiga iid 30 / id 459108cf-0d2e-4281-bf44-d44d406d11f5. Villarreal v Espanyol 36cf495e-6dfa-4a65-998f-2ec88f506ed2 is upcoming with no lineups (predicted XI). Villarreal team 447e20d3-df6f-47af-b294-a653a90fcb50, Ayoze Pérez 6af77c99-8ec9-4548-8cbc-55eed10d04d4. The admin leagues route is /admin/data/leagues. The visitor Finder quota was used up from the shared IP, so seed localStorage 'finder-presets' instead. Log in inside Playwright with page.request.post('/api/auth/login') (cookies are shared). Header search opens via [data-testid=header-search-field]. Track record is not ready (176/300), so the sheet record line is hidden by design. Retest: follow_alerts event types and entitlement, the predicted XI GK, the Insights fav-first order.",
+  "rca of the issue": "Insights usual missing: insights_feed builds its own decoration and skips _usual(), which only runs in _decorate. Fav-first in Insights: the id space differs (league_iid int vs prefs.leagues uuid). Predicted XI GK: predicted_xi picks the GK only from forecasts, and the engine makes no GK forecasts. follow_alerts misses red cards: the filter assumes type 'card' plus extra 'Red...', while SportAPI types are red_card, second_yellow, own_goal and penalty. Free users get alerts: no entitlement check in follow_alerts._users."
+}

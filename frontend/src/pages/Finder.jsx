@@ -103,7 +103,7 @@ export default function Finder() {
       setPresets(merged);
       if (local.length) put("/me/presets", { items: merged }).then(() => localStorage.removeItem(PRESETS)).catch(() => {});
     }).catch(() => {});
-  }, [me?.user]);
+  }, [me?.user?.id]);
   const lg = useApi("/leagues");
   const leagues = useMemo(() => favFirst((lg.data?.countries || []).flatMap((c) => c.leagues), fav, (l) => l.id), [lg.data, fav]);
   const max = entitlements?.finder_leagues ?? 1;

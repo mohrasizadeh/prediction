@@ -62,7 +62,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       footer={<>{f.fkey && <SaveButton fkey={f.fkey} />}{f.scope === "player" && f.player?.id && <NoteBox player={f.player} testid={testid} />}<button type="button" className="btn btn--secondary" onClick={share} data-testid={`${testid}-share`}>Share</button></>}>
       <div className="k-fs-head" style={{ "--tone": f.tier ? `var(--tier-${f.tier.toLowerCase()})` : "var(--text3)" }}>
         {f.player ? <PlayerAvatar player={f.player} size={52} /> : <Crest team={fx.team} size={52} />}
-        <span className="k-fc-who"><small>{fx.text}{f.kickoff ? ` · ${timeOf(f.kickoff)}` : ""}</small></span>
+        <span className="k-fc-who"><small>{[fx.text, f.kickoff ? timeOf(f.kickoff) : null].filter(Boolean).join(" · ")}</small></span>
         <b className="k-fc-p">{pct(f.p)}</b>
       </div>
       {(f.reasons || []).length > 0 && <section><h3 className="k-sec">Why</h3><ul className="k-fs-why">{f.reasons.slice(0, 3).map((r) => <li key={r}>{r}</li>)}</ul></section>}

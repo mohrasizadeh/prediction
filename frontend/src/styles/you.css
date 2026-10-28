@@ -157,5 +157,7 @@
 .sq-who { display: grid; min-width: 0; } .sq-who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sq-nums { grid-column: 1 / -1; margin: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; text-align: center; }
 .sq-nums dt { font-size: 11px; color: var(--text3); } .sq-nums dd { margin: 0; font-weight: 800; }
-.a-zone-row { display: grid; grid-template-columns: 64px 64px minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; margin-bottom: 8px; }
+.a-zone-row { display: grid; grid-template-columns: 64px 64px minmax(140px, 1fr) minmax(150px, 1fr) auto; gap: 6px; margin-bottom: 8px; }
+.a-zone-head small { color: var(--text3); font-size: 12px; }
+.k-fs-note ~ *, .k-fs-note + * { align-self: start; }
 @media (max-width: 560px) { .a-zone-row { grid-template-columns: 1fr 1fr; } }

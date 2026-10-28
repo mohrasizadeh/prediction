@@ -84,7 +84,7 @@ def match_detail(db, match_iid: int) -> dict | None:
     return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]], "events": ev,
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
             "forecasts": fc, "cards": group_cards(fc), "styles": styles, "starters": lu,
-            "predicted": [] if lu else predicted_xi(fc, (m["home_iid"], m["away_iid"])),
+            "predicted": [] if lu else predicted_xi(db, fc, (m["home_iid"], m["away_iid"])),
             "rotation": {c["team_iid"]: {"level": c.get("level", "low"), "why": c.get("why", ""), "rest_days": c.get("rest_days"), "next_gap": c.get("next_gap")}
                          for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "level" in c},
             "context": {c["team_iid"]: {"form_vs_expected": c.get("form_fp"), "situation": c.get("stakes"), "games_left": c.get("games_left"), "why": c.get("context_why", [])}
@@ -193,6 +193,7 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
         fc = group_cards(fc)
     fc.sort(key=lambda f: (TIER_RANK[f["tier"]], -f["p"]))
     fc = fc[:limit]
+    _usual(db, fc)
     pl = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
     tm = _names(db, "teams", [f["team_iid"] for f in fc] + [f["opp_iid"] for f in fc])
     homes = _homes(db, fc)
@@ -200,6 +201,7 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     for f in fc:
         f["home_iid"] = homes.get(f["match_iid"])
         f["league_name"] = (lgs.get(f.get("league_iid")) or {}).get("name")
+        f["league_id"] = (lgs.get(f.get("league_iid")) or {}).get("id")
         f["player"] = pl.get(f.get("player_iid")); f["team"] = tm.get(f["team_iid"]); f["opp"] = tm.get(f["opp_iid"])
     return fc
 
@@ -359,6 +361,7 @@ def _decorate(db, fc):
         f["player"] = pl.get(f.get("player_iid")); f["team"] = tm.get(f["team_iid"]); f["opp"] = tm.get(f["opp_iid"])
         f["home_iid"] = homes.get(f["match_iid"])
         f["league_name"] = (lgs.get(f.get("league_iid")) or {}).get("name")
+        f["league_id"] = (lgs.get(f.get("league_iid")) or {}).get("id")
     return fc
 
 
@@ -597,8 +600,9 @@ def player_history(db, player_iid: int, last_n: int = 20, venue: str | None = No
 LINE_X = {"GK": 0.03, "DEF": 0.28, "MID": 0.58, "FWD": 0.88}
 
 
-def predicted_xi(fc, team_iids) -> list[dict]:
-    """Before lineups arrive: each side's 11 most likely starters (1 keeper + 10) from the forecasts' chance to play."""
+def predicted_xi(db, fc, team_iids) -> list[dict]:
+    """Before lineups arrive: each side's 11 most likely starters (1 keeper + 10) from the forecasts' chance to play.
+    The engine makes no keeper forecasts, so the keeper is the club's most-started goalkeeper in its last 10 games."""
     out = []
     for tid in team_iids:
         best = {}
@@ -608,6 +612,13 @@ def predicted_xi(fc, team_iids) -> list[dict]:
                     best[f["player_iid"]] = f
         ranked = sorted(best.values(), key=lambda f: -f["p_play"])
         gk = [f for f in ranked if f.get("pos") == "GK"][:1]
+        if not gk and ranked:
+            recent = list(db.player_match_stats.find({"team_iid": tid, "pos": "GK", "started": True}, {"_id": 0, "player_iid": 1}).sort("kickoff", -1).limit(10))
+            if recent:
+                top = max({r["player_iid"] for r in recent}, key=lambda i: sum(1 for r in recent if r["player_iid"] == i))
+                p = _names(db, "players", [top]).get(top)
+                if p:
+                    gk = [{"player_iid": top, "player": p, "pos": "GK", "p_play": sum(1 for r in recent if r["player_iid"] == top) / len(recent)}]
         xi = gk + [f for f in ranked if f.get("pos") != "GK"][:11 - len(gk)]
         lines: dict = {}
         for f in xi:
@@ -678,7 +689,7 @@ def squad_season(db, team_iid: int) -> dict:
     if start:
         q["kickoff"] = {"$gte": start}
     keys = ("goals", "assists", "shots", "sot", "tackles", "yellow_cards")
-    rows = list(db.player_match_stats.aggregate([{"$match": q}, {"$group": {"_id": "$player_iid", "apps": {"$sum": {"$cond": [{"$gt": ["$minutes", 0]}, 1, 0]}},
+    rows = list(db.player_match_stats.aggregate([{"$match": q}, {"$sort": {"kickoff": 1}}, {"$group": {"_id": "$player_iid", "apps": {"$sum": {"$cond": [{"$gt": ["$minutes", 0]}, 1, 0]}},
                                                                               "starts": {"$sum": {"$cond": ["$started", 1, 0]}}, "minutes": {"$sum": {"$ifNull": ["$minutes", 0]}},
                                                                               "pos": {"$last": "$pos"}, **{k: {"$sum": {"$ifNull": [f"${k}", 0]}} for k in keys}}},
                                                  {"$match": {"apps": {"$gt": 0}}}, {"$sort": {"minutes": -1}}]))

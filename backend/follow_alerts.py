@@ -14,10 +14,15 @@ def Q_minute(s):
     return _minute_num(s) if s else None
 
 
+GOALS = {"goal": "Goal", "own_goal": "Own goal", "penalty": "Penalty goal"}
+REDS = {"red_card": "Red card", "second_yellow": "Second yellow, sent off"}
+
+
 def _users(db, uids, pref):
+    import plans as P
     for u in db.users.find({"id": {"$in": list(uids)}, "disabled": {"$ne": True}, "email_verified": True}):
         p = u.get("prefs") or {}
-        if p.get("alert_emails", True) is not False and p.get(pref, True) is not False:
+        if p.get("alert_emails", True) is not False and p.get(pref, True) is not False and P.ent(db, u, "alerts"):
             yield u
 
 
@@ -25,10 +30,11 @@ def _send(db, key, u, template, vars) -> bool:
     import emailer as E
     if db.follow_alerts.find_one({"_id": key}):
         return False
-    r = E.send_template(db, template, to=u["email"], user=u, vars={**vars, "link": E.base_url() + vars.pop("path", "/following")}, idem=key)
+    path = vars.pop("path", "/following")
+    r = E.send_template(db, template, to=u["email"], user=u, vars={**vars, "link": E.base_url() + path}, idem=key)
     if r.get("status") not in ("sent", "duplicate"):
         return False
-    db.follow_alerts.update_one({"_id": key}, {"$set": {"at": datetime.now(timezone.utc), "status": r.get("status")}}, upsert=True)
+    db.follow_alerts.update_one({"_id": key}, {"$set": {"at": datetime.now(timezone.utc), "status": r.get("status"), "user_id": u["id"]}}, upsert=True)
     return r.get("status") == "sent"
 
 
@@ -61,7 +67,7 @@ def goals(db, now) -> int:
     if not ms:
         return 0
     sent = 0
-    evs = db.live_events.find({"fixture_sid": {"$in": list(ms)}, "$or": [{"type": "goal"}, {"type": {"$regex": "card", "$options": "i"}, "extra": {"$regex": "red", "$options": "i"}}]}, {"_id": 0})
+    evs = db.live_events.find({"fixture_sid": {"$in": list(ms)}, "type": {"$in": [*GOALS, *REDS]}}, {"_id": 0})
     for e in evs:
         m = ms[e["fixture_sid"]]
         now_min = Q_minute(m["live"].get("minute"))
@@ -73,7 +79,7 @@ def goals(db, now) -> int:
             continue
         teams = Q._names(db, "teams", [m["home_iid"], m["away_iid"]])
         h, a = (teams.get(m["home_iid"]) or {}).get("name", "?"), (teams.get(m["away_iid"]) or {}).get("name", "?")
-        what = "Goal" if e["type"] == "goal" else "Red card"
+        what = GOALS.get(e["type"]) or REDS.get(e["type"])
         score = f"{h} {m['live'].get('hs', 0)}-{m['live'].get('as', 0)} {a}"
         for u in _users(db, uids, "alert_goals"):
             sent += _send(db, f"live:{u['id']}:{e['fixture_sid']}:{e['eid']}", u, "goal_alert",

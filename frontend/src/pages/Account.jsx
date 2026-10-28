@@ -9,6 +9,7 @@ import { utc } from "../lib/time";
 import { Confirm, Field, FormError, PasswordField, Switch, useToast } from "../components/Ui";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import Icon from "../components/Icon";
+import { ProLock } from "../components/ui";
 import { NewPasswordForm, TwoFactorSetup } from "./Auth";
 
 const TABS = [
@@ -144,7 +145,7 @@ function Devices() {
 }
 
 function Notifications() {
-  const { user, setUser } = useAuth();
+  const { user, setUser, entitlements } = useAuth();
   const toast = useToast();
   const p = user.prefs || {};
   const staff = user.role !== "user";
@@ -160,7 +161,8 @@ function Notifications() {
   if (staff) rows.push(["admin_alerts", "E-mail me when something looks wrong", "Staff only.", ["owner", "admin"].includes(user.role)], ["admin_digest", "Weekly summary", "Staff only.", false]);
   return (
     <Section title="Notifications" testid="account-notifications">
-      <div className="switch-list">{rows.map(([k, l, h, d]) => <Switch key={k} label={l} hint={h} checked={val(k, d)} onChange={(v) => set(k, v)} testid={`pref-${k}`} />)}</div>
+      <div className="switch-list">{rows.map(([k, l, h, d]) => { const pro = k.startsWith("alert_") && !entitlements?.alerts; return <Switch key={k} label={l} hint={pro ? `${h} Part of Pro.` : h} checked={!pro && val(k, d)} disabled={pro} onChange={(v) => set(k, v)} testid={`pref-${k}`} />; })}</div>
+      {!entitlements?.alerts && <ProLock label="Alerts are part of Pro" testid="account-alerts-pro" />}
       <p className="muted small">Receipts and security e-mails cannot be turned off.</p>
     </Section>
   );
