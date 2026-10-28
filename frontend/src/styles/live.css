@@ -70,7 +70,8 @@
 .fcard-more b { font-variant-numeric: tabular-nums; }
 
 @media (max-width: 480px) {
-  .live-main { grid-template-columns: 58px minmax(0, 1fr) 52px minmax(0, 1fr); gap: 6px; }
+  .live-main { grid-template-columns: 74px minmax(0, 1fr) 46px minmax(0, 1fr); gap: 6px; }
+  .live-status time, .live-status .muted { font-size: 12px; white-space: nowrap; }
   .live-team { font-size: 13px; gap: 6px; }
   .llu, .tnews { grid-template-columns: 1fr; }
 }

@@ -1,0 +1,55 @@
+{
+  "summary": "Tested Redesign R2 shell (5-item rail/bottom tabs, search overlay, live pill + sheet, new footer/newsletter, Explore), Team Views pack (league Teams matrix desktop+phone, Compare tray, /compare page) and the unlocked features.live setting. Backend 32/32 pytest pass (new file + iter22 file). Frontend: all requested flows work at 1920x800 and 390x844 in light and dark; no horizontal overflow on /, /explore, /compare, /league Teams tab, /live. Nothing was live during the test (live_count=0, 5 Serie A fixtures today from SportAPI), so the pill was hidden; pill + live-sheet were also checked with an intercepted /api/live response (live_count=1) and both work on desktop and phone. A few logic/UX issues listed below; no blocking bugs.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/admin/settings/features.live (settings_store.reset)", "issue": "Reset to default sets features.live back to False but does NOT mirror sportapi.enabled (only put() mirrors). After a reset the two settings disagree (live off, SportAPI job still enabled). The minute loop checks features.live only, so it stops, but /admin/integrations still shows SportAPI On."},
+      {"endpoint": "GET /api/teams/compare?a=X&b=X", "issue": "Same club on both sides returns 200 with a self-comparison; frontend guards it but the API could return 400."},
+      {"endpoint": "GET /api/teams/compare stands_out", "issue": "Wording 'Possession %: Elche 50.0 a game' – 'a game' does not fit possession; number formatting differs between stands_out (7.0, 1.23), edges (2 decimals) and matrix (1 decimal)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "TeamMatrix Grid (desktop)", "issue": "Sortable headers always sort highest first, even for low-is-better stats (Goals against, xG against, Shots against...). Clicking 'Goals against' puts the worst defence (Racing Santander 2.6) on top, while the phone Ranked view correctly puts fewest first (Celta Vigo 0.7). Use s.better === 'low' in Grid sort too (or a second click to flip).", "selector": "[data-testid^=team-matrix-sort-]", "priority": "MEDIUM"},
+      {"component": "TeamMatrix heat-map shading", "issue": "Cell shade uses pct where 1 = highest raw value, but the legend says 'Bottom of league -> Top of league'. For 'against' stats the darkest cell is the worst team, so the legend is misleading. Shade by _good() (flipped for low-is-better) or relabel the legend 'Lowest -> Highest'.", "selector": ".tm-heat", "priority": "MEDIUM"},
+      {"component": "/live page on phone 390", "issue": "Kick-off time '05:30 PM' overlaps the home crest in each row (time column too narrow).", "selector": "/live fixture rows", "priority": "LOW"},
+      {"component": "Compare tray on phone", "issue": "'2 selected' wraps onto two lines in the 261px tray.", "selector": "[data-testid=compare-tray]", "priority": "LOW"},
+      {"component": "Team matrix 'Show all stats' on phone", "issue": "Switching to the grid leaves the page scrolled near the bottom of the table; the user loses their place. Scroll the grid into view after switching.", "selector": "[data-testid=team-matrix-show-all]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "You tab signed out", "issue": "Goes to /following which shows an inline 'Sign in to follow…' prompt with a Sign in button, not a redirect to /sign-in. Review asked 'redirects to sign-in as before' – confirm this is intended.", "affected_selectors": ["[data-testid=tab-you]", "[data-testid=rail-you]"]},
+      {"flow": "Compare page load", "issue": "Initial /api/teams/compare request fires twice with identical params (useApi double fetch). Minor waste.", "affected_selectors": ["[data-testid=compare-page]"]}
+    ],
+    "design_issues": [
+      {"screen": "Explore / Leagues list and search overlay", "issues": ["All leagues are grouped under 'Other' and search shows 'Other' as the league country (Bundesliga, LaLiga …): country data missing for leagues."]},
+      {"screen": "Crests", "issues": ["Several clubs show the generic shield instead of a crest (Elche, Levante, Málaga, Racing Santander; on phone /live also Juventus, Monza, Napoli at first load)."]},
+      {"screen": "Live sheet card", "issues": ["Minute shows 'Live 37' – consider 37' for clarity."]},
+      {"screen": "Admin > Integrations SportAPI card", "issues": ["Copy still says 'Turn it on with sportapi.enabled in Settings'; it is now driven by features.live."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter23_shell_live_settings.py", "/app/backend/tests/test_iter22_team_views.py", "/app/test_reports/pytest/iter23.xml"],
+  "action_items": [
+    "TeamMatrix Grid: sort low-is-better stats ascending (match Ranked view)",
+    "TeamMatrix heat shading/legend: flip for low-is-better stats or relabel legend",
+    "settings_store.reset('features.live') should also reset/mirror sportapi.enabled",
+    "Fix /live row time/crest overlap at 390px",
+    "Fill league country (everything shows 'Other')",
+    "Update Integrations SportAPI copy to point at features.live",
+    "Optional: stands_out wording for possession, consistent number formatting, compare a==b -> 400, tray text wrap, You-tab signed-out behaviour confirm"
+  ],
+  "critical_code_review_comments": [
+    "routes_teams.py: team-matrix recomputes all league rows from Mongo on every call; compare() calls matrix() twice (once per side) even for the same league/venue – cache or reuse when same league & venue.",
+    "team_insights._rows uses $in with every finished match iid of the season; fine now, consider an index on team_match_stats(league_iid, match_iid, kickoff).",
+    "server._start_live_loop starts a thread per server process; with several workers/pods each runs live_tick (throttled by DB interval state, but no lease) – consider a DB lease to protect the 1800/day cap.",
+    "TeamMatrix.jsx shadows the global `window` with a state variable named window (also in Compare.jsx) – works but risky/confusing.",
+    "SearchOverlay fuzzy fallback only triggers when q.length>=4 and nothing matched exactly; verified 'barcelno' -> Barcelona (close match)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter23_shell_live_settings.py"],
+  "success_rate": {"backend": "100% (32/32)", "frontend": "~92% (all requested flows work; 2 medium logic issues in matrix sort/shading)"},
+  "test_credentials": "Recreated test_e1_admin (admin, TOTP enrolled via admin_login_helper) and test_e1_user per /app/memory/test_credentials.md; both deleted afterwards with sessions and follows. Owner not used.",
+  "seed_data_creation": "Temporary: admin followed Barcelona (removed), TEST_ newsletter subscribers (deleted). features.live toggled OFF then ON via PUT by admin (allowed, not owner-only); final state features.live=true, sportapi.enabled=true. No SportAPI tick/backfill/load-leagues calls made.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: export REACT_APP_BACKEND_URL; set -a; . backend/.env; recreate users via tests/recreate_test_users.py (delete test_e1_admin first, rm /tmp/test_admin_totp.json); pytest tests/test_iter23_shell_live_settings.py tests/test_iter22_team_views.py. Note test_iter22 test_live_and_search asserts live_count==0 and will fail when a match is live. To test live pill without a live match, intercept **/api/live?* in Playwright and set a fixture status LIVE + live_count 1. LaLiga id 459108cf-0d2e-4281-bf44-d44d406d11f5.",
+  "rca of the issue": "Grid sort: TeamMatrix.jsx Grid useMemo sorts (b - a) unconditionally, ignoring stats[].better; Ranked() uses better. Heat shade: team_insights._pcts returns rank by raw value; frontend uses t.pct directly for --h without flipping for better=='low'. Settings mismatch: settings_store.reset() lacks the features.live -> sportapi.enabled mirror that put() has."
+}

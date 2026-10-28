@@ -130,5 +130,6 @@ def compare(db, a_id, b_id, window="season", as_fixture=False):
         if gap < 0.25:
             break
         better = an if ((x > y) == (BETTER[k] == "high")) else bn
-        out["stands_out"].append(f"{l}: {an} {x} a game, {bn} {y}. Clear edge to {better}.")
+        unit = "%" if k == "poss" else " a game"
+        out["stands_out"].append(f"{l.replace(' %', '')}: {an} {x:.1f}{unit}, {bn} {y:.1f}{unit}. Clear edge to {better}.")
     return out

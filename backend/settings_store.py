@@ -93,6 +93,8 @@ def put(db, key: str, value, actor: str = "system") -> None:
 
 def reset(db, key: str, actor: str = "system") -> None:
     db.settings.delete_one({"key": key})
+    if key == "features.live":
+        db.settings.delete_one({"key": "sportapi.enabled"})
     db.audit_log.insert_one({"actor": actor, "action": "settings.reset", "target": key,
                              "at": datetime.now(timezone.utc)})
 

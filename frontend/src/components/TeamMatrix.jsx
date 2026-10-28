@@ -9,6 +9,7 @@ import { ChipsRow, EmptyState, ErrorState, Segmented, Skeleton } from "./ui";
 const WINDOWS = [{ id: "season", label: "Season" }, { id: "last10", label: "Last 10" }, { id: "last5", label: "Last 5" }];
 const VENUES = [{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }];
 const fmt = (v) => (v == null ? "–" : Number.isInteger(v) ? v : v.toFixed(1));
+const good = (s, p) => (p == null ? 0 : s.better === "low" ? 1 - p : p);
 
 function Ranked({ d, stat, picked, toggle }) {
   const s = d.stats.find((x) => x.key === stat);
@@ -31,7 +32,12 @@ function Ranked({ d, stat, picked, toggle }) {
 
 function Grid({ d, picked, toggle }) {
   const [sort, setSort] = useState(null);
-  const rows = useMemo(() => (sort ? [...d.teams].sort((a, b) => (b.values[sort] ?? -1) - (a.values[sort] ?? -1)) : d.teams), [d, sort]);
+  const rows = useMemo(() => {
+    if (!sort) return d.teams;
+    const s = d.stats.find((x) => x.key === sort);
+    const low = s.better === "low";
+    return [...d.teams].sort((a, b) => { const x = a.values[sort], y = b.values[sort]; if (x == null) return 1; if (y == null) return -1; return low ? x - y : y - x; });
+  }, [d, sort]);
   return (
     <div className="tm-scroll" data-testid="team-matrix-grid">
       <table className="tm-grid">
@@ -44,7 +50,7 @@ function Grid({ d, picked, toggle }) {
               <input type="checkbox" checked={picked.includes(t.team.id)} onChange={() => toggle(t.team.id)} aria-label={`Pick ${t.team.name} to compare`} data-testid={`team-grid-pick-${t.team.id}`} />
               <Link to={`/team/${t.team.id}`}><Crest team={t.team} size={22} />{t.team.name}</Link></span></th>
             <td>{t.games}</td>
-            {d.stats.map((s) => <td key={s.key} className="tm-heat" style={{ "--h": t.pct[s.key] ?? 0 }}>{fmt(t.values[s.key])}</td>)}
+            {d.stats.map((s) => <td key={s.key} className="tm-heat" style={{ "--h": good(s, t.pct[s.key]) }}>{fmt(t.values[s.key])}</td>)}
           </tr>
         ))}</tbody>
       </table>
@@ -72,12 +78,12 @@ export default function TeamMatrix({ leagueId }) {
         <EmptyState icon="shield" title="No finished matches yet" testid="team-matrix-empty">Club numbers appear after the first round of this season is played. Try the Fixtures tab for what is next.</EmptyState>
       ) : (
         <>
-          <p className="tm-legend" aria-hidden="true"><span>Bottom of league</span><i /><span>Top of league</span></p>
-          <p className="sr-only">Per game averages. Darker cells are nearer the top of the league for that number.</p>
+          <p className="tm-legend" aria-hidden="true"><span>Weaker</span><i /><span>Stronger (fewest for "against" numbers)</span></p>
+          <p className="sr-only">Per game averages. Darker cells are the better end of the league for that number.</p>
           <div className={all ? "tm-phone-hide" : "tm-phone"}>
             <ChipsRow options={d.stats.map((s) => ({ id: s.key, label: s.label }))} value={stat} onChange={setStat} label="Pick a stat" testid="team-matrix-stat" />
             <Ranked d={d} stat={stat} picked={picked} toggle={toggle} />
-            <button type="button" className="btn btn--secondary tm-all" onClick={() => setAll(true)} data-testid="team-matrix-show-all">Show all stats</button>
+            <button type="button" className="btn btn--secondary tm-all" onClick={() => { setAll(true); setTimeout(() => document.querySelector('[data-testid="team-matrix-grid"]')?.scrollIntoView({ block: "start" }), 50); }} data-testid="team-matrix-show-all">Show all stats</button>
           </div>
           <div className={all ? "tm-desk tm-desk--forced" : "tm-desk"}>
             {all && <button type="button" className="k-link tm-back" onClick={() => setAll(false)} data-testid="team-matrix-show-one">Back to one stat</button>}

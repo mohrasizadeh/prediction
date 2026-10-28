@@ -24,6 +24,8 @@ def team_matrix(league_id: str, response: Response, window: str = Query("season"
 @router.get("/teams/compare")
 def teams_compare(response: Response, a: str = Query(max_length=64), b: str = Query(max_length=64),
                   window: str = Query("season", pattern="^(season|last10|last5)$"), as_fixture: bool = False, db=Depends(D.get_db)):
+    if a == b:
+        raise D.err(400, "SAME_TEAM", "Pick two different clubs.")
     out = TI.compare(db, a, b, window, as_fixture)
     if out is None:
         raise D.err(404, "NOT_FOUND", "No such team.")
