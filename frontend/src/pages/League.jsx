@@ -1,10 +1,11 @@
 // Screens 5 and 6: Leagues (country groups with search) and League (Fixtures, Results, Leaderboards, Teams).
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
+import TeamMatrix from "../components/TeamMatrix";
 import { MatchRow, STATS, Seg, Select, kickoff, num1, posLabel, useTitle } from "../components/Football";
 import { refPath } from "./Referee";
 
@@ -128,17 +129,8 @@ function Bookings({ id }) {
   );
 }
 
-function Teams({ id, next }) {
-  const q = useApi(`/leagues/${id}/fixtures`, { status: "final", limit: 200 });
-  const teams = useMemo(() => {
-    const t = new Map();
-    [...(next || []), ...(q.data || [])].forEach((m) => [m.home, m.away].forEach((x) => x && t.set(x.id, x)));
-    return [...t.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [q.data, next]);
-  if (q.loading && !q.data) return <Loading />;
-  if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
-  if (!teams.length) return <Empty icon="shield">No clubs loaded yet.</Empty>;
-  return <ul className="tgrid" data-testid="league-teams">{teams.map((t) => <li key={t.id}><Link to={`/team/${t.id}`} className="tcard"><Crest team={t} size={40} /><b>{t.name}</b></Link></li>)}</ul>;
+function Teams({ id }) {
+  return <TeamMatrix leagueId={id} />;
 }
 
 export default function League() {
@@ -158,7 +150,7 @@ export default function League() {
       {tab === "leaders" && <Leaders id={id} />}
       {tab === "referees" && <Referees id={id} />}
       {tab === "bookings" && <Bookings id={id} />}
-      {tab === "teams" && <Teams id={id} next={d.next} />}
+      {tab === "teams" && <Teams id={id} />}
     </section>
   );
 }

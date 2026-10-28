@@ -27,6 +27,7 @@ import queries as Q
 import routes_accounts
 import routes_admin
 import routes_billing
+import routes_teams
 import routes_data
 import routes_data_admin
 import routes_ingest_admin
@@ -51,6 +52,7 @@ app.include_router(routes_images.public)
 app.include_router(routes_images.admin)
 app.include_router(routes_live.public)
 app.include_router(routes_live.admin)
+app.include_router(routes_teams.router)
 app.include_router(routes_data.router)
 app.include_router(routes_data_admin.router)
 app.include_router(routes_ingest_admin.router)

@@ -12,6 +12,8 @@ import Referee from "./pages/Referee";
 import Referees from "./pages/Referees";
 import Live from "./pages/Live";
 import DevKit from "./pages/DevKit";
+import Compare from "./pages/Compare";
+import Explore from "./pages/Explore";
 import Pricing from "./pages/Pricing";
 import Finder from "./pages/Finder";
 import { Insights, TrackRecord } from "./pages/Insights";
@@ -80,6 +82,8 @@ export default function App() {
           <Route path="match/:id" element={<Match />} />
           <Route path="live" element={<Live />} />
           <Route path="dev/kit" element={<DevKit />} />
+          <Route path="compare" element={<Compare />} />
+          <Route path="explore" element={<Explore />} />
           <Route path="insights" element={<Insights />} />
           <Route path="finder" element={<Finder />} />
           <Route path="leagues" element={<Leagues />} />

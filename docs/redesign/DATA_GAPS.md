@@ -14,3 +14,7 @@ Elements hidden because the API does not return the data yet. Add a row whenever
 | Live card | Momentum bar | `live_events` by minute | Hidden below 3 events (from README) |
 | Finder | "Streak" mode | streak support in `/api/finder` | Hidden until supported (from README) |
 | Player | League rank ("3rd of 61") | rank from the leaderboard | Use the leaderboard if it covers the stat, else hidden (from README) |
+| Search overlay | "Next 69%" chip per player | the next forecast per player in `/api/search` | Hidden |
+| Footer e-mail | "Every Friday" send day | a newsletter send-day setting | Shows "Free · weekly" |
+| Footer e-mail | Preview card | 3 Strong cards from `/api/insights` | Hidden when fewer than 3 Strong cards |
+| Desktop shell | Right column with Following and live scores | (layout, phase R3 with Today) | Following is in the left rail; live is the header pill |

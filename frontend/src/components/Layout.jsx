@@ -1,7 +1,7 @@
 // App frame drawn from the site config (docs/16 §2.7): header with Beta tag, desktop rail or top menu, phone bottom bar
 // from nav.mobile_tabs plus More, announcements, footer with the disclaimer, cookie banner, maintenance page.
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
 import { get, patch } from "../lib/api";
@@ -9,11 +9,57 @@ import { DISCLAIMER } from "../lib/copy";
 import { utc } from "../lib/time";
 import { audienceOk, route, useSite } from "../lib/site";
 import Icon from "./Icon";
-import { BrandLogo } from "./Media";
-import { useEsc } from "./Ui";
+import { BrandLogo, Crest, LeagueMark, PlayerAvatar } from "./Media";
 import PopupHost from "./Popups";
 import NewsletterForm from "./Newsletter";
+import SearchOverlay from "./SearchOverlay";
+import { LiveSheet, useLiveNow } from "./LiveSheet";
+import { LivePill } from "./ui";
 import { setConsent, usePageBeacon, useTagLoader } from "../lib/growth";
+
+// Five sections, each a verb people already have in mind (docs/24 "Navigation").
+const NAV5 = [
+  { id: "today", label: "Today", icon: "calendar", to: "/", end: true },
+  { id: "insights", label: "Insights", icon: "sparkles", to: "/insights" },
+  { id: "finder", label: "Finder", icon: "target", to: "/finder" },
+  { id: "explore", label: "Explore", icon: "compass", to: "/explore", also: /^\/(explore|leagues?|teams?|compare|referees?|track-record|learn|pricing|live)\b/ },
+  { id: "you", label: "You", icon: "user", to: "/following", also: /^\/(following|account|saved)\b/ },
+];
+const FOOT_LINKS = [["Learn", "/learn"], ["Track record", "/track-record"], ["Plans", "/pricing"], ["Teams", "/teams"], ["Referees", "/referees"], ["Compare", "/compare"]];
+
+function Nav5Item({ item, className, testid }) {
+  const { pathname } = useLocation();
+  const on = item.end ? pathname === "/" : pathname.startsWith(item.to) || (item.also && item.also.test(pathname));
+  return (
+    <Link to={item.to} className={className + (on ? " active" : "")} aria-current={on ? "page" : undefined} data-testid={testid}>
+      <Icon name={item.icon} size={20} /><span>{item.label}</span>
+    </Link>
+  );
+}
+
+function RailFollowing() {
+  const q = useApi("/me/follows");
+  const items = (q.data?.items || []).slice(0, 6);
+  if (!items.length) return null;
+  return (
+    <div className="rail-follow" data-testid="rail-following">
+      <h2 className="k-sec">Following</h2>
+      {items.map((f) => <Link key={`${f.kind}-${f.id}`} to={`/${f.kind}/${f.id}`} className="rail-follow-item" data-testid={`rail-follow-${f.id}`}>
+        {f.kind === "player" ? <PlayerAvatar player={f} size={24} /> : f.kind === "league" ? <LeagueMark league={f} size={22} /> : <Crest team={f} size={24} />}<span>{f.name}</span></Link>)}
+    </div>
+  );
+}
+
+function useHeaderShrink() {
+  const [small, setSmall] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const on = () => { const y = window.scrollY; setSmall(y > 80 && y > last); last = y; };
+    window.addEventListener("scroll", on, { passive: true });
+    return () => window.removeEventListener("scroll", on);
+  }, []);
+  return small;
+}
 
 function ago(iso) {
   if (!iso) return null;
@@ -22,12 +68,6 @@ function ago(iso) {
 }
 
 const isExternal = (r) => /^https:\/\//.test(r || "");
-function NavItem({ item, className, onClick, testid }) {
-  const r = route(item.route);
-  const body = <><Icon name={item.icon} size={20} /><span>{item.label}</span>{item.badge && <em className="nav-badge">{item.badge}</em>}</>;
-  if (isExternal(r)) return <a href={r} className={className} target="_blank" rel="noopener noreferrer" data-testid={testid}>{body}</a>;
-  return <NavLink to={r} end={r === "/"} className={className} onClick={onClick} data-testid={testid}>{body}</NavLink>;
-}
 
 function ThemeToggle() {
   const { cfg, setTheme } = useSite();
@@ -76,42 +116,20 @@ function Announcements() {
   ));
 }
 
-function MoreSheet({ open, onClose, items, user, signOut }) {
-  const ref = useRef(null);
-  useEsc(open, onClose);
-  useEffect(() => { if (open) ref.current?.querySelector("a,button")?.focus(); }, [open]);
-  if (!open) return null;
-  return (
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-label="More" data-testid="more-sheet">
-        <header className="sheet-head"><h2>More</h2><button className="icon-btn" onClick={onClose} aria-label="Close" data-testid="more-sheet-close"><Icon name="x" /></button></header>
-        <div className="sheet-grid">
-          {items.map((i) => <NavItem key={i.id} item={i} className="tile" onClick={onClose} testid={`more-item-${i.id}`} />)}
-          <NavLink to="/live" className="tile" onClick={onClose} data-testid="more-item-live"><Icon name="clock" /><span>Live scores</span></NavLink>
-          <NavLink to="/track-record" className="tile" onClick={onClose} data-testid="more-item-track-record"><Icon name="trending-up" /><span>Track record</span></NavLink>
-          <NavLink to="/referees" className="tile" onClick={onClose} data-testid="more-item-referees"><Icon name="flag" /><span>Referees</span></NavLink>
-          {user ? <NavLink to="/account" className="tile" onClick={onClose} data-testid="more-item-account"><Icon name="user" /><span>Account</span></NavLink>
-                : <NavLink to="/sign-in" className="tile" onClick={onClose} data-testid="more-item-sign-in"><Icon name="user" /><span>Sign in</span></NavLink>}
-        </div>
-        <div className="sheet-foot"><ThemeToggle />{user && <button className="btn btn--secondary btn--sm" onClick={() => { onClose(); signOut(); }} data-testid="more-sign-out"><Icon name="log-out" size={16} />Sign out</button>}</div>
-      </div>
-    </div>
-  );
-}
-
 function Footer({ cfg, updated, mode }) {
   const f = cfg?.footer || {};
+  const extra = (f.columns || []).flatMap((c) => c.links || []).map((l) => [l.label, l.route]);
+  const links = [...FOOT_LINKS, ...extra].filter(([, r], i, a) => a.findIndex((x) => x[1] === r) === i && r !== "/");
   return (
     <footer className="footer" data-testid="site-footer">
       <div className="wrap">
         <NewsletterForm />
-        <div className="footer-cols">
-          <div className="footer-brand"><BrandLogo brand={cfg?.brand} mode={mode} /><strong>{cfg?.brand?.name || "Prediciotn"}</strong><p>{cfg?.brand?.tagline}</p></div>
-          {(f.columns || []).map((c) => (
-            <nav key={c.title} aria-label={c.title} className="footer-col"><h3>{c.title}</h3>
-              {(c.links || []).map((l) => isExternal(l.route) ? <a key={l.label} href={l.route} target="_blank" rel="noopener noreferrer">{l.label}</a> : <Link key={l.label} to={route(l.route)}>{l.label}</Link>)}
-            </nav>
-          ))}
+        <div className="foot2">
+          <div className="foot2-brand"><BrandLogo brand={cfg?.brand} mode={mode} /><strong>{cfg?.brand?.name || "Prediciotn"}</strong><span>Football stats and forecasts, for information.</span></div>
+          <nav aria-label="Footer" className="foot2-links" data-testid="footer-links">
+            {links.map(([label, r]) => isExternal(r) ? <a key={r} href={r} target="_blank" rel="noopener noreferrer">{label}</a> : <Link key={r} to={route(r)} data-testid={`footer-link-${label.toLowerCase().replace(/\s+/g, "-")}`}>{label}</Link>)}
+          </nav>
+          <ThemeToggle />
         </div>
         <p className="disclaimer" data-testid="footer-disclaimer">{cfg?.disclaimer || DISCLAIMER}</p>
         <div className="footer-meta">
@@ -160,23 +178,29 @@ function BookingBell() {
 }
 
 export default function Layout({ children }) {
-  const { user, me, signOut } = useAuth();
+  const { user, me } = useAuth();
   const { cfg, preview } = useSite();
   const loc = useLocation();
   const status = useApi("/public/status");
   const updated = ago(status.data?.data_updated_at);
-  const [more, setMore] = useState(false);
+  const [search, setSearch] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false);
+  const closeSearch = useCallback(() => setSearch(false), []);
+  const closeLive = useCallback(() => setLiveOpen(false), []);
+  const live = useLiveNow();
+  const small = useHeaderShrink();
   const mode = useThemeMode();
-  const closeMore = useCallback(() => setMore(false), []);
   const nav = cfg?.nav || {};
-  const items = (nav.items || []).filter((i) => i.enabled !== false && audienceOk(i.audience, user, me));
-  const tabs = (nav.mobile_tabs || []).map((id) => items.find((i) => i.id === id)).filter(Boolean).slice(0, 4);
-  const rest = items.filter((i) => !tabs.includes(i));
   const cta = nav.header_cta?.enabled && audienceOk(nav.header_cta.audience, user, me) ? nav.header_cta : null;
   const rail = nav.desktop_layout !== "top";
   const staff = user && user.role !== "user";
   const maint = cfg?.maintenance?.on && !staff && !/^\/(sign-in|enroll-2fa|reset-password)/.test(loc.pathname);
-  useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname]);
+  useEffect(() => { window.scrollTo(0, 0); setSearch(false); }, [loc.pathname]);
+  useEffect(() => {
+    const k = (e) => { if (e.key === "/" && !/input|textarea|select/i.test(e.target.tagName) && !e.target.isContentEditable) { e.preventDefault(); setSearch(true); } };
+    document.addEventListener("keydown", k);
+    return () => document.removeEventListener("keydown", k);
+  }, []);
   usePageBeacon(loc.pathname);
   useTagLoader(cfg?.tracking, loc.pathname);
 
@@ -184,13 +208,15 @@ export default function Layout({ children }) {
     <div className={"app" + (rail ? " app--rail" : "")}>
       <a className="skip" href="#main">Skip to content</a>
       {preview && <div className="preview-bar" data-testid="preview-bar">Preview of the draft look. Visitors do not see this.</div>}
-      <header className="header" data-testid="site-header">
+      <header className={"header" + (small ? " header--small" : "")} data-testid="site-header">
         <div className="header-row">
           <Link to="/" className="brand" data-testid="brand-link"><BrandLogo brand={cfg?.brand} mode={mode} /><span className="brand-name">{cfg?.brand?.name || "Prediciotn"}</span></Link>
           <span className="beta" data-testid="beta-tag" title="Tested on simulated data only">Beta</span>
-          {!rail && <nav className="top-nav" aria-label="Main">{items.map((i) => <NavItem key={i.id} item={i} testid={`top-nav-${i.id}`} />)}</nav>}
+          {!rail && <nav className="top-nav" aria-label="Main">{NAV5.map((i) => <Nav5Item key={i.id} item={i} className="" testid={`top-nav-${i.id}`} />)}</nav>}
+          {nav.show_search !== false && <button type="button" className="hsearch only-desk" onClick={() => setSearch(true)} data-testid="header-search-field"><Icon name="search" size={18} /><span>Search players, teams, leagues</span><kbd aria-hidden="true">/</kbd></button>}
           <div className="header-actions">
-            {nav.show_search !== false && <Link to="/search" className="icon-btn" aria-label="Search" data-testid="header-search"><Icon name="search" /></Link>}
+            {nav.show_search !== false && <button type="button" className="icon-btn only-phone" onClick={() => setSearch(true)} aria-label="Search" data-testid="header-search"><Icon name="search" /></button>}
+            <span className="only-desk"><LivePill count={live?.live_count} onClick={() => setLiveOpen(true)} testid="header-live-pill" /></span>
             <span className="only-desk"><ThemeToggle /></span>
             {user ? (
               <>
@@ -211,11 +237,9 @@ export default function Layout({ children }) {
       <div className="body-row">
         {rail && (
           <aside className="rail" aria-label="Main">
-            <nav>{items.map((i) => <NavItem key={i.id} item={i} className="rail-link" testid={`rail-${i.id}`} />)}
-              <NavLink to="/live" className="rail-link" data-testid="rail-live"><Icon name="clock" size={20} /><span>Live scores</span></NavLink>
-              <NavLink to="/track-record" className="rail-link" data-testid="rail-track-record"><Icon name="trending-up" size={20} /><span>Track record</span></NavLink>
-              <NavLink to="/referees" className="rail-link" data-testid="rail-referees"><Icon name="flag" size={20} /><span>Referees</span></NavLink>
-            </nav>
+            <nav>{NAV5.map((i) => <Nav5Item key={i.id} item={i} className="rail-link" testid={`rail-${i.id}`} />)}</nav>
+            {user && <RailFollowing />}
+            <p className="rail-foot">{FOOT_LINKS.slice(0, 3).map(([l, r], i) => <span key={r}>{i > 0 && " · "}<Link to={r} data-testid={`rail-foot-${r.slice(1)}`}>{l}</Link></span>)}</p>
           </aside>
         )}
         <div className="page-col">
@@ -224,12 +248,11 @@ export default function Layout({ children }) {
         </div>
       </div>
       <nav className="bottom-tabs" aria-label="Main" data-testid="bottom-tabs">
-        {tabs.map((t) => <NavItem key={t.id} item={t} className="btab" testid={`tab-${t.id}`} />)}
-        {nav.mobile_more !== false && (
-          <button className={"btab" + (more ? " active" : "")} onClick={() => setMore(true)} aria-haspopup="dialog" data-testid="tab-more"><Icon name="grid" size={20} /><span>More</span></button>
-        )}
+        {NAV5.map((t) => <Nav5Item key={t.id} item={t} className="btab" testid={`tab-${t.id}`} />)}
       </nav>
-      <MoreSheet open={more} onClose={closeMore} items={rest} user={user} signOut={signOut} />
+      <span className="only-phone"><LivePill count={live?.live_count} floating onClick={() => setLiveOpen(true)} testid="live-pill" /></span>
+      <LiveSheet open={liveOpen} onClose={closeLive} data={live} />
+      <SearchOverlay open={search} onClose={closeSearch} />
       <CookieBanner c={cfg?.cookies} />
       {!maint && !preview && <PopupHost enabled={!!cfg?.popups_enabled} waitForCookies={!!cfg?.cookies?.banner} />}
     </div>

@@ -14,6 +14,8 @@ import "./styles/admin.css";
 import "./styles/growth.css";
 import "./styles/live.css";
 import "./components/ui/kit.css";
+import "./styles/teams.css";
+import "./styles/shell.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
