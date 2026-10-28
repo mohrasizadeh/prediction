@@ -1,0 +1,39 @@
+{
+  "summary": "Tested update pack docs/23 parts B/C/D and UI Phase R1 (/dev/kit). Backend: tests/test_iter21_update_pack_live_brain.py ran 16 passed, 1 skipped. The skip is deliberate: test_admin_sportapi_no_key_errors is skipped because a real SportAPI key IS now saved. Audit log shows the OWNER saved it at 2026-10-28 03:55 UTC, and by_kind shows leagues=1 call today. Checked: /api/live empty shape, results date, live 404s, jobs/live 401, match detail cards/more_lines/availability/context/live, insights one card per player, player cards, no duplicate fkeys, admin brain/calibration rollback/clubs/availability flow plus betting-word refusal, sportapi status/tick off, keys include sportapi, contact 202. Frontend at 1920 and 390: /live (heading, day chips, empty state, rail-live, more-item-live), match page (Forecasts tab count 43 = cards count, forecast-more details open, team-news shows the Out row), admin Engine Brain layers (calibration card, 3 switches, decay select, rollback disabled on default map), Availability (club select, rows, save dirty-state, doubtful save, betting word toast), Integrations SportAPI (status Off, Run now gives 'Run finished: off', mapping, review, backfill form; load leagues and backfill NOT clicked, and no requests to them were seen), /dev/kit (both panels, date scroller, chips, segmented, both sliders by keyboard, +2 more lines, FC sheet with Why/Chance he plays/All lines/disclaimer, focus inside dialog, Esc closes, live pill sheet, dark filter sheet with Reset/'Show 24 results', no overflow at 390). Everything requested works. Findings below are minor/medium.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/admin/availability + GET /api/matches/{id}", "issue": "Marking a player Out does not change his current forecasts until the next engine run. The match page then shows him as 'Out' in Team news and still shows his forecast card (Akor Adams, Venezia v Inter: 2+ shots 61%). The admin copy says 'An Out player gets no forecast'. Hide cards for status=out players in match_detail/insights at read time, or say in the admin copy that it applies from the next run."},
+      {"endpoint": "PUT /api/admin/availability", "issue": "An 'until' date in the past is accepted without a check."},
+      {"endpoint": "GET /api/admin/availability", "issue": "Uses p['name'] directly, so a player doc with no name key would give a 500. The Venezia squad already has one player with name '' (id 95eee76e...), shown as a blank row in admin and a blank name in Team news if marked."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ForecastSheet record line", "issue": "Shows 'Our record on Strong forecasts: 100 of 100 came true' when /api/track-record has only n=2 graded Strong forecasts (Solid n=3). This overstates the record. Add a minimum sample size, or show the real counts (e.g. '2 of 2').", "selector": "[data-testid=kit-light-fc-sheet-record]", "priority": "MEDIUM"},
+      {"component": "SportAPI League mapping", "issue": "Labels show empty brackets, e.g. 'Bundesliga ()', because country is empty for the leagues.", "selector": "[data-testid^=sportapi-map-]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Availability", "issues": ["A row with no player name shows a blank name column (data gap)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter21_update_pack_live_brain.py", "/app/test_reports/pytest/iter21.xml"],
+  "action_items": [
+    "Decide on Out-player behaviour: hide forecasts for status=out players at read time, or change the admin wording to say it applies from the next engine run",
+    "ForecastSheet tier record: require a minimum n before showing it, or show real counts instead of 'X of 100'",
+    "Fix 'League ()' labels in SportAPI mapping when country is empty",
+    "Optional: reject a past 'until' date; use p.get('name') in availability_list"
+  ],
+  "critical_code_review_comments": [
+    "queries.group_cards: fine. Every forecast lands in exactly one card (headline or more_lines); verified by test.",
+    "routes_admin.availability_set: textguard check works; 'until' not validated against now.",
+    "A SportAPI key is saved by the owner. With sportapi.enabled off, tick stays off, but 'Load SportAPI leagues' and backfill WILL now make real calls. Future test agents must not click them."
+  ],
+  "updated_files": ["/app/test_reports/iteration_21.json"],
+  "success_rate": {"backend": "100% (16/16 run, 1 skipped by design)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Recreated test_e1_admin (deleted afterwards along with sessions). Temporary TEST_Knee availability rows for Venezia players were reset to available, and 0 availability rows by the test admin remain. Contact test message deleted. Note: test_e1_user@example.com already existed before this run and was left in place.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: export REACT_APP_BACKEND_URL; recreate test admin (delete any existing doc first because it may have unknown TOTP, then python tests/recreate_test_users.py, rm /tmp/test_admin_totp.json); pytest tests/test_iter21_update_pack_live_brain.py. Admin UI: log in via admin_login_helper.admin_session() and inject the __Host-sid cookie into Playwright. Admin routes: /admin/data/engine (tabs engine-tabs-*), /admin/integrations. SportAPI key IS saved by the owner, so do not click sportapi-load-leagues or backfill."
+}

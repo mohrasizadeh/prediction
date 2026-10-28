@@ -654,7 +654,7 @@ def availability_list(team: str, user=Depends(perm("logs.read")), db=Depends(D.g
         raise D.err(404, "NOT_FOUND", "No such team.")
     rows = {r["player_iid"]: r for r in db.availability.find({"team_iid": tid}, {"_id": 0})}
     players = list(db.players.find({"team_iid": tid}, {"_id": 0, "iid": 1, "id": 1, "name": 1, "pos": 1}).sort("name", 1))
-    return {"players": [{"id": p["id"], "name": p["name"], "pos": p.get("pos"),
+    return {"players": [{"id": p["id"], "name": p.get("name") or "Unnamed player", "pos": p.get("pos"),
                          **({k: rows[p["iid"]].get(k) for k in ("status", "source", "reason", "until", "updated_at", "by")} if p["iid"] in rows else {"status": "available"})}
                         for p in players]}
 
@@ -678,7 +678,13 @@ def availability_set(body: AvailabilityBody, user=Depends(perm("jobs.run")), db=
     if reason and textguard.scan(reason):
         raise D.err(400, "BAD_TEXT", "Please reword the reason: analysis only, no betting words.")
     until = body.until.astimezone(timezone.utc) if body.until and body.until.tzinfo else (body.until.replace(tzinfo=timezone.utc) if body.until else None)
+    if until and until < datetime.now(timezone.utc):
+        raise D.err(400, "BAD_DATE", "The end date is in the past.")
     row = AV.set_status(db, pid, body.status, source="admin", reason=reason, until=until, actor=user["email"])
+    p = db.players.find_one({"iid": pid}, {"team_iid": 1})
+    if p and p.get("team_iid"):                       # the club's next matches re-run on the next tick with the new status
+        db.matches.update_many({"status": "scheduled", "$or": [{"home_iid": p["team_iid"]}, {"away_iid": p["team_iid"]}]},
+                               {"$set": {"lineups_at": datetime.now(timezone.utc)}})
     AQ.audit(db, user, "availability.set", body.player_id, {"status": body.status})
     return {k: v for k, v in row.items() if k != "_id"}
 

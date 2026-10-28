@@ -48,7 +48,7 @@ function Mapping({ s, reload }) {
       <FormError error={err} />
       <DataState q={clubs} empty="No leagues switched on.">
         {(d) => <div className="a-stack">{d.leagues.map((l) => (
-          <Field key={l.iid} label={`${l.name} (${l.country || ""})`} as={list ? "select" : "input"} value={map[String(l.iid)] || ""} onChange={(e) => setMap({ ...map, [String(l.iid)]: e.target.value })} placeholder="SportAPI league id, for example 24" testid={`sportapi-map-${l.iid}`}>
+          <Field key={l.iid} label={l.country ? `${l.name} (${l.country})` : l.name} as={list ? "select" : "input"} value={map[String(l.iid)] || ""} onChange={(e) => setMap({ ...map, [String(l.iid)]: e.target.value })} placeholder="SportAPI league id, for example 24" testid={`sportapi-map-${l.iid}`}>
             {list && <><option value="">Not followed</option>{list.map((x) => <option key={x.id} value={String(x.id)}>{x.name} · {x.country} (#{x.id})</option>)}</>}
           </Field>
         ))}</div>}

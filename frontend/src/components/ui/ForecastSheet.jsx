@@ -53,7 +53,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       )}
       {d.hits?.length > 0 && <section><h3 className="k-sec">Last {d.hits.length} games · {f.market}</h3><HitStrip hits={d.hits} label={f.market} testid={`${testid}-hits`} /></section>}
       {lines.length > 1 && <section><h3 className="k-sec">All lines</h3><ul className="k-fc-lines">{lines.map((x) => <li key={x.fkey} style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}><span>{x.market}</span><b>{pct(x.p)}</b></li>)}</ul></section>}
-      {tier && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} forecasts: <b>{Math.round(tier.actual * 100)} of 100</b> came true. <Link to="/track-record">Track record</Link></p>}
+      {tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to="/track-record">Track record</Link></p>}
       <p className="k-faint k-small">{DISCLAIMER}</p>
     </BottomSheet>
   );

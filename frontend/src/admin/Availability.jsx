@@ -42,7 +42,7 @@ export default function Availability() {
   const [team, setTeam] = useState("");
   return (
     <Card title="Who cannot play" testid="admin-availability">
-      <p className="a-muted small">An Out player gets no forecast and his share of shots and tackles goes to team-mates. A Doubtful player's chance to play is halved. A confirmed lineup always wins. The reason shows on the match page, so keep it short and factual.</p>
+      <p className="a-muted small">An Out player gets no forecast and his share of shots and tackles goes to team-mates. A Doubtful player's chance to play is halved. A confirmed lineup always wins. The reason shows on the match page, so keep it short and factual. Changes apply when the club's next matches re-run, within a few minutes.</p>
       <DataState q={clubs} empty="No leagues switched on.">
         {(d) => (
           <select aria-label="Club" value={team} onChange={(e) => setTeam(e.target.value)} data-testid="av-club">
