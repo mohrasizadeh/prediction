@@ -19,7 +19,7 @@ export function RangeSlider({ min, max, step = 1, value, onChange, format = (v) 
         <span key={i} className="k-range-tip" style={{ left: at(pos(v, min, max)) }} aria-hidden="true">{format(v, i)}</span>
       ))}
       {thumbs.map(([i, v]) => (
-        <input key={i} type="range" min={min} max={max} step={step} value={v} onChange={set(i)} className={`k-range-in k-range-in--${i}`}
+        <input key={i} type="range" min={min} max={max} step={step} value={v} onChange={set(i)} className={`k-range-in k-range-in--${i}${two ? "" : " k-range-in--one"}`}
           aria-label={two ? `${label} ${i === 0 ? "from" : "to"}` : label} aria-valuetext={String(format(v, i))} data-testid={`${testid}-${i === 0 ? "low" : "high"}`} />
       ))}
     </div>

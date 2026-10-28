@@ -27,7 +27,7 @@ export function DateScroller({ value, onChange, from = -1, count = 7, gameDays, 
           const k = isoDay(d);
           const has = gameDays ? gameDays.has(k) : false;
           return (
-            <button key={k} type="button" role="tab" aria-selected={k === value} className={`k-day${k === value ? " on" : ""}`} onClick={() => onChange(k)}
+            <button key={k} type="button" role="tab" aria-selected={k === value} aria-current={k === value ? "date" : undefined} className={`k-day${k === value ? " on" : ""}`} onClick={() => onChange(k)}
               aria-label={`${d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}${has ? ", has games" : ""}`} data-testid={`${testid}-${k}`}>
               <span className="w">{NAMES[off] || d.toLocaleDateString(undefined, { weekday: "short" })}</span>
               <span className="n">{d.getDate()}</span>

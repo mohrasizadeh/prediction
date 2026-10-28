@@ -6,15 +6,17 @@ import Icon from "../Icon";
 
 export function BottomSheet({ open, onClose, title, children, footer, testid = "ui-sheet" }) {
   const ref = useRef(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!open) return undefined;
     const back = document.activeElement;
-    const key = (e) => { if (e.key === "Escape") onClose(); };
+    const key = (e) => { if (e.key === "Escape") closeRef.current?.(); };
     document.addEventListener("keydown", key);
     document.body.style.overflow = "hidden";
     ref.current?.focus();
     return () => { document.removeEventListener("keydown", key); document.body.style.overflow = ""; back?.focus?.(); };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   return createPortal(
     <div className="k-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} data-testid={`${testid}-scrim`}>

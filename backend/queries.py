@@ -176,8 +176,10 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     pl = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
     tm = _names(db, "teams", [f["team_iid"] for f in fc] + [f["opp_iid"] for f in fc])
     homes = _homes(db, fc)
+    lgs = _names(db, "leagues", [f["league_iid"] for f in fc if f.get("league_iid")])
     for f in fc:
         f["home_iid"] = homes.get(f["match_iid"])
+        f["league_name"] = (lgs.get(f.get("league_iid")) or {}).get("name")
         f["player"] = pl.get(f.get("player_iid")); f["team"] = tm.get(f["team_iid"]); f["opp"] = tm.get(f["opp_iid"])
     return fc
 
@@ -300,9 +302,11 @@ def _decorate(db, fc):
     pl = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
     tm = _names(db, "teams", [f["team_iid"] for f in fc] + [f["opp_iid"] for f in fc])
     homes = _homes(db, fc)
+    lgs = _names(db, "leagues", [f["league_iid"] for f in fc if f.get("league_iid")])
     for f in fc:
         f["player"] = pl.get(f.get("player_iid")); f["team"] = tm.get(f["team_iid"]); f["opp"] = tm.get(f["opp_iid"])
         f["home_iid"] = homes.get(f["match_iid"])
+        f["league_name"] = (lgs.get(f.get("league_iid")) or {}).get("name")
     return fc
 
 

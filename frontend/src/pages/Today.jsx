@@ -52,7 +52,7 @@ function Row({ m }) {
           <span><Crest team={m.away} size={22} /><span className="td-name">{m.away?.name}</span>{started && <b className="td-sc">{as}</b>}</span>
         </span>
         <span className="td-bar">{p ? <WdlBar home={p.p_home} draw={p.p_draw} away={p.p_away} homeName={m.home?.name} awayName={m.away?.name} testid={`today-wdl-${m.id}`} /> : <small className="k-faint">No forecast yet</small>}</span>
-        {m.insight_count > 0 ? <span className="td-ins" data-testid={`today-insights-${m.id}`}>{m.insight_count} insight{m.insight_count === 1 ? "" : "s"} ›</span> : <span />}
+        {m.insight_count > 0 ? <span className="td-ins" data-testid={`today-insights-${m.id}`}>{m.insight_count} insight{m.insight_count === 1 ? "" : "s"} ›</span> : <span className="td-ins td-ins--none" aria-hidden="true" />}
       </Link>
     </li>
   );
@@ -65,7 +65,7 @@ function Group({ league, rows }) {
     <section className="td-group card" data-testid={`today-league-${league?.id || "other"}`}>
       <button type="button" className="td-ghead" aria-expanded={open} onClick={() => setOpen(!open)} data-testid={`today-league-toggle-${league?.id || "other"}`}>
         <LeagueMark league={league} size={24} /><b>{league?.name || "Other"}</b>
-        <small>{rows.length} match{rows.length === 1 ? "" : "es"}{n ? ` · ${n} forecasts` : ""}</small><Icon name="chevron-down" size={18} />
+        <small>{rows.length} match{rows.length === 1 ? "" : "es"}{n ? ` · ${n} insight${n === 1 ? "" : "s"}` : ""}</small><Icon name="chevron-down" size={18} />
       </button>
       {open && <ul className="td-list">{rows.map((m) => <Row key={m.id} m={m} />)}</ul>}
     </section>

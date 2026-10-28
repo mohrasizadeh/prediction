@@ -25,7 +25,11 @@ function LiveTab({ d }) {
 }
 
 function Pitch({ d }) {
-  const by = (iid) => d.starters.filter((s) => s.team_iid === iid);
+  const by = (iid) => {
+    const xs = d.starters.filter((s) => s.team_iid === iid);
+    const seen = new Set();
+    return xs.filter((s) => !seen.has(s.player_iid) && seen.add(s.player_iid)).sort((a, b) => Number(!!b.confirmed) - Number(!!a.confirmed)).slice(0, 11);
+  };
   if (!d.starters.length) return <Empty icon="users">No lineups yet. They usually arrive about an hour before kickoff.</Empty>;
   const sides = [[d.home, by(d.match.home_iid), "home"], [d.away, by(d.match.away_iid), "away"]];
   const conf = d.starters.every((s) => s.confirmed);
@@ -127,7 +131,7 @@ export default function Match() {
     <section data-testid="match-page">
       <h1 className="sr-only">{d.home.name} v {d.away.name}</h1>
       <Hero d={d} />
-      <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[...(st === "live" && d.live?.sid ? [{ id: "live", label: "Live" }] : []), ...(st === "final" ? [{ id: "events", label: "Recap" }] : []), { id: "preview", label: "Preview" }, { id: "forecasts", label: `Forecasts (${cardsOf(d).length})` }, ...(st !== "live" && d.live?.sid ? [{ id: "live", label: "Live" }] : []), { id: "lineups", label: "Lineups" }, { id: "stats", label: "Stats" }, ...(st !== "final" ? [{ id: "events", label: "Events" }] : []), { id: "first", label: "First goal" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
+      <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[...(st === "live" && d.live?.sid ? [{ id: "live", label: "Live" }] : []), ...(st === "final" ? [{ id: "events", label: "Recap" }] : []), { id: "preview", label: "Preview" }, { id: "forecasts", label: `Forecasts (${cardsOf(d).filter((f) => f.p >= 0.5).length})` }, { id: "lineups", label: "Lineups" }, { id: "stats", label: "Stats" }, ...(st !== "final" ? [{ id: "events", label: "Events" }] : []), { id: "first", label: "First goal" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
       {tab === "preview" && <Preview d={d} />}
       {tab === "forecasts" && <Forecasts d={d} />}
       {tab === "stats" && <Stats d={d} />}
