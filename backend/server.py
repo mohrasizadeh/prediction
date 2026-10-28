@@ -32,6 +32,7 @@ import routes_data_admin
 import routes_ingest_admin
 import routes_cron
 import routes_images
+import routes_live
 import routes_me
 import routes_site
 import security_mw
@@ -48,6 +49,8 @@ app.include_router(routes_site.public)
 app.include_router(routes_site.admin)
 app.include_router(routes_images.public)
 app.include_router(routes_images.admin)
+app.include_router(routes_live.public)
+app.include_router(routes_live.admin)
 app.include_router(routes_data.router)
 app.include_router(routes_data_admin.router)
 app.include_router(routes_ingest_admin.router)

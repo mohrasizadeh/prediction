@@ -34,10 +34,10 @@ import ratelimit
 import settings_store as S
 
 SAFE = ("GET", "HEAD", "OPTIONS")
-ORIGIN_EXEMPT = ("/api/webhooks/", "/api/jobs/tick", "/api/email/unsubscribe")     # no browser cookie involved
+ORIGIN_EXEMPT = ("/api/webhooks/", "/api/jobs/tick", "/api/jobs/live", "/api/email/unsubscribe")     # no browser cookie involved
 # the image upload sends a base64 JSON body (512 KB image = about 700 KB); everything else uses security.max_body_kb
 BIG_BODY = {"/api/admin/site/assets": 900 * 1024}
-RATE_EXEMPT = ("/api/webhooks/", "/api/jobs/tick")
+RATE_EXEMPT = ("/api/webhooks/", "/api/jobs/tick", "/api/jobs/live")
 _cache: dict = {"at": 0.0, "cfg": None}
 
 

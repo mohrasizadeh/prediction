@@ -142,6 +142,14 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
             if _run(db, "digest", lambda: AL.send_digest(db, now), now) is not None: out["ran"].append("digest")
         if left() and _due_every(db, "cleanup", timedelta(hours=24), now):
             if _run(db, "cleanup", lambda: B.cleanup(db, now), now) is not None: out["ran"].append("cleanup")
+        if left() and (now.weekday() == 0 and _due_every(db, "calibration", timedelta(days=6), now)):    # weekly refit (docs/21)
+            import calibration as CAL
+            if _run(db, "calibration", lambda: CAL.refit(db, now), now) is not None: out["ran"].append("calibration")
+        if left() and _due_every(db, "injuries", timedelta(hours=12), now):                              # twice daily (docs/22)
+            import availability as AV
+            def inj():
+                return {"expired": AV.expire(db, now), **AV.sync_apifootball(db, now=now)}
+            if _run(db, "injuries", inj, now) is not None: out["ran"].append("injuries")
         db.job_requests.update_many({"status": "taken"}, {"$set": {"status": "done"}})
     finally:
         db.job_locks.delete_one({"_id": "tick"})

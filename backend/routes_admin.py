@@ -489,6 +489,7 @@ KEYS = {
     "smtp_password": {"label": "SMTP password", "re": T.PROVIDERS["smtp"]["re"], "env": "SMTP_PASSWORD", "hint": T.PROVIDERS["smtp"]["hint"]},
     "mailchimp": {"label": "Mailchimp API key", "re": INT.AUDIENCE["mailchimp"]["re"], "env": "MAILCHIMP_API_KEY", "hint": INT.AUDIENCE["mailchimp"]["hint"]},
     "mailerlite": {"label": "MailerLite API token", "re": INT.AUDIENCE["mailerlite"]["re"], "env": "MAILERLITE_API_KEY", "hint": INT.AUDIENCE["mailerlite"]["hint"]},
+    "sportapi": {"label": "SportAPI key", "re": r"^[A-Za-z0-9_\-]{16,128}$", "env": "SPORTAPI_KEY", "hint": "is the key from your SportAPI dashboard (16 to 128 letters, digits, - or _)"},
 }
 
 
@@ -624,6 +625,62 @@ def breaker_close(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
 @router.get("/brain")
 def brain_layers(user=Depends(perm("logs.read")), db=Depends(D.get_db)):
     return AQ.brain_status(db)
+
+
+@router.post("/calibration/rollback")
+def calibration_rollback(user=Depends(perm("settings.write")), db=Depends(D.get_db)):
+    import calibration as CAL
+    out = CAL.rollback(db)
+    AQ.audit(db, user, "calibration.rollback", None)
+    return out
+
+
+@router.get("/clubs")
+def clubs(user=Depends(perm("logs.read")), db=Depends(D.get_db)):
+    """Enabled leagues (with our internal number) and their clubs, for the Availability and SportAPI screens."""
+    lgs = list(db.leagues.find({"enabled": True}, {"_id": 0, "iid": 1, "id": 1, "name": 1, "country": 1}).sort("name", 1))
+    teams = {}
+    for t in db.teams.find({"league_iid": {"$in": [l["iid"] for l in lgs]}}, {"_id": 0, "id": 1, "iid": 1, "name": 1, "league_iid": 1}).sort("name", 1):
+        teams.setdefault(t["league_iid"], []).append({"id": t["id"], "iid": t["iid"], "name": t["name"]})
+    return {"leagues": [{**l, "teams": teams.get(l["iid"], [])} for l in lgs]}
+
+
+@router.get("/availability")
+def availability_list(team: str, user=Depends(perm("logs.read")), db=Depends(D.get_db)):
+    """One club's squad with who is out or doubtful (docs/22)."""
+    import queries as Q
+    tid = Q.iid_of(db, "teams", team)
+    if not tid:
+        raise D.err(404, "NOT_FOUND", "No such team.")
+    rows = {r["player_iid"]: r for r in db.availability.find({"team_iid": tid}, {"_id": 0})}
+    players = list(db.players.find({"team_iid": tid}, {"_id": 0, "iid": 1, "id": 1, "name": 1, "pos": 1}).sort("name", 1))
+    return {"players": [{"id": p["id"], "name": p["name"], "pos": p.get("pos"),
+                         **({k: rows[p["iid"]].get(k) for k in ("status", "source", "reason", "until", "updated_at", "by")} if p["iid"] in rows else {"status": "available"})}
+                        for p in players]}
+
+
+class AvailabilityBody(BaseModel):
+    player_id: str = Field(max_length=64)
+    status: str = Field(pattern=r"^(out|doubtful|available)$")
+    reason: str = Field(default="", max_length=80)
+    until: Optional[datetime] = None
+
+
+@router.put("/availability")
+def availability_set(body: AvailabilityBody, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    import availability as AV
+    import queries as Q
+    pid = Q.iid_of(db, "players", body.player_id)
+    if not pid:
+        raise D.err(404, "NOT_FOUND", "No such player.")
+    reason = body.reason.strip()
+    import textguard
+    if reason and textguard.scan(reason):
+        raise D.err(400, "BAD_TEXT", "Please reword the reason: analysis only, no betting words.")
+    until = body.until.astimezone(timezone.utc) if body.until and body.until.tzinfo else (body.until.replace(tzinfo=timezone.utc) if body.until else None)
+    row = AV.set_status(db, pid, body.status, source="admin", reason=reason, until=until, actor=user["email"])
+    AQ.audit(db, user, "availability.set", body.player_id, {"status": body.status})
+    return {k: v for k, v in row.items() if k != "_id"}
 
 
 class CalendarRow(BaseModel):

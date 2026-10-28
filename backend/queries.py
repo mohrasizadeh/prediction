@@ -82,10 +82,47 @@ def match_detail(db, match_iid: int) -> dict | None:
         e["player"], e["player_in"] = ep.get(e.get("player_iid")), ep.get(e.get("in_iid"))
     return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]], "events": ev,
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
-            "forecasts": fc, "styles": styles, "starters": lu,
-            "rotation": {c["team_iid"]: {"level": c["level"], "why": c["why"], "rest_days": c["rest_days"], "next_gap": c["next_gap"]}
-                         for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0})},
-            "h2h": h2h(db, m["home_iid"], m["away_iid"])}
+            "forecasts": fc, "cards": group_cards(fc), "styles": styles, "starters": lu,
+            "rotation": {c["team_iid"]: {"level": c.get("level", "low"), "why": c.get("why", ""), "rest_days": c.get("rest_days"), "next_gap": c.get("next_gap")}
+                         for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "level" in c},
+            "context": {c["team_iid"]: {"form_vs_expected": c.get("form_fp"), "stakes": c.get("stakes"), "games_left": c.get("games_left"), "why": c.get("context_why", [])}
+                        for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "form_fp" in c},
+            "h2h": h2h(db, m["home_iid"], m["away_iid"]),
+            "availability": _availability(db, (m["home_iid"], m["away_iid"])),
+            "live": m.get("live"), "live_events": _live_events(db, m)}
+
+
+def _live_events(db, m):
+    """Goals, cards and substitutions from SportAPI when the match is followed (docs/23)."""
+    sid = (m.get("live") or {}).get("sid")
+    if not sid:
+        return []
+    import sportapi as SP
+    return SP.events_for(db, sid)
+
+
+def _availability(db, teams):
+    import availability as AV
+    return AV.public_list(db, teams)
+
+
+# ----------------------------------------------------------- one card per player (docs/21)
+def group_cards(fc: list[dict]) -> list[dict]:
+    """Keep ONE card per player (or team) per match. The headline is the most ambitious line in the best tier;
+    the other lines go into `more_lines`, sorted by stat and line."""
+    groups: dict = {}
+    for f in fc:
+        groups.setdefault((f["match_iid"], f["scope"], f["team_iid"], f.get("player_iid")), []).append(f)
+    out = []
+    for g in groups.values():
+        best = min(TIER_RANK.get(f.get("tier"), 9) for f in g)
+        top = [f for f in g if TIER_RANK.get(f.get("tier"), 9) == best]
+        head = min(top, key=lambda f: (f["p"], -f["thr"]))
+        card = dict(head)
+        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier")}
+                                     for f in g if f is not head), key=lambda x: (x["stat"], x["thr"]))
+        out.append(card)
+    return out
 
 
 def h2h(db, a: int, b: int, limit: int = 10) -> dict:
@@ -131,7 +168,9 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     if league_iids: q["league_iid"] = {"$in": league_iids}
     if stat: q["stat"] = stat
     if scope: q["scope"] = scope
-    fc = list(db.forecasts.find(q, {"_id": 0, "contrib": 0}).limit(2000))
+    fc = list(db.forecasts.find(q, {"_id": 0, "contrib": 0}).limit(3000))
+    if S.get(db, "engine.feed_one_per_player"):
+        fc = group_cards(fc)
     fc.sort(key=lambda f: (TIER_RANK[f["tier"]], -f["p"]))
     fc = fc[:limit]
     pl = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
@@ -499,7 +538,7 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
     team = attach_images(db, "teams", [team])[0] if team else None
     if nxt:
         _with_teams(db, [nxt])
-    return {"player": p, "team": team, "next_match": nxt, "forecasts": fc}
+    return {"player": p, "team": team, "next_match": nxt, "forecasts": fc, "cards": group_cards(fc)}
 
 
 # -------------------------------------------------------------- Team page

@@ -25,6 +25,9 @@ if _ENGINE_DIR not in sys.path:
 import engine as E            # noqa: E402  (soccer_brain/engine.py)
 import context as CX          # noqa: E402  (soccer_brain/context.py)
 from core import tier         # noqa: E402
+import calibration as CAL     # noqa: E402  (backend/calibration.py)
+import availability as AV     # noqa: E402  (backend/availability.py)
+import match_context as MC    # noqa: E402  (backend/match_context.py)
 
 MARKET_COVERAGE = {"player.shots": "player_match_stats.shots", "player.sot": "player_match_stats.sot",
                    "player.tackles": "player_match_stats.tackles", "team.corners": "team_match_stats.corners",
@@ -77,8 +80,11 @@ def configure_engine(db) -> E.SoccerEngine:
                          half_life_rounds=float(S.get(db, "engine.half_life_rounds")),
                          style_k=float(S.get(db, "engine.style_k")),
                          n_draws=int(S.get(db, "engine.n_draws")),
-                         sigma_team=float(S.get(db, "engine.sigma_team")), seed=0)
+                         sigma_team=float(S.get(db, "engine.sigma_team")), seed=0,
+                         strength_decay=float(S.get(db, "engine.strength_decay")))
     eng.r_player = dict(S.get(db, "engine.r_player"))
+    eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
+    eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
     return eng
 
 
@@ -150,6 +156,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
                                      "kickoff": {"$gte": now - timedelta(hours=1), "$lte": now + timedelta(days=window)}}))
     strong = tuple(S.get(db, "engine.tier_strong")); solid = tuple(S.get(db, "engine.tier_solid"))
     labels = S.get(db, "copy.market_labels")
+    pmap = CAL.current(db)         # raw likelihood -> the percentage people see (docs/21); None = off
+    lgdoc = db.leagues.find_one({"iid": league_iid}, {"_id": 0}) or {"iid": league_iid}
+    lctx = MC.league_context(db, lgdoc, now) if S.get(db, "engine.match_context") else {}   # results form and stakes (docs/22)
     n_f = 0
     for m in upcoming:
         h, a = m["home_iid"], m["away_iid"]
@@ -162,7 +171,15 @@ def run_league(db, league_iid: int, now=None) -> dict:
             if len(rows) >= 11:
                 lineups[team] = {r["player_iid"] for r in rows}
         ctx = context_for_match(cal, m) if cal is not None else None
-        fcs, probs = eng.predict_fixture(h, a, lineups, ctx=ctx)
+        avail = AV.for_match(db, (h, a), m["kickoff"])                  # injuries and suspensions (feed or admin)
+        mctx = {t: lctx.get(t) for t in (h, a) if lctx.get(t)}
+        fcs, probs = eng.predict_fixture(h, a, lineups, ctx=ctx, availability=avail, match_ctx=mctx)
+        for t in (h, a):
+            if lctx.get(t):
+                c_ = lctx[t]
+                db.match_context.update_one({"match_iid": m["iid"], "team_iid": int(t)},
+                                            {"$set": {"league_iid": league_iid, "form_fp": c_["fp"], "stakes": {k: c_[k] for k in ("dead", "rel", "race")},
+                                                      "games_left": c_["left"], "context_why": c_["why"], "at": now}}, upsert=True)
         if ctx:
             for team, c in ctx.items():
                 level = CX.pressure_level(CX.rotation_pressure(c))
@@ -175,20 +192,22 @@ def run_league(db, league_iid: int, now=None) -> dict:
         db.match_probs.insert_one({"match_iid": m["iid"], "run_id": run_id, "is_current": True, "at": now, **probs})
         kept = {d["fkey"]: d for d in db.forecasts.find({"match_iid": m["iid"], "is_current": True, "hidden": True},
                                                          {"_id": 0, "fkey": 1, "hidden_reason": 1, "hidden_by": 1, "hidden_at": 1})}
-        db.forecasts.update_many({"match_iid": m["iid"], "is_current": True}, {"$set": {"is_current": False}})
         docs = []
         for f in fcs:
             mk = f"{f.scope}.{f.stat}"
             if not markets.get(mk, False):
                 continue
             confirmed = True if f.scope == "team" else bool(f.confirmed)
-            t = tier(f.p, f.lo, confirmed, strong=strong, solid=solid)
+            state = "lineup" if (f.confirmed if f.scope == "player" else lineups.get(f.team)) else "pre"
+            p = CAL.apply(pmap, f.p, state, f.scope); lo = CAL.apply(pmap, f.lo, state, f.scope); hi = CAL.apply(pmap, f.hi, state, f.scope)
+            t = tier(p, lo, confirmed, strong=strong, solid=solid)
             fkey = f"{m['iid']}:{f.scope}:{f.team}:{f.player or 0}:{f.stat}:{f.thr:g}"
             docs.append({"id": str(uuid.uuid4()), "fkey": fkey, "run_id": run_id, "match_iid": m["iid"], "league_iid": league_iid,
                          "kickoff": m["kickoff"], "scope": f.scope, "team_iid": int(f.team), "opp_iid": int(f.opp),
                          "player_iid": int(f.player) if f.player is not None else None, "pos": f.pos,
                          "stat": f.stat, "thr": float(f.thr), "market": label_for(db, f.scope, f.stat, f.thr, labels),
-                         "expected": float(f.expected), "p": float(f.p), "lo": float(f.lo), "hi": float(f.hi),
+                         "expected": float(f.expected), "p": float(p), "lo": float(lo), "hi": float(hi),
+                         "p_model": float(f.p), "state": state, "calibration": (pmap or {}).get("version"),
                          "p_play": float(f.p_play), "lineup_confirmed": confirmed, "tier": t,
                          "reasons": list(f.reasons), "opp_tactics": list(f.opp_tactics), "own_tactics": list(f.own_tactics),
                          "opp_key_players": [[int(p), float(v)] for p, v in f.opp_key_players],
@@ -200,6 +219,8 @@ def run_league(db, league_iid: int, now=None) -> dict:
                 d.update(kept[d["fkey"]], hidden=True)
         if docs:
             db.forecasts.insert_many(docs)
+        # one row per forecast: the new run replaces every earlier row for this match (no duplicates, ever)
+        db.forecasts.delete_many({"match_iid": m["iid"], "run_id": {"$ne": run_id}})
         n_f += len(docs)
     import cards_model as CM   # separate yellow-card model (owner's choice: soccer_brain untouched)
     n_f += CM.run_league(db, league_iid, run_id, now)
@@ -310,10 +331,10 @@ def context_for_match(cal, m) -> dict:
 def score_finished(db) -> int:
     """After results arrive: store what actually happened next to each forecast (feeds Track Record)."""
     n = 0
-    cur = db.forecasts.find({"kickoff": {"$lt": utcnow()}})
+    cur = db.forecasts.find({"kickoff": {"$lt": utcnow()}, "is_current": True})
     for f in cur:
-        if db.forecast_outcomes.find_one({"forecast_id": f["id"]}):
-            continue
+        if db.forecast_outcomes.find_one({"$or": [{"forecast_id": f["id"]}, {"fkey": f["fkey"]}]}):
+            continue                                          # one outcome per forecast, even if old rows linger
         m = db.matches.find_one({"iid": f["match_iid"], "status": "final"})
         if not m or not m.get("ingested_at"):
             continue
@@ -334,6 +355,7 @@ def score_finished(db) -> int:
         db.forecast_outcomes.insert_one({"forecast_id": f["id"], "fkey": f["fkey"], "run_id": f["run_id"], "league_iid": f["league_iid"],
                                          "stat": f["stat"], "scope": f["scope"], "tier": f["tier"], "p": f["p"],
                                          "thr": f["thr"], "actual": float(actual), "reached": bool(actual > f["thr"]),
+                                         "p_model": f.get("p_model", f["p"]), "state": f.get("state"),
                                          "player_played": played, "scored_at": utcnow()})
         n += 1
     return n

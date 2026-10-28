@@ -87,12 +87,48 @@ class Forecast:
     p_play_usual: float | None = None   # chance he plays with no calendar pressure (shows the shift)
 
 
+# Availability (docs/22). A player who has not featured in his club's last matches is often injured, suspended or
+# dropped. Fitted on StatsBomb 2015/16 (Premier League, Serie A, Ligue 1), history = games he featured in, exactly
+# what the live feed gives: logit P = c0 + c1 * logit(usual start rate) + c2*[missed >= 1] + c3*[>= 2] + c4*[>= 3] + c5*[>= 4].
+# Held-out gain in log loss per player-game: starts +0.138 (z +38), plays +0.165 (z +41), every league.
+ABSENCE_START = (-0.107, 0.719, -1.238, -0.791, -0.356, -1.065)
+ABSENCE_PLAY = (1.043, 0.288, -1.219, -0.642, -0.363, -1.036)
+
+
+# Match context on expected goals (docs/22). Poisson coefficients on top of team strength, fitted walk-forward on
+# 46,000 English league matches (Premier League, Championship, League One, League Two, 2008-09 to 2024-25).
+#   fp:   points in the last 5 league games minus the points the model expected (results form)
+#   dead: late in the season with nothing left to play for; rel: in a relegation fight; race: in the title/top race
+# "own" = the scoring side, "opp" = the other side. Held-out gain: score z +3.5, result z +3.9 (pooled);
+# three leagues better, the Premier League neutral.
+MATCH_CONTEXT_COEF = {"fp_own": 0.0221, "fp_opp": -0.0266, "dead_own": 0.0335, "dead_opp": 0.0996,
+                      "rel_own": 0.0093, "rel_opp": -0.0292, "race_own": 0.0289, "race_opp": -0.0339}
+
+
+def context_multipliers(ch: dict, ca: dict, coef=MATCH_CONTEXT_COEF):
+    """(mult_home_goals, mult_away_goals) from the two clubs' context dicts {fp, dead, rel, race}."""
+    def eta(own, opp):
+        return sum(coef[f"{k}_own"] * float(own.get(k, 0) or 0) + coef[f"{k}_opp"] * float(opp.get(k, 0) or 0) for k in ("fp", "dead", "rel", "race"))
+    return float(np.exp(eta(ch or {}, ca or {}))), float(np.exp(eta(ca or {}, ch or {})))
+
+
+def _logit(p):
+    p = min(max(p, 1e-4), 1 - 1e-4)
+    return float(np.log(p / (1 - p)))
+
+
+def _avail(coef, ps, missed):
+    z = coef[0] + coef[1] * _logit(ps) + sum(c for c, k in zip(coef[2:], (1, 2, 3, 4)) if missed >= k)
+    return float(1.0 / (1.0 + np.exp(-z)))
+
+
 class SoccerEngine:
     def __init__(self, interactions=True, lineup=False, half_life_rounds=20.0,
                  style_k=6.0, min_round=3, n_draws=60, sigma_team=0.07,
                  lineup_l2=10.0, seed=0, tactics=False, tactic_interactions=True, shape=False,
-                 extra_stats=(), match_features=()):
+                 extra_stats=(), match_features=(), strength_decay=0.02):
         self.interactions = interactions
+        self.strength_decay = strength_decay           # Dixon-Coles time decay per match date (docs/22: how much recent form counts)
         self.lineup = lineup
         self.tactics_req = tactics                  # requested; becomes active only if tier-B columns exist
         self.tactic_interactions = tactic_interactions
@@ -116,6 +152,8 @@ class SoccerEngine:
         self.sigma_team = sigma_team
         self.rng = np.random.default_rng(seed)
         self.r_player = dict(DEFAULT_R_PLAYER)
+        self.absence = True                         # availability model (missed recent matches); docs/22
+        self.match_context = True                   # results form and stakes on expected goals; docs/22
         self.start_model = None                     # context.StartModel, set by set_start_model()
         self.start_on = False                       # applied only when its walk-forward gate passed
 
@@ -268,7 +306,7 @@ class SoccerEngine:
             self.glm[s] = NBGLM(l2=l2).fit(Xs, rows[s].values.astype(float), w, offset=offs[s])
 
         # team strength
-        self.dc = DixonColes().fit(matches["home"], matches["away"], matches["hg"],
+        self.dc = DixonColes(xi=self.strength_decay).fit(matches["home"], matches["away"], matches["hg"],
                                    matches["ag"], as_of - 1 - matches["round"].values)
 
         # team histories for baselines
@@ -287,6 +325,17 @@ class SoccerEngine:
         for pid, g in pg.groupby("player"):
             g = g.sort_values("round")
             self.pl[pid] = dict(team=int(g["team"].iloc[-1]), pos=g["pos"].iloc[-1], g=g, pid=pid)
+        # club matches in order, and for each player how many of his club's latest matches he has missed
+        team_games = {t: list(g.sort_values("round")["game_id"]) for t, g in tg.groupby("team")}
+        for pid, info in self.pl.items():
+            tgl = team_games.get(info["team"], [])
+            mine = set(info["g"].loc[info["g"]["team"] == info["team"], "game_id"])
+            missed = 0
+            for gid in reversed(tgl):
+                if gid in mine:
+                    break
+                missed += 1
+            info["missed"] = missed
         self.squads = {}
         for pid, info in self.pl.items():
             self.squads.setdefault(info["team"], {})[pid] = info
@@ -406,10 +455,25 @@ class SoccerEngine:
         sub_flag = ns & (m > 0)
         p_sub = (np.sum(w[sub_flag]) + 0.5) / (np.sum(w[ns]) + 1.5)
         m_sub = np.average(m[sub_flag], weights=w[sub_flag]) if sub_flag.sum() else 20.0
+        p_play = None
+        if confirmed_set is None and self.absence:
+            base = ps
+            ps_a = _avail(ABSENCE_START, base, info.get("missed", 0))
+            p_play = max(ps_a, _avail(ABSENCE_PLAY, base, info.get("missed", 0)))
+            if ps_override is not None:                    # calendar start model moves the usual rate; keep its relative change
+                new = min(0.98, ps_a * float(ps_override) / max(base, 1e-3))
+                p_play = min(1.0, max(new, p_play - ps_a + new))      # fewer starts -> fewer appearances; the bench chance stays
+                ps_a = new
+            ps = ps_a
+            p_sub = min(1.0, max(0.0, (p_play - ps) / (1 - ps))) if ps < 1 else 0.0
         if confirmed_set is not None:
             ps = 1.0 if info["pid"] in confirmed_set else 0.0
-        elif ps_override is not None:
+        elif ps_override is not None and p_play is None:
             ps = float(ps_override)
+        if info.get("unavailable") and confirmed_set is None:   # injured or suspended (feed or admin); a confirmed eleven wins
+            return [], 0.0, 0.0, 0.0
+        if info.get("doubtful") and confirmed_set is None:
+            ps *= 0.5; p_sub *= 0.5
         scen = []
         if ps > 0:
             scen.append((ps, float(m_start)))
@@ -479,11 +543,19 @@ class SoccerEngine:
                 out[team][s] = (float(self.glm[s].predict_mu(feats, off)[0]), float(self.glm[s].r), float(np.exp(off)))
         return out
 
-    def predict_fixture(self, home, away, lineups=None, xf=None, ctx=None):
+    def predict_fixture(self, home, away, lineups=None, xf=None, ctx=None, availability=None, match_ctx=None):
         """`ctx` = {team: context.Calendar.context(...) dict} for the two clubs (optional). With it, the
         forecast carries a rotation level and, when the StartModel is on, shifts who is expected to start.
+        `availability` = {player: "out" | "doubtful"} from an injury feed or the admin (optional). An "out" player
+        gets no forecast and his share of the team's shots and tackles goes to the others.
         A confirmed lineup always wins over the model."""
         lineups = lineups or {}
+        availability = availability or {}
+        for team in (home, away):
+            for pid, info in self.squads.get(team, {}).items():
+                st = availability.get(pid)
+                info["unavailable"] = st == "out"
+                info["doubtful"] = st == "doubtful"
         ctx = ctx or {}
         snap = self.snaps[self.as_of]
         # minutes scenarios for both squads first: lineups of BOTH teams matter
@@ -579,7 +651,12 @@ class SoccerEngine:
                                             opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
                                             rotation=rot[team][0], rotation_why=rot[team][1],
                                             p_play_usual=usual_ps.get(pid)))
-        return out, self.dc.outcome_probs(home, away)
+        mh, ma = (1.0, 1.0)
+        if self.match_context and match_ctx:
+            mh, ma = context_multipliers(match_ctx.get(home) or {}, match_ctx.get(away) or {})
+        probs = self.dc.outcome_probs(home, away, mult_h=mh, mult_a=ma)
+        probs["context"] = {"mult_home": round(mh, 4), "mult_away": round(ma, 4)}
+        return out, probs
 
     @staticmethod
     def _rotation_sentence(c, parts):

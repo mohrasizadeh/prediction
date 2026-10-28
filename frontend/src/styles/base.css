@@ -277,7 +277,7 @@ pre { overflow: auto; max-height: 420px; font-size: 13px; }
 .date-strip { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 16px 0 12px; }
 .league-head { display: flex; align-items: center; gap: 8px; }
 .fixtures { list-style: none; padding: 0; margin: 0; }
-.fixture-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1fr); gap: 8px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); color: var(--text); text-decoration: none; }
+.fixture-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr); gap: 8px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); color: var(--text); text-decoration: none; }
 .fixture-row .prob, .fixture-row .badge { grid-column: 2 / -1; }
 @media (min-width: 768px) { .fixture-row { grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1fr) 220px auto; } .fixture-row .prob, .fixture-row .badge { grid-column: auto; } }
 .team { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

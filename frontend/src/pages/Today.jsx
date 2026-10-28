@@ -7,6 +7,7 @@ import { pct } from "../lib/copy";
 import { utc } from "../lib/time";
 import { Crest, LeagueMark } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
+import LiveStatus from "../components/LiveStatus";
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -55,7 +56,9 @@ export default function Today() {
             {rows.map((m) => (
               <li key={m.id || m.iid}>
                 <Link to={`/match/${m.id}`} className="fixture-row">
-                  <time>{utc(m.kickoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</time>
+                  {m.live && m.live.status && m.live.status !== "Scheduled" && m.status !== "final"
+                    ? <span className="fx-live" data-testid={`today-live-${m.id}`}><LiveStatus status={m.live.status} minute={m.live.minute} kickoff={m.kickoff} testid={`today-live-status-${m.id}`} /> <strong>{m.live.hs} - {m.live.as}</strong></span>
+                    : <time>{utc(m.kickoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</time>}
                   <span className="team"><Crest team={m.home} size={20} /> {m.home?.name}</span>
                   <span className="team"><Crest team={m.away} size={20} /> {m.away?.name}</span>
                   <ProbBar probs={m.probs} />

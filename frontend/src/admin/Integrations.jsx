@@ -5,6 +5,7 @@ import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
 import { Confirm, Drawer, Field, FormError, Switch, useToast } from "../components/Ui";
 import { Card, Chip, DataState, PageHead, ResponsiveTable, when } from "./parts";
+import SportAPI from "./SportAPI";
 
 function EmailCard({ e, reload }) {
   const toast = useToast();
@@ -121,6 +122,8 @@ export default function Integrations() {
         <TrackingCard t={d.tracking} reload={q.reload} />
         <Webhooks />
       </div>}</DataState>
+      <h2 className="h3 a-section-title">SportAPI</h2>
+      <SportAPI />
     </div>
   );
 }

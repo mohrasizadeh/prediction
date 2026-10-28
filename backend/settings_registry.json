@@ -754,10 +754,10 @@
     "group": "Engine",
     "label": "Rounds of history per fit",
     "type": "number",
-    "default": 150,
+    "default": 320,
     "public": false,
     "applies_at": "next_engine_run",
-    "help": ""
+    "help": " About three seasons: with the slower fade, older matches still carry weight (docs/22)."
   },
   {
     "key": "engine.half_life_rounds",
@@ -768,6 +768,16 @@
     "public": false,
     "applies_at": "next_engine_run",
     "help": ""
+  },
+  {
+    "key": "engine.strength_decay",
+    "group": "Engine",
+    "label": "How fast old results fade (team strength)",
+    "type": "number",
+    "default": 0.01,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Per match date. 0.01 was best on 46,000 English league matches (docs/22); 0.02, the old value, gave too much weight to recent form."
   },
   {
     "key": "engine.style_k",
@@ -953,6 +963,96 @@
     "public": false,
     "applies_at": "next_engine_run",
     "help": ""
+  },
+  {
+    "key": "engine.absence_model",
+    "group": "Engine",
+    "label": "Availability model (missed recent matches)",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "A player who has not featured in his club's last matches is likely injured, suspended or dropped (docs/22)."
+  },
+  {
+    "key": "engine.match_context",
+    "group": "Engine",
+    "label": "Results form and stakes in the match forecast",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Points above or below expectation in the last 5, and late-season stakes, move expected goals a little (docs/22)."
+  },
+  {
+    "key": "context.stakes_places",
+    "group": "Engine",
+    "label": "Places that matter, per league",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "{league iid: {\"upper\": 6, \"relegation\": 3}}. Missing leagues use 6 and 3."
+  },
+  {
+    "key": "injuries.enabled",
+    "group": "Engine",
+    "label": "Injuries feed from API-Football",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Uses the API-Football key and the player mapping from the image sync. Run check_apifootball.py --injuries first."
+  },
+  {
+    "key": "injuries.stale_days",
+    "group": "Engine",
+    "label": "Drop feed rows not refreshed for (days)",
+    "type": "int",
+    "default": 3,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "engine.calibration",
+    "group": "Engine",
+    "label": "Calibrate percentages",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Maps the engine's raw likelihoods to tested percentages (docs/21). Off shows raw numbers."
+  },
+  {
+    "key": "engine.calibration_auto",
+    "group": "Engine",
+    "label": "Refit calibration from our own results",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Weekly. A new map is kept only if it beats the current one on the newest 30% of results."
+  },
+  {
+    "key": "engine.calib_min_scored",
+    "group": "Engine",
+    "label": "Scored forecasts needed before refitting",
+    "type": "int",
+    "default": 5000,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.feed_one_per_player",
+    "group": "Engine",
+    "label": "One card per player per match in feeds",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "The headline line is shown; the player's other lines sit inside the card (docs/21)."
   },
   {
     "key": "engine.exclude_positions",
@@ -1917,5 +2017,149 @@
     "public": true,
     "help": "Shown in the footer when images are on.",
     "applies_at": "immediately"
+  },
+  {
+    "key": "sportapi.enabled",
+    "group": "Live (SportAPI)",
+    "label": "Live data from SportAPI",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Live scores, events, lineups and results from SportAPI (docs/23)."
+  },
+  {
+    "key": "sportapi.daily_calls",
+    "group": "Live (SportAPI)",
+    "label": "Daily call limit",
+    "type": "int",
+    "default": 1800,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Hard stop per UTC day. The plan allows 2,000; keep some spare."
+  },
+  {
+    "key": "sportapi.leagues",
+    "group": "Live (SportAPI)",
+    "label": "Followed leagues (our league to SportAPI league)",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "applies_at": "immediately",
+    "help": "{our league iid: SportAPI league id}. Only these leagues are followed. Premier League is 24."
+  },
+  {
+    "key": "sportapi.live_interval_s",
+    "group": "Live (SportAPI)",
+    "label": "Scoreboard refresh while live (seconds)",
+    "type": "int",
+    "default": 60,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Scoreboard refresh while a followed match is live or about to start."
+  },
+  {
+    "key": "sportapi.idle_interval_s",
+    "group": "Live (SportAPI)",
+    "label": "Scoreboard refresh before kick-off (seconds)",
+    "type": "int",
+    "default": 900,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Scoreboard refresh when followed matches are later today."
+  },
+  {
+    "key": "sportapi.quiet_interval_s",
+    "group": "Live (SportAPI)",
+    "label": "Scoreboard refresh on quiet days (seconds)",
+    "type": "int",
+    "default": 10800,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Scoreboard refresh on days with nothing followed."
+  },
+  {
+    "key": "sportapi.events_refresh_s",
+    "group": "Live (SportAPI)",
+    "label": "Events refresh per live match (seconds)",
+    "type": "int",
+    "default": 600,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Events refresh per live match (also fetched at once on any goal or status change)."
+  },
+  {
+    "key": "sportapi.window_before_min",
+    "group": "Live (SportAPI)",
+    "label": "Fast polling starts before kick-off (minutes)",
+    "type": "int",
+    "default": 15,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Start fast polling this many minutes before the first kick-off."
+  },
+  {
+    "key": "sportapi.lineups_minutes",
+    "group": "Live (SportAPI)",
+    "label": "Lineup checks before kick-off (minutes)",
+    "type": "list",
+    "default": [
+      75,
+      40,
+      15
+    ],
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Minutes before kick-off to ask for lineups, until they arrive."
+  },
+  {
+    "key": "sportapi.lineups_to_engine",
+    "group": "Live (SportAPI)",
+    "label": "Use SportAPI lineups in the engine",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Use a SportAPI eleven as the confirmed lineup when all 11 match our players and PitchAPI has none."
+  },
+  {
+    "key": "sportapi.team_aliases",
+    "group": "Live (SportAPI)",
+    "label": "Extra club-name pairs",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Extra club-name pairs for matching SportAPI teams to ours."
+  },
+  {
+    "key": "sportapi.min_confidence",
+    "group": "Live (SportAPI)",
+    "label": "Name-match score needed",
+    "type": "number",
+    "default": 0.9,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Name-match score needed to link a team or player without review."
+  },
+  {
+    "key": "sportapi.backfill_max_days",
+    "group": "Live (SportAPI)",
+    "label": "Most dates per backfill",
+    "type": "int",
+    "default": 60,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Most dates per backfill request."
+  },
+  {
+    "key": "sportapi.reserve_for_live",
+    "group": "Live (SportAPI)",
+    "label": "Calls kept for live scores during a backfill",
+    "type": "int",
+    "default": 600,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Calls a backfill always leaves for today's live scores."
   }
 ]

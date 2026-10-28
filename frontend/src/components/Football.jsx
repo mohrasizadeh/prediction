@@ -89,6 +89,7 @@ export function ForecastCard({ f, teams = {}, showMatch, homeIid }) {
   const hid = f.home_iid ?? homeIid;
   const fixture = team && opp ? (hid === f.opp_iid ? `${opp.name} v ${team.name}` : `${team.name} v ${opp.name}`) : team?.name || "";
   const reasons = f.reasons || [];
+  const more = f.more_lines || [];
   return (
     <article className="fcard" data-testid={`forecast-${f.id}`}>
       <header className="fcard-head">
@@ -104,6 +105,12 @@ export function ForecastCard({ f, teams = {}, showMatch, homeIid }) {
       <LikelihoodBar p={f.p} lo={f.lo} hi={f.hi} tier={f.tier} confirmed={f.scope === "player" ? f.lineup_confirmed : undefined} />
       {(f.opp_tactics || []).length > 0 && <div className="chips">{f.opp_tactics.map((t) => <TacticChip key={t} t={t} prefix="Opponent" />)}</div>}
       {reasons[0] && <p className="fcard-reason">{reasons[0]}</p>}
+      {more.length > 0 && (
+        <details className="fcard-lines" data-testid={`forecast-more-${f.id}`}>
+          <summary className="linkish">Other lines ({more.length})</summary>
+          <ul className="fcard-more">{more.map((x) => <li key={x.fkey}><span>{x.market}</span><b>{pct(x.p)}</b></li>)}</ul>
+        </details>
+      )}
       <button type="button" className="linkish" onClick={() => setOpen(!open)} aria-expanded={open} data-testid={`forecast-why-${f.id}`}>{open ? "Hide the numbers" : "Why"}</button>
       {open && (
         <dl className="fcard-why">

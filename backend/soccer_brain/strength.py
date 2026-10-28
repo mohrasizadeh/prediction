@@ -59,8 +59,10 @@ class DixonColes:
         la = np.exp(self.mu0 + self.att.get(away, 0.0) - self.dfn.get(home, 0.0))
         return float(lh), float(la)
 
-    def outcome_probs(self, home, away, max_goals=9):
+    def outcome_probs(self, home, away, max_goals=9, mult_h=1.0, mult_a=1.0):
+        """`mult_h`, `mult_a`: match-context multipliers on expected goals (form, stakes; docs/22)."""
         lh, la = self.expected_goals(home, away)
+        lh, la = lh * float(mult_h), la * float(mult_a)
         g = np.arange(max_goals + 1)
         from scipy.stats import poisson
         M = np.outer(poisson.pmf(g, lh), poisson.pmf(g, la))

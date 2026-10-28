@@ -314,3 +314,14 @@
 .a-card-head select { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface2); color: var(--text); font-size: 16px; }
 .a-review-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .a-cov.is-ok { color: var(--up); font-weight: 700; } .a-cov.is-low { color: var(--down); font-weight: 700; background: color-mix(in srgb, var(--down) 8%, transparent); }
+
+/* SportAPI and Availability (docs/22, docs/23) */
+.a-section-title { margin: 28px 0 12px; }
+.sp-bar { height: 10px; border-radius: 999px; background: var(--surface2); border: 1px solid var(--border); overflow: hidden; }
+.sp-bar span { display: block; height: 100%; background: var(--c-brand); transition: width .3s ease; }
+.sp-bar span.is-tight { background: var(--tier-watch); }
+.av-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.av-row { display: grid; grid-template-columns: minmax(0, 1.4fr) 130px minmax(0, 1.4fr) 150px auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--surface1); border: 1px solid var(--border); }
+.av-name { display: grid; min-width: 0; } .av-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-row select, .av-row input, #root [data-testid="av-club"] { min-height: 40px; padding: 0 10px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font: inherit; min-width: 0; }
+@media (max-width: 768px) { .av-row { grid-template-columns: 1fr 1fr; } .av-name { grid-column: 1 / -1; } }

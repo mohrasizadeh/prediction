@@ -85,7 +85,7 @@ def run_match(db, m, run_id=None, now=None, ln=None) -> int:
     now = now or utcnow(); run_id = run_id or f"cards-{uuid.uuid4()}"
     strong = tuple(S.get(db, "engine.tier_strong")); solid = tuple(S.get(db, "engine.tier_solid"))
     rf, rwhy = ref_factor(db, m["league_iid"], m.get("referee"), ln)
-    db.forecasts.update_many({"match_iid": m["iid"], "is_current": True, "stat": {"$in": ["yellow_cards", "match_yellow_cards"]}}, {"$set": {"is_current": False}})
+    db.forecasts.delete_many({"match_iid": m["iid"], "stat": {"$in": ["yellow_cards", "match_yellow_cards"]}})   # one row per forecast (docs/21)
     h, a, avg = m["home_iid"], m["away_iid"], ln["avg_team"]
     shr = lambda t, i: (ln["team"].get(t, [0, 0, 0])[i] + K_TEAM * avg) / (ln["team"].get(t, [0, 0, 0])[2] + K_TEAM) / avg
     lam_h, lam_a = avg * shr(h, 0) * shr(a, 1) * rf, avg * shr(a, 0) * shr(h, 1) * rf

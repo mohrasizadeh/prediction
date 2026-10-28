@@ -3,12 +3,35 @@
 // Lineup effects are locked off and only shown. Runs and the forecast browser live in EngineRuns.jsx.
 import { useState } from "react";
 import { Forecasts, Runs } from "./EngineRuns";
-import { del, post, putFile } from "../lib/api";
+import Availability from "./Availability";
+import { del, post, put, putFile } from "../lib/api";
 import { useApi } from "../lib/useApi";
-import { Confirm, Field, FormError, Tabs, useToast } from "../components/Ui";
+import { Confirm, Field, FormError, Switch, Tabs, useToast } from "../components/Ui";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import Icon from "../components/Icon";
 import { Card, Chip, DataState, KV, PageHead, Pager, StatTile, num, when } from "./parts";
+
+function Calibration({ d, reload }) {
+  const toast = useToast();
+  const [ask, setAsk] = useState(false);
+  const c = d.calibration || {};
+  const e = d.engine || {};
+  const set = async (key, value) => { try { await put(`/admin/settings/${key}`, { value }); toast("Saved. It applies from the next engine run."); reload(); } catch (x) { toast(x.message, "err"); } };
+  return (
+    <Card title="Percentages and factors" testid="brain-calibration" actions={<Chip tone={c.enabled ? "up" : "warn"} testid="brain-calibration-source">{c.source === "own" ? "Own map" : c.source === "default" ? "Default map" : "Off"}</Chip>}>
+      <p className="a-muted small">The map turns the engine's raw likelihood into the percentage people see. Version in use: <b data-testid="brain-calibration-version">{c.version || "none"}</b>. A weekly refit from our own results is kept only if it beats the current map ({num(c.scored)} of {num(c.needed)} scored forecasts so far).</p>
+      {c.test_logloss && <p className="a-muted small">Last refit test: new {c.test_logloss.new} vs previous {c.test_logloss.previous} ({when(c.created_at)})</p>}
+      <Switch label="Show calibrated percentages" checked={!!c.enabled} onChange={(v) => set("engine.calibration", v)} testid="brain-sw-calibration" />
+      <Switch label="Absences count" hint="Players who missed recent matches are less likely to play" checked={!!e["engine.absence_model"]} onChange={(v) => set("engine.absence_model", v)} testid="brain-sw-absence" />
+      <Switch label="Results form and late-season context" hint="Applied to expected goals" checked={!!e["engine.match_context"]} onChange={(v) => set("engine.match_context", v)} testid="brain-sw-context" />
+      <Field as="select" label="How fast old results fade" value={String(e["engine.strength_decay"] ?? 0.01)} onChange={(x) => set("engine.strength_decay", Number(x.target.value))} testid="brain-decay">
+        {[0.005, 0.01, 0.02, 0.03].map((v) => <option key={v} value={String(v)}>{v === 0.01 ? "0.01 (recommended)" : String(v)}</option>)}
+      </Field>
+      <button className="btn btn--secondary btn--sm self-start" onClick={() => setAsk(true)} disabled={c.source !== "own"} data-testid="brain-calibration-rollback">Back to default map</button>
+      <Confirm open={ask} title="Go back to the default map?" body="New forecasts use the shipped map from the next engine run." confirmLabel="Go back" onClose={() => setAsk(false)} onConfirm={async () => { try { await post("/admin/calibration/rollback"); toast("Default map in use"); reload(); } catch (x) { toast(x.message, "err"); } setAsk(false); }} testid="brain-rollback-confirm" />
+    </Card>
+  );
+}
 
 function Brain() {
   const q = useApi("/admin/brain");
@@ -19,6 +42,7 @@ function Brain() {
   return (
     <div className="a-stack">
       <p className="a-notice"><Icon name="padlock" size={16} />Lineup effects stay off. They failed their test on simulated data.</p>
+      <Calibration d={d} reload={q.reload} />
       <div className="a-tiles-grid">
         <StatTile label="Gate results" value={num(d.gates.length)} testid="brain-gates" />
         <StatTile label="Clubs with a calendar" value={num(d.clubs_with_calendar)} testid="brain-clubs" />
@@ -107,11 +131,11 @@ function Images() {
 
 export default function Engine() {
   const [tab, setTab] = useState("runs");
-  const body = { runs: <Runs />, forecasts: <Forecasts />, brain: <Brain />, calendar: <Calendar />, images: <Images /> }[tab];
+  const body = { runs: <Runs />, forecasts: <Forecasts />, brain: <Brain />, availability: <Availability />, calendar: <Calendar />, images: <Images /> }[tab];
   return (
     <div className="a-page" data-testid="admin-engine">
       <PageHead title="Engine" lead="Runs, current forecasts you can hide, what the forecast brain is using, the cup calendar, and images." />
-      <Tabs tabs={[{ id: "runs", label: "Runs" }, { id: "forecasts", label: "Forecasts" }, { id: "brain", label: "Brain layers" }, { id: "calendar", label: "Calendar import" }, { id: "images", label: "Images" }]} value={tab} onChange={setTab} testid="engine-tabs" />
+      <Tabs tabs={[{ id: "runs", label: "Runs" }, { id: "forecasts", label: "Forecasts" }, { id: "brain", label: "Brain layers" }, { id: "availability", label: "Availability" }, { id: "calendar", label: "Calendar import" }, { id: "images", label: "Images" }]} value={tab} onChange={setTab} testid="engine-tabs" />
       {body}
     </div>
   );

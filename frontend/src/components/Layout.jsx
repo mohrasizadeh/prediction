@@ -87,6 +87,7 @@ function MoreSheet({ open, onClose, items, user, signOut }) {
         <header className="sheet-head"><h2>More</h2><button className="icon-btn" onClick={onClose} aria-label="Close" data-testid="more-sheet-close"><Icon name="x" /></button></header>
         <div className="sheet-grid">
           {items.map((i) => <NavItem key={i.id} item={i} className="tile" onClick={onClose} testid={`more-item-${i.id}`} />)}
+          <NavLink to="/live" className="tile" onClick={onClose} data-testid="more-item-live"><Icon name="clock" /><span>Live scores</span></NavLink>
           <NavLink to="/track-record" className="tile" onClick={onClose} data-testid="more-item-track-record"><Icon name="trending-up" /><span>Track record</span></NavLink>
           <NavLink to="/referees" className="tile" onClick={onClose} data-testid="more-item-referees"><Icon name="flag" /><span>Referees</span></NavLink>
           {user ? <NavLink to="/account" className="tile" onClick={onClose} data-testid="more-item-account"><Icon name="user" /><span>Account</span></NavLink>
@@ -211,6 +212,7 @@ export default function Layout({ children }) {
         {rail && (
           <aside className="rail" aria-label="Main">
             <nav>{items.map((i) => <NavItem key={i.id} item={i} className="rail-link" testid={`rail-${i.id}`} />)}
+              <NavLink to="/live" className="rail-link" data-testid="rail-live"><Icon name="clock" size={20} /><span>Live scores</span></NavLink>
               <NavLink to="/track-record" className="rail-link" data-testid="rail-track-record"><Icon name="trending-up" size={20} /><span>Track record</span></NavLink>
               <NavLink to="/referees" className="rail-link" data-testid="rail-referees"><Icon name="flag" size={20} /><span>Referees</span></NavLink>
             </nav>

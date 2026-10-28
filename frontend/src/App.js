@@ -10,6 +10,7 @@ import Team from "./pages/Team";
 import Player from "./pages/Player";
 import Referee from "./pages/Referee";
 import Referees from "./pages/Referees";
+import Live from "./pages/Live";
 import Pricing from "./pages/Pricing";
 import Finder from "./pages/Finder";
 import { Insights, TrackRecord } from "./pages/Insights";
@@ -76,6 +77,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Today />} />
           <Route path="match/:id" element={<Match />} />
+          <Route path="live" element={<Live />} />
           <Route path="insights" element={<Insights />} />
           <Route path="finder" element={<Finder />} />
           <Route path="leagues" element={<Leagues />} />

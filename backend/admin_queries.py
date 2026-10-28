@@ -355,7 +355,18 @@ def brain_status(db) -> dict:
     for g in db.engine_gates.find({}, {"_id": 0}).sort("at", -1):
         gates.setdefault((g["league_iid"], g["layer"]), g)
     cal = db.club_calendar.aggregate([{"$group": {"_id": "$comp", "n": {"$sum": 1}}}])
-    return {"gates": list(gates.values()),
+    import calibration as CAL
+    own = db.engine_calibration.find_one({"active": True}, {"_id": 0}, sort=[("created_at", -1)])
+    pmap = CAL.current(db)
+    calib = {"enabled": bool(S.get(db, "engine.calibration")), "auto": bool(S.get(db, "engine.calibration_auto")),
+             "version": (pmap or {}).get("version"), "source": "own" if own else ("default" if pmap else "off"),
+             "created_at": (own or {}).get("created_at"), "test_logloss": (own or {}).get("test_logloss"),
+             "team_shrink": (pmap or {}).get("team_shrink"),
+             "scored": db.forecast_outcomes.count_documents({"p_model": {"$ne": None}, "state": {"$in": ["pre", "lineup"]}}),
+             "needed": int(S.get(db, "engine.calib_min_scored")),
+             "last_refit": (db.job_runs.find_one({"job": "calibration"}, {"_id": 0, "result": 1, "started_at": 1}, sort=[("started_at", -1)]) or None)}
+    return {"gates": list(gates.values()), "calibration": calib,
+            "engine": {k: S.get(db, k) for k in ("engine.absence_model", "engine.match_context", "engine.strength_decay", "engine.history_rounds")},
             "settings": S.get_many(db, "context."),
             "tactic_layers": S.get(db, "engine.tactic_layers"), "shape_layer": S.get(db, "engine.shape_layer"),
             "calendar_rows_by_competition": {r["_id"]: r["n"] for r in cal},

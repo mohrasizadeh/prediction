@@ -8,6 +8,23 @@ import { Tabs } from "../components/Ui";
 import { ForecastCard, MatchRow, ProbBar, Seg, TacticChip, kickoff, num1, posLabel, useTitle } from "../components/Football";
 import { ShareCard } from "../components/Share";
 import FirstGoal from "../components/FirstGoal";
+import TeamNews from "../components/TeamNews";
+import LiveStatus from "../components/LiveStatus";
+import MatchEvents from "../components/MatchEvents";
+import LiveLineups from "../components/LiveLineups";
+
+const cardsOf = (d) => d.cards || d.forecasts;
+
+function LiveTab({ d }) {
+  const sid = d.live?.sid;
+  const q = useApi(`/live/${sid}/lineups`);
+  return (
+    <div className="live-detail" data-testid="match-live">
+      <MatchEvents events={d.live_events || []} testid="match-live-events" />
+      {q.loading ? <Loading rows={2} /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : <LiveLineups lineups={q.data.lineups} home={d.home.name} away={d.away.name} />}
+    </div>
+  );
+}
 
 function Side({ team, rot, tactics, align }) {
   return (
@@ -23,14 +40,18 @@ function Side({ team, rot, tactics, align }) {
 function Hero({ d }) {
   const m = d.match;
   const final = m.status === "final" && m.hg != null;
+  const lv = m.live && m.live.status && m.live.status !== "Scheduled" && !final ? m.live : null;
   return (
     <section className="hero card" data-testid="match-hero">
       <div className="hero-row">
         <Side team={d.home} rot={d.rotation?.[m.home_iid]} tactics={d.styles?.[m.home_iid]?.tactics} align="home" />
         <div className="hero-mid">
-          {final ? <strong className="hero-score" data-testid="match-score">{m.hg} – {m.ag}</strong> : <span className="hero-v">v</span>}
+          {final ? <strong className="hero-score" data-testid="match-score">{m.hg} – {m.ag}</strong>
+            : lv && lv.hs != null ? <strong className="hero-score" data-testid="match-live-score">{lv.hs} – {lv.as}</strong> : <span className="hero-v">v</span>}
+          {lv?.pen_home != null && <span className="muted small">({lv.pen_home}–{lv.pen_away} pens)</span>}
           <time className="muted small">{kickoff(m.kickoff)}</time>
-          <span className="chip-tag">{final ? "Full time" : m.status === "scheduled" ? "Not started" : m.status}</span>
+          {lv ? <LiveStatus status={lv.status} minute={lv.minute} kickoff={m.kickoff} testid="match-live-status" />
+            : <span className="chip-tag">{final ? "Full time" : m.status === "scheduled" ? "Not started" : m.status}</span>}
         </div>
         <Side team={d.away} rot={d.rotation?.[m.away_iid]} tactics={d.styles?.[m.away_iid]?.tactics} align="away" />
       </div>
@@ -46,9 +67,10 @@ function Forecasts({ d, teams }) {
   const [side, setSide] = useState("all");
   const [scope, setScope] = useState("all");
   const [shown, setShown] = useState(24);
-  const rows = d.forecasts.filter((f) => (side === "all" || f.stat?.startsWith("match_") || f.team_iid === (side === "home" ? d.match.home_iid : d.match.away_iid)) && (scope === "all" || f.scope === scope));
+  const rows = cardsOf(d).filter((f) => (side === "all" || f.stat?.startsWith("match_") || f.team_iid === (side === "home" ? d.match.home_iid : d.match.away_iid)) && (scope === "all" || f.scope === scope));
   return (
     <>
+      <TeamNews d={d} />
       <div className="filters">
         <Seg label="Team" value={side} onChange={setSide} options={[{ id: "all", label: "Both" }, { id: "home", label: d.home.name }, { id: "away", label: d.away.name }]} testid="fc-side" />
         <Seg label="Scope" value={scope} onChange={setScope} options={[{ id: "all", label: "All" }, { id: "player", label: "Players" }, { id: "team", label: "Teams" }]} testid="fc-scope" />
@@ -159,8 +181,9 @@ export default function Match() {
     <section data-testid="match-page">
       <h1 className="sr-only">{d.home.name} v {d.away.name}</h1>
       <Hero d={d} />
-      <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[{ id: "forecasts", label: `Forecasts (${d.forecasts.length})` }, { id: "lineups", label: "Lineups" }, { id: "events", label: "Events" }, { id: "first", label: "First goal" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
+      <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[{ id: "forecasts", label: `Forecasts (${cardsOf(d).length})` }, ...(d.live?.sid ? [{ id: "live", label: "Live" }] : []), { id: "lineups", label: "Lineups" }, { id: "events", label: "Events" }, { id: "first", label: "First goal" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
       {tab === "forecasts" && <Forecasts d={d} teams={teams} />}
+      {tab === "live" && d.live?.sid && <LiveTab d={d} />}
       {tab === "lineups" && <Pitch d={d} />}
       {tab === "events" && <Events d={d} />}
       {tab === "first" && <div className="fg-pair" data-testid="match-first-goal"><FirstGoal team={d.home} compact testid="first-goal-home" /><FirstGoal team={d.away} compact testid="first-goal-away" /></div>}

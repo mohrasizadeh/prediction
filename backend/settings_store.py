@@ -44,7 +44,7 @@ _ENUMS = {"email.provider": ("emergent", "resend", "postmark", "sendgrid", "brev
 _RANGES = {"email.smtp_port": (1, 65535), "popups.max_per_session": (0, 10), "popups.min_gap_seconds": (0, 3600), "admin.alert_signup_drop_pct": (10, 100),
            "admin.alert_errors_per_hour": (1, 10000), "admin.alert_failed_payments": (1, 1000), "admin.alert_cooldown_hours": (1, 168),
            "images.min_confidence": (0.7, 1.0), "images.daily_calls": (1, 100000), "images.max_bytes": (20000, 2000000), "images.season": (0, 2100),
-           "context.gate_z": (0, 10), "context.holdout_share": (0.1, 0.5), "context.min_rows": (500, 1000000), "context.calendar_days": (1, 30)}
+           "context.gate_z": (0, 10), "context.holdout_share": (0.1, 0.5), "context.min_rows": (500, 1000000), "context.calendar_days": (1, 30), "engine.calib_min_scored": (500, 10000000), "injuries.stale_days": (1, 30), "engine.strength_decay": (0.0, 0.1), "sportapi.daily_calls": (0, 2000), "sportapi.live_interval_s": (30, 3600), "sportapi.idle_interval_s": (60, 86400), "sportapi.quiet_interval_s": (600, 86400), "sportapi.events_refresh_s": (60, 3600), "sportapi.window_before_min": (0, 180), "sportapi.min_confidence": (0.7, 1.0), "sportapi.backfill_max_days": (1, 366), "sportapi.reserve_for_live": (0, 2000)}
 _PATTERNS = {"tracking.ga4_id": r"(G-[A-Z0-9]{6,12})?", "tracking.meta_pixel_id": r"(\d{8,20})?", "tracking.google_ads_id": r"(AW-\d{6,14})?",
              "email.smtp_host": r"[A-Za-z0-9.\-]{0,253}", "email.smtp_user": r".{0,200}", "integrations.audience_list_id": r"[A-Za-z0-9_\-]{0,60}"}
 
@@ -54,6 +54,7 @@ def validate(key: str, value) -> None:
     t = _REGISTRY[key]["type"]
     ok = {"boolean": lambda v: isinstance(v, bool),
           "int": lambda v: isinstance(v, int) and not isinstance(v, bool),
+          "float": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
           "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
           "string": lambda v: isinstance(v, str) and len(v) <= 2000,
           "enum": lambda v: isinstance(v, str) and len(v) <= 100,

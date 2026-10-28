@@ -101,7 +101,8 @@ export default function Player() {
   useTitle(q.data?.player?.name || "Player");
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
-  const { player: p, team, next_match: nx, forecasts } = q.data;
+  const { player: p, team, next_match: nx } = q.data;
+  const forecasts = q.data.cards || q.data.forecasts;
   const teams = nx ? { [nx.home_iid]: nx.home, [nx.away_iid]: nx.away } : {};
   return (
     <section data-testid="player-page">
