@@ -82,8 +82,10 @@ check(all(f["p"] <= 0.93 or all(m["p"] > 0.93 for m in f["more_lines"]) for f in
 order = [(Q.CONFIDENT[f["tier"]], -f["edge"]) for f in feed]
 check(order == sorted(order), "default order: Strong and Solid together by the biggest lift over usual, then Watch")
 heads = [f for f in feed if f["tier"] in ("Strong", "Solid")]
-check(all(m["thr"] <= f["thr"] for f in heads for m in f["more_lines"] if m["stat"] == f["stat"] and m["tier"] in ("Strong", "Solid")),
-      "headline: the boldest line we are still confident in (Solid 3+ beats Strong 1+)")
+check(all(m["p"] <= f["p"] or m["p"] > 0.93 for f in heads for m in f["more_lines"]),
+      "headline: the most likely line leads the card (owner's rule)")
+check(all([m["p"] for m in f["more_lines"]] == sorted([m["p"] for m in f["more_lines"]], reverse=True) for f in feed),
+      "other lines are listed most likely first")
 lk = Q.insights_feed(db, limit=500, tiers=("Strong", "Solid", "Watch"), now=now - dt.timedelta(hours=1), sort="likely")
 o2 = [(Q.TIER_RANK[f["tier"]], -f["p"]) for f in lk]
 check(o2 == sorted(o2), "sort=likely gives the old order")

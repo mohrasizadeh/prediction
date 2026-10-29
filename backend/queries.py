@@ -130,27 +130,18 @@ def _availability(db, teams):
 
 # ----------------------------------------------------------- one card per player (docs/21)
 def group_cards(fc: list[dict], max_p: float = 1.0) -> list[dict]:
-    """Keep ONE card per player (or team) per match; the other lines go into `more_lines`, sorted by stat and line.
-    Lines above `max_p` never lead while another line can (docs/25). The headline: of the lines that are Strong or
-    Solid, the stat with the biggest lift over usual, then its most ambitious line. Only when no line is Strong or
-    Solid does the best tier lead."""
+    """Keep ONE card per player (or team) per match. The most likely line leads (owner's rule); the other lines go
+    into `more_lines`, most likely first. Lines above `max_p` never lead while another line can (docs/25)."""
     groups: dict = {}
     for f in fc:
         groups.setdefault((f["match_iid"], f["scope"], f["team_iid"], f.get("player_iid")), []).append(f)
     out = []
     for g in groups.values():
         lead = [f for f in g if f["p"] <= max_p] or g
-        conf = [f for f in lead if f.get("tier") in ("Strong", "Solid")]
-        if conf:
-            ls = lead_stat(conf)
-            head = max(conf, key=lambda f: (f["stat"] == ls, f["thr"], f["p"]))
-        else:
-            best = min(TIER_RANK.get(f.get("tier"), 9) for f in lead)
-            top = [f for f in lead if TIER_RANK.get(f.get("tier"), 9) == best]
-            head = min(top, key=lambda f: (f["p"], -f["thr"]))
+        head = max(lead, key=lambda f: (f["p"], f["thr"]))
         card = dict(head)
         card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge")}
-                                     for f in g if f is not head), key=lambda x: (x["stat"], x["thr"]))
+                                     for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
         out.append(card)
     return out
 

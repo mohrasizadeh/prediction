@@ -33,6 +33,14 @@
 .ins-days { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .ins-days > .k-chip { min-height: 64px; border-radius: 14px; }
 .ins-chips { display: grid; gap: 8px; }
+.ins-answer { margin: -6px 0 0; color: var(--text2); font-size: 15px; } .ins-answer b { color: var(--text); }
+.ins-filters { display: grid; gap: 14px; padding: 16px 18px; }
+.ins-f { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; }
+.ins-f-label { font-size: 13px; font-weight: 700; color: var(--text2); } .ins-f-label b { color: var(--brand); font-size: 15px; }
+.ins-f--min .k-range { padding-top: 22px; }
+.ins-f-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px dashed var(--border); padding-top: 12px; }
+.ins-f-foot .k-chip .ico { margin-right: 2px; }
+@media (max-width: 640px) { .ins-f { grid-template-columns: 1fr; gap: 6px; } .ins-filters { padding: 14px; } }
 .ins-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
 .ins-compact { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface1); }
 .ins-compact li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "t n p" "t m p"; align-items: center; gap: 2px 12px; padding: 10px 14px; border-top: 1px solid var(--border); }

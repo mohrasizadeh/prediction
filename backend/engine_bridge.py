@@ -92,6 +92,7 @@ def configure_engine(db) -> E.SoccerEngine:
     eng.r_player = dict(S.get(db, "engine.r_player"))
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
+    eng.likely_starter_p = float(S.get(db, "engine.likely_starter_p"))   # likely starters get full minutes, no chance-to-play discount
     return eng
 
 
@@ -193,6 +194,8 @@ def run_league(db, league_iid: int, now=None) -> dict:
     pmap = CAL.current(db)         # raw likelihood -> the percentage people see (docs/21); None = off
     lgdoc = db.leagues.find_one({"iid": league_iid}, {"_id": 0}) or {"iid": league_iid}
     lctx = MC.league_context(db, lgdoc, now) if S.get(db, "engine.match_context") else {}   # results form and stakes (docs/22)
+    import team_norm as TN
+    cn = TN.build(db, league_iid, "corners", half=float(S.get(db, "engine.style_half_life")) or 20.0) if "corners" in eng.stats else None
     n_f = 0
     for m in upcoming:
         h, a = m["home_iid"], m["away_iid"]
@@ -207,7 +210,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
         ctx = context_for_match(cal, m) if cal is not None else None
         avail = AV.for_match(db, (h, a), m["kickoff"])                  # injuries and suspensions (feed or admin)
         mctx = {t: lctx.get(t) for t in (h, a) if lctx.get(t)}
-        fcs, probs = eng.predict_fixture(h, a, lineups, ctx=ctx, availability=avail, match_ctx=mctx)
+        tnorm = ({t: {"corners": cn.predict(t, o), "corners_usual": cn.usual(t)} for t, o in ((h, a), (a, h))}
+                 if cn is not None and cn.cnt >= 20 else None)       # normalised corner averages (opponent-adjusted)
+        fcs, probs = eng.predict_fixture(h, a, lineups, ctx=ctx, availability=avail, match_ctx=mctx, team_norm=tnorm)
         for t in (h, a):
             if lctx.get(t):
                 c_ = lctx[t]

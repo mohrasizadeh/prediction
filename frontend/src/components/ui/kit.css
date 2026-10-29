@@ -119,6 +119,8 @@
 .k-fc-bar { height: 8px; border-radius: 999px; background: var(--surface3); overflow: hidden; } .k-fc-bar b { display: block; height: 100%; background: var(--tone); border-radius: 999px; }
 .k-fc-why { margin: 0; font-size: 14px; color: var(--text2); }
 .k-fc-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px 6px; border-top: 1px dashed var(--border); }
+.k-fc-foot-r { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; min-height: 40px; }
+.k-fc-date { font-size: 12px; color: var(--text3); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .k-fc-lines { list-style: none; margin: 0; padding: 4px 16px 12px; display: grid; }
 .k-fc-lines li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 15px; }
 .k-fc-lines li:first-child { border-top: 0; } .k-fc-lines b { color: var(--tone); font-variant-numeric: tabular-nums; }

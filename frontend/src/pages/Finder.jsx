@@ -10,11 +10,17 @@ import { pct } from "../lib/copy";
 import { Crest, PlayerAvatar } from "../components/Media";
 import Icon from "../components/Icon";
 import { MATCH_STATS, STATS, TEAM_STATS, kickoff, useTitle } from "../components/Football";
-import { ChipsRow, EmptyState, ErrorState, ForecastCard, HitStrip, ProLock, RangeSlider, Segmented, Skeleton } from "../components/ui";
+import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, HitStrip, ProLock, RangeSlider, Segmented, Skeleton, isoDay } from "../components/ui";
 
-const DEF = { mode: "form", stat: "shots", n: "2", scope: "player", last_n: "10", min: "6", venue: "", positions: "", leagues: "" };
+const DEF = { mode: "form", stat: "shots", n: "2", scope: "player", last_n: "10", min: "6", venue: "", positions: "", leagues: "", day: "" };
 const POS = ["GK", "DEF", "MID", "FWD"];
 const PRESETS = "finder-presets";
+
+function dayLabel(day) {
+  if (!day) return "today";
+  const d = new Date(`${day}T12:00:00`), t = new Date(); t.setDate(t.getDate() + 1);
+  return day === isoDay(t) ? "tomorrow" : `on ${d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}`;
+}
 
 function Part({ id, label, open, setOpen, children }) {
   const ref = useRef(null);
@@ -125,7 +131,9 @@ export default function Finder() {
     if (!picked.length || out) return;
     setRes((r) => ({ ...r, err: null, busy: true }));
     try {
+      const today = isoDay(new Date());
       const rows = await get("/finder", { mode: f.mode, stat: stat.id, threshold: Number(f.n), scope: f.scope, last_n: f.last_n, leagues: f.leagues,
+        day: f.day || today, tz: -new Date().getTimezoneOffset(),
         venue: f.venue || undefined, positions: f.scope === "player" ? f.positions : "", min_reached: f.mode === "form" ? Number(f.min) / Number(f.last_n) : undefined }, { quiet: true });
       setRes({ rows, err: null, busy: false });
       if (visitor) setAnonUsed((used || 0) + 1);
@@ -176,6 +184,8 @@ export default function Finder() {
             const on = picked.includes(l.id);
             return <button key={l.id} type="button" className={`k-chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => set({ leagues: (on ? picked.filter((x) => x !== l.id) : max >= 0 && picked.length >= max ? [...picked.slice(1), l.id] : [...picked, l.id]).join(",") })} data-testid={`finder-league-${l.id}`}>{l.name}</button>;
           })}</span></Part>
+        {" playing "}<Part id="day" label={dayLabel(f.day)} open={open} setOpen={setOpen}>
+          <span className="fs-days"><DateScroller value={f.day || isoDay(new Date())} onChange={(v) => { set({ day: v === isoDay(new Date()) ? "" : v }); setOpen(null); }} from={0} count={7} testid="finder-day" /></span></Part>
       </p>
       <div className="fs-actions">
         {!unlimited && <button type="button" className="btn btn--primary" disabled={res.busy || !picked.length || out} onClick={run} data-testid="finder-run">{res.busy ? "Searching…" : !picked.length ? "Pick a league first" : out ? "No searches left today" : "Update results"}</button>}

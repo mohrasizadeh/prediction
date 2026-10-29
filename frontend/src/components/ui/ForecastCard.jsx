@@ -32,7 +32,10 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid }) {
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState(false);
   const fx = fixtureOf(f, teams, homeIid);
-  const more = f.more_lines || [];
+  const more = [...(f.more_lines || [])].sort((a, b) => b.p - a.p);
+  const venueKnown = (f.home_iid ?? homeIid) != null;
+  const sub = f.stat?.startsWith("match_") ? "Both teams"
+    : [f.player && fx.team?.name, fx.opp ? `vs ${fx.opp.name}` : fx.text, !f.player && venueKnown && fx.opp ? (fx.homeFirst ? "home" : "away") : null].filter(Boolean).join(" · ");
   const id = testid || `fc-${f.id || f.fkey}`;
   const name = f.player ? shortName(f.player.name) : (f.stat?.startsWith("match_") ? fx.text || "Both teams" : fx.team?.name || f.team?.name || "");
   const lineup = f.scope === "player" ? (f.lineup_confirmed ? "Lineup confirmed" : f.tier_basis === "likely_starter" ? "Likely starter" : "Lineup likely") : null;
@@ -41,7 +44,7 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid }) {
       <button type="button" className="k-fc-main" onClick={() => setSheet(true)} aria-label={`${name}, ${f.market}, ${pct(f.p)}${f.tier ? `, ${f.tier}` : ""}. Open details`} data-testid={`${id}-open`}>
         <header className="k-fc-head">
           <Who f={f} fx={fx} />
-          <span className="k-fc-who"><b>{name}</b><small>{f.stat?.startsWith("match_") ? "Both teams" : fx.text}{showTime && f.kickoff ? ` · ${timeOf(f.kickoff)}` : ""}</small></span>
+          <span className="k-fc-who"><b>{name}</b><small data-testid={`${id}-fixture`}>{sub}</small></span>
           <span className="k-fc-tier"><TierBadge tier={f.tier} testid={`${id}-tier`} />{f.tier_note && <small className="k-fc-note" data-testid={`${id}-tier-note`}>{f.tier_note}</small>}</span>
         </header>
         <div className="k-fc-line"><span className="k-fc-market">{f.market}</span><b className="k-fc-p" data-testid={`${id}-p`}>{pct(f.p)}</b></div>
@@ -49,10 +52,11 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid }) {
         {f.p_usual != null && <small className="k-fc-vs" data-testid={`${id}-usual`}>Usually {pct(f.p_usual)}</small>}
         {f.reasons?.[0] && <p className="k-fc-why">{f.reasons[0]}</p>}
       </button>
-      {(more.length > 0 || lineup) && (
+      {(more.length > 0 || lineup || (showTime && f.kickoff)) && (
         <footer className="k-fc-foot">
           {more.length > 0 ? <button type="button" className="k-link" aria-expanded={open} onClick={() => setOpen(!open)} data-testid={`${id}-more`}>{open ? "Hide other lines" : `+${more.length} more line${more.length === 1 ? "" : "s"}`}</button> : <span />}
-          {lineup && <span className={`k-tag${f.lineup_confirmed ? " k-tag--up" : ""}`}>{lineup}</span>}
+          <span className="k-fc-foot-r">{lineup && <span className={`k-tag${f.lineup_confirmed ? " k-tag--up" : ""}`}>{lineup}</span>}
+            {showTime && f.kickoff && <small className="k-fc-date" data-testid={`${id}-date`}>{timeOf(f.kickoff)}</small>}</span>
         </footer>
       )}
       {open && (

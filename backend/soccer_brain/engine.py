@@ -165,6 +165,8 @@ class SoccerEngine:
         self.r_player = dict(DEFAULT_R_PLAYER)
         self.absence = True                         # availability model (missed recent matches); docs/22
         self.match_context = True                   # results form and stakes on expected goals; docs/22
+        self.likely_starter_p = None                # chance to play at or above this = treated as a starter, full minutes
+        self.norm_blend = 0.5                       # weight of the normalised team average in team_norm stats
         self.start_model = None                     # context.StartModel, set by set_start_model()
         self.start_on = False                       # applied only when its walk-forward gate passed
 
@@ -612,7 +614,7 @@ class SoccerEngine:
                 out[team][s] = (float(self.glm[s].predict_mu(feats, off)[0]), float(self.glm[s].r), float(np.exp(off)))
         return out
 
-    def predict_fixture(self, home, away, lineups=None, xf=None, ctx=None, availability=None, match_ctx=None):
+    def predict_fixture(self, home, away, lineups=None, xf=None, ctx=None, availability=None, match_ctx=None, team_norm=None):
         """`ctx` = {team: context.Calendar.context(...) dict} for the two clubs (optional). With it, the
         forecast carries a rotation level and, when the StartModel is on, shifts who is expected to start.
         `availability` = {player: "out" | "doubtful"} from an injury feed or the admin (optional). An "out" player
@@ -628,7 +630,8 @@ class SoccerEngine:
         ctx = ctx or {}
         snap = self.snaps[self.as_of]
         # minutes scenarios for both squads first: lineups of BOTH teams matter
-        scen_all, usual_ps, rot = {}, {}, {}
+        scen_all, usual_ps, rot, likely_play = {}, {}, {}, {}
+        team_norm = team_norm or {}
         for team in (home, away):
             conf = lineups.get(team)
             c = ctx.get(team)
@@ -638,6 +641,10 @@ class SoccerEngine:
             for pid, info in self.squads.get(team, {}).items():
                 scen_all[pid] = self._scenarios(info, conf, ps_adj.get(pid))
                 usual_ps[pid] = ps_base.get(pid)
+                sc0 = scen_all[pid]
+                if conf is None and self.likely_starter_p and sc0[0] and sc0[2] >= self.likely_starter_p:
+                    likely_play[pid] = sc0[2]                     # likely starter: no chance-to-play discount
+                    scen_all[pid] = ([(1.0, sc0[0][0][1])], sc0[0][0][1], 1.0, 1.0)
 
         tx = self.tx_snaps[self.as_of] if self.tx_on else None
         out = []
@@ -652,6 +659,9 @@ class SoccerEngine:
                 own_l, opp_l, key = self._lineup_adj(s, team, opp, scen_all)
                 keys[s] = key
                 mu_team[s] = float(self.glm[s].predict_mu(feats, offs[s] + own_l + opp_l)[0])
+                tn = team_norm.get(team, {}).get(s)
+                if tn:
+                    mu_team[s] = float(np.exp((1 - self.norm_blend) * np.log(max(mu_team[s], 1e-6)) + self.norm_blend * np.log(tn)))
                 grp[s] = self._group_contrib(self.glm[s].contributions(feats))
                 for gname, v in self._offset_groups(s, X, Y, snap).items():
                     grp[s][gname] = grp[s].get(gname, 0.0) + v
@@ -664,6 +674,9 @@ class SoccerEngine:
                 dfor, _ = self.team_dims.get(s, (0, 1))
                 lu_ = np.log(max(self.league_mean[s], 1e-6)) + snap[0][X, dfor] + (snap[0][X, 7] if s == "sot" else 0.0)
                 mu_usual[s] = float(np.exp(lu_))
+                tu = team_norm.get(team, {}).get(s + "_usual")
+                if tu:
+                    mu_usual[s] = float(np.exp((1 - self.norm_blend) * lu_ + self.norm_blend * np.log(tu)))
 
             # ---- team markets
             for s, thrs in TEAM_THR.items():
@@ -722,7 +735,7 @@ class SoccerEngine:
                         p_raw = float((last > thr).mean()) if len(last) else 0.5
                         p_base = float(np.sum(probs * nb_sf(k, mus_b, self.r_player[s])))
                         out.append(Forecast("player", team, opp, s, thr, expected, p, float(lo), float(hi),
-                                            player=int(pid), pos=info["pos"], p_play=float(pplay),
+                                            player=int(pid), pos=info["pos"], p_play=float(likely_play.get(pid, pplay)),
                                             confirmed=lineups.get(team) is not None, contrib=contrib,
                                             reasons=reasons, opp_tactics=opp_tac, own_tactics=own_tac,
                                             opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
