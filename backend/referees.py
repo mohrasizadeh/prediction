@@ -145,7 +145,8 @@ def for_match(db, match: dict) -> dict | None:
     ref = (match or {}).get("referee")
     if not ref:
         return None
-    st = db.referee_stats.find_one({"referee": str(ref).strip(), "league_iid": match.get("league_iid")}, {"_id": 0})
+    # older referee_stats rows (booking model) carry no normalised numbers until the referees job reaches them
+    st = db.referee_stats.find_one({"referee": str(ref).strip(), "league_iid": match.get("league_iid"), "factor": {"$exists": True}}, {"_id": 0})
     if not st:
         return {"referee": ref, "factor": 1.0, "sentence": f"No history with {ref} yet, so we treat this referee as average."}
     return {"referee": ref, "factor": st["factor"], "matches": st["matches"], "cards_per_game": st["cards_per_game"],
