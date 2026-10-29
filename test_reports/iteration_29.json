@@ -1,0 +1,31 @@
+{
+  "summary": "Verified referee for_match KeyError 'factor' fix. Both reported matches return 200 with fallback sentence; 23 sampled match ids (from /api/leagues/{id} + /fixtures across 10 leagues, 549 ids collected) returned 0 5xx. Match page bde08683 renders at 390px and 1920px with no 'Something went wrong'. Referee sentence (data-testid=match-referee) is intentionally hidden on final matches (Situation only rendered when st !== 'final'), so it was verified visible on scheduled match 2c690161 at both widths.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/matches/{id}", "issue": "34/180 referee_stats rows are legacy (no 'factor'); for referees with legacy history the copy says 'No history with X yet' which is technically inaccurate until the referees job recomputes those leagues. Consider running the referees job for all enabled leagues to backfill."},
+      {"endpoint": "GET /api/today", "issue": "Review request referenced /api/today but no such route exists (404). Sampling done via /api/leagues/{id} and /api/leagues/{id}/fixtures instead."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Match page (final)", "issues": ["Referee sentence not shown on final matches (by design in MatchCentre.jsx line 72). Request expected it visible on bde08683 (a final match) - confirm intent."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter29_referee_fallback.py", "/app/test_reports/pytest/iter29.xml"],
+  "action_items": [
+    "Optional: run referees job for all leagues to backfill normalised fields on 34 legacy referee_stats rows",
+    "Confirm whether referee sentence should also show on final matches"
+  ],
+  "critical_code_review_comments": [
+    "for_match filter on factor $exists is correct; DB check: 0 rows have factor but miss matches/cards_per_game/cards_per_game_normalised/sentence, so st[...] indexing is safe today. Using st.get() would be more defensive."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter29_referee_fallback.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run test_iter29_referee_fallback.py as regression. /api/leagues returns {countries:[{leagues:[...]}]}. No /api/today route. Referee sentence only renders on non-final matches."
+}
