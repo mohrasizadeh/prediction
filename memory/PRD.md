@@ -95,3 +95,17 @@ Wait for the owner's next phase prompt.
   left rail from 640px, rail footer links removed. Data gaps logged in docs/redesign/DATA_GAPS.md (HT score, last live event, matchday/next count).
 - Next: Batch 2 (items 6-8), Batch 3 (9-14), Batch 4 (15-18). Run testing agent after batch 4.
 
+
+## 2026-10-29 Owner request (approved): Insights filters, Finder date, engine updates (ahead of doc 26 batch 2)
+- Insights: always-visible filter panel (min-likelihood slider, Tier, Market); League + position/venue/lineup in "League and more" sheet; answer line "N forecasts · sort".
+- Cards: most likely line leads (queries.group_cards, lines > feed_max_p excepted); other lines most likely first; line 2 "vs Opp · home/away", date in footer.
+  PSV "duplicates" were two different matches (Willem II, Club Brugge).
+- Finder: date part ("playing today/tomorrow/on <day>"); blank = today.
+- Engine: likely starters (p_play >= engine.likely_starter_p) get full start minutes, no chance-to-play discount (engine + cards_model).
+  NOTE: no player currently reaches 0.85 (max ~0.84), so the rule has no one to apply to yet; owner may lower the setting.
+- Cards (player + match): stakes x1.08/x0.92, next-match level x0.92/x0.96, normalised fouls (team_norm.py, opponent-adjusted; player fouls/90 vs position),
+  referee yellows per foul shrunk to league. Corners: GLM blended 50/50 with normalised opponent-adjusted corners average.
+- selftest_lines headline check updated to the owner's "most likely leads" rule. run_tests.sh 19 PASS; pytest iter29+iter30 23 passed.
+- Testing agent iteration 30 stopped early (credits); UI checked by own screenshots only.
+- Next: doc 26 Batch 2 (items 6-8), then 3 and 4.
+
