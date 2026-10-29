@@ -19,8 +19,7 @@ const norm = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").t
 
 function nextLabel(l) {
   if (!l.next) return l.current_season || "No fixtures scheduled";
-  const when = l.today ? `${l.today} today` : utc(l.next.kickoff).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-  return l.next.round ? `Round ${l.next.round} · ${when}` : when;
+  return l.today ? `${l.today} today` : utc(l.next.kickoff).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 }
 
 function YourTeams() {

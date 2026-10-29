@@ -87,3 +87,11 @@ Owner (Moh), staff (admin/support/analyst), signed-in users, visitors.
 
 ## Next tasks
 Wait for the owner's next phase prompt.
+
+## 2026-10-29 Doc 26 design review (4 batches; frontend only)
+- Referee gaps: all 34 incomplete referee_stats were Serie A (league 61); refresh had never run for it. Ran referees.refresh(61): 34 referees from 88 matches, 0 records left without factor.
+- Batch 1 done (items 1-5): Today row FT / red live minute / winner bold, loser muted; Explore "Round N" removed (next date only);
+  update 25 confirmed live (varied lines, p_usual, reasons); ChipsRow hides zero chips, counts are muted numbers; bottom tabs under 640px,
+  left rail from 640px, rail footer links removed. Data gaps logged in docs/redesign/DATA_GAPS.md (HT score, last live event, matchday/next count).
+- Next: Batch 2 (items 6-8), Batch 3 (9-14), Batch 4 (15-18). Run testing agent after batch 4.
+

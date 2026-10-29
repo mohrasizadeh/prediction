@@ -7,6 +7,8 @@
 .k-icon-btn:hover { background: var(--surface2); }
 .k-tag { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--surface2); color: var(--text2); }
 .k-tag--up { color: var(--up); background: color-mix(in srgb, var(--up) 14%, transparent); }
+.k-count { color: var(--text3); font-weight: 600; font-variant-numeric: tabular-nums; }
+.k-chip.on .k-count { color: inherit; opacity: .7; }
 .k-badge { background: var(--brand); color: var(--on-brand); border-radius: 999px; font-size: 11px; padding: 1px 7px; font-weight: 700; }
 
 /* tier */

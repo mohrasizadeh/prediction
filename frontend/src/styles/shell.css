@@ -9,7 +9,7 @@
 @media (min-width: 1025px) { .only-phone { display: none !important; } }
 
 .rail { display: none; }
-@media (min-width: 1025px) { .rail { display: flex; flex-direction: column; gap: 22px; } .rail nav { display: grid; gap: 4px; } }
+@media (min-width: 640px) { .rail { display: flex; flex-direction: column; gap: 22px; } .rail nav { display: grid; gap: 4px; } }
 .rail-follow { display: grid; gap: 2px; }
 .rail-follow .k-sec { padding: 0 12px; }
 .rail-follow-item { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: var(--text2); text-decoration: none; }

@@ -7,7 +7,6 @@ import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
 import { Crest, LeagueMark } from "../components/Media";
 import { favFirst, useFavLeagues, useGameDays } from "../lib/prefs";
-import LiveStatus from "../components/LiveStatus";
 import Icon from "../components/Icon";
 import { useTitle } from "../components/Football";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, Skeleton, WdlBar, isoDay, useSessionDay } from "../components/ui";
@@ -40,17 +39,19 @@ function Row({ m }) {
   const started = m.status === "final" || (m.live && m.live.status !== "Scheduled" && m.live.hs != null);
   const hs = m.status === "final" ? m.hg : m.live?.hs, as = m.status === "final" ? m.ag : m.live?.as;
   const p = m.probs;
+  const fin = m.status === "final" && hs != null && as != null;
+  const cls = (mine, other) => (fin ? (mine > other ? " is-win" : mine < other ? " is-lose" : "") : "");
   return (
     <li>
       <Link to={`/match/${m.id}`} className={`td-row${live ? " is-live" : ""}`} data-testid={`today-row-${m.id}`}>
         <span className="td-time">
-          {live ? <LiveStatus status="LIVE" minute={m.live.minute} testid={`today-live-status-${m.id}`} />
-            : m.status === "final" ? <span className="status-chip">Full time</span>
+          {live ? <span className="td-min" data-testid={`today-live-status-${m.id}`} aria-label={m.live.minute === "HT" ? "Live, half-time" : `Live, minute ${m.live.minute || ""}`}><span className="k-livedot" aria-hidden="true" />{m.live.minute === "HT" ? "HT" : m.live.minute ? `${m.live.minute}'` : "Live"}</span>
+            : m.status === "final" ? <span className="td-ft" data-testid={`today-ft-${m.id}`}>FT</span>
             : <><b>{utc(m.kickoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</b>{until(m.kickoff) && <small>{until(m.kickoff)}</small>}</>}
         </span>
         <span className="td-teams">
-          <span><Crest team={m.home} size={22} /><span className="td-name">{m.home?.name}</span>{started && <b className="td-sc" data-testid={`today-live-${m.id}`}>{hs}</b>}</span>
-          <span><Crest team={m.away} size={22} /><span className="td-name">{m.away?.name}</span>{started && <b className="td-sc">{as}</b>}</span>
+          <span className={cls(hs, as)}><Crest team={m.home} size={22} /><span className="td-name">{m.home?.name}</span>{started && <b className="td-sc" data-testid={`today-live-${m.id}`}>{hs}</b>}</span>
+          <span className={cls(as, hs)}><Crest team={m.away} size={22} /><span className="td-name">{m.away?.name}</span>{started && <b className="td-sc" data-testid={`today-away-score-${m.id}`}>{as}</b>}</span>
         </span>
         <span className="td-bar">{p ? <WdlBar home={p.p_home} draw={p.p_draw} away={p.p_away} homeName={m.home?.name} awayName={m.away?.name} testid={`today-wdl-${m.id}`} /> : <small className="k-faint">No forecast yet</small>}</span>
         {m.insight_count > 0 ? <span className="td-ins" data-testid={`today-insights-${m.id}`}>{m.insight_count} insight{m.insight_count === 1 ? "" : "s"} ›</span> : <span className="td-ins td-ins--none" aria-hidden="true" />}
@@ -96,7 +97,7 @@ export default function Today() {
   }, [all, chip, followed, fav]);
   const live = all.filter(isLive);
   const chips = [{ id: "all", label: "All", count: all.length }, ...(user ? [{ id: "following", label: "Following", count: all.filter(isFol).length }] : []),
-    { id: "live", label: "Live now", count: live.length }, { id: "insights", label: "Has insights", count: all.filter((m) => m.insight_count > 0).length }];
+    { id: "live", label: "Live now", count: live.length }, { id: "insights", label: "With insights", count: all.filter((m) => m.insight_count > 0).length }];
   const swipe = { onTouchStart: (e) => { touch.current = e.touches[0].clientX; }, onTouchEnd: (e) => { const dx = e.changedTouches[0].clientX - (touch.current ?? 0); if (Math.abs(dx) > 70) setDay(shift(day, dx < 0 ? 1 : -1)); } };
   return (
     <section className="td" data-testid="today-page">

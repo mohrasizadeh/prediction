@@ -70,3 +70,8 @@
 .td-ins { min-width: 96px; text-align: center; } .td-ins--none { background: none; padding: 0; }
 @media (max-width: 720px) { .td-ins { min-width: 0; } }
 .ins-grid { align-items: start; }
+/* Doc 26 row states: FT label, live minute in red, winner bold and loser muted */
+.td-ft { font-size: 12px; font-weight: 800; letter-spacing: .04em; color: var(--text3); }
+.td-min { display: inline-flex; align-items: center; gap: 6px; color: var(--down); font-weight: 800; font-variant-numeric: tabular-nums; }
+.td-teams > span.is-win .td-name, .td-teams > span.is-win .td-sc { font-weight: 800; color: var(--text); }
+.td-teams > span.is-lose .td-name, .td-teams > span.is-lose .td-sc { font-weight: 500; color: var(--text3); }

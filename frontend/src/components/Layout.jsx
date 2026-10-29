@@ -244,7 +244,6 @@ export default function Layout({ children }) {
           <aside className="rail" aria-label="Main">
             <nav>{NAV5.map((i) => <Nav5Item key={i.id} item={i} className="rail-link" testid={`rail-${i.id}`} />)}</nav>
             {user && <RailFollowing />}
-            <p className="rail-foot">{FOOT_LINKS.slice(0, 3).map(([l, r], i) => <span key={r}>{i > 0 && " · "}<Link to={r} data-testid={`rail-foot-${r.slice(1)}`}>{l}</Link></span>)}</p>
           </aside>
         )}
         <div className="page-col">

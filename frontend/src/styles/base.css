@@ -85,7 +85,7 @@ pre { overflow: auto; max-height: 420px; font-size: 13px; }
 .body-row { display: flex; max-width: 1600px; margin: 0 auto; }
 .page-col { flex: 1; min-width: 0; }
 .rail { display: none; }
-@media (min-width: 1025px) {
+@media (min-width: 640px) {
   .rail { display: block; width: 232px; flex: none; position: sticky; top: var(--header-h); align-self: flex-start; height: calc(100vh - var(--header-h)); padding: 20px 12px; border-right: 1px solid var(--border); }
   .rail nav { display: grid; gap: 2px; }
   .rail-link { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: var(--text2); text-decoration: none; font-weight: 550; transition: background-color .15s, color .15s; }
@@ -108,8 +108,8 @@ pre { overflow: auto; max-height: 420px; font-size: 13px; }
 .btab.active { color: var(--brand); }
 .btab.active::before { content: ""; position: absolute; top: 0; left: 30%; right: 30%; height: 3px; border-radius: 0 0 3px 3px; background: var(--brand); }
 .btab .nav-badge { position: absolute; top: 6px; right: 22%; margin: 0; }
-@media (min-width: 1025px) { .bottom-tabs { display: none; } }
-@media (max-width: 1024px) { .app { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom)); } }
+@media (min-width: 640px) { .bottom-tabs { display: none; } :root { --tab-h: 0px; } }
+@media (max-width: 639px) { .app { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom)); } }
 
 /* Overlays */
 .overlay { position: fixed; inset: 0; z-index: 60; background: rgba(4, 7, 14, .62); backdrop-filter: blur(4px); display: flex; justify-content: flex-end; animation: fadein .18s ease; }

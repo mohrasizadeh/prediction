@@ -8,9 +8,9 @@ export function ChipsRow({ options, value, onChange, multi = false, label, testi
   };
   return (
     <div className="k-chips" role="group" aria-label={label} data-testid={testid}>
-      {options.map((o) => (
+      {options.filter((o) => o.count !== 0 || on(o.id)).map((o) => (
         <button key={o.id} type="button" className={`k-chip${on(o.id) ? " on" : ""}${o.accent ? " br" : ""}`} aria-pressed={on(o.id)} onClick={() => (o.onClick ? o.onClick() : tap(o.id))} data-testid={`${testid}-${o.id}`}>
-          {o.label}{o.count != null && <span className="k-badge" aria-label={`${o.count} selected`}>{o.count}</span>}
+          {o.label}{o.count ? <span className="k-count" data-testid={`${testid}-${o.id}-count`}>{o.count}</span> : null}
         </button>
       ))}
     </div>

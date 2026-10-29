@@ -1,0 +1,357 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+.light{--bg:#F5F7FB;--s1:#FFFFFF;--s2:#F0F3F9;--s3:#E6EBF4;--bd:#E2E8F2;--bd2:#C9D2E3;--tx:#0B1220;--tx2:#475269;--tx3:#6B7690;--br:#4F46E5;--brs:#EEF0FF;--onbr:#fff;--strong:#0D9488;--solid:#2563EB;--watch:#B45309;--up:#059669;--down:#DC2626;--draw:#6B7690;--away:#0D9488;--sh:0 1px 2px rgba(11,18,32,.06),0 8px 24px rgba(11,18,32,.06);--live:#DC2626;--hl:#FFF7E6}
+.dark{--bg:#0A0E17;--s1:#111827;--s2:#182033;--s3:#212B42;--bd:#243049;--bd2:#33415F;--tx:#E9EEF7;--tx2:#A3AFC6;--tx3:#75819B;--br:#7C83FF;--brs:#1E2347;--onbr:#0A0E17;--strong:#2DD4BF;--solid:#60A5FA;--watch:#FBBF24;--up:#34D399;--down:#F87171;--draw:#75819B;--away:#2DD4BF;--sh:0 8px 24px rgba(0,0,0,.35);--live:#F87171;--hl:#2A2410}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;font-feature-settings:'tnum' 1,'cv11' 1;background:#ccc;padding:20px;display:flex;flex-direction:column;gap:30px;align-items:flex-start}
+.frame{background:var(--bg);color:var(--tx);overflow:hidden;position:relative;font-size:14px}
+.phone{width:390px;height:844px;border-radius:0}
+.desk{width:1180px}
+.row{display:flex;align-items:center}
+.col{display:flex;flex-direction:column}
+.g4{gap:4px}.g6{gap:6px}.g8{gap:8px}.g10{gap:10px}.g12{gap:12px}.g16{gap:16px}.g20{gap:20px}
+.sp{justify-content:space-between}.grow{flex:1}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--sh)}
+.muted{color:var(--tx2)}.faint{color:var(--tx3)}
+.b{font-weight:700}.sb{font-weight:600}
+.xs{font-size:11px}.sm{font-size:12.5px}.md{font-size:15px}.lg{font-size:18px}.xl{font-size:22px}.xxl{font-size:30px}
+.crest{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex:none}
+.av{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex:none;font-size:14px;position:relative}
+.av .mini{position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border:2px solid var(--s1);font-size:7px}
+.chip{border:1px solid var(--bd);background:var(--s1);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--tx2);white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.chip.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.chip.br{background:var(--brs);color:var(--br);border-color:transparent}
+.badge{background:var(--br);color:var(--onbr);border-radius:999px;font-size:10px;padding:1px 6px;font-weight:700}
+.tier{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:4px}
+.tier.strong{color:var(--strong);background:color-mix(in srgb,var(--strong) 14%,transparent)}
+.tier.solid{color:var(--solid);background:color-mix(in srgb,var(--solid) 14%,transparent)}
+.tier.watch{color:var(--watch);background:color-mix(in srgb,var(--watch) 14%,transparent)}
+.dots{display:inline-flex;gap:2px}.dots i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block}.dots i.o{opacity:.25}
+.wdl{display:flex;height:8px;border-radius:999px;overflow:hidden;gap:2px}
+.wdl .h{background:var(--br)}.wdl .d{background:var(--draw);opacity:.6}.wdl .a{background:var(--away)}
+.btn{background:var(--br);color:var(--onbr);border-radius:10px;padding:9px 16px;font-weight:700;font-size:13.5px;border:0}
+.btn.ghost{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+.livedot{width:7px;height:7px;border-radius:50%;background:var(--live);box-shadow:0 0 0 4px color-mix(in srgb,var(--live) 25%,transparent);display:inline-block}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--bd);padding:0 16px}
+.tabs span{padding:10px 0;font-weight:600;color:var(--tx3);font-size:13.5px;white-space:nowrap}
+.tabs span.on{color:var(--tx);border-bottom:2px solid var(--br)}
+.hdr{height:56px;border-bottom:1px solid var(--bd);padding:0 16px;display:flex;align-items:center;justify-content:space-between;background:var(--bg)}
+.logo{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,#4F46E5,#14b8a6);display:inline-flex;align-items:center;justify-content:center}
+.logo:after{content:"";width:9px;height:9px;border:2.5px solid #fff;border-radius:50%}
+.beta{font-size:10px;font-weight:700;color:var(--strong);border:1px solid color-mix(in srgb,var(--strong) 50%,transparent);border-radius:999px;padding:1px 7px}
+.ic{width:18px;height:18px;border:2px solid var(--tx2);border-radius:5px;display:inline-block;opacity:.8}
+.ic.c{border-radius:50%}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:64px;background:var(--s1);border-top:1px solid var(--bd);display:flex;justify-content:space-around;align-items:center}
+.tabbar div{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:var(--tx3)}
+.tabbar div.on{color:var(--br)}.tabbar div.on .ic{border-color:var(--br)}
+.pill{position:absolute;background:var(--tx);color:var(--bg);border-radius:999px;padding:8px 14px;font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.days{display:flex;gap:8px;overflow:hidden}
+.day{border:1px solid var(--bd);background:var(--s1);border-radius:14px;padding:7px 0;width:62px;text-align:center;flex:none}
+.day .w{font-size:10.5px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.day .n{font-size:16px;font-weight:700;margin-top:1px}
+.day .dot{width:5px;height:5px;border-radius:50%;background:var(--br);margin:4px auto 0}
+.day .dot.no{background:transparent}
+.day.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}.day.on .w{color:var(--bg);opacity:.7}.day.on .dot{background:var(--bg)}
+.sec{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+.strip{display:flex;gap:3px}.strip i{width:12px;height:12px;border-radius:3px;background:var(--s3);display:block}.strip i.h{background:var(--strong)}
+.bar{height:6px;border-radius:999px;background:var(--s3);position:relative}
+.bar>b{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
+.slider{height:6px;border-radius:999px;background:var(--s3);position:relative;margin:14px 0 6px}
+.slider>b{position:absolute;top:0;bottom:0;background:var(--br);border-radius:999px}
+.slider>u{position:absolute;top:50%;width:24px;height:24px;border-radius:50%;background:var(--s1);border:2px solid var(--br);transform:translate(-50%,-50%);box-shadow:var(--sh)}
+.slider>s{position:absolute;top:-30px;transform:translateX(-50%);background:var(--tx);color:var(--bg);font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;text-decoration:none}
+.seg{display:inline-flex;background:var(--s2);border-radius:10px;padding:3px;gap:2px}
+.seg span{padding:5px 11px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--tx2)}
+.seg span.on{background:var(--s1);color:var(--tx);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--s1);border-radius:22px 22px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.25);padding:10px 18px 24px}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--bd2);margin:0 auto 12px}
+.scrim{position:absolute;inset:0;background:rgba(5,8,15,.45)}
+.u{border-bottom:2px dashed var(--br);color:var(--br);font-weight:700;padding:0 2px}
+.label{position:absolute;background:#FDE047;color:#111;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:9;white-space:nowrap;font-family:Inter}
+.label:before{content:attr(data-n);background:#111;color:#FDE047;border-radius:50%;display:inline-flex;width:16px;height:16px;align-items:center;justify-content:center;margin-right:6px;font-size:10px}
+.tile{padding:14px;border-radius:14px;background:var(--s1);border:1px solid var(--bd)}
+.mrow{display:grid;grid-template-columns:64px 1fr 190px 92px;align-items:center;gap:14px;padding:11px 16px;border-top:1px solid var(--bd)}
+</style></head><body>
+<style>
+.pin{position:absolute;z-index:9;width:24px;height:24px;border-radius:50%;background:#FDE047;color:#111;border:2px solid #111;font:800 12px Inter;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.ft{font-size:10.5px;font-weight:800;color:var(--tx3);letter-spacing:.04em}
+.res{font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;display:inline-flex;gap:4px;align-items:center}
+.res.ok{color:var(--up);background:color-mix(in srgb,var(--up) 14%,transparent)}
+.res.no{color:var(--down);background:color-mix(in srgb,var(--down) 12%,transparent)}
+.dd{border:1px solid var(--bd);background:var(--s1);border-radius:999px;padding:7px 11px;font-size:12.5px;font-weight:600;color:var(--tx);white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.dd.set{border-color:var(--br);color:var(--br);background:var(--brs)}
+.dd i{font-style:normal;color:var(--tx3);font-size:10px}
+.tok{display:inline-flex;align-items:center;gap:4px;background:var(--brs);color:var(--br);border-radius:10px;padding:2px 9px;font-weight:700;margin:3px 1px}
+.tok i{font-style:normal;font-size:11px;opacity:.7}
+.lrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--bd)}
+.mrow2{display:grid;grid-template-columns:46px 1fr auto;gap:10px;padding:11px 14px;border-top:1px solid var(--bd);align-items:center}
+.sc{font-weight:800;font-size:15px;width:16px;text-align:right}
+.w{font-weight:700}.l{color:var(--tx3);font-weight:500}
+</style>
+
+<!-- ============ A. TODAY phone (light) ============ -->
+<div id="r_today" class="frame phone light"><span class="pin" style="left:312px;top:130px">1</span><span class="pin" style="left:140px;top:158px">2</span><span class="pin" style="left:288px;top:321px">3</span><span class="pin" style="left:4px;top:425px">4</span><span class="pin" style="right:2px;top:410px">5</span>
+  <div class="hdr"><div class="row g8"><span class="logo"></span><span class="b">Forecast</span><span class="beta">BETA</span></div><div class="row g16"><span class="ic c"></span><span class="av" style="width:28px;height:28px;font-size:11px;background:var(--br)">M</span></div></div>
+  <div style="padding:10px 16px 0" class="col g10">
+    <div class="days">
+      <div class="day" style="width:52px"><div class="w">Yest.</div><div class="n">27</div><div class="dot"></div></div>
+      <div class="day on" style="width:52px"><div class="w">Today</div><div class="n">28</div><div class="dot"></div></div>
+      <div class="day" style="width:52px"><div class="w">Tmrw</div><div class="n">29</div><div class="dot"></div></div>
+      <div class="day" style="width:52px"><div class="w">Fri</div><div class="n">30</div><div class="dot"></div></div>
+      <div class="day" style="width:52px"><div class="w">Sat</div><div class="n">31</div><div class="dot"></div></div>
+      <div class="day" style="width:52px"><div class="w">Sun</div><div class="n">1</div><div class="dot"></div></div>
+    </div>
+    <div class="row sp"><span class="sm"><b>5 matches</b> <span class="muted">· all finished · our favourite won 2 of 5</span></span></div>
+    <div class="row sp"><span class="sec">Top picks today</span><span class="sm sb" style="color:var(--br)">All 5 ›</span></div>
+    <div class="row g10" style="margin-right:-60px">
+      <div class="card" style="padding:12px;width:270px;flex:none">
+        <div class="row g8"><span class="crest" style="width:30px;height:30px;background:#12A0D7">NA</span><div class="col"><span class="sb sm">Napoli</span><span class="xs faint">at Monza · FT 1–4</span></div><span class="res ok" style="margin-left:auto">✓ Hit</span></div>
+        <div class="row sp" style="margin-top:8px;align-items:flex-end"><span class="b">15+ shots</span><span class="xl b" style="color:var(--strong)">74%</span></div>
+        <div class="bar" style="margin-top:6px"><b style="width:74%;background:var(--strong)"></b><i style="position:absolute;left:52%;top:-4px;width:2px;height:14px;background:var(--tx)"></i></div>
+        <div class="xs faint" style="margin-top:5px">Usually 52% · they had 19</div>
+      </div>
+      <div class="card" style="padding:12px;width:270px;flex:none"><div class="row g8"><span class="crest" style="width:30px;height:30px;background:#00205B">IN</span><span class="sb sm">Inter</span></div></div>
+    </div>
+    <div class="row g6"><span class="chip on">All 5</span><span class="chip">With insights 4</span><span class="chip">Following</span></div>
+  </div>
+  <div class="card" style="margin:10px 16px 0;overflow:hidden">
+    <div class="row g8" style="padding:10px 14px"><span class="crest" style="background:#0B3D91">SA</span><span class="b">Serie A</span><span class="xs faint">5 · all finished</span><span class="muted" style="margin-left:auto">⌃</span></div>
+    <div class="mrow2"><div class="col"><span class="ft">FT</span></div>
+      <div class="col g4"><div class="row g8"><span class="crest" style="background:#00A060">VE</span><span class="l">Venezia</span><span class="sc l" style="margin-left:auto">0</span></div><div class="row g8"><span class="crest" style="background:#00205B">IN</span><span class="w">Inter</span><span class="sc" style="margin-left:auto">2</span></div></div>
+      <div class="col g4" style="align-items:flex-end;width:108px"><span class="res ok">✓ Inter 82%</span><span class="xs" style="color:var(--br)">1 insight ›</span></div></div>
+    <div class="mrow2"><div class="col"><span class="ft">FT</span></div>
+      <div class="col g4"><div class="row g8"><span class="crest" style="background:#E4B100;color:#111">PA</span><span>Parma</span><span class="sc" style="margin-left:auto">0</span></div><div class="row g8"><span class="crest" style="background:#111">UD</span><span>Udinese</span><span class="sc" style="margin-left:auto">0</span></div></div>
+      <div class="col g4" style="align-items:flex-end;width:108px"><span class="res no">✗ Udinese 42%</span><span class="xs" style="color:var(--br)">1 insight ›</span></div></div>
+    <div class="mrow2"><div class="col"><span class="ft">FT</span></div>
+      <div class="col g4"><div class="row g8"><span class="crest" style="background:#C8102E">MI</span><span class="l">Milan</span><span class="sc l" style="margin-left:auto">2</span></div><div class="row g8"><span class="crest" style="background:#1A2B6D">BO</span><span class="w">Bologna</span><span class="sc" style="margin-left:auto">4</span></div></div>
+      <div class="col g4" style="align-items:flex-end;width:108px"><span class="res no">✗ Milan 55%</span><span class="xs faint">Upset</span></div></div>
+    <div class="mrow2"><div class="col"><span class="ft">FT</span></div>
+      <div class="col g4"><div class="row g8"><span class="crest" style="background:#E2001A">MO</span><span class="l">Monza</span><span class="sc l" style="margin-left:auto">1</span></div><div class="row g8"><span class="crest" style="background:#12A0D7">NA</span><span class="w">Napoli</span><span class="sc" style="margin-left:auto">4</span></div></div>
+      <div class="col g4" style="align-items:flex-end;width:108px"><span class="res ok">✓ Napoli 55%</span><span class="xs" style="color:var(--br)">2 insights ›</span></div></div>
+  </div>
+  <div class="tabbar"><div class="on"><span class="ic"></span>Today</div><div><span class="ic"></span>Insights</div><div><span class="ic"></span>Finder</div><div><span class="ic"></span>Explore</div><div><span class="ic c"></span>You</div></div>
+</div>
+
+<!-- ============ B. ROW STATES (light, wide) ============ -->
+<div id="r_rows" class="frame light" style="width:1180px;padding:22px">
+  <div class="row g20" style="align-items:flex-start">
+    <div class="col g8" style="width:520px">
+      <span class="sec">Now: one look for every state</span>
+      <div class="card" style="overflow:hidden">
+        <div class="mrow" style="grid-template-columns:70px 1fr 170px 80px"><span class="sb">01:30 PM</span><div class="col g4"><div class="row g8"><span class="crest" style="background:#C8102E">MI</span>Milan<b style="margin-left:auto">2</b></div><div class="row g8"><span class="crest" style="background:#1A2B6D">BO</span>Bologna<b style="margin-left:auto">4</b></div></div><div class="col g4"><div class="wdl"><b class="h" style="width:55%"></b><b class="d" style="width:25%"></b><b class="a" style="width:20%"></b></div><div class="row sp xs"><span class="sb" style="color:var(--br)">Milan 55%</span><span class="faint">Bologna 20%</span></div></div><span></span></div>
+        <div class="mrow" style="grid-template-columns:70px 1fr 170px 80px"><span class="sb">03:45 PM</span><div class="col g4"><div class="row g8"><span class="crest" style="background:#A51E36">GE</span>Genoa<b style="margin-left:auto">2</b></div><div class="row g8"><span class="crest" style="background:#111">JU</span>Juventus<b style="margin-left:auto">0</b></div></div><div class="col g4"><div class="wdl"><b class="h" style="width:21%"></b><b class="d" style="width:27%"></b><b class="a" style="width:52%"></b></div><div class="row sp xs"><span class="faint">Genoa 21%</span><span class="sb" style="color:var(--away)">Juventus 52%</span></div></div><span class="chip br" style="padding:3px 8px;font-size:11px">1 insight ›</span></div>
+      </div>
+      <span class="xs faint">Finished matches show the kick-off time and the pre-match bar. You cannot tell what happened, or whether we were right.</span>
+    </div>
+    <div class="col g8 grow">
+      <span class="sec">Redesign: the row changes with the match</span>
+      <div class="card" style="overflow:hidden">
+        <div class="mrow" style="grid-template-columns:84px 1fr 180px 96px"><div class="col"><span class="sb">20:45</span><span class="xs faint">in 1h 03m</span></div><div class="col g4"><div class="row g8"><span class="crest" style="background:#8E1F2F">RM</span>Roma</div><div class="row g8"><span class="crest" style="background:#1B2A5C">CA</span>Cagliari</div></div><div class="col g4"><div class="wdl"><b class="h" style="width:74%"></b><b class="d" style="width:17%"></b><b class="a" style="width:9%"></b></div><div class="row sp xs"><span class="sb" style="color:var(--br)">Roma 74%</span><span class="faint">Cagliari 9%</span></div></div><span class="chip br" style="padding:3px 8px;font-size:11px;justify-self:end">3 insights ›</span></div>
+        <div class="mrow" style="grid-template-columns:84px 1fr 180px 96px;background:color-mix(in srgb,var(--live) 6%,transparent)"><div class="col"><span class="sb" style="color:var(--live)"><span class="livedot" style="width:6px;height:6px"></span> 67'</span><span class="xs faint">2nd half</span></div><div class="col g4"><div class="row g8"><span class="crest" style="background:#00205B">IN</span><span class="w">Inter</span><b style="margin-left:auto">2</b></div><div class="row g8"><span class="crest" style="background:#00A060">VE</span><span class="l">Venezia</span><b class="l" style="margin-left:auto">0</b></div></div><div class="col g4"><span class="xs">⚽ Lautaro 64'</span><span class="xs faint">Our forecast: Inter 82%</span></div><span class="chip br" style="padding:3px 8px;font-size:11px;justify-self:end">Live ›</span></div>
+        <div class="mrow" style="grid-template-columns:84px 1fr 180px 96px"><div class="col"><span class="ft">FT</span><span class="xs faint">HT 1–1</span></div><div class="col g4"><div class="row g8"><span class="crest" style="background:#E2001A">MO</span><span class="l">Monza</span><b class="l" style="margin-left:auto">1</b></div><div class="row g8"><span class="crest" style="background:#12A0D7">NA</span><span class="w">Napoli</span><b style="margin-left:auto">4</b></div></div><div class="col g4"><span class="res ok" style="align-self:flex-start">✓ We said Napoli 55%</span><span class="xs faint">Forecasts: 2 of 2 came true</span></div><span class="chip" style="padding:3px 8px;font-size:11px;justify-self:end">Recap ›</span></div>
+        <div class="mrow" style="grid-template-columns:84px 1fr 180px 96px"><div class="col"><span class="ft">FT</span><span class="xs faint">HT 0–2</span></div><div class="col g4"><div class="row g8"><span class="crest" style="background:#C8102E">MI</span><span class="l">Milan</span><b class="l" style="margin-left:auto">2</b></div><div class="row g8"><span class="crest" style="background:#1A2B6D">BO</span><span class="w">Bologna</span><b style="margin-left:auto">4</b></div></div><div class="col g4"><span class="res no" style="align-self:flex-start">✗ We said Milan 55%</span><span class="xs faint">An upset: Bologna had 20%</span></div><span class="chip" style="padding:3px 8px;font-size:11px;justify-self:end">Recap ›</span></div>
+      </div>
+      <span class="xs faint">Upcoming: time and countdown, our bar. Live: minute in red, last event. Finished: FT and half-time score, home team stays on top, the winner in bold, our call marked. Rows without insights keep the column empty but aligned.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ C. INSIGHTS phone (dark) ============ -->
+<div id="r_insights" class="frame phone dark"><span class="pin" style="right:8px;top:63px">1</span><span class="pin" style="left:362px;top:137px">2</span><span class="pin" style="left:2px;top:185px">3</span><span class="pin" style="left:242px;top:263px">4</span><span class="pin" style="left:102px;top:349px">5</span>
+  <div class="hdr"><div class="row g8"><span class="logo"></span><span class="b">Insights</span></div><div class="seg"><span class="on">Cards</span><span>List</span></div></div>
+  <div style="padding:10px 16px" class="col g10">
+    <span class="sm"><b>24 forecasts</b> <span class="muted">· biggest change from usual first</span></span>
+    <div class="row g6" style="overflow:hidden">
+      <span class="chip on" style="padding:6px 10px">Any day</span><span class="chip">Today</span><span class="chip">Tmrw</span><span class="chip">Sat 31</span><span class="chip">Sun 1</span>
+    </div>
+    <div class="row g6" style="overflow:hidden">
+      <span class="dd set">Strong + Solid <i>▾</i></span><span class="dd">Market <i>▾</i></span><span class="dd">League <i>▾</i></span><span class="dd">⚙ 2</span>
+    </div>
+    <div class="seg" style="align-self:stretch;display:flex"><span class="on" style="flex:1;text-align:center">Different from usual</span><span style="flex:1;text-align:center">Most likely</span><span style="flex:1;text-align:center">Kick-off</span></div>
+    <div class="card" style="padding:14px">
+      <div class="row g10"><span class="crest" style="width:40px;height:40px;font-size:12px;background:#DC052D">FCB</span><div class="col grow"><span class="sb">Bayern München</span><span class="xs faint">at Atlético Madrid · Tue 21:00</span></div><span class="tier strong"><span class="dots"><i></i><i></i><i></i></span>Strong</span></div>
+      <div class="row sp" style="margin-top:12px;align-items:flex-end"><span class="lg b">16+ shots</span><span class="xxl b" style="color:var(--strong)">81%</span></div>
+      <div class="bar" style="margin-top:8px"><b style="width:81%;background:var(--strong)"></b><i style="position:absolute;left:58%;top:-4px;width:2px;height:14px;background:var(--tx)"></i></div>
+      <div class="row sp xs" style="margin-top:6px"><span class="faint">Usually 58%</span><span class="sb" style="color:var(--up)">▲ 23 pts</span></div>
+      <div class="sm muted" style="margin-top:8px">Atlético concede the 3rd most shots at home in Europe.</div>
+      <div class="row sp" style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--bd)"><span class="sm sb" style="color:var(--br)">+2 lines ⌄</span><span class="xs faint">Tue 3 Nov</span></div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div class="row g10"><span class="av" style="width:40px;height:40px;font-size:12px;background:#C8102E">MS</span><div class="col grow"><span class="sb">M. Salah</span><span class="xs faint">Liverpool at Fenerbahçe · Wed</span></div><span class="tier solid"><span class="dots"><i></i><i></i><i class="o"></i></span>Solid</span></div>
+      <div class="row sp" style="margin-top:10px;align-items:flex-end"><span class="lg b">3+ shots</span><span class="xl b" style="color:var(--solid)">71%</span></div>
+      <div class="row sp xs" style="margin-top:6px"><span class="faint">Usually 55% · Likely starter</span><span class="sb" style="color:var(--up)">▲ 16 pts</span></div>
+    </div>
+  </div>
+  <div class="tabbar"><div><span class="ic"></span>Today</div><div class="on"><span class="ic"></span>Insights</div><div><span class="ic"></span>Finder</div><div><span class="ic"></span>Explore</div><div><span class="ic c"></span>You</div></div>
+</div>
+
+<!-- ============ C2. Insights filter sheet (light) ============ -->
+<div id="r_insights_sheet" class="frame phone light"><span class="pin" style="left:90px;top:226px">1</span><span class="pin" style="left:2px;top:726px">2</span>
+  <div class="hdr"><span class="b">Insights</span><span></span></div>
+  <div style="padding:12px 16px" class="col g10"><div class="card" style="height:120px;opacity:.5"></div></div>
+  <div class="scrim"></div>
+  <div class="sheet" style="height:640px">
+    <div class="grab"></div>
+    <div class="row sp"><span class="b lg">Filters</span><span class="sm sb" style="color:var(--br)">Reset</span></div>
+    <div class="sec" style="margin-top:16px">Tier</div>
+    <div class="row g6" style="margin-top:8px"><span class="chip on">Strong</span><span class="chip on">Solid</span><span class="chip">Watch</span></div>
+    <div class="sec" style="margin-top:16px">Market</div>
+    <div class="row g6" style="margin-top:8px;flex-wrap:wrap"><span class="chip">Player shots</span><span class="chip">On target</span><span class="chip">Tackles</span><span class="chip on">Team shots</span><span class="chip">Corners</span><span class="chip">Cards</span></div>
+    <div class="sec" style="margin-top:16px">League</div>
+    <div class="col" style="margin-top:4px">
+      <div class="row sp" style="padding:9px 0;border-bottom:1px solid var(--bd)"><span class="row g8"><span class="crest" style="background:#0A1F6E">CL</span>Champions League</span><span style="width:20px;height:20px;border-radius:6px;background:var(--br);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center">✓</span></div>
+      <div class="row sp" style="padding:9px 0;border-bottom:1px solid var(--bd)"><span class="row g8"><span class="crest" style="background:#0B3D91">SA</span>Serie A</span><span style="width:20px;height:20px;border-radius:6px;border:2px solid var(--bd2)"></span></div>
+      <div class="row sp" style="padding:9px 0;border-bottom:1px solid var(--bd)"><span class="row g8"><span class="crest" style="background:#EE8707">LL</span>LaLiga</span><span style="width:20px;height:20px;border-radius:6px;border:2px solid var(--bd2)"></span></div>
+      <div class="row sp" style="padding:9px 0"><span class="row g8"><span class="crest" style="background:#D20515">BL</span>Bundesliga</span><span style="width:20px;height:20px;border-radius:6px;border:2px solid var(--bd2)"></span></div>
+    </div>
+    <div class="sec" style="margin-top:14px">Minimum likelihood</div>
+    <div class="slider" style="margin-top:34px"><b style="left:0;width:44%"></b><u style="left:44%"></u><s style="left:44%">70%</s></div>
+    <button class="btn" style="width:100%;margin-top:22px;padding:13px">Show 9 forecasts</button>
+  </div>
+</div>
+
+<!-- ============ D. CARD before/after (light) ============ -->
+<div id="r_card" class="frame light" style="width:900px;padding:24px;display:flex;gap:28px">
+  <div class="col g10" style="width:400px">
+    <span class="sec">Now</span>
+    <div class="card" style="padding:14px">
+      <div class="row g10"><span style="width:40px;height:40px;border-radius:10px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx3)">⛉</span><div class="col grow"><span class="sb">LASK</span><span class="xs faint">LASK v Slovan Bratislava · T…</span></div><span class="tier strong">Strong</span></div>
+      <div class="row sp" style="margin-top:12px;align-items:flex-end"><span class="lg b">12+ shots</span><span class="xxl b" style="color:var(--strong)">90%</span></div>
+      <div class="bar" style="margin-top:8px"><b style="width:90%;background:var(--strong)"></b></div>
+      <div class="xs faint" style="margin-top:6px">−11 pts vs usual (100% in last 10)</div>
+      <div class="sm muted" style="margin-top:8px">The team's own style produces more shots.</div>
+    </div>
+    <div class="col g4 xs muted" style="line-height:1.5">
+      <span>• Grey shield: no crest, looks broken.</span>
+      <span>• The date is cut off.</span>
+      <span>• "12+ shots" on every team card.</span>
+      <span>• "−11 pts" reads as bad news on a 90% forecast.</span>
+      <span>• The same sentence on every card.</span>
+    </div>
+  </div>
+  <div class="col g10 grow">
+    <span class="sec">Redesign (after update 25)</span>
+    <div class="card" style="padding:14px">
+      <div class="row g10"><span class="crest" style="width:40px;height:40px;font-size:13px;background:#111">LA</span><div class="col grow"><span class="sb">LASK</span><span class="xs faint">vs Slovan Bratislava · home</span></div><span class="tier strong"><span class="dots"><i></i><i></i><i></i></span>Strong</span></div>
+      <div class="row sp" style="margin-top:12px;align-items:flex-end"><span class="lg b">17+ shots</span><span class="xxl b" style="color:var(--strong)">80%</span></div>
+      <div class="bar" style="margin-top:8px"><b style="width:80%;background:var(--strong)"></b><i style="position:absolute;left:47%;top:-4px;width:2px;height:14px;background:var(--tx)"></i></div>
+      <div class="row sp xs" style="margin-top:6px"><span class="faint">Usually 47%</span><span class="sb" style="color:var(--up)">▲ 33 pts</span></div>
+      <div class="sm muted" style="margin-top:8px">Slovan concede 18 shots a game away, the most in the group.</div>
+      <div class="row sp" style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--bd)"><span class="sm sb" style="color:var(--br)">+2 lines ⌄</span><span class="xs faint">Thu 5 Nov · 18:45</span></div>
+    </div>
+    <div class="col g4 xs muted" style="line-height:1.5">
+      <span>• Coloured initial badge until the crest arrives (never a grey shield).</span>
+      <span>• Opponent and venue on line two; date at the bottom, never cut.</span>
+      <span>• The line fits this team (17+), from update 25.</span>
+      <span>• "Usually 47%" with the tick on the bar, and the lift in green.</span>
+      <span>• A reason about this match.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ E. FINDER phone (light) ============ -->
+<div id="r_finder" class="frame phone light"><span class="pin" style="left:128px;top:80px">1</span><span class="pin" style="left:124px;top:205px">2</span><span class="pin" style="left:250px;top:272px">3</span><span class="pin" style="left:2px;top:742px">4</span>
+  <div class="hdr"><div class="row g8"><span class="logo"></span><span class="b">Finder</span></div><span class="sm sb" style="color:var(--br)">★ Saved</span></div>
+  <div style="padding:12px 16px" class="col g10">
+    <div class="card" style="padding:14px 14px 12px;font-size:17px;line-height:1.75">
+      Players with <span class="tok">2+ <i>▾</i></span><span class="tok">shots <i>▾</i></span> in <span class="tok">6 of last 10 <i>▾</i></span> games, <span class="tok">home or away <i>▾</i></span> <span class="tok">any position <i>▾</i></span> in <span class="tok">Serie A <i>▾</i></span>
+    </div>
+    <div class="row sp"><div class="seg"><span class="on">How often</span><span>Streak</span><span>Forecast</span></div><span class="xs faint">18 players</span></div>
+    <div class="card" style="overflow:hidden">
+      <script>
+      const FR=[['RL','R. Lukaku','Napoli','#12A0D7',[1,1,0,1,1,1,1,0,1,1],'8/10','vs Lecce · 76%'],['LM','L. Martínez','Inter','#00205B',[1,1,1,0,1,1,0,1,1,1],'8/10','vs Roma · 72%'],['DV','D. Vlahović','Juventus','#111',[1,0,1,1,1,0,1,1,0,1],'7/10','vs Torino · 68%'],['RP','C. Pulisic','Milan','#C8102E',[0,1,1,1,0,1,1,0,1,1],'7/10','vs Como · 64%'],['AL','A. Lookman','Atalanta','#1E71B8',[1,1,0,0,1,1,0,1,1,0],'6/10','vs Genoa · 61%']];
+      document.write(FR.map((p,i)=>`<div class="row g10" style="padding:10px 12px;${i?'border-top:1px solid var(--bd)':''}"><span class="av" style="width:36px;height:36px;font-size:11px;background:${p[3]}">${p[0]}</span><div class="col g4 grow"><div class="row sp"><span class="sb sm">${p[1]}</span><b class="sm">${p[5]}</b></div><div class="row sp"><div class="strip">${p[4].map(v=>`<i class="${v?'h':''}" style="width:10px;height:10px"></i>`).join('')}</div><span class="xs faint">${p[6]}</span></div></div></div>`).join(''))
+      </script>
+    </div>
+  </div>
+  <div style="position:absolute;left:12px;right:12px;bottom:76px;background:var(--brs);border:1px solid color-mix(in srgb,var(--br) 30%,transparent);border-radius:12px;padding:9px 12px" class="row sp"><span class="xs"><b>2 of 3</b> free searches left today</span><span class="xs b" style="color:var(--br)">Get 10 a day, free ›</span></div>
+  <div class="tabbar"><div><span class="ic"></span>Today</div><div><span class="ic"></span>Insights</div><div class="on"><span class="ic"></span>Finder</div><div><span class="ic"></span>Explore</div><div><span class="ic c"></span>You</div></div>
+</div>
+
+<!-- ============ F. FINDER token sheet (dark) ============ -->
+<div id="r_finder_sheet" class="frame phone dark"><span class="pin" style="left:4px;top:100px">1</span><span class="pin" style="left:214px;top:636px">2</span>
+  <div class="hdr"><span class="b">Finder</span><span></span></div>
+  <div style="padding:12px 16px"><div class="card" style="padding:14px;font-size:17px;line-height:1.75">Players with <span class="tok">2+ <i>▾</i></span><span class="tok">shots <i>▾</i></span> in <span class="tok" style="outline:2px solid var(--br)">6 of last 10 <i>▾</i></span> games…</div></div>
+  <div class="scrim"></div>
+  <div class="sheet" style="height:430px">
+    <div class="grab"></div>
+    <span class="b lg">How often, in how many games</span>
+    <div class="sec" style="margin-top:18px">Games to look at</div>
+    <div class="row g6" style="margin-top:8px"><span class="chip">Last 5</span><span class="chip on">Last 10</span><span class="chip">Last 15</span><span class="chip">Last 20</span><span class="chip">Season</span></div>
+    <div class="sec" style="margin-top:18px">Reached the line in at least</div>
+    <div class="slider" style="margin-top:36px"><b style="left:0;width:60%"></b><u style="left:60%"></u><s style="left:60%">6 of 10</s></div>
+    <div class="row sp xs faint"><span>1</span><span>10</span></div>
+    <div class="sm muted" style="margin-top:14px">18 players in Serie A match this.</div>
+    <button class="btn" style="width:100%;margin-top:16px;padding:13px">Done</button>
+  </div>
+</div>
+
+<!-- ============ G. EXPLORE phone (dark) ============ -->
+<div id="r_explore" class="frame phone dark"><span class="pin" style="left:160px;top:134px">1</span><span class="pin" style="left:180px;top:283px">2</span><span class="pin" style="left:66px;top:619px">3</span>
+  <div class="hdr"><div class="row g8"><span class="logo"></span><span class="b">Explore</span></div><span class="ic c"></span></div>
+  <div style="padding:12px 16px" class="col g12">
+    <div class="row g10" style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:11px 14px;color:var(--tx3)"><span class="ic c" style="width:14px;height:14px"></span>League, team or player</div>
+    <div class="card" style="padding:12px 14px" >
+      <div class="row sp"><span class="sb">Follow your teams</span><span class="xs faint">Sign in to keep them</span></div>
+      <div class="row g10" style="margin-top:10px"><span class="crest" style="width:40px;height:40px;font-size:11px;background:#00205B">IN</span><span class="crest" style="width:40px;height:40px;font-size:11px;background:#12A0D7">NA</span><span class="crest" style="width:40px;height:40px;font-size:11px;background:#C8102E">LIV</span><span class="crest" style="width:40px;height:40px;font-size:11px;background:#DC052D">FCB</span><span style="width:40px;height:40px;border-radius:50%;border:2px dashed var(--bd2);display:flex;align-items:center;justify-content:center;color:var(--tx3)">+</span></div>
+    </div>
+    <div class="sec">Leagues</div>
+    <div class="card" style="overflow:hidden">
+      <script>
+      const LG=[['SA','Serie A','#0B3D91','Today · 5 matches','5'],['PL','Premier League','#3D195B','Sat 31 Oct · 10 matches',''],['BL','Bundesliga','#D20515','Fri 30 Oct · 9 matches',''],['LL','LaLiga','#EE8707','Fri 30 Oct · 10 matches',''],['CL','Champions League','#0A1F6E','Tue 3 Nov · Matchday 4',''],['EL','Europa League','#F68E00','Thu 5 Nov · Matchday 4','']];
+      document.write(LG.map((l,i)=>`<div class="lrow" style="${i?'':'border-top:0'}"><span class="crest" style="width:34px;height:34px;font-size:11px;background:${l[2]}">${l[0]}</span><div class="col grow"><span class="sb">${l[1]}</span><span class="xs faint">${l[3]}</span></div>${l[4]?`<span class="badge" style="background:var(--live);color:#0A0E17">${l[4]} today</span>`:''}<span class="faint">›</span></div>`).join(''))
+      </script>
+    </div>
+    <div class="sec">Tools</div>
+    <div class="row g8">
+      <div class="tile grow col g4" style="padding:12px"><span class="ic"></span><span class="sb sm">Compare</span></div>
+      <div class="tile grow col g4" style="padding:12px"><span class="ic"></span><span class="sb sm">Referees</span></div>
+      <div class="tile grow col g4" style="padding:12px"><span class="ic"></span><span class="sb sm">Track record</span></div>
+    </div>
+  </div>
+  <div class="tabbar"><div><span class="ic"></span>Today</div><div><span class="ic"></span>Insights</div><div><span class="ic"></span>Finder</div><div class="on"><span class="ic"></span>Explore</div><div><span class="ic c"></span>You</div></div>
+</div>
+
+<!-- ============ H. TODAY desktop with right column (light) ============ -->
+<div id="r_desk" class="frame desk light" style="width:1440px"><span class="pin" style="left:150px;top:58px">1</span><span class="pin" style="left:152px;top:98px">2</span><span class="pin" style="left:795px;top:58px">3</span><span class="pin" style="left:510px;top:268px">4</span>
+  <div class="hdr" style="padding:0 24px">
+    <div class="row g10"><span class="logo"></span><span class="b md">Forecast</span><span class="beta">BETA</span></div>
+    <div class="row g10" style="background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:8px 14px;width:420px;color:var(--tx3)"><span class="ic c" style="width:14px;height:14px"></span>Search players, teams, leagues<span style="margin-left:auto;font-size:11px;border:1px solid var(--bd2);border-radius:5px;padding:0 5px">/</span></div>
+    <div class="row g16"><span class="ic c"></span><span class="sb">Sign in</span><button class="btn">Sign up free</button></div>
+  </div>
+  <div class="row" style="align-items:stretch">
+    <div class="col g4" style="width:210px;padding:16px 10px;border-right:1px solid var(--bd);min-height:760px">
+      <div class="row g10" style="padding:9px 12px;border-radius:10px;background:var(--brs);color:var(--br);font-weight:700"><span class="ic" style="border-color:var(--br)"></span>Today</div>
+      <div class="row g10 sb muted" style="padding:9px 12px"><span class="ic"></span>Insights</div>
+      <div class="row g10 sb muted" style="padding:9px 12px"><span class="ic"></span>Finder</div>
+      <div class="row g10 sb muted" style="padding:9px 12px"><span class="ic"></span>Explore</div>
+      <div class="row g10 sb muted" style="padding:9px 12px"><span class="ic"></span>You</div>
+    </div>
+    <div class="col g14 grow" style="padding:22px 26px;gap:14px">
+      <div class="row sp"><div class="col"><span class="xl b">Wednesday 28 October</span><span class="sm muted">5 matches · all finished · our favourite won 2 of 5</span></div>
+        <div class="days"><div class="day" style="width:52px"><div class="w">Yest.</div><div class="n">27</div><div class="dot"></div></div><div class="day on" style="width:52px"><div class="w">Today</div><div class="n">28</div><div class="dot"></div></div><div class="day" style="width:52px"><div class="w">Tmrw</div><div class="n">29</div><div class="dot"></div></div><div class="day" style="width:52px"><div class="w">Fri</div><div class="n">30</div><div class="dot"></div></div><div class="day" style="width:52px"><div class="w">Sat</div><div class="n">31</div><div class="dot"></div></div><div class="day" style="width:46px;display:flex;align-items:center;justify-content:center"><span class="ic"></span></div></div></div>
+      <div class="row g12">
+        <script>
+        const TP=[['NA','#12A0D7','Napoli','at Monza','15+ shots','74%','52','strong','✓ They had 19'],['IN','#00205B','Inter','at Venezia','7+ corners','70%','49','solid','✓ They had 8'],['LM','#00205B','L. Martínez','Inter at Venezia','3+ shots','68%','51','solid','✗ He had 2']];
+        document.write(TP.map(t=>`<div class="card grow" style="padding:13px"><div class="row g8"><span class="${t[0]=='LM'?'av':'crest'}" style="width:34px;height:34px;font-size:11px;background:${t[1]}">${t[0]}</span><div class="col grow"><span class="sb sm">${t[2]}</span><span class="xs faint">${t[3]}</span></div><span class="res ${t[8][0]=='✓'?'ok':'no'}">${t[8]}</span></div><div class="row sp" style="margin-top:9px;align-items:flex-end"><span class="b md">${t[4]}</span><span class="xl b" style="color:var(--${t[7]})">${t[5]}</span></div><div class="xs faint" style="margin-top:4px">Usually ${t[6]}%</div></div>`).join(''))
+        </script>
+      </div>
+      <div class="row g8"><span class="chip on">All 5</span><span class="chip">With insights 4</span><span class="chip">Following</span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="row g10" style="padding:12px 16px"><span class="crest" style="background:#0B3D91">SA</span><span class="b">Serie A</span><span class="xs faint">5 matches · all finished</span></div>
+        <script>
+        const RW=[['Venezia','Inter',0,2,'#00A060','#00205B','ok','Inter 82%','1 insight'],['Parma','Udinese',0,0,'#E4B100','#111','no','Udinese 42%','1 insight'],['Milan','Bologna',2,4,'#C8102E','#1A2B6D','no','Milan 55%',''],['Monza','Napoli',1,4,'#E2001A','#12A0D7','ok','Napoli 55%','2 insights'],['Genoa','Juventus',2,0,'#A51E36','#111','no','Juventus 52%','1 insight']];
+        document.write(RW.map(r=>{const hw=r[2]>r[3],aw=r[3]>r[2];return `<div class="mrow" style="grid-template-columns:60px 1fr 230px 100px"><span class="ft">FT</span><div class="col g4"><div class="row g8"><span class="crest" style="background:${r[4]}">${r[0].slice(0,2).toUpperCase()}</span><span class="${hw?'w':aw?'l':''}">${r[0]}</span><b class="${aw?'l':''}" style="margin-left:auto">${r[2]}</b></div><div class="row g8"><span class="crest" style="background:${r[5]}">${r[1].slice(0,2).toUpperCase()}</span><span class="${aw?'w':hw?'l':''}">${r[1]}</span><b class="${hw?'l':''}" style="margin-left:auto">${r[3]}</b></div></div><span class="res ${r[6]}" style="justify-self:start">${r[6]=='ok'?'✓':'✗'} We said ${r[7]}</span>${r[8]?`<span class="chip br" style="padding:3px 8px;font-size:11px;justify-self:end">${r[8]} ›</span>`:'<span></span>'}</div>`}).join(''))
+        </script>
+      </div>
+    </div>
+    <div class="col g12" style="width:300px;padding:22px 20px;border-left:1px solid var(--bd)">
+      <div class="card" style="padding:14px"><span class="sec">Next live</span><div class="sm muted" style="margin-top:8px"><b style="color:var(--tx)">Bundesliga, Fri 20:30</b> · this box becomes live scores while matches are on</div></div>
+      <div class="card" style="padding:14px"><span class="sec">Following</span><div class="sm muted" style="margin-top:8px">Follow teams and players to see their next matches and forecasts here.</div><div class="row g8" style="margin-top:10px"><span class="crest" style="width:32px;height:32px;background:#00205B">IN</span><span class="crest" style="width:32px;height:32px;background:#12A0D7">NA</span><span class="crest" style="width:32px;height:32px;background:#C8102E">LIV</span><span style="width:32px;height:32px;border-radius:50%;border:2px dashed var(--bd2);display:flex;align-items:center;justify-content:center;color:var(--tx3)">+</span></div></div>
+      <div class="card" style="padding:14px"><span class="sec">Our record, last 7 days</span><div class="row g8" style="margin-top:8px;align-items:baseline"><span class="xl b" style="color:var(--strong)">81 of 100</span><span class="xs faint">Strong came true</span></div><span class="xs" style="color:var(--br)">Track record ›</span></div>
+      <div class="xs faint" style="margin-top:auto">Learn · Track record · Plans · Privacy</div>
+    </div>
+  </div>
+</div>
+</body></html>

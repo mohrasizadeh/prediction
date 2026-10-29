@@ -19,3 +19,8 @@ next forecast in search, half-time recap, predicted eleven (`predicted` in match
 e-mails (`follow_alerts.py`), Biggest rise vs usual, presets per account (`/api/me/presets`), lineup news in the feed,
 separate lineup and goal alert switches, chosen leagues first in Explore, Today, Insights, Finder and Search, squad cards
 with season numbers (`/api/teams/{id}/squad-season`).
+
+Doc 26 review (2026-10-29), hidden until the field exists:
+| Today row | Half-time score under FT | `ht_home`/`ht_away` in `GET /api/fixtures` rows (only in the per-match recap) | Hidden; row shows FT only |
+| Today row | Last live event ("Lautaro 64'") | latest event in `live` of `GET /api/fixtures` | Hidden; live row shows the minute in red |
+| Explore | Provider matchday and "N matches" on the next date | `matchday` and next-date count in `GET /api/leagues` (`round` is our internal count, never shown) | Shows the next date only |
