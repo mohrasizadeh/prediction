@@ -108,4 +108,6 @@ Wait for the owner's next phase prompt.
 - selftest_lines headline check updated to the owner's "most likely leads" rule. run_tests.sh 19 PASS; pytest iter29+iter30 23 passed.
 - Testing agent iteration 30 stopped early (credits); UI checked by own screenshots only.
 - Next: doc 26 Batch 2 (items 6-8), then 3 and 4.
+- 2026-10-29: owner lowered engine.likely_starter_p to 0.80 (settings put). Re-ran engine for 8 leagues: 879 players now likely starters
+  (140 Solid, 9 Strong lines); 18 of 20 Insights cards are likely starters. run_tests 19 PASS; iter30 pytest 20 passed.
 
