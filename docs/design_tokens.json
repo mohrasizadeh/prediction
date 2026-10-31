@@ -1,62 +1,62 @@
 {
   "name": "forecast-app",
   "version": "1.0.0",
-  "note": "Dark first. Every colour pair listed in contrast_checks passes WCAG 2.2 AA (4.5:1 text, 3:1 large text and icons). Do not change a value without re-running the check. Text on the red 'down' colour uses onDown. These are the defaults and the 'Midnight' preset; the live values come from Site Studio (doc 16). Icons, dots and large marks need 3:1; text needs 4.5:1.",
+  "note": "System colours from Apple's Human Interface Guidelines (grouped backgrounds, label colours, separators, system tints). Where a standard tint is under 4.5:1 as text, the HIG increased-contrast variant is used, so every text colour passes WCAG 2.2 AA on bg, surface1 and surface2. Text on the red 'down' colour uses onDown. These are the defaults and the 'Apple' preset; the previous navy look is the 'Midnight' preset in Site Studio. The live values come from Site Studio (doc 16). Do not change a value without re-running the contrast check.",
   "color": {
     "dark": {
-      "bg": "#0A0E17",
-      "surface1": "#111827",
-      "surface2": "#182033",
-      "surface3": "#212B42",
-      "border": "#243049",
-      "borderStrong": "#33415F",
-      "text": "#E9EEF7",
-      "text2": "#A3AFC6",
-      "text3": "#75819B",
-      "brand": "#7C83FF",
-      "onBrand": "#0A0E17",
-      "tierStrong": "#2DD4BF",
-      "tierSolid": "#60A5FA",
-      "tierWatch": "#FBBF24",
-      "up": "#34D399",
-      "down": "#F87171",
-      "chart1": "#7C83FF",
-      "chart2": "#2DD4BF",
-      "chart3": "#FBBF24",
-      "chart4": "#F472B6",
-      "chart5": "#60A5FA",
-      "chart6": "#A3E635",
-      "onDown": "#0A0E17"
+      "bg": "#000000",
+      "surface1": "#1C1C1E",
+      "surface2": "#2C2C2E",
+      "surface3": "#3A3A3C",
+      "border": "#38383A",
+      "borderStrong": "#545458",
+      "text": "#FFFFFF",
+      "text2": "#EBEBF5",
+      "text3": "#98989F",
+      "brand": "#409CFF",
+      "onBrand": "#000000",
+      "tierStrong": "#30D158",
+      "tierSolid": "#64D2FF",
+      "tierWatch": "#FF9F0A",
+      "up": "#30D158",
+      "down": "#FF6961",
+      "onDown": "#000000",
+      "chart1": "#409CFF",
+      "chart2": "#30D158",
+      "chart3": "#FF9F0A",
+      "chart4": "#FF375F",
+      "chart5": "#5E5CE6",
+      "chart6": "#BF5AF2"
     },
     "light": {
-      "bg": "#F5F7FB",
+      "bg": "#F2F2F7",
       "surface1": "#FFFFFF",
-      "surface2": "#F0F3F9",
-      "surface3": "#E6EBF4",
-      "border": "#E2E8F2",
-      "borderStrong": "#C9D2E3",
-      "text": "#0B1220",
-      "text2": "#475269",
-      "text3": "#6B7690",
-      "brand": "#4F46E5",
+      "surface2": "#F2F2F7",
+      "surface3": "#E5E5EA",
+      "border": "#E5E5EA",
+      "borderStrong": "#C7C7CC",
+      "text": "#000000",
+      "text2": "#3C3C43",
+      "text3": "#6C6C70",
+      "brand": "#0066CC",
       "onBrand": "#FFFFFF",
-      "tierStrong": "#0D9488",
-      "tierSolid": "#2563EB",
-      "tierWatch": "#B45309",
-      "up": "#059669",
-      "down": "#DC2626",
-      "chart1": "#4F46E5",
-      "chart2": "#0D9488",
-      "chart3": "#B45309",
-      "chart4": "#DB2777",
-      "chart5": "#2563EB",
-      "chart6": "#4D7C0F",
-      "onDown": "#FFFFFF"
+      "tierStrong": "#1D7A32",
+      "tierSolid": "#0071A4",
+      "tierWatch": "#B25000",
+      "up": "#1D7A32",
+      "down": "#D70015",
+      "onDown": "#FFFFFF",
+      "chart1": "#0066CC",
+      "chart2": "#1D7A32",
+      "chart3": "#B25000",
+      "chart4": "#D30F45",
+      "chart5": "#5856D6",
+      "chart6": "#8944AB"
     }
   },
   "font": {
-    "family": "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-    "features": "'tnum' 1, 'cv11' 1",
+    "family": "-apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif",
+    "features": "'tnum' 1",
     "scale_px": {
       "xs": 12,
       "sm": 14,
@@ -64,7 +64,7 @@
       "lg": 18,
       "xl": 22,
       "2xl": 28,
-      "3xl": 36
+      "3xl": 34
     },
     "weight": {
       "regular": 400,
@@ -75,6 +75,19 @@
     "lineHeight": {
       "tight": 1.2,
       "normal": 1.5
+    },
+    "hig_text_styles_px": {
+      "largeTitle": 34,
+      "title1": 28,
+      "title2": 22,
+      "title3": 20,
+      "headline": 17,
+      "body": 17,
+      "callout": 16,
+      "subheadline": 15,
+      "footnote": 13,
+      "caption1": 12,
+      "caption2": 11
     }
   },
   "space_px": [
@@ -98,18 +111,19 @@
   },
   "elevation": {
     "dark": {
-      "card": "0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35)"
+      "card": "none"
     },
     "light": {
-      "card": "0 1px 2px rgba(11,18,32,0.06), 0 8px 24px rgba(11,18,32,0.06)"
-    }
+      "card": "none"
+    },
+    "note": "Content over chrome: grouped surfaces separated by background colour and hairline separators, not shadows. Floating layers (sheets, popovers, menus) use the material blur in hig.css."
   },
   "motion_ms": {
     "fast": 150,
     "base": 220,
     "slow": 600
   },
-  "easing": "cubic-bezier(0.2, 0.0, 0.0, 1.0)",
+  "easing": "cubic-bezier(0.32, 0.72, 0, 1)",
   "breakpoints_px": {
     "sm": 640,
     "md": 768,

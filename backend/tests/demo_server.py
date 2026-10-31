@@ -61,6 +61,6 @@ if __name__ == "__main__":
                 raise srv.D.err(404, "NOT_FOUND", "No such route.")
             # the page's own policy (docs/15); the API's default-src 'none' is for JSON answers only
             return FileResponse(os.path.join(build_dir, "index.html"), headers={"Content-Security-Policy":
-                "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"})
+                "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"})
     print("Demo owner:", os.environ["ADMIN_EMAIL"], "/", os.environ["ADMIN_INITIAL_PASSWORD"])
     uvicorn.run(srv.app, host="0.0.0.0", port=int(os.environ.get("PORT", 8001)))

@@ -2,18 +2,18 @@
    The fallback layer only applies when the config has not loaded; unlayered site CSS always wins. */
 @layer fallback {
   :root {
-    --bg: #0A0E17; --surface1: #111827; --surface2: #182033; --surface3: #212B42; --border: #243049; --border-strong: #33415F;
-    --text: #E9EEF7; --text2: #A3AFC6; --text3: #75819B; --brand: #7C83FF; --on-brand: #0A0E17; --tier-strong: #2DD4BF; --tier-solid: #60A5FA;
-    --tier-watch: #FBBF24; --up: #34D399; --down: #F87171; --on-down: #0A0E17; --chart1: #7C83FF; --chart2: #2DD4BF;
-    --card-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.35);
-    --font-body: 'Inter', system-ui, sans-serif; --font-heading: 'Inter', system-ui, sans-serif; --heading-weight: 650;
-    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --max-width: 1200px; --btn-radius: 12px; --btn-h-sm: 36px; --btn-h-md: 44px; --btn-h-lg: 52px;
+    --bg: #000000; --surface1: #1C1C1E; --surface2: #2C2C2E; --surface3: #3A3A3C; --border: #38383A; --border-strong: #545458;
+    --text: #FFFFFF; --text2: #EBEBF5; --text3: #98989F; --brand: #409CFF; --on-brand: #000000; --tier-strong: #30D158; --tier-solid: #64D2FF;
+    --tier-watch: #FF9F0A; --up: #30D158; --down: #FF6961; --on-down: #000000; --chart1: #409CFF; --chart2: #30D158;
+    --card-shadow: none;
+    --font-body: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif; --font-heading: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif; --heading-weight: 700;
+    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --max-width: 1200px; --btn-radius: 999px; --btn-h-sm: 36px; --btn-h-md: 44px; --btn-h-lg: 52px;
     --btn-weight: 600; --tab-h: 64px; --header-h: 56px;
   }
   :root[data-theme="light"] {
-    --bg: #F5F7FB; --surface1: #FFFFFF; --surface2: #F0F3F9; --surface3: #E6EBF4; --border: #E2E8F2; --border-strong: #C9D2E3;
-    --text: #0B1220; --text2: #475269; --text3: #6B7690; --brand: #4F46E5; --on-brand: #FFFFFF; --down: #DC2626; --on-down: #FFFFFF;
-    --card-shadow: 0 1px 2px rgba(11,18,32,.06), 0 8px 24px rgba(11,18,32,.06);
+    --bg: #F2F2F7; --surface1: #FFFFFF; --surface2: #F2F2F7; --surface3: #E5E5EA; --border: #E5E5EA; --border-strong: #C7C7CC;
+    --text: #000000; --text2: #3C3C43; --text3: #6C6C70; --brand: #0066CC; --on-brand: #FFFFFF; --down: #D70015; --on-down: #FFFFFF;
+    --card-shadow: none;
   }
   body { font-family: var(--font-body); background: var(--bg); color: var(--text); }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--btn-h-md); padding: 0 18px; border-radius: var(--btn-radius); font-weight: var(--btn-weight); border: 1px solid transparent; cursor: pointer; }
@@ -27,7 +27,7 @@
 html, body { margin: 0; }
 body { line-height: 1.55; -webkit-font-smoothing: antialiased; font-feature-settings: 'tnum' 1, 'cv11' 1; min-height: 100vh; }
 ::selection { background: color-mix(in srgb, var(--brand) 40%, transparent); }
-a { color: var(--brand); text-underline-offset: 3px; }
+a:where(:not(.btn)) { color: var(--brand); text-underline-offset: 3px; }
 h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0; }
 h1 { font-size: clamp(1.75rem, 4.2vw, 2.6rem); }
 h2 { font-size: 1.125rem; }

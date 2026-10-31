@@ -22,6 +22,7 @@ import "./styles/power.css";
 import "./styles/you.css";
 import "./styles/adminhome.css";
 import "./styles/combo.css";
+import "./styles/hig.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

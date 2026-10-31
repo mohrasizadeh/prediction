@@ -59,12 +59,27 @@ COLOR_TOKENS = ("bg", "surface1", "surface2", "surface3", "border", "borderStron
                 "brand", "onBrand", "tierStrong", "tierSolid", "tierWatch", "up", "down", "onDown",
                 "chart1", "chart2", "chart3", "chart4", "chart5", "chart6")
 
-DARK = {"bg": "#0A0E17", "surface1": "#111827", "surface2": "#182033", "surface3": "#212B42", "border": "#243049",
+# Default palette: Apple Human Interface Guidelines semantic system colours (grouped backgrounds, label
+# colours, separators, system tints). Where the standard tint is under 4.5:1 as text, the HIG
+# "increased contrast" variant is used instead, so every text pair passes WCAG 2.2 AA.
+DARK = {"bg": "#000000", "surface1": "#1C1C1E", "surface2": "#2C2C2E", "surface3": "#3A3A3C", "border": "#38383A",
+        "borderStrong": "#545458", "text": "#FFFFFF", "text2": "#EBEBF5", "text3": "#98989F", "brand": "#409CFF",
+        "onBrand": "#000000", "tierStrong": "#30D158", "tierSolid": "#64D2FF", "tierWatch": "#FF9F0A", "up": "#30D158",
+        "down": "#FF6961", "onDown": "#000000", "chart1": "#409CFF", "chart2": "#30D158", "chart3": "#FF9F0A",
+        "chart4": "#FF375F", "chart5": "#5E5CE6", "chart6": "#BF5AF2"}
+LIGHT = {"bg": "#F2F2F7", "surface1": "#FFFFFF", "surface2": "#F2F2F7", "surface3": "#E5E5EA", "border": "#E5E5EA",
+         "borderStrong": "#C7C7CC", "text": "#000000", "text2": "#3C3C43", "text3": "#6C6C70", "brand": "#0066CC",
+         "onBrand": "#FFFFFF", "tierStrong": "#1D7A32", "tierSolid": "#0071A4", "tierWatch": "#B25000", "up": "#1D7A32",
+         "down": "#D70015", "onDown": "#FFFFFF", "chart1": "#0066CC", "chart2": "#1D7A32", "chart3": "#B25000",
+         "chart4": "#D30F45", "chart5": "#5856D6", "chart6": "#8944AB"}
+
+# The previous default ("Midnight"): calm dark navy with an indigo accent. Kept as a preset.
+MIDNIGHT_DARK = {"bg": "#0A0E17", "surface1": "#111827", "surface2": "#182033", "surface3": "#212B42", "border": "#243049",
         "borderStrong": "#33415F", "text": "#E9EEF7", "text2": "#A3AFC6", "text3": "#75819B", "brand": "#7C83FF",
         "onBrand": "#0A0E17", "tierStrong": "#2DD4BF", "tierSolid": "#60A5FA", "tierWatch": "#FBBF24", "up": "#34D399",
         "down": "#F87171", "onDown": "#0A0E17", "chart1": "#7C83FF", "chart2": "#2DD4BF", "chart3": "#FBBF24",
         "chart4": "#F472B6", "chart5": "#60A5FA", "chart6": "#A3E635"}
-LIGHT = {"bg": "#F5F7FB", "surface1": "#FFFFFF", "surface2": "#F0F3F9", "surface3": "#E6EBF4", "border": "#E2E8F2",
+MIDNIGHT_LIGHT = {"bg": "#F5F7FB", "surface1": "#FFFFFF", "surface2": "#F0F3F9", "surface3": "#E6EBF4", "border": "#E2E8F2",
          "borderStrong": "#C9D2E3", "text": "#0B1220", "text2": "#475269", "text3": "#6B7690", "brand": "#4F46E5",
          "onBrand": "#FFFFFF", "tierStrong": "#0D9488", "tierSolid": "#2563EB", "tierWatch": "#B45309", "up": "#059669",
          "down": "#DC2626", "onDown": "#FFFFFF", "chart1": "#4F46E5", "chart2": "#0D9488", "chart3": "#B45309",
@@ -73,7 +88,7 @@ LIGHT = {"bg": "#F5F7FB", "surface1": "#FFFFFF", "surface2": "#F0F3F9", "surface
 # Fonts the owner can pick. `file` is the self-hosted variable font the builder copies into /public/fonts/
 # (npm package @fontsource-variable/<slug>, latin subset). Nothing is loaded from Google at runtime.
 FONTS = {
-    "system": {"label": "System default", "stack": "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif", "file": None, "kind": "sans"},
+    "system": {"label": "System default (San Francisco on Apple devices)", "stack": "-apple-system,BlinkMacSystemFont,system-ui,'Segoe UI',Roboto,sans-serif", "file": None, "kind": "sans"},
     "inter": {"label": "Inter", "stack": "'Inter',system-ui,sans-serif", "file": "inter-latin-wght-normal.woff2", "kind": "sans"},
     "manrope": {"label": "Manrope", "stack": "'Manrope',system-ui,sans-serif", "file": "manrope-latin-wght-normal.woff2", "kind": "sans"},
     "dm-sans": {"label": "DM Sans", "stack": "'DM Sans',system-ui,sans-serif", "file": "dm-sans-latin-wght-normal.woff2", "kind": "sans"},
@@ -106,10 +121,10 @@ def defaults() -> dict:
                   "favicon": "", "og_image": ""},
         "theme": {"default_mode": "system", "allow_toggle": True,
                   "colors": {"dark": DARK, "light": LIGHT},
-                  "font_body": "inter", "font_heading": "inter", "base_px": 16, "heading_weight": 650,
-                  "radius": "default", "density": "comfortable", "shadows": "soft", "motion": "full", "max_width_px": 1200},
-        "buttons": {"radius_px": 12, "height_px": {"sm": 36, "md": 44, "lg": 52}, "font_weight": 600, "uppercase": False,
-                    "shadow": "none", "hover": "lift", "press": True, "focus_ring_px": 3,
+                  "font_body": "system", "font_heading": "system", "base_px": 16, "heading_weight": 700,
+                  "radius": "default", "density": "comfortable", "shadows": "none", "motion": "full", "max_width_px": 1200},
+        "buttons": {"radius_px": 999, "height_px": {"sm": 36, "md": 44, "lg": 52}, "font_weight": 600, "uppercase": False,
+                    "shadow": "none", "hover": "darken", "press": True, "focus_ring_px": 3,
                     "variants": {"primary": "solid", "secondary": "soft", "ghost": "ghost", "danger": "solid"}},
         "nav": {"items": [
             {"id": "today", "label": "Today", "icon": "calendar", "route": "/", "enabled": True, "audience": "all", "badge": ""},
@@ -546,7 +561,9 @@ def _preset(label, desc, mode, dark=None, light=None, radius="default", buttons=
 
 
 PRESETS = {
-    "midnight": _preset("Midnight", "The default. Calm dark first, indigo accent.", "system"),
+    "apple": _preset("Apple", "The default. Apple Human Interface Guidelines system colours, capsule buttons.", "system"),
+    "midnight": _preset("Midnight", "The previous default. Calm dark navy, indigo accent.", "system",
+                        dark=MIDNIGHT_DARK, light=MIDNIGHT_LIGHT, buttons={"radius_px": 12, "hover": "lift"}),
     "daylight": _preset("Daylight", "Opens in light mode. Same indigo accent.", "light"),
     "pitch": _preset("Pitch green", "Green accent, rounded corners.", "system",
                      dark={"brand": "#34D399", "onBrand": "#04281C", "chart1": "#34D399"},

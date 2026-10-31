@@ -16,7 +16,7 @@ with TestClient(srv.app) as owner:
     check(r.status_code == 200 and j["dirty"] is False and j["live_v"] == 0 and j["can_edit_css"] is False, "admin opens the studio; nothing is unsaved; css is owner only")
     check(owner.get("/api/admin/site/draft").json()["can_edit_css"] is True, "owner can edit custom CSS")
     m = j["meta"]
-    check(len(m["fonts"]) >= 12 and "calendar" in m["icons"] and len(m["presets"]) == 6 and len(m["color_tokens"]) == 23, "editor options: fonts, icons, presets, 23 colour tokens")
+    check(len(m["fonts"]) >= 12 and "calendar" in m["icons"] and len(m["presets"]) == 7 and len(m["color_tokens"]) == 23, "editor options: fonts, icons, presets, 23 colour tokens")
 
     # ---------------- public config before anything is published
     r = anon.get("/api/site/config"); cfg = r.json()
@@ -81,7 +81,7 @@ with TestClient(srv.app) as owner:
     ok["font_body"] = "manrope"; ok["default_mode"] = "dark"
     check(put(admin, "theme", ok).status_code == 200, "font and default mode changed")
     check(admin.post("/api/admin/site/draft/preset", json={"key": "nope"}).status_code == 422, "unknown preset refused")
-    for k in ("sunset", "ocean", "contrast", "daylight", "midnight", "pitch"):
+    for k in ("apple", "sunset", "ocean", "contrast", "daylight", "midnight", "pitch"):
         check(admin.post("/api/admin/site/draft/preset", json={"key": k}).status_code == 200, f"preset {k} passes the contrast rules")
     admin.post("/api/admin/site/draft/preset", json={"key": "pitch"})
     th = admin.get("/api/admin/site/draft").json()["draft"]["theme"]; th["font_body"] = "manrope"; th["font_heading"] = "playfair-display"; th["default_mode"] = "dark"
@@ -174,7 +174,7 @@ with TestClient(srv.app) as owner:
     r = admin.post("/api/admin/site/rollback/1")
     check(r.status_code == 200 and r.json()["v"] == 3, "rollback publishes the old version as version 3 (history is never rewritten)")
     c = anon.get("/api/site/config").json()
-    check(c["nav"]["mobile_tabs"] != ["today", "stats", "finder"] and "--brand:#7C83FF" in c["theme"]["css"], "the site is back to version 1's look")
+    check(c["nav"]["mobile_tabs"] != ["today", "stats", "finder"] and f"--brand:{SS.DARK['brand']}" in c["theme"]["css"], "the site is back to version 1's look")
     check(admin.post("/api/admin/site/rollback/99").status_code == 422, "rollback to a missing version refused")
     # conflict: draft opened on an older live version
     put(admin, "brand", {**base_brand, "name": "Third Name"})

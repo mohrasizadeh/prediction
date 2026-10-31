@@ -34,10 +34,10 @@ SF Pro licensing-restricted fonts, or App Store–specific guidance.
 - **Apple Technologies**: None
 
 ## Design System
-- **Base**: Custom design system, "calm control room" (`docs/04_design_system.md`, tokens in `docs/design_tokens.json`, generated to `frontend/src/styles/tokens.css`). Brand, colours, font and radius are overridable at runtime from site settings.
+- **Base**: Apple HIG redesign (see `docs/redesign/hig/README.md`) on top of the custom design system "calm control room" (`docs/04_design_system.md`, tokens in `docs/design_tokens.json`, generated to `frontend/src/styles/tokens.css`). Brand, colours, font and radius are overridable at runtime from site settings.
 - **Principles**: Numbers first (big tabular numerals), one screen one job, show why, colour never carries meaning alone, skeletons not spinners, mobile first.
 - **Brand Colors**: One brand colour plus three tier colours (Strong ●●●, Solid ●●○, Watch ●○○), up/down, `chart1..chart6`, layered surfaces `surface1..3`
-- **Typography**: Inter for body; headings Plus Jakarta Sans per `design_guidelines.json` (`docs/04` says Inter, so this needs reconciling); JetBrains Mono for numeric data; tabular numerals on
+- **Typography**: System font stack (San Francisco on Apple devices), HIG type ramp; tabular numerals on
 - **Dark Mode**: Supported. Dark first; light via `[data-theme="light"]`; default follows `prefers-color-scheme`
 - **Dynamic Type**: Web equivalent: rem-based, `clamp()` heading sizes; mobile body 15 px; inputs ≥ 16 px (no iOS zoom)
 

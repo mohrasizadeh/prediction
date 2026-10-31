@@ -1,0 +1,110 @@
+/* Apple Human Interface Guidelines layer (public site).
+   Loaded last. Structure only: every colour still comes from the Site Studio tokens (var(--...)), so presets
+   and owner edits keep working. Principles applied (see .claude/skills/hig-*):
+   - Content over chrome: grouped surfaces on a grouped background, hairline separators, no card shadows.
+   - Materials: bars float on a translucent, blurred material; content scrolls underneath.
+   - System type ramp: Large Title 34, Title 2 22, Headline 17 semibold, Subheadline 15, Footnote 13, Caption 11-12.
+   - Tint shows selection: selected chips, days and tabs use the accent, not inverted black/white.
+   - Native-feeling controls: iOS segmented control, capsule buttons, search field, sheet grabber, dimming scrim.
+   - Accessibility is unchanged or better: 44 px targets, focus rings, reduced motion, colour never alone. */
+
+:root {
+  --hig-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --hig-fill: color-mix(in srgb, var(--text3) 16%, transparent);          /* tertiarySystemFill */
+  --hig-fill-strong: color-mix(in srgb, var(--text3) 24%, transparent);   /* secondarySystemFill */
+  --hig-separator: color-mix(in srgb, var(--text3) 32%, transparent);     /* separator (non-opaque) */
+  --hig-bar: color-mix(in srgb, var(--surface1) 78%, transparent);        /* bar material */
+  --hig-thick: color-mix(in srgb, var(--surface1) 88%, transparent);      /* thick material (sheets, banners) */
+}
+
+/* ---------- Typography */
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; letter-spacing: -0.005em; }
+.main h1 { font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.125rem); line-height: 1.2; font-weight: 700; letter-spacing: -0.022em; }   /* Large Title */
+.main h2 { letter-spacing: -0.017em; }
+.page-head { margin-bottom: 16px; }
+.k-sec, .kicker { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text2); }   /* grouped-list section header */
+
+/* ---------- Bars: navigation bar and tab bar on the bar material */
+.header { background: var(--hig-bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: .5px solid var(--hig-separator); }
+.bottom-tabs { background: var(--hig-bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-top: .5px solid var(--hig-separator); }
+.btab { font-size: 10.5px; font-weight: 500; letter-spacing: .01em; gap: 2px; }
+.btab::before, .btab.active::before { display: none; }                  /* tab bars show selection with tint only */
+.btab:active { opacity: .6; }
+.beta { background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); border: 0; letter-spacing: .04em; }
+.icon-btn { border-radius: 999px; }
+
+/* Search field (iOS / macOS style): filled, no border */
+.hsearch { border: 0; border-radius: 10px; background: var(--hig-fill); color: var(--text2); }
+.hsearch:hover { background: var(--hig-fill-strong); }
+.hsearch kbd { border: 0; background: var(--surface1); color: var(--text3); }
+
+/* ---------- Sidebar (desktop rail) like a macOS source list */
+@media (min-width: 769px) {
+  .rail { border-right: .5px solid var(--hig-separator); background: color-mix(in srgb, var(--surface1) 40%, var(--bg)); }
+  .rail-link, .rail-follow-item { min-height: 36px; border-radius: 8px; font-weight: 500; font-size: 15px; }
+  .rail-link:hover, .rail-follow-item:hover { background: var(--hig-fill); }
+  .rail-link.active { background: var(--brand); color: var(--on-brand); }
+  .rail-link.active .ico { color: var(--on-brand); }
+}
+
+/* ---------- Grouped content: inset grouped cards with hairline separators */
+.card, .k-fc, .tcard, .pcard, .auth-card { border: 0; box-shadow: none; border-radius: 12px; }
+.fixture-row, .k-fc-lines li, .mrow, .lrow { border-top-width: .5px; border-top-color: var(--hig-separator); }
+.k-fc-foot { border-top: .5px solid var(--hig-separator); }
+.k-fc-main:hover { background: var(--hig-fill); }
+.k-fc-bar, .lbar-track { height: 6px; background: var(--hig-fill-strong); }
+.tile { border: 0; background: var(--surface1); border-radius: 12px; }
+.tile.active { background: color-mix(in srgb, var(--brand) 14%, var(--surface1)); }
+
+/* ---------- Selection uses the tint colour */
+.k-chip { border: 0; background: var(--hig-fill); color: var(--text); font-weight: 500; }
+.k-chip.on, .tab.is-on { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
+.tab { border: 0; background: var(--hig-fill); color: var(--text); font-weight: 500; }
+.k-day { border: 0; background: var(--surface1); border-radius: 12px; }
+.k-day.on { background: var(--brand); color: var(--on-brand); }
+.k-day.on .w { color: var(--on-brand); opacity: .85; }
+.k-day.on .dot:not(.no) { background: var(--on-brand); }
+.seg-opt { border: 0; background: var(--hig-fill); color: var(--text); }
+
+/* iOS segmented control */
+.k-seg { padding: 2px; gap: 0; border-radius: 9px; background: var(--hig-fill-strong); }
+.k-seg button { min-height: 32px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--text); transition: background-color .2s var(--hig-ease); }
+.k-seg button.on { background: var(--surface1); font-weight: 600; box-shadow: 0 3px 8px rgba(0,0,0,.12), 0 3px 1px rgba(0,0,0,.04); }
+:root[data-theme="dark"] .k-seg button.on { background: var(--surface3); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .k-seg button.on { background: var(--surface3); } }
+@media (pointer: coarse) { .k-seg button { min-height: 40px; } }
+
+/* ---------- Text fields: filled, rounded, focus ring in the tint */
+.field input, .field select, .field textarea, .pw-wrap { border-radius: 10px; border: .5px solid var(--hig-separator); background: var(--surface1); }
+.pw-wrap input, .field .pw-wrap input { border: 0; background: transparent; box-shadow: none; }
+.field input:focus, .field select:focus, .field textarea:focus, .pw-wrap:focus-within { box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 45%, transparent); }
+.field--error input { box-shadow: 0 0 0 2px var(--down); }
+.field label, .seg legend { font-size: 13px; font-weight: 500; }
+
+/* ---------- Buttons: capsules; pressed state dims like a system button */
+.btn:active:not([disabled]) { opacity: .7; }
+.btn--secondary { border-color: transparent; }
+
+/* ---------- Sheets, dialogs and banners */
+.overlay { background: rgba(0, 0, 0, .4); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.k-sheet, .dialog { background: var(--hig-thick); -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+  border: 0; border-radius: 14px 14px 0 0; box-shadow: 0 -1px 0 var(--hig-separator), 0 -10px 40px rgba(0,0,0,.18); }
+.k-sheet-foot, .sheet-foot, .drawer-head, .drawer-foot { border-color: var(--hig-separator); border-width: .5px; }
+.k-grab { width: 36px; background: var(--hig-fill-strong); }
+.cookie { background: var(--hig-thick); -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+  border: .5px solid var(--hig-separator); border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.18); }
+@media (min-width: 769px) { .dialog { border-radius: 14px; } }
+
+/* Materials need a solid fallback where blur is not supported */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .header, .bottom-tabs, .k-sheet, .dialog, .cookie { background: var(--surface1); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .header, .bottom-tabs, .k-sheet, .dialog, .cookie { background: var(--surface1); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  :root { --hig-separator: var(--border-strong); }
+  .card, .k-fc, .k-day, .tile { outline: 1px solid var(--border-strong); outline-offset: -1px; }
+}
