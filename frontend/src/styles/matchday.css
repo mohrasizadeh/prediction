@@ -128,3 +128,39 @@
 .k-fc--missed { opacity: .72; }
 .lv-tick { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 8px; border-radius: 50%; background: var(--up); color: var(--on-brand); vertical-align: middle; }
 .lv-sum { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--down) 8%, var(--surface1)); font-size: 13px; font-weight: 600; }
+
+/* ---- Match page, four tabs (docs/34) ---- */
+.mc-tabs { position: sticky; top: calc(var(--header-h) + env(safe-area-inset-top)); z-index: 15; gap: 0; margin: 0 -16px 18px; padding: 0 16px; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.mc-tabs .tab { flex: 1 0 auto; justify-content: center; min-height: 48px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: var(--text2); font-size: 15px; }
+.mc-tabs .tab.is-on { background: transparent; color: var(--text); border-bottom-color: var(--brand); }
+.mc-tabs .tab:focus-visible { outline: 2px solid var(--brand); outline-offset: -4px; border-radius: 8px; }
+.tab-badge { font-style: normal; font-size: 11px; font-weight: 800; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--surface2, var(--surface1)); color: var(--text2); font-variant-numeric: tabular-nums; }
+.mc-tabs .tab.is-on .tab-badge { background: var(--brand); color: var(--bg); }
+@media (min-width: 900px) { .mc-tabs { margin: 0 0 20px; padding: 0; } .mc-tabs .tab { flex: 0 0 auto; padding: 0 22px; } }
+.mc-pane { display: grid; gap: 18px; min-width: 0; }
+.mc-lineups { display: grid; gap: 18px; }
+@media (min-width: 900px) { .mc-lineups { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } .mc-lineups .mc-notes { position: sticky; top: calc(var(--header-h) + 72px); } }
+.mc-notes { display: grid; gap: 14px; }
+.mc-why-card { padding: 16px 18px; display: grid; gap: 10px; }
+.mc-why-card .mc-why { margin: 0; padding: 0 0 0 18px; display: grid; gap: 8px; }
+.mc-an { display: grid; gap: 28px; }
+.an-jump { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; position: sticky; top: calc(var(--header-h) + 49px + env(safe-area-inset-top)); z-index: 10; padding: 8px 0; background: var(--bg); }
+.an-jump::-webkit-scrollbar { display: none; } .an-jump .chip { flex: none; }
+.an-sec { display: grid; gap: 12px; scroll-margin-top: calc(var(--header-h) + 110px); min-width: 0; }
+.mc-form { display: grid; gap: 14px; }
+@media (min-width: 900px) { .mc-form { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; } }
+
+/* hero: one row for the small print and the actions, so the tabs stay near the top on a phone */
+.mc-hero { gap: 10px; padding: 18px 20px; }
+.mc-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--border); }
+.mc-meta { display: grid; gap: 2px; min-width: 0; }
+.mc-foot .mc-actions { justify-content: flex-end; gap: 8px; }
+.mc-foot .mc-actions .btn { min-height: 40px; padding: 0 14px; }
+.mc-pitchcol { min-width: 0; }
+@media (max-width: 520px) { .mc-hero { padding: 14px; } .mc-team .crest, .mc-team img { max-width: 52px; } .mc-foot .mc-actions .btn { padding: 0 12px; } }
+
+.lv-lines { padding: 16px 18px; display: grid; gap: 10px; }
+.lv-lines-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lv-lines .lv-sum { margin: 0; }
+/* four tabs always fit on a phone */
+@media (max-width: 520px) { .mc-tabs { padding: 0 8px; } .mc-tabs .tab { flex: 1 1 0; min-width: 0; padding: 0 6px; font-size: 14px; gap: 4px; } .tab-badge { padding: 1px 5px; min-width: 18px; } }

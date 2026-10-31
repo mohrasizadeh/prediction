@@ -41,12 +41,12 @@ export function Switch({ checked, onChange, label, hint, disabled, testid }) {
   );
 }
 
-export function Tabs({ tabs, value, onChange, testid = "tabs" }) {
+export function Tabs({ tabs, value, onChange, testid = "tabs", className = "" }) {
   return (
-    <div className="tabs" role="tablist" data-testid={testid}>
+    <div className={`tabs ${className}`.trim()} role="tablist" data-testid={testid}>
       {tabs.map((t) => (
         <button key={t.id} role="tab" type="button" aria-selected={value === t.id} className={"tab" + (value === t.id ? " is-on" : "")} onClick={() => onChange(t.id)} data-testid={`${testid}-${t.id}`}>
-          {t.icon && <Icon name={t.icon} size={16} />}{t.label}
+          {t.icon && <Icon name={t.icon} size={16} />}{t.label}{t.badge != null && <em className="tab-badge">{t.badge}</em>}
         </button>
       ))}
     </div>

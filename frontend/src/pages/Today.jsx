@@ -21,16 +21,28 @@ function until(s) {
   return min < 60 ? `in ${min} min` : `in ${Math.floor(min / 60)}h ${min % 60}m`;
 }
 
+// Top 3 are the best-rated lines of the day: Strong before Solid, then the whole chance (his chance to play counted), at most two per match.
+// Nothing below Solid is shown here; the full list stays on the Insights page.
+const RANK = { Strong: 2, Solid: 1 };
+const whole = (f) => (f.p || 0) * (f.scope === "player" && f.p_play != null ? f.p_play : 1);
+export function topRated(rows, n = 3) {
+  const pool = rows.filter((x) => RANK[x.tier]).sort((a, b) => RANK[b.tier] - RANK[a.tier] || whole(b) - whole(a) || (b.lo || 0) - (a.lo || 0));
+  const per = {};
+  const out = pool.filter((x) => (per[x.match_iid] = (per[x.match_iid] || 0) + 1) <= 2);
+  return out.slice(0, n);
+}
+
 function Top3({ day }) {
   const q = useApi("/insights", { limit: 200 });
   const rows = (q.data || []).filter((x) => localDay(x.kickoff) === day);
   if (q.loading && !q.data) return <Skeleton shape="card" count={3} testid="today-top3-loading" />;
-  if (!rows.length) return null;
+  const best = topRated(rows);
+  if (!best.length) return null;
   return (
     <section className="td-top" aria-label="Top 3 for this day" data-testid="today-top3">
       <div className="td-sec-head"><h2 className="k-sec">Top 3 for {day === isoDay(new Date()) ? "today" : utc(`${day}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "long" })}</h2>
         <Link to={`/insights?day=${day}`} className="k-link" data-testid="today-see-all">See all {rows.length} →</Link></div>
-      <div className="td-carousel">{rows.slice(0, 3).map((f) => <ForecastCard key={f.id} f={f} testid={`today-top-${f.id}`} />)}</div>
+      <div className="td-carousel">{best.map((f) => <ForecastCard key={f.id} f={f} testid={`today-top-${f.id}`} />)}</div>
     </section>
   );
 }

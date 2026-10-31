@@ -1,4 +1,4 @@
-// Screen 2, Match (docs/01 §5): hero with win/draw/loss and tactic chips; tabs Forecasts, Lineups, Players, H2H, Matchup.
+// Screen 2, Match (docs/34): hero with win/draw/loss, then four tabs: Live or Recap (while on / after), Forecasts, Lineups (pitch + notes), Analysis (form, H2H, first goal, players, style).
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
@@ -7,18 +7,38 @@ import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { MatchRow, Seg, TacticChip, num1, posLabel, useTitle } from "../components/Football";
 import FirstGoal from "../components/FirstGoal";
-import { Forecasts, Hero, Preview, Stats, matchState } from "../components/MatchCentre";
+import { Forecasts, Form, Hero, MatchNotes, matchState } from "../components/MatchCentre";
 import MatchEvents from "../components/MatchEvents";
 import LiveLineups from "../components/LiveLineups";
-import { ProLock } from "../components/ui";
+import { ForecastCard, ProLock } from "../components/ui";
 
 const cardsOf = (d) => d.cards || d.forecasts;
 
-function LiveTab({ d }) {
+// Our lines that have already happened, on top of the live feed. The rest are one tap away on the Forecasts tab.
+function LiveLines({ d, matchId, onAll }) {
+  const lt = useApi(`/matches/${matchId}/live-forecasts`, undefined, { every: 30000 });
+  if (!lt.data?.active) return null;
+  const items = lt.data.items || {};
+  const all = cardsOf(d).flatMap((f) => [f, ...(f.more_lines || [])]);
+  const tracked = all.filter((x) => items[x.fkey] && items[x.fkey].state !== "unknown");
+  const hit = tracked.filter((x) => items[x.fkey].state === "hit");
+  const live = tracked.filter((x) => items[x.fkey].state === "live").length;
+  const leads = cardsOf(d).filter((f) => items[f.fkey]?.state === "hit").slice(0, 4);
+  return (
+    <section className="lv-lines card" data-testid="match-live-lines">
+      <div className="lv-lines-head"><h2 className="k-sec">Our lines, live</h2><button type="button" className="k-link" onClick={onAll} data-testid="live-all-lines">All forecasts →</button></div>
+      <p className="lv-sum"><span><b>{hit.length} of {tracked.length}</b> lines we can follow have happened{live ? `, ${live} still in play` : ""}.</span></p>
+      {leads.length > 0 && <div className="fgrid">{leads.map((f) => <ForecastCard key={f.id} f={f} homeIid={d.match.home_iid} showTime={false} track={items} testid={`live-hit-${f.id}`} />)}</div>}
+    </section>
+  );
+}
+
+function LiveTab({ d, matchId, onAll }) {
   const sid = d.live?.sid;
   const q = useApi(`/live/${sid}/lineups`);
   return (
     <div className="live-detail" data-testid="match-live">
+      <LiveLines d={d} matchId={matchId} onAll={onAll} />
       <MatchEvents events={d.live_events || []} testid="match-live-events" />
       {q.loading ? <Loading rows={2} /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : <LiveLineups lineups={q.data.lineups} home={d.home.name} away={d.away.name} />}
     </div>
@@ -123,6 +143,33 @@ function Events({ d }) {
   );
 }
 
+function Lineups({ d }) {
+  return (
+    <div className="mc-lineups" data-testid="match-lineups">
+      <div className="mc-pitchcol"><Pitch d={d} /></div>
+      <MatchNotes d={d} />
+    </div>
+  );
+}
+
+const JUMPS = [["form", "Form"], ["h2h", "Head to head"], ["first", "First goal"], ["players", "Players"], ["style", "Style"]];
+function Analysis({ d }) {
+  const go = (id) => document.getElementById(`an-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  return (
+    <div className="mc-an" data-testid="match-analysis">
+      <nav className="an-jump" aria-label="Jump to a section">{JUMPS.map(([id, label]) => <button key={id} type="button" className="chip" onClick={() => go(id)} data-testid={`an-jump-${id}`}>{label}</button>)}</nav>
+      <section id="an-form" className="an-sec"><Form d={d} /></section>
+      <section id="an-h2h" className="an-sec"><h2 className="k-sec">Head to head</h2><H2H d={d} /></section>
+      <section id="an-first" className="an-sec"><h2 className="k-sec">Who scores first</h2><div className="fg-pair" data-testid="match-first-goal"><FirstGoal team={d.home} compact testid="first-goal-home" /><FirstGoal team={d.away} compact testid="first-goal-away" /></div></section>
+      <section id="an-players" className="an-sec"><h2 className="k-sec">Shots by player · last 10 games</h2><Players d={d} /></section>
+      <section id="an-style" className="an-sec"><h2 className="k-sec">Playing style</h2>
+        {d.matchup_locked ? <Empty icon="padlock" testid="matchup-locked">The style comparison is part of a bigger plan. <ProLock testid="matchup-pro" /></Empty>
+          : <div className="split2">{[d.home, d.away].map((t, i) => <div key={t.id} className="card"><h3 className="h3">{t.name}</h3><div className="chips">{(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).map((x) => <TacticChip key={x} t={x} />)}{!(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).length && <span className="k-faint">No clear style yet</span>}</div></div>)}</div>}
+      </section>
+    </div>
+  );
+}
+
 export default function Match() {
   const { id } = useParams();
   const [poll, setPoll] = useState(0);
@@ -132,26 +179,32 @@ export default function Match() {
   const isLive = d?.match?.live?.status === "LIVE" && d?.match?.status !== "final";
   useEffect(() => setPoll(isLive ? 30000 : 0), [isLive]);                  // live score, events and minute refresh by themselves
   const st = d ? matchState(d) : "before";
-  const tab = pick || (st === "live" && d?.live?.sid ? "live" : st === "final" ? "events" : "preview");
+  // Four tabs. The first one is the match itself while it is on (Live) or over (Recap); before kick-off it is the forecasts.
+  const first = st === "live" ? "live" : st === "final" ? "recap" : null;
+  const tab = pick || first || "forecasts";
   useTitle(d ? `${d.home.name} v ${d.away.name}` : "Match");
   if (q.loading && !d) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  const n = cardsOf(d).filter((f) => f.p >= 0.5).length;
+  const confirmed = (d.starters || []).length > 0 && d.starters.every((s) => s.confirmed);
+  const tabs = [
+    ...(first ? [{ id: first, label: first === "live" ? "Live" : "Recap" }] : []),
+    { id: "forecasts", label: "Forecasts", badge: n || null },
+    { id: "lineups", label: "Lineups", badge: confirmed ? "✓" : null },
+    { id: "analysis", label: "Analysis" },
+  ];
   return (
     <section data-testid="match-page">
       <h1 className="sr-only">{d.home.name} v {d.away.name}</h1>
       <Hero d={d} />
-      <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[...(st === "live" && d.live?.sid ? [{ id: "live", label: "Live" }] : []), ...(st === "final" ? [{ id: "events", label: "Recap" }] : []), { id: "preview", label: "Preview" }, { id: "forecasts", label: `Forecasts (${cardsOf(d).filter((f) => f.p >= 0.5).length})` }, { id: "lineups", label: "Lineups" }, { id: "stats", label: "Stats" }, ...(st !== "final" ? [{ id: "events", label: "Events" }] : []), { id: "first", label: "First goal" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
-      {tab === "preview" && <Preview d={d} />}
-      {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
-      {tab === "stats" && <Stats d={d} />}
-      {tab === "live" && d.live?.sid && <LiveTab d={d} />}
-      {tab === "lineups" && <Pitch d={d} />}
-      {tab === "events" && <Events d={d} />}
-      {tab === "first" && <div className="fg-pair" data-testid="match-first-goal"><FirstGoal team={d.home} compact testid="first-goal-home" /><FirstGoal team={d.away} compact testid="first-goal-away" /></div>}
-      {tab === "players" && <Players d={d} />}
-      {tab === "h2h" && <H2H d={d} />}
-      {tab === "matchup" && (d.matchup_locked ? <Empty icon="padlock" testid="matchup-locked">The style comparison is part of a bigger plan. <ProLock testid="matchup-pro" /></Empty>
-        : <div className="split2">{[d.home, d.away].map((t, i) => <div key={t.id} className="card"><h2 className="h3">{t.name}</h2><div className="chips">{(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).map((x) => <TacticChip key={x} t={x} />)}</div></div>)}</div>)}
+      <Tabs value={tab} onChange={setTab} testid="match-tabs" className="mc-tabs" tabs={tabs} />
+      <div className="mc-pane" role="tabpanel">
+        {tab === "live" && (d.live?.sid ? <LiveTab d={d} matchId={id} onAll={() => setTab("forecasts")} /> : <Events d={d} />)}
+        {tab === "recap" && <Events d={d} />}
+        {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
+        {tab === "lineups" && <Lineups d={d} />}
+        {tab === "analysis" && <Analysis d={d} />}
+      </div>
     </section>
   );
 }

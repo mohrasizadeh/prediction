@@ -73,10 +73,13 @@ export function Hero({ d }) {
       {st !== "final" && st !== "off" && d.probs && <WdlBar home={d.probs.p_home} draw={d.probs.p_draw} away={d.probs.p_away} homeName={d.home.name} awayName={d.away.name} testid="match-wdl" />}
       {st === "final" && d.recap?.scored > 0 && <p className="mc-recap" data-testid="match-recap">How our forecasts did: <b>{d.recap.hit} of {d.recap.scored}</b> Strong and Solid forecasts came true
         {["Strong", "Solid"].filter((t) => d.recap.by_tier[t][1]).map((t) => ` · ${t} ${d.recap.by_tier[t][0]}/${d.recap.by_tier[t][1]}`).join("")}</p>}
-      {st !== "final" && <Situation d={d} />}
-      {d.probs && <p className="k-faint k-small">Expected goals {num1(d.probs.xg_home)} – {num1(d.probs.xg_away)}</p>}
-      {(m.referee || m.stadium) && <p className="k-faint k-small" data-testid="match-meta">{m.referee && <>Referee: <Link to={`/referee/${encodeURIComponent(m.referee)}`} data-testid="match-referee-link">{m.referee}</Link></>}{m.referee && m.stadium ? " · " : ""}{m.stadium}</p>}
-      <div className="mc-actions">{st !== "final" && st !== "off" && <FollowButton kind="match" refId={m.id} name={`${d.home?.name} v ${d.away?.name}`} />}<ShareCard d={d} /></div>
+      <div className="mc-foot">
+        <div className="mc-meta">
+          {d.probs && <small className="k-faint" data-testid="match-xg">Expected goals {num1(d.probs.xg_home)} – {num1(d.probs.xg_away)}</small>}
+          {(m.referee || m.stadium) && <small className="k-faint" data-testid="match-meta">{m.referee && <>Referee: <Link to={`/referee/${encodeURIComponent(m.referee)}`} data-testid="match-referee-link">{m.referee}</Link></>}{m.referee && m.stadium ? " · " : ""}{m.stadium}</small>}
+        </div>
+        <div className="mc-actions">{st !== "final" && st !== "off" && <FollowButton kind="match" refId={m.id} name={`${d.home?.name} v ${d.away?.name}`} />}<ShareCard d={d} /></div>
+      </div>
     </section>
   );
 }
@@ -85,15 +88,16 @@ function useCompare(d) {
   return useApi("/teams/compare", { a: d.home.id, b: d.away.id, as_fixture: true });
 }
 
-export function Preview({ d }) {
-  const c = useCompare(d);
+// Before-kickoff notes that belong next to the lineups: why the match matters, absences and who is likely to miss out.
+export function MatchNotes({ d }) {
   const why = [[d.home, d.match.home_iid], [d.away, d.match.away_iid]].flatMap(([t, iid]) => (d.context?.[iid]?.why || []).map((w) => `${t.name}: ${w}`)).slice(0, 3);
+  const news = (d.availability || []).length > 0;
+  if (!why.length && !news && !d.referee?.sentence) return null;
   return (
-    <div className="mc-preview" data-testid="match-preview">
-      {why.length > 0 && <ul className="mc-why card" data-testid="match-why">{why.map((w) => <li key={w}>{w}</li>)}</ul>}
+    <div className="mc-notes" data-testid="match-preview">
+      {why.length > 0 && <section className="card mc-why-card"><h2 className="k-sec">Worth knowing</h2><ul className="mc-why" data-testid="match-why">{why.map((w) => <li key={w}>{w}</li>)}</ul></section>}
       <TeamNews d={d} />
-      {c.loading && !c.data ? <Skeleton shape="card" count={1} /> : c.data?.radar?.length ? <div className="card mc-radar"><h2 className="k-sec">{d.home.name} at home v {d.away.name} away</h2><TeamRadar axes={c.data.radar} aName={d.home.name} bName={d.away.name} testid="match-radar" /></div> : null}
-      {!why.length && !(d.availability || []).length && !c.data?.radar?.length && !c.loading && <EmptyState icon="info" title="No preview yet" testid="match-preview-empty">Form, absences and the radar appear once both clubs have played this season.</EmptyState>}
+      {d.referee?.sentence && <p className="mc-ref k-faint" data-testid="match-referee">{d.referee.sentence}</p>}
     </div>
   );
 }
@@ -129,17 +133,21 @@ export function Forecasts({ d, matchId }) {
   );
 }
 
-export function Stats({ d }) {
+export function Form({ d }) {
   const c = useCompare(d);
   if (c.loading && !c.data) return <Skeleton shape="row" count={5} testid="match-stats-loading" />;
   if (c.error) return <ErrorState message="We could not load the team numbers." onRetry={c.reload} testid="match-stats-error" />;
   const e = (c.data?.edges || []).filter((x) => ["shots", "sot", "corners", "poss", "xg", "goals"].includes(x.key));
-  if (!e.length) return <EmptyState icon="bar-chart" title="No team numbers yet" testid="match-stats-empty">They appear after each club's first finished match this season.</EmptyState>;
+  if (!e.length && !c.data?.radar?.length) return <EmptyState icon="bar-chart" title="No team numbers yet" testid="match-stats-empty">They appear after each club's first finished match this season.</EmptyState>;
   return (
-    <div className="card mc-stats" data-testid="match-stats">
-      <h2 className="k-sec">Per game this season · {d.home.name} at home, {d.away.name} away</h2>
-      <ul className="cp-edges">{e.map((x) => { const t = (x.a || 0) + (x.b || 0) || 1; return (
-        <li key={x.key} className={`lean-${x.lean || "none"}`}><b>{num1(x.a)}</b><span className="cp-edge-mid"><small>{x.label}</small><span className="cp-edge-bar" aria-hidden="true"><i className="ea" style={{ width: `${(x.a / t) * 100}%` }} /><i className="eb" style={{ width: `${(x.b / t) * 100}%` }} /></span></span><b>{num1(x.b)}</b></li>); })}</ul>
+    <div className="mc-form" data-testid="match-stats">
+      {e.length > 0 && <div className="card mc-stats">
+        <h2 className="k-sec">Per game this season</h2>
+        <p className="k-faint k-small">{d.home.name} at home, {d.away.name} away. Numbers from before kick-off.</p>
+        <ul className="cp-edges">{e.map((x) => { const t = (x.a || 0) + (x.b || 0) || 1; return (
+          <li key={x.key} className={`lean-${x.lean || "none"}`}><b>{num1(x.a)}</b><span className="cp-edge-mid"><small>{x.label}</small><span className="cp-edge-bar" aria-hidden="true"><i className="ea" style={{ width: `${(x.a / t) * 100}%` }} /><i className="eb" style={{ width: `${(x.b / t) * 100}%` }} /></span></span><b>{num1(x.b)}</b></li>); })}</ul>
+      </div>}
+      {c.data?.radar?.length > 0 && <div className="card mc-radar"><h2 className="k-sec">Style shape</h2><TeamRadar axes={c.data.radar} aName={d.home.name} bName={d.away.name} testid="match-radar" /></div>}
     </div>
   );
 }
