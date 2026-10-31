@@ -13,6 +13,8 @@ from __future__ import annotations
 import math
 import uuid
 
+import numpy as np
+
 import settings_store as S
 import team_norm as TN
 from engine_bridge import tier   # soccer_brain/core.tier, via the bridge's import path
@@ -65,7 +67,35 @@ def league_numbers(db, league_iid: int) -> dict | None:
             "pos90": {k: v[0] / (v[1] / 90) for k, v in pos.items() if v[1] > 0},
             "posf90": {k: v[2] / (v[3] / 90) for k, v in pos.items() if v[3] > 0 and v[2] > 0},
             "fouls": TN.build(db, league_iid, "fouls", half=float(S.get(db, "engine.style_half_life")) or 20.0),
-            "ref_cpf": refs, "cpf": ty / tf if tf else None, "fouls_pg": tf / nm if nm else None}
+            "ref_cpf": refs, "cpf": ty / tf if tf else None, "fouls_pg": tf / nm if nm else None,
+            "ratings": ratings_fit(db, league_iid)}
+
+
+def ratings_fit(db, league_iid: int):
+    """Attack/defence ratings for yellows (docs/33): ridge Poisson, older games count less, one home factor.
+    Returns (model, {team_iid: index}) or None when there is too little data."""
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "soccer_brain"))
+    from ratings import RatingsModel, HALF, LAM
+    by = {}
+    for r in db.team_match_stats.find({"league_iid": league_iid, "yellow_cards": {"$ne": None}},
+                                      {"_id": 0, "match_iid": 1, "team_iid": 1, "home": 1, "kickoff": 1, "yellow_cards": 1}):
+        by.setdefault(r["match_iid"], []).append(r)
+    g = [v for v in by.values() if len(v) == 2 and any(x.get("home") for x in v)]
+    if len(g) < 60:
+        return None
+    days = sorted({str(v[0]["kickoff"])[:10] for v in g})
+    rank = {d: i for i, d in enumerate(days)}
+    teams = sorted({x["team_iid"] for v in g for x in v})
+    ti = {t: i for i, t in enumerate(teams)}
+    H, A, yh, ya, rd = [], [], [], [], []
+    for v in g:
+        h = next(x for x in v if x.get("home")); a = next(x for x in v if x is not h)
+        H.append(ti[h["team_iid"]]); A.append(ti[a["team_iid"]]); yh.append(h["yellow_cards"]); ya.append(a["yellow_cards"])
+        rd.append(rank[str(v[0]["kickoff"])[:10]])
+    age = max(rd) - np.array(rd)
+    m = RatingsModel(HALF["yellow"], LAM["yellow"]).fit(H, A, yh, ya, age, len(teams))
+    return (m, ti) if m.ok else None
 
 
 def ref_factor(db, league_iid, name, ln) -> tuple[float, str | None]:
@@ -141,6 +171,14 @@ def run_match(db, m, run_id=None, now=None, ln=None) -> int:
     lam_t = {t: avg * math.sqrt(shr(t, 0) * shr(o, 1) * frel(t, o)) * rf * ctx[t][0] * ctx[t][1] for t, o in ((h, a), (a, h))}
     if not fouls_ok:
         lam_t = {t: avg * shr(t, 0) * shr(o, 1) * rf * ctx[t][0] * ctx[t][1] for t, o in ((h, a), (a, h))}
+    rb = float(S.get(db, "engine.cards_ratings_blend"))
+    rat = ln.get("ratings") if rb > 0 else None
+    if rat:
+        rm, ti = rat
+        if h in ti and a in ti:
+            for t, o, is_h in ((h, a, True), (a, h, False)):
+                base = avg * math.sqrt(shr(t, 0) * shr(o, 1) * (frel(t, o) if fouls_ok else 1.0))
+                lam_t[t] *= (rm.mu(ti[t], ti[o], is_h) / max(base, 1e-6)) ** rb
     lam_h, lam_a = lam_t[h], lam_t[a]
     fouls_why = (f"Fouls a game, adjusted for opponents: {names.get(h)} {fz.usual(h):.1f}, {names.get(a)} {fz.usual(a):.1f} (league {fz.L():.1f})."
                  if fouls_ok else None)

@@ -87,6 +87,7 @@ def configure_engine(db) -> E.SoccerEngine:
                          strength_decay=float(S.get(db, "engine.strength_decay")),
                          # normalised averages (docs/25)
                          style_half_life=(float(S.get(db, "engine.style_half_life")) or None),
+                         ratings_blend=float(S.get(db, "engine.ratings_blend")),
                          style_opp_adjust=tuple(S.get(db, "engine.style_opp_adjust")),
                          style_cap_q=(float(S.get(db, "engine.style_cap_q")) or None),
                          player_prior=dict(S.get(db, "engine.player_prior")),

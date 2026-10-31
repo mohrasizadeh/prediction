@@ -35,6 +35,7 @@ from nbglm import NBGLM
 from strength import DixonColes
 import tactics as TX
 import context as CX
+from ratings import RatingsModel, HALF as R_HALF, LAM as R_LAM
 
 STATS = ["shots", "sot", "corners", "tackles"]
 PLAYER_STATS = ["shots", "sot", "tackles"]
@@ -134,10 +135,12 @@ class SoccerEngine:
                  style_k=6.0, min_round=3, n_draws=60, sigma_team=0.07,
                  lineup_l2=10.0, seed=0, tactics=False, tactic_interactions=True, shape=False,
                  extra_stats=(), match_features=(), strength_decay=0.02,
-                 style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None, cond_play=False):
+                 style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None, cond_play=False,
+                 ratings_blend=0.0):
         self.interactions = interactions
         # Player lines are "if he plays" (docs/27). His chance to play is shown as a lineup badge, not folded into the percentage.
         self.cond_play = bool(cond_play)
+        self.ratings_blend = float(ratings_blend)   # weight of the attack/defence ratings model in each team count (docs/33)
         # Normalised team averages (docs/25). None / () = the old plain running sums.
         self.style_half = style_half_life            # a team's game this many games ago counts half
         self.style_opp = tuple(style_opp_adjust)     # stats judged against what each opponent usually allows / makes
@@ -368,6 +371,16 @@ class SoccerEngine:
             offs[s] = np.array([self._offset(s, self.tidx[r.team], self.tidx[r.opp], self.snaps[r.round])
                                 for r in rows.itertuples()])
             self.glm[s] = NBGLM(l2=l2).fit(Xs, rows[s].values.astype(float), w, offset=offs[s])
+
+        # attack / defence ratings per count (docs/33)
+        self.rat = {}
+        if self.ratings_blend > 0:
+            hm = tg[tg["home"] == 1]
+            for s in self.stats:
+                if s in hm.columns and (s + "_against") in hm.columns:
+                    self.rat[s] = RatingsModel(R_HALF.get(s, 60.0), R_LAM.get(s, 12.0)).fit(
+                        hm["team"].map(self.tidx).values, hm["opp"].map(self.tidx).values,
+                        hm[s].values, hm[s + "_against"].values, as_of - 1 - hm["round"].values, len(self.teams))
 
         # team strength
         self.dc = DixonColes(xi=self.strength_decay).fit(matches["home"], matches["away"], matches["hg"],
@@ -601,6 +614,15 @@ class SoccerEngine:
         out = lead + [t for t in team if t not in lead]
         return out[:2] if out else self._reasons(contrib, stat, opp_tactics)[:2]
 
+    def _rate(self, s, mu, X, Y, is_home):
+        """Blend a team count with the ratings model (log scale)."""
+        rm = self.rat.get(s)
+        if rm is None or not rm.ok or self.ratings_blend <= 0:
+            return mu
+        m = rm.mu(X, Y, is_home)
+        w = self.ratings_blend
+        return float(np.exp((1 - w) * np.log(max(mu, 1e-6)) + w * np.log(max(m, 1e-6))))
+
     def team_means(self, home, away, xf=None):
         """Expected count and dispersion for every team metric, both sides. Used to score the
         whole count distribution (not only one threshold) and to show 'expected' on the page.
@@ -615,7 +637,7 @@ class SoccerEngine:
             out[team] = {}
             for s in self.stats:
                 off = self._offset(s, X, Y, snap)
-                out[team][s] = (float(self.glm[s].predict_mu(feats, off)[0]), float(self.glm[s].r), float(np.exp(off)))
+                out[team][s] = (self._rate(s, float(self.glm[s].predict_mu(feats, off)[0]), X, Y, is_home), float(self.glm[s].r), float(np.exp(off)))
         return out
 
     def predict_fixture(self, home, away, lineups=None, xf=None, ctx=None, availability=None, match_ctx=None, team_norm=None):
@@ -666,6 +688,7 @@ class SoccerEngine:
                 tn = team_norm.get(team, {}).get(s)
                 if tn:
                     mu_team[s] = float(np.exp((1 - self.norm_blend) * np.log(max(mu_team[s], 1e-6)) + self.norm_blend * np.log(tn)))
+                mu_team[s] = self._rate(s, mu_team[s], X, Y, is_home)
                 grp[s] = self._group_contrib(self.glm[s].contributions(feats))
                 for gname, v in self._offset_groups(s, X, Y, snap).items():
                     grp[s][gname] = grp[s].get(gname, 0.0) + v

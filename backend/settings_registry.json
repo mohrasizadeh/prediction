@@ -2627,5 +2627,25 @@
   "group": "Engine",
   "public": false,
   "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.ratings_blend",
+  "label": "Team ratings weight",
+  "type": "float",
+  "default": 0.0,
+  "help": "How much the team attack-and-defence ratings count in each team total (shots, corners, tackles, ...). 0 = engine regression only (docs/33).",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.cards_ratings_blend",
+  "label": "Cards: team ratings weight",
+  "type": "float",
+  "default": 0.7,
+  "help": "How much the yellow-card team ratings count in the match cards forecast. 0 = old all-time average (docs/33).",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
  }
 ]
