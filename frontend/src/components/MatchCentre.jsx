@@ -147,7 +147,7 @@ export function Form({ d }) {
         <ul className="cp-edges">{e.map((x) => { const t = (x.a || 0) + (x.b || 0) || 1; return (
           <li key={x.key} className={`lean-${x.lean || "none"}`}><b>{num1(x.a)}</b><span className="cp-edge-mid"><small>{x.label}</small><span className="cp-edge-bar" aria-hidden="true"><i className="ea" style={{ width: `${(x.a / t) * 100}%` }} /><i className="eb" style={{ width: `${(x.b / t) * 100}%` }} /></span></span><b>{num1(x.b)}</b></li>); })}</ul>
       </div>}
-      {c.data?.radar?.length > 0 && <div className="card mc-radar"><h2 className="k-sec">Style shape</h2><TeamRadar axes={c.data.radar} aName={d.home.name} bName={d.away.name} testid="match-radar" /></div>}
+      {c.data?.radar?.length > 0 && <div className="card mc-radar"><h2 className="k-sec">Style shape</h2><TeamRadar axes={c.data.radar} aName={d.home.name} bName={d.away.name} games={c.data.radar_games} testid="match-radar" /></div>}
     </div>
   );
 }

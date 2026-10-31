@@ -10,35 +10,15 @@ import FirstGoal from "../components/FirstGoal";
 import { Forecasts, Form, Hero, MatchNotes, matchState } from "../components/MatchCentre";
 import MatchEvents from "../components/MatchEvents";
 import LiveLineups from "../components/LiveLineups";
-import { ForecastCard, ProLock } from "../components/ui";
+import { ProLock } from "../components/ui";
 
 const cardsOf = (d) => d.cards || d.forecasts;
 
-// Our lines that have already happened, on top of the live feed. The rest are one tap away on the Forecasts tab.
-function LiveLines({ d, matchId, onAll }) {
-  const lt = useApi(`/matches/${matchId}/live-forecasts`, undefined, { every: 30000 });
-  if (!lt.data?.active) return null;
-  const items = lt.data.items || {};
-  const all = cardsOf(d).flatMap((f) => [f, ...(f.more_lines || [])]);
-  const tracked = all.filter((x) => items[x.fkey] && items[x.fkey].state !== "unknown");
-  const hit = tracked.filter((x) => items[x.fkey].state === "hit");
-  const live = tracked.filter((x) => items[x.fkey].state === "live").length;
-  const leads = cardsOf(d).filter((f) => items[f.fkey]?.state === "hit").slice(0, 4);
-  return (
-    <section className="lv-lines card" data-testid="match-live-lines">
-      <div className="lv-lines-head"><h2 className="k-sec">Our lines, live</h2><button type="button" className="k-link" onClick={onAll} data-testid="live-all-lines">All forecasts →</button></div>
-      <p className="lv-sum"><span><b>{hit.length} of {tracked.length}</b> lines we can follow have happened{live ? `, ${live} still in play` : ""}.</span></p>
-      {leads.length > 0 && <div className="fgrid">{leads.map((f) => <ForecastCard key={f.id} f={f} homeIid={d.match.home_iid} showTime={false} track={items} testid={`live-hit-${f.id}`} />)}</div>}
-    </section>
-  );
-}
-
-function LiveTab({ d, matchId, onAll }) {
+function LiveTab({ d }) {
   const sid = d.live?.sid;
   const q = useApi(`/live/${sid}/lineups`);
   return (
     <div className="live-detail" data-testid="match-live">
-      <LiveLines d={d} matchId={matchId} onAll={onAll} />
       <MatchEvents events={d.live_events || []} testid="match-live-events" />
       {q.loading ? <Loading rows={2} /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : <LiveLineups lineups={q.data.lineups} home={d.home.name} away={d.away.name} />}
     </div>
@@ -199,7 +179,7 @@ export default function Match() {
       <Hero d={d} />
       <Tabs value={tab} onChange={setTab} testid="match-tabs" className="mc-tabs" tabs={tabs} />
       <div className="mc-pane" role="tabpanel">
-        {tab === "live" && (d.live?.sid ? <LiveTab d={d} matchId={id} onAll={() => setTab("forecasts")} /> : <Events d={d} />)}
+        {tab === "live" && (d.live?.sid ? <LiveTab d={d} /> : <Events d={d} />)}
         {tab === "recap" && <Events d={d} />}
         {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
         {tab === "lineups" && <Lineups d={d} />}

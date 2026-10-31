@@ -164,3 +164,6 @@
 .lv-lines .lv-sum { margin: 0; }
 /* four tabs always fit on a phone */
 @media (max-width: 520px) { .mc-tabs { padding: 0 8px; } .mc-tabs .tab { flex: 1 1 0; min-width: 0; padding: 0 6px; font-size: 14px; gap: 4px; } .tab-badge { padding: 1px 5px; min-width: 18px; } }
+
+.tr-how { margin-top: 10px; } .tr-how summary { cursor: pointer; font-weight: 600; color: var(--text2); min-height: 32px; }
+.tr-how ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; color: var(--text2); }
