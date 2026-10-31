@@ -13,6 +13,8 @@ import { BrandLogo, Crest, LeagueMark, PlayerAvatar } from "./Media";
 import PopupHost from "./Popups";
 import NewsletterForm from "./Newsletter";
 import SearchOverlay from "./SearchOverlay";
+import ComboHost from "./ComboHost";
+import { useCombo } from "../lib/combo";
 import { LiveSheet, useLiveNow } from "./LiveSheet";
 import { LivePill } from "./ui";
 import { setConsent, usePageBeacon, useTagLoader } from "../lib/growth";
@@ -22,17 +24,19 @@ const NAV5 = [
   { id: "today", label: "Today", icon: "calendar", to: "/", end: true },
   { id: "insights", label: "Insights", icon: "sparkles", to: "/insights" },
   { id: "finder", label: "Finder", icon: "target", to: "/finder" },
-  { id: "explore", label: "Explore", icon: "compass", to: "/explore", also: /^\/(explore|leagues?|teams?|compare|referees?|track-record|learn|pricing|live)\b/ },
+  { id: "combos", label: "Combos", icon: "layers", to: "/combos", count: true },
+  { id: "explore", label: "Explore", icon: "compass", to: "/explore", desk: true, also: /^\/(explore|leagues?|teams?|compare|referees?|track-record|learn|pricing|live)\b/ },
   { id: "you", label: "You", icon: "user", to: "/following", also: /^\/(following|account|saved)\b/ },
 ];
-const FOOT_LINKS = [["Learn", "/learn"], ["Track record", "/track-record"], ["Plans", "/pricing"], ["Teams", "/teams"], ["Referees", "/referees"], ["Compare", "/compare"]];
+const FOOT_LINKS = [["Explore", "/explore"], ["Learn", "/learn"], ["Track record", "/track-record"], ["Plans", "/pricing"], ["Teams", "/teams"], ["Referees", "/referees"], ["Compare", "/compare"]];
 
 function Nav5Item({ item, className, testid }) {
   const { pathname } = useLocation();
+  const n = useCombo().count;
   const on = item.end ? pathname === "/" : pathname.startsWith(item.to) || (item.also && item.also.test(pathname));
   return (
     <Link to={item.to} className={className + (on ? " active" : "")} aria-current={on ? "page" : undefined} data-testid={testid}>
-      <Icon name={item.icon} size={20} /><span>{item.label}</span>
+      <Icon name={item.icon} size={20} /><span>{item.label}</span>{item.count && n > 0 && <i className="cb-count" data-testid="combo-count" aria-label={`${n} lines in your open combo`}>{n}</i>}
     </Link>
   );
 }
@@ -252,9 +256,10 @@ export default function Layout({ children }) {
         </div>
       </div>
       <nav className="bottom-tabs" aria-label="Main" data-testid="bottom-tabs">
-        {NAV5.map((t) => <Nav5Item key={t.id} item={t} className="btab" testid={`tab-${t.id}`} />)}
+        {NAV5.filter((t) => !t.desk).map((t) => <Nav5Item key={t.id} item={t} className="btab" testid={`tab-${t.id}`} />)}
       </nav>
       <span className="only-phone"><LivePill count={live?.live_count} floating onClick={() => setLiveOpen(true)} testid="live-pill" /></span>
+      <ComboHost />
       <LiveSheet open={liveOpen} onClose={closeLive} data={live} />
       <SearchOverlay open={search} onClose={closeSearch} />
       <CookieBanner c={cfg?.cookies} />

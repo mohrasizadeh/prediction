@@ -213,13 +213,15 @@ def unsave(body: SavedBody, user=Depends(D.require_user), db=Depends(D.get_db)):
 
 # ------------------------------------------------------------------ my combos (docs/28)
 class ComboSaveBody(BaseModel):
-    ids: list[str] = Field(min_length=1, max_length=12)
+    ids: list[str] = Field(default_factory=list, max_length=12)
+    fkeys: list[str] = Field(default_factory=list, max_length=12)       # the screens send fkeys: they survive an engine re-run
 
 
 def _combo_view(db, c: dict) -> dict:
     """One saved combo for the list: the lines as saved, plus either today's estimate or what happened."""
     now = utcnow()
     out = {k: c[k] for k in ("id", "label", "kickoff", "combined", "state", "lines", "created_at")}
+    out["match_id"] = c.get("match_id")
     ko = c["kickoff"] if c["kickoff"].tzinfo else c["kickoff"].replace(tzinfo=timezone.utc)
     outs = {o["fkey"]: o for o in db.forecast_outcomes.find({"fkey": {"$in": [l["fkey"] for l in c["lines"]]}}, {"_id": 0})}
     if ko > now:
@@ -252,13 +254,13 @@ def combos(response: Response, user=Depends(D.require_user), db=Depends(D.get_db
 @router.put("/combos", status_code=201)
 def save_combo(body: ComboSaveBody, user=Depends(D.require_user), db=Depends(D.get_db)):
     try:
-        est = CB.estimate(db, ids=body.ids)
+        est = CB.estimate(db, ids=body.ids, fkeys=body.fkeys)
     except CB.ComboError as e:
         raise D.err(409 if e.code in ("MIXED_MATCHES", "SAME_STAT", "TOO_MANY") else 404 if e.code == "NOT_FOUND" else 400, e.code, e.message)
     _room(db, user, "saved_max", db.combos.count_documents({"user_id": user["id"]}))
-    m = db.matches.find_one({"iid": est["match_iid"]}, {"_id": 0, "home_iid": 1, "away_iid": 1, "kickoff": 1})
+    m = db.matches.find_one({"iid": est["match_iid"]}, {"_id": 0, "id": 1, "home_iid": 1, "away_iid": 1, "kickoff": 1})
     names = Q._names(db, "teams", [m["home_iid"], m["away_iid"]])
-    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "match_iid": est["match_iid"], "kickoff": m["kickoff"],
+    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "match_iid": est["match_iid"], "match_id": m.get("id"), "kickoff": m["kickoff"],
            "label": f"{(names.get(m['home_iid']) or {}).get('name')} v {(names.get(m['away_iid']) or {}).get('name')}", "combined": est["combined"], "state": est["state"],
            "lines": [{k: l[k] for k in ("fkey", "player", "team", "market", "stat", "thr", "chance", "badge")} for l in est["lines"]],
            "created_at": utcnow()}

@@ -69,7 +69,8 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       {f.scope === "player" && (
         <div className="k-fs-tiles">
           {f.p_play != null && <div className="k-fs-tile"><small>Chance he plays</small><b data-testid={`${testid}-pplay`}>{pct(f.p_play)}</b></div>}
-          <div className="k-fs-tile"><small>Lineup</small><b className={f.lineup_confirmed ? "k-up" : "k-watch"}>{f.lineup_confirmed ? "Confirmed" : "Not out yet"}</b></div>
+          {f.p != null && <div className="k-fs-tile"><small>If he plays</small><b>{pct(f.p)}</b></div>}
+          <div className="k-fs-tile"><small>Lineup</small><b className={f.lineup_badge === "confirmed" || (!f.lineup_badge && f.lineup_confirmed) ? "k-up" : "k-watch"}>{{ confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" }[f.lineup_badge] || (f.lineup_confirmed ? "Confirmed" : "Not out yet")}</b></div>
         </div>
       )}
       {d.hits?.length > 0 && <section><h3 className="k-sec">Last {d.hits.length} games · {f.market}</h3><HitStrip hits={d.hits} label={f.market} testid={`${testid}-hits`} /></section>}

@@ -134,3 +134,21 @@ Share image: render the card from board 6 to a PNG in the browser (canvas) and u
 - [ ] A Finder row for a 97% line shows "95%+", no tier, and a disabled +.
 - [ ] `frontend/scripts/check-copy.js` passes with the single allow-listed disclaimer.
 - [ ] `cd backend && bash run_tests.sh` prints 21 PASS lines.
+
+## 11. Where it lives in the code
+
+| Piece | File |
+|---|---|
+| Open combo (kept in the browser tab), copy text, share picture | `frontend/src/lib/combo.jsx` |
+| Combo bar, review sheet, "Start a new combo?" | `frontend/src/components/ComboHost.jsx` |
+| Build one for me | `frontend/src/components/BuildForMe.jsx` |
+| My combos page (`/combos`) and the "How our combined chances did" card | `frontend/src/pages/Combos.jsx` |
+| + button, lineup badge, "95%+" on forecast cards | `frontend/src/components/ui/ForecastCard.jsx` |
+| Finder rows: + button and the ladder note | `frontend/src/pages/Finder.jsx` |
+| Combos tab (phone) and rail item (computer), count badge | `frontend/src/components/Layout.jsx` |
+| Styles | `frontend/src/styles/combo.css` |
+
+Notes:
+- The phone bottom bar is Today, Insights, Finder, Combos, You. Explore moved to the computer menu and the footer.
+- On a computer the combo is a card in the bottom right corner instead of a side panel. It never covers the last row (the page leaves room under it).
+- `PUT /api/me/combos` takes `fkeys` (or `ids`). `POST /api/combo/estimate` and `combo-suggest` now also return `label` ("Home v Away") and `match_id`.

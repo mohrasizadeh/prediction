@@ -6,6 +6,7 @@ import { get, put } from "../lib/api";
 import { favFirst, useFavLeagues } from "../lib/prefs";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
+import { useCombo } from "../lib/combo";
 import { pct } from "../lib/copy";
 import { Crest, PlayerAvatar } from "../components/Media";
 import Icon from "../components/Icon";
@@ -39,6 +40,17 @@ function Part({ id, label, open, setOpen, children }) {
   );
 }
 
+function RowAdd({ f }) {
+  const { has, toggle } = useCombo();
+  const on = has(f.fkey);
+  const name = f.player?.name || f.team?.name || "";
+  return (
+    <button type="button" className={"cb-add cb-add--row" + (on ? " on" : "")} aria-pressed={on} aria-label={`${on ? "Remove" : "Add"} ${name} ${f.market} ${on ? "from" : "to"} your combo`} onClick={() => toggle(f)} data-testid={`finder-add-${f.fkey}`}>
+      <Icon name={on ? "check" : "plus"} size={20} />
+    </button>
+  );
+}
+
 function Row({ r, f }) {
   const nx = r.next_match;
   return (
@@ -47,7 +59,9 @@ function Row({ r, f }) {
       <span className="fs-who"><Link to={r.player ? `/player/${r.player.id}` : `/team/${r.team?.id}`}><b>{(r.player || r.team)?.name}</b></Link>
         <small>{[r.player && r.team ? r.team.name : null, nx ? `next v ${(nx.home?.id === r.team?.id ? nx.away : nx.home)?.name}, ${kickoff(nx.kickoff)}` : null].filter(Boolean).join(" · ")}</small></span>
       {f.mode === "run" ? <b data-testid={`finder-run-${r.id}`}>{r.run} in a row</b> : r.hits ? <HitStrip hits={[...r.hits].reverse()} label={`${f.n}+ ${f.stat}`} testid={`finder-strip-${r.id}`} /> : <b>{`${r.reached}/${r.games}`}</b>}
-      {r.forecast ? <b className="fs-next" data-testid={`finder-next-${r.id}`}>Next {pct(r.forecast.p)}</b> : <span />}
+      {r.forecast ? <b className="fs-next" data-testid={`finder-next-${r.id}`}>Next {r.forecast.p_display || pct(r.forecast.p)}</b> : <span />}
+      {r.forecast?.fkey && r.forecast.addable !== false && <RowAdd f={{ ...r.forecast, player: r.player || r.forecast.player, team: r.team || r.forecast.team }} />}
+      {r.forecast?.from_ladder && <small className="muted fs-ladder" data-testid={`finder-ladder-${r.id}`}>Open the match to add this line.</small>}
     </li>
   );
 }

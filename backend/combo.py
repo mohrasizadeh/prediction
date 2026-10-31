@@ -96,6 +96,16 @@ def _s(n: int, word: str) -> str:
     return f"{n} {word}" + ("" if n == 1 else "s")
 
 
+def _with_match(db, rep: dict) -> dict:
+    """Add the match's public id and its "Home v Away" label, so the screens can name and link the combo."""
+    m = db.matches.find_one({"iid": rep["match_iid"]}, {"_id": 0, "id": 1, "home_iid": 1, "away_iid": 1})
+    if m:
+        names = Q._names(db, "teams", [m["home_iid"], m["away_iid"]])
+        rep["match_id"] = m.get("id")
+        rep["label"] = f"{(names.get(m['home_iid']) or {}).get('name')} v {(names.get(m['away_iid']) or {}).get('name')}"
+    return rep
+
+
 def estimate(db, ids=None, fkeys=None) -> dict:
     ids = [i for i in (ids or []) if i]; fkeys = [k for k in (fkeys or []) if k]
     if not ids and not fkeys:
@@ -117,7 +127,7 @@ def estimate(db, ids=None, fkeys=None) -> dict:
             raise ComboError("SAME_STAT", "Keep one line per stat for each player or team.")
         seen.add(k)
     docs = Q._decorate(db, docs)
-    return _report(docs, factors)
+    return _with_match(db, _report(docs, factors))
 
 
 def _report(docs: list[dict], factors) -> dict:
@@ -175,6 +185,6 @@ def suggest(db, match_iid: int, mode: str = "balanced") -> dict:
             break
     if len(chosen) < 2:
         return {"mode": mode, "lines": [], "reason": "Not enough confident lines for this match yet."}
-    est = _report(Q._decorate(db, chosen), list(S.get(db, "combo.pre_factors")))
+    est = _with_match(db, _report(Q._decorate(db, chosen), list(S.get(db, "combo.pre_factors"))))
     est["mode"] = mode
     return est

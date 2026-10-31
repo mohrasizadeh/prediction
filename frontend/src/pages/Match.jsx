@@ -139,7 +139,7 @@ export default function Match() {
       <Hero d={d} />
       <Tabs value={tab} onChange={setTab} testid="match-tabs" tabs={[...(st === "live" && d.live?.sid ? [{ id: "live", label: "Live" }] : []), ...(st === "final" ? [{ id: "events", label: "Recap" }] : []), { id: "preview", label: "Preview" }, { id: "forecasts", label: `Forecasts (${cardsOf(d).filter((f) => f.p >= 0.5).length})` }, { id: "lineups", label: "Lineups" }, { id: "stats", label: "Stats" }, ...(st !== "final" ? [{ id: "events", label: "Events" }] : []), { id: "first", label: "First goal" }, { id: "players", label: "Players" }, { id: "h2h", label: "H2H" }, { id: "matchup", label: "Matchup" }]} />
       {tab === "preview" && <Preview d={d} />}
-      {tab === "forecasts" && <Forecasts d={d} />}
+      {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
       {tab === "stats" && <Stats d={d} />}
       {tab === "live" && d.live?.sid && <LiveTab d={d} />}
       {tab === "lineups" && <Pitch d={d} />}

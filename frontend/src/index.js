@@ -5,6 +5,7 @@ import App from "./App";
 import { AuthProvider } from "./lib/auth";
 import { SiteProvider } from "./lib/site";
 import { ToastProvider } from "./components/Ui";
+import { ComboProvider } from "./lib/combo";
 import "@fontsource-variable/plus-jakarta-sans/wght.css";
 import "@fontsource-variable/manrope/wght.css";
 import "./styles/tokens.css";
@@ -20,6 +21,7 @@ import "./styles/matchday.css";
 import "./styles/power.css";
 import "./styles/you.css";
 import "./styles/adminhome.css";
+import "./styles/combo.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -27,7 +29,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <SiteProvider>
         <AuthProvider>
           <ToastProvider>
-            <App />
+            <ComboProvider>
+              <App />
+            </ComboProvider>
           </ToastProvider>
         </AuthProvider>
       </SiteProvider>

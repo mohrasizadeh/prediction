@@ -11,6 +11,7 @@ import TeamRadar from "./TeamRadar";
 import TeamNews from "./TeamNews";
 import { ShareCard } from "./Share";
 import { num1 } from "./Football";
+import BuildForMe from "./BuildForMe";
 import { EmptyState, ErrorState, ForecastCard, RangeSlider, Segmented, Skeleton, WdlBar } from "./ui";
 
 const cardsOf = (d) => d.cards || d.forecasts;
@@ -94,7 +95,7 @@ export function Preview({ d }) {
   );
 }
 
-export function Forecasts({ d }) {
+export function Forecasts({ d, matchId }) {
   const [min, setMin] = useState(50);
   const [by, setBy] = useState("team");
   const rows = cardsOf(d).filter((f) => f.p * 100 >= min);
@@ -103,6 +104,7 @@ export function Forecasts({ d }) {
     : [...new Set(rows.map((f) => f.stat))].map((s) => [rows.find((f) => f.stat === s)?.market?.replace(/^\d+\+\s*/, "") || s, rows.filter((f) => f.stat === s)]);
   return (
     <div className="mc-fc" data-testid="match-forecasts">
+      {matchId && d.match.status === "scheduled" && cardsOf(d).length > 0 && <div className="cb-buildrow"><BuildForMe matchId={matchId} /><small className="muted">Tap + on a line to start a combo.</small></div>}
       <div className="mc-fc-bar">
         <Segmented options={[{ id: "team", label: "By team" }, { id: "market", label: "By market" }]} value={by} onChange={setBy} label="Group" testid="fc-group" />
         <div className="mc-fc-min"><RangeSlider min={50} max={95} step={5} value={min} onChange={setMin} label="Minimum likelihood" format={(v) => `${v}%+`} testid="fc-min" /></div>

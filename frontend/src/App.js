@@ -16,6 +16,7 @@ import Compare from "./pages/Compare";
 import Explore from "./pages/Explore";
 import Pricing from "./pages/Pricing";
 import Finder from "./pages/Finder";
+import Combos from "./pages/Combos";
 import { Insights } from "./pages/Insights";
 import TrackRecord from "./pages/TrackRecord";
 import Welcome from "./pages/Welcome";
@@ -103,6 +104,7 @@ export default function App() {
           <Route path="explore" element={<Explore />} />
           <Route path="insights" element={<Insights />} />
           <Route path="finder" element={<Finder />} />
+          <Route path="combos" element={<Combos />} />
           <Route path="leagues" element={<Leagues />} />
           <Route path="teams" element={<Leagues />} />
           <Route path="league/:id" element={<League />} />
