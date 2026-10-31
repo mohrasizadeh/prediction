@@ -218,6 +218,18 @@ def upsert_fixture(db, f: dict, leagues: dict, now) -> dict | None:
             "status_changed": bool(old) and old.get("status") != doc["status"]}
 
 
+def _event_player(db, fx, side, name):
+    """Our player for an event's player name: inside the event's club, careful name match (same rule as lineups)."""
+    team_iid = fx.get(f"{side}_iid") if side in ("home", "away") else None
+    if not name or not team_iid:
+        return None
+    conf = float(S.get(db, "sportapi.min_confidence"))
+    scored = sorted(((player_score(q["name"], q.get("pos"), name, None), q["iid"]) for q in db.players.find({"team_iid": team_iid}, {"_id": 0, "iid": 1, "name": 1, "pos": 1})), reverse=True)
+    if scored and scored[0][0] >= conf and scored[0][0] - (scored[1][0] if len(scored) > 1 else 0.0) >= 0.04:
+        return scored[0][1]
+    return None
+
+
 def store_events(db, fixture_sid: int, events: list, now) -> int:
     """Replace the fixture's events with the provider's list (it is the full list each time)."""
     fx = db.live_fixtures.find_one({"sid": fixture_sid}, {"home_iid": 1, "away_iid": 1}) or {}
@@ -225,7 +237,7 @@ def store_events(db, fixture_sid: int, events: list, now) -> int:
     for e in events or []:
         eid = e.get("id") or int(hashlib.sha1(f"{fixture_sid}|{e.get('event_type')}|{e.get('player_name')}|{e.get('minute')}".encode()).hexdigest()[:12], 16)
         side = e.get("team_side")
-        rows.append({"fixture_sid": fixture_sid, "eid": int(eid), "type": e.get("event_type"), "side": side,
+        rows.append({"fixture_sid": fixture_sid, "eid": int(eid), "type": e.get("event_type"), "side": side, "player_iid": _event_player(db, fx, side, e.get("player_name")),
                      "player_name": e.get("player_name"), "minute": e.get("minute"), "minute_num": _minute_num(e.get("minute")),
                      "extra": e.get("extra_info"), "team_iid": fx.get("home_iid") if side == "home" else fx.get("away_iid") if side == "away" else None,
                      "at": now})
@@ -342,13 +354,32 @@ def live_tick(db, client: Client | None = None, now=None) -> dict:
 
         # 2) events: on every score or status change, and every few minutes while live (cards, subs)
         refresh = int(S.get(db, "sportapi.events_refresh_s")) * slow
-        live_now = list(db.live_fixtures.find({"league_iid": {"$in": list(leagues.values())}, "status": LIVE}, {"_id": 0, "sid": 1, "events_at": 1}))
+        live_now = list(db.live_fixtures.find({"league_iid": {"$in": list(leagues.values())}, "status": LIVE}, {"_id": 0, "sid": 1, "events_at": 1, "stats_try": 1}))
         want = {f["sid"] for f in changed if f["status"] == LIVE} | {f["sid"] for f in live_now if _due(f.get("events_at"), refresh, now)}
         for sid in sorted(want):
             ev = client.get(f"/api/fixtures/{sid}/events", "events")
             out["calls"] += 1
             if ev.get("data") is not None:
                 store_events(db, sid, ev["data"], now); out["events"] += 1
+
+        # 2b) live statistics for matches that are on (shots, corners ...): lets those forecasts tick green. Off until verified.
+        if S.get(db, "sportapi.live_stats"):
+            sref = int(S.get(db, "sportapi.stats_refresh_s")) * slow
+            for f in live_now:
+                if client.left() <= int(S.get(db, "sportapi.reserve_for_live")):
+                    break
+                lst = db.live_stats.find_one({"fixture_sid": f["sid"]}, {"at": 1})
+                if _due((lst or {}).get("at") or f.get("stats_try"), sref, now):
+                    db.live_fixtures.update_one({"sid": f["sid"]}, {"$set": {"stats_try": now}})
+                    out["calls"] += 1
+                    try:
+                        if fetch_stats(client, f["sid"], now):
+                            out["stats"] = out.get("stats", 0) + 1
+                    except BudgetExhausted:
+                        raise
+                    except SportAPIError as e:                      # a bad statistics answer must not stop events, finals and lineups
+                        out["stats_error"] = str(e)[:120]
+                        break
 
         # 3) a match just finished: one detail call (half-time score, final events), then never again
         for f in db.live_fixtures.find({"league_iid": {"$in": list(leagues.values())}, "status": {"$in": list(FINAL)}, "final_done": {"$ne": True},
@@ -538,3 +569,73 @@ def overlay(db, ms: list[dict]) -> list[dict]:
                      "pen_home": f.get("pen_home"), "pen_away": f.get("pen_away"), "sid": f["sid"], "at": f.get("polled_at"),
                      "ht_home": f.get("ht_home"), "ht_away": f.get("ht_away")}
     return ms
+
+
+# ------------------------------------------------------------------ live statistics (docs/31)
+def _num(v):
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        return float(str(v).split(" ")[0].replace(",", ""))
+    except ValueError:
+        return None
+
+
+def parse_stats(data, keys: dict) -> dict:
+    """Read a live statistics answer into {'teams': {'home': {stat: n}, 'away': {...}}, 'players': [...]}.
+    The exact answer shape is not verified yet, so several shapes are accepted; a name we do not know is ignored.
+    `keys` maps our stat to the names SportAPI may use (setting sportapi.stats_keys)."""
+    alias = {n.lower(): k for k, names in keys.items() for n in names}
+    out = {"teams": {"home": {}, "away": {}}, "players": []}
+    if isinstance(data, dict) and isinstance(data.get("data"), (dict, list)):
+        data = data["data"]
+
+    def put(side, label, val):
+        k = alias.get(str(label).strip().lower().replace("-", "_").replace(" ", "_")) or alias.get(str(label).strip().lower())
+        v = _num(val)
+        if k and side in out["teams"] and v is not None:
+            out["teams"][side][k] = v
+
+    if isinstance(data, dict):
+        for side in ("home", "away"):
+            blk = data.get(side)
+            if isinstance(blk, dict):
+                for label, val in (blk.get("stats") if isinstance(blk.get("stats"), dict) else blk).items():
+                    put(side, label, val)
+        for row in data.get("teams") or []:
+            side = row.get("side") or row.get("team_side")
+            for label, val in (row.get("stats") or {}).items():
+                put(side, label, val)
+        plist = data.get("players") or []
+    else:
+        plist = []
+        for row in data or []:
+            if isinstance(row, dict) and ("home" in row or "away" in row):
+                label = row.get("type") or row.get("name") or row.get("key") or row.get("title")
+                put("home", label, row.get("home")); put("away", label, row.get("away"))
+    for p in plist:
+        stats = p.get("stats") if isinstance(p.get("stats"), dict) else p
+        row = {"name": p.get("name") or p.get("player_name"), "side": p.get("side") or p.get("team_side")}
+        for label, val in stats.items():
+            k = alias.get(str(label).strip().lower().replace(" ", "_"))
+            if k and _num(val) is not None:
+                row[k] = _num(val)
+        if row["name"] and len(row) > 2:
+            out["players"].append(row)
+    return out
+
+
+def store_stats(db, sid: int, parsed: dict, now) -> dict:
+    fx = db.live_fixtures.find_one({"sid": sid}, {"home_iid": 1, "away_iid": 1}) or {}
+    for p in parsed["players"]:
+        p["player_iid"] = _event_player(db, fx, p.get("side"), p["name"])
+    db.live_stats.update_one({"fixture_sid": sid}, {"$set": {"fixture_sid": sid, "teams": parsed["teams"], "players": parsed["players"], "at": now}}, upsert=True)
+    return {"teams": {k: sorted(v) for k, v in parsed["teams"].items()}, "players": len(parsed["players"])}
+
+
+def fetch_stats(client, sid: int, now) -> dict | None:
+    data = client.get(f"/api/fixtures/{sid}/stats", "stats")
+    parsed = parse_stats(data, S.get(client.db, "sportapi.stats_keys"))
+    if not parsed["players"] and not any(parsed["teams"].values()):
+        return None
+    return store_stats(client.db, sid, parsed, now)

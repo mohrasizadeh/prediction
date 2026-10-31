@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 import admin_queries as AQ
 import deps as D
 import queries as Q
+import settings_store as S
 import sportapi as SP
 
 public = APIRouter(prefix="/api")
@@ -130,3 +131,17 @@ def sportapi_backfill(body: Backfill, user=Depends(D.require_perm("jobs.run")), 
 def sportapi_tick(user=Depends(D.require_perm("jobs.run")), db=Depends(D.get_db)):
     """Run the minute job now (same rules, same budget)."""
     return SP.live_tick(db)
+
+
+@admin.get("/stats-probe/{sid}")
+def sportapi_stats_probe(sid: int, user=Depends(D.require_perm("jobs.run")), db=Depends(D.get_db)):
+    """One call: the raw live statistics answer and what we read from it. Use it to check the answer shape before turning on live statistics."""
+    try:
+        client = SP.Client(db)
+        raw = client.get(f"/api/fixtures/{sid}/stats", "stats")
+    except SP.NoKey as e:
+        raise D.err(400, "NO_KEY", str(e))
+    except SP.SportAPIError as e:
+        raise D.err(502, "PROVIDER_ERROR", str(e))
+    AQ.audit(db, user, "sportapi.stats_probe", str(sid), {})
+    return {"raw": raw, "read": SP.parse_stats(raw, S.get(db, "sportapi.stats_keys"))}

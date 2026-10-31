@@ -1,0 +1,78 @@
+"""selftest_livetrack.py -- a forecast ticks green as it happens (docs/31).
+
+Proves: yellow cards (match and player) count from live events; the line is "hit" the moment the count passes it and
+stays hit; a line not yet reached is "live" while the match is on and "missed" at full time; a line with no count is
+"unknown" (never a false tick); events are matched to our players inside the right club only; team and player
+statistics are read from several answer shapes and from the setting's names; a bad statistics answer does not stop
+the minute job; scheduled and postponed matches track nothing.
+"""
+import datetime as dt
+import testkit as K
+from testkit import check, db, setting, srv
+import live_track as LT, sportapi as SP
+from fastapi.testclient import TestClient
+
+now = dt.datetime.now(dt.timezone.utc)
+db.teams.insert_many([{"iid": 1, "id": "t1", "ext_id": 1, "name": "Como"}, {"iid": 2, "id": "t2", "ext_id": 2, "name": "Venezia"}])
+db.players.insert_many([{"iid": 11, "id": "p11", "ext_id": 11, "name": "Marco Rossi", "team_iid": 1, "pos": "MID"}, {"iid": 12, "id": "p12", "ext_id": 12, "name": "Luca Bianchi", "team_iid": 2, "pos": "DEF"}])
+db.matches.insert_one({"iid": 5, "id": "m5", "ext_id": 5, "home_iid": 1, "away_iid": 2, "kickoff": now, "status": "scheduled", "league_iid": 1})
+db.live_fixtures.insert_one({"sid": 77, "match_iid": 5, "league_iid": 1, "status": "LIVE", "minute": "40'", "home_iid": 1, "away_iid": 2, "kickoff": now, "polled_at": now})
+F = lambda k, scope, stat, thr, **x: db.forecasts.insert_one({"fkey": k, "match_iid": 5, "is_current": True, "hidden": False, "scope": scope, "stat": stat, "thr": thr, "team_iid": x.get("team", 1), "player_iid": x.get("player")})
+F("c4", "team", "match_yellow_cards", 3.5); F("c6", "team", "match_yellow_cards", 5.5)
+F("py", "player", "yellow_cards", 0.5, player=11); F("py2", "player", "yellow_cards", 1.5, player=11)
+F("sh", "player", "shots", 0.5, player=11); F("co", "team", "corners", 4.5, team=1)
+
+db.live_events.insert_many([{"fixture_sid": 77, "eid": i, "type": "yellow_card", "side": s, "player_name": n, "player_iid": pi, "minute": f"{10 + i}'", "minute_num": 10 + i}
+                            for i, (s, n, pi) in enumerate([("home", "Marco Rossi", 11), ("away", "Luca Bianchi", 12), ("away", "X", 12)])])
+r = LT.evaluate(db, 5)["items"]
+check(r["c4"] == {"state": "live", "current": 3, "needed": 4, "source": "events"}, "match cards counted: 3 of 4, still live")
+db.live_events.insert_one({"fixture_sid": 77, "eid": 9, "type": "second_yellow", "side": "home", "player_name": "Marco Rossi", "player_iid": 11, "minute": "50'", "minute_num": 50})
+r = LT.evaluate(db, 5)["items"]
+check(r["c4"]["state"] == "hit" and r["c4"]["current"] == 4, "4th card turns the line green")
+check(r["py"]["state"] == "hit" and r["py2"]["state"] == "hit", "player cards: 1+ and 2+ both reached")
+check(r["c6"]["state"] == "live", "6+ cards not yet")
+check(r["sh"]["state"] == "unknown" and r["co"]["state"] == "unknown", "no statistics yet: unknown, no false tick")
+db.live_events.insert_one({"fixture_sid": 77, "eid": 10, "type": "yellow_card", "side": "home", "player_name": "Somebody Else", "player_iid": None, "minute": "55'", "minute_num": 55})
+check(LT.evaluate(db, 5)["items"]["py2"]["state"] == "hit", "a hit stays a hit when another event is unmatched")
+
+# statistics: three answer shapes and the setting's names
+keys = {"shots": ["shots", "total_shots"], "sot": ["shots_on_target"], "corners": ["corners"], "tackles": ["tackles"]}
+a = SP.parse_stats({"data": {"home": {"Total Shots": "12 (50%)", "corners": 5}, "away": {"corners": 2}}}, keys)
+b = SP.parse_stats({"teams": [{"side": "home", "stats": {"shots": 9}}]}, keys)
+c = SP.parse_stats([{"type": "Corners", "home": 6, "away": 3}, {"type": "Fouls", "home": 9, "away": 8}], keys)
+check(a["teams"]["home"] == {"shots": 12.0, "corners": 5.0} and a["teams"]["away"] == {"corners": 2.0}, "shape 1: home and away blocks")
+check(b["teams"]["home"] == {"shots": 9.0}, "shape 2: teams list")
+check(c["teams"]["home"] == {"corners": 6.0} and c["teams"]["away"] == {"corners": 3.0}, "shape 3: rows; unknown names ignored")
+p = SP.parse_stats({"players": [{"name": "Marco Rossi", "side": "home", "stats": {"shots": 2, "tackles": 1}}]}, keys)
+check(p["players"][0]["shots"] == 2.0, "player statistics read")
+SP.store_stats(db, 77, {"teams": a["teams"], "players": p["players"]}, now)
+r = LT.evaluate(db, 5)["items"]
+check(r["co"]["state"] == "hit" and r["co"]["current"] == 5, "team corners from statistics: 5 beats 4.5")
+check(r["sh"]["state"] == "hit" and r["sh"]["current"] == 2, "player shots matched to our player inside the club")
+
+db.live_fixtures.update_one({"sid": 77}, {"$set": {"status": "FT"}})
+F("late", "team", "corners", 8.5, team=1)
+r = LT.evaluate(db, 5)
+check(r["items"]["late"]["state"] == "missed" and r["items"]["c6"]["state"] == "missed" and r["items"]["c4"]["state"] == "hit", "full time: hit stays, the rest are missed")
+db.live_fixtures.update_one({"sid": 77}, {"$set": {"status": "Postponed"}})
+check(LT.evaluate(db, 5) == {"active": False, "items": {}}, "postponed matches track nothing")
+
+# the route
+db.live_fixtures.update_one({"sid": 77}, {"$set": {"status": "LIVE"}})
+cl = TestClient(srv.app); cl.__enter__()
+setting("security.rate_limit_read_per_minute", 1000)
+j = cl.get("/api/matches/m5/live-forecasts").json()
+check(j["active"] and j["items"]["c4"]["state"] == "hit", "route answers")
+check(cl.get("/api/matches/nope/live-forecasts").status_code == 404, "unknown match is 404")
+
+# a bad statistics answer does not stop the minute job
+class Bad:
+    def left(s): return 1000
+    def tight(s): return False
+    def get(s, path, kind, cache_days=None):
+        if kind == "stats": raise SP.SportAPIError("boom")
+        return {"data": []}
+setting("sportapi.enabled", True); setting("sportapi.leagues", {"1": 39}); setting("sportapi.live_stats", True); setting("sportapi.upcoming_days", 0)
+out = SP.live_tick(db, client=Bad(), now=now + dt.timedelta(minutes=10))
+check(out.get("stats_error") == "boom" and out["status"] == "ok", "a failing statistics call is reported and the rest of the job still runs")
+print("PASS selftest_livetrack")

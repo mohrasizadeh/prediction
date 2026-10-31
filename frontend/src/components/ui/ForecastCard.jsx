@@ -33,7 +33,15 @@ function Who({ f, fx }) {
   return <Crest team={fx.team} size={44} />;
 }
 
-export function ForecastCard({ f, teams, homeIid, showTime = true, testid }) {
+// Live tracking (docs/31): hit = it has happened, live = counting, missed = full time and it did not, unknown = no count.
+function Track({ t, id }) {
+  if (!t || t.state === "unknown") return null;
+  if (t.state === "hit") return <span className="lv-chip lv-chip--hit" data-testid={`${id}-hit`}><Icon name="check" size={14} />Happened</span>;
+  if (t.state === "missed") return <span className="lv-chip lv-chip--miss" data-testid={`${id}-missed`}>Did not happen</span>;
+  return <span className="lv-chip" data-testid={`${id}-live`}><span className="k-livedot" aria-hidden="true" />{t.current} of {t.needed} so far</span>;
+}
+
+export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track }) {
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState(false);
   const fx = fixtureOf(f, teams, homeIid);
@@ -50,8 +58,9 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid }) {
   const canAdd = !!f.fkey && f.match_iid != null && f.addable !== false && !f.from_ladder && !(f.kickoff && utc(f.kickoff).getTime() < Date.now());
   const on = canAdd && has(f.fkey);
   const shown = f.p_display || pct(f.p);
+  const tk = track?.[f.fkey];
   return (
-    <article className={"k-fc" + (canAdd ? " k-fc--add" : "")} style={{ "--tone": tone(f.tier) }} data-testid={id}>
+    <article className={"k-fc" + (canAdd ? " k-fc--add" : "") + (tk?.state === "hit" ? " k-fc--hit" : tk?.state === "missed" ? " k-fc--missed" : "")} style={{ "--tone": tone(f.tier) }} data-testid={id}>
       <button type="button" className="k-fc-main" onClick={() => setSheet(true)} aria-label={`${name}, ${f.market}, ${shown}${f.tier ? `, ${f.tier}` : ""}. Open details`} data-testid={`${id}-open`}>
         <header className="k-fc-head">
           <Who f={f} fx={fx} />
@@ -59,6 +68,7 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid }) {
           <span className="k-fc-tier"><TierBadge tier={f.tier} testid={`${id}-tier`} />{f.tier_note && <small className="k-fc-note" data-testid={`${id}-tier-note`}>{f.tier_note}</small>}</span>
         </header>
         <div className="k-fc-line"><span className="k-fc-market">{f.market}</span><b className="k-fc-p" data-testid={`${id}-p`}>{shown}</b></div>
+        {tk && tk.state !== "unknown" && <div className="lv-row"><Track t={tk} id={id} /></div>}
         <span className="k-fc-bar" aria-hidden="true"><b style={{ width: `${Math.round((f.p || 0) * 100)}%` }} />{f.p_usual != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.p_usual * 100)}%` }} />}</span>
         {f.p_usual != null && <small className="k-fc-vs" data-testid={`${id}-usual`}>Usually {pct(f.p_usual)}</small>}
         {f.reasons?.[0] && <p className="k-fc-why">{f.reasons[0]}</p>}
@@ -72,7 +82,7 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid }) {
       )}
       {open && (
         <ul className="k-fc-lines" data-testid={`${id}-lines`}>
-          {more.map((x) => <li key={x.fkey} style={{ "--tone": tone(x.tier) }}><span>{x.market}</span><b>{pct(x.p)}</b></li>)}
+          {more.map((x) => <li key={x.fkey} style={{ "--tone": tone(x.tier) }}><span>{x.market}{track?.[x.fkey]?.state === "hit" && <span className="lv-tick" aria-label="Happened"><Icon name="check" size={14} /></span>}</span><b>{pct(x.p)}</b></li>)}
         </ul>
       )}
       {canAdd && (

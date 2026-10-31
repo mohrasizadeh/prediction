@@ -25,7 +25,8 @@ if _ENGINE_DIR not in sys.path:
 import engine as E            # noqa: E402  (soccer_brain/engine.py)
 import context as CX          # noqa: E402  (soccer_brain/context.py)
 from core import tier         # noqa: E402
-import calibration as CAL     # noqa: E402  (backend/calibration.py)
+import calibration as CAL
+import tiering as TI     # noqa: E402  (backend/calibration.py)
 import availability as AV     # noqa: E402  (backend/availability.py)
 import match_context as MC    # noqa: E402  (backend/match_context.py)
 
@@ -197,6 +198,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
     min_play = float(S.get(db, "engine.min_p_play")); cond = bool(S.get(db, "engine.condition_on_play"))
     auto_lines = bool(S.get(db, "engine.auto_lines"))
     line_band = S.get(db, "engine.line_band"); max_lines = int(S.get(db, "engine.max_lines_per_stat"))
+    earned = S.get(db, "engine.tier_mode") == "earned"
+    rec = TI.Record(db, min_n=int(S.get(db, "engine.earned_min_n")), k=float(S.get(db, "engine.earned_prior_k"))) if earned else None
+    strong_lineup = bool(S.get(db, "engine.strong_needs_lineup"))
     pmap = CAL.current(db)         # raw likelihood -> the percentage people see (docs/21); None = off
     lgdoc = db.leagues.find_one({"iid": league_iid}, {"_id": 0}) or {"iid": league_iid}
     lctx = MC.league_context(db, lgdoc, now) if S.get(db, "engine.match_context") else {}   # results form and stakes (docs/22)
@@ -259,10 +263,13 @@ def run_league(db, league_iid: int, now=None) -> dict:
             if cond and badge == "unsure" and float(f.p_play) < min_play:
                 continue                                         # rarely plays: no card, however high the "if he plays" number
             solid_ok = badge in (None, "confirmed", "likely")
-            t = tier(p, lo, solid_ok, strong=strong, solid=solid)
             basis = {None: "team", "confirmed": "lineup", "likely": "likely_starter"}.get(badge, "pre")
-            t_full = tier(p, lo, True, strong=strong, solid=solid)
-            tier_note = ("On the bench: Watch only" if badge == "bench" else "Watch until lineups are out") if (not solid_ok and t_full != t) else None
+            if earned:                                           # docs/31: the label is earned from the whole chance and our results
+                t, tier_note = TI.assign(db, rec, {"p": p, "lo": lo, "scope": f.scope, "stat": f.stat, "p_play": float(f.p_play), "lineup_badge": badge}, strong_lineup)
+            else:
+                t = tier(p, lo, solid_ok, strong=strong, solid=solid)
+                t_full = tier(p, lo, True, strong=strong, solid=solid)
+                tier_note = ("On the bench: Watch only" if badge == "bench" else "Watch until lineups are out") if (not solid_ok and t_full != t) else None
             p_usual = CAL.apply(pmap, f.p_usual, state, f.scope) if f.p_usual is not None else None
             fkey = f"{m['iid']}:{f.scope}:{f.team}:{f.player or 0}:{f.stat}:{f.thr:g}"
             docs.append({"id": str(uuid.uuid4()), "fkey": fkey, "run_id": run_id, "match_iid": m["iid"], "league_iid": league_iid,

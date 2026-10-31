@@ -117,3 +117,14 @@
 .status-chip--off { background: color-mix(in srgb, var(--tier-watch) 16%, transparent); color: var(--tier-watch); }
 .mc-hero--off .mc-team { opacity: .75; }
 .mc-mid { min-width: 96px; }
+
+/* Doc 31: live tracking on forecast cards */
+.lv-row { display: flex; margin-top: 2px; }
+.lv-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--surface2); color: var(--text2); }
+.lv-chip--hit { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+.lv-chip--miss { color: var(--text3); background: transparent; border: 1px solid var(--border); }
+.k-fc--hit { border-color: var(--up); box-shadow: 0 0 0 1px var(--up) inset; }
+.k-fc--hit .k-fc-bar b { background: var(--up); }
+.k-fc--missed { opacity: .72; }
+.lv-tick { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 8px; border-radius: 50%; background: var(--up); color: var(--on-brand); vertical-align: middle; }
+.lv-sum { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--down) 8%, var(--surface1)); font-size: 13px; font-weight: 600; }

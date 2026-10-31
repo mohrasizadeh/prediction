@@ -99,6 +99,12 @@ export function Preview({ d }) {
 }
 
 export function Forecasts({ d, matchId }) {
+  const live = !!d.match.live && d.match.live.status !== "Scheduled" && d.match.status !== "postponed";
+  const lt = useApi(live && matchId ? `/matches/${matchId}/live-forecasts` : null, undefined, { every: d.match.live?.status === "LIVE" ? 30000 : 0 });
+  const track = lt.data?.active ? lt.data.items : null;
+  const all = track ? cardsOf(d).flatMap((f) => [f, ...(f.more_lines || [])]) : [];
+  const tracked = all.filter((x) => track[x.fkey] && track[x.fkey].state !== "unknown").length;
+  const hits = all.filter((x) => track[x.fkey]?.state === "hit").length;
   const [min, setMin] = useState(50);
   const [by, setBy] = useState("team");
   const rows = cardsOf(d).filter((f) => f.p * 100 >= min);
@@ -108,6 +114,7 @@ export function Forecasts({ d, matchId }) {
   return (
     <div className="mc-fc" data-testid="match-forecasts">
       {matchId && d.match.status === "scheduled" && cardsOf(d).length > 0 && <div className="cb-buildrow"><BuildForMe matchId={matchId} /><small className="muted">Tap + on a line to start a combo.</small></div>}
+      {track && <p className="lv-sum" data-testid="match-live-sum"><span className="k-livedot" aria-hidden="true" />{tracked ? <span><b>{hits} of {tracked}</b> lines we can follow have happened{lt.data.final ? "." : ". Updates every 30 seconds."}</span> : <span>Lines tick green here as cards and match numbers come in.</span>}</p>}
       <div className="mc-fc-bar">
         <Segmented options={[{ id: "team", label: "By team" }, { id: "market", label: "By market" }]} value={by} onChange={setBy} label="Group" testid="fc-group" />
         <div className="mc-fc-min"><RangeSlider min={50} max={95} step={5} value={min} onChange={setMin} label="Minimum likelihood" format={(v) => `${v}%+`} testid="fc-min" /></div>
@@ -116,7 +123,7 @@ export function Forecasts({ d, matchId }) {
         : !rows.length ? <EmptyState icon="target" title={`Nothing at ${min}% or more`} testid="fc-none" action={<button type="button" className="btn btn--secondary btn--sm" onClick={() => setMin(50)} data-testid="fc-reset">Show all</button>}>Lower the minimum likelihood.</EmptyState>
         : groups.filter(([, xs]) => xs.length).map(([title, xs]) => (
           <section key={title} className="mc-fc-group"><h2 className="k-sec">{title} · {xs.length}</h2>
-            <div className="fgrid">{xs.map((f) => <ForecastCard key={f.id} f={f} homeIid={d.match.home_iid} showTime={false} testid={`match-fc-${f.id}`} />)}</div></section>
+            <div className="fgrid">{xs.map((f) => <ForecastCard key={f.id} f={f} homeIid={d.match.home_iid} showTime={false} track={track} testid={`match-fc-${f.id}`} />)}</div></section>
         ))}
     </div>
   );

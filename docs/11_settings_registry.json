@@ -2440,5 +2440,143 @@
   "group": "Live (SportAPI)",
   "public": false,
   "applies_at": "immediately"
+ },
+ {
+  "key": "sportapi.live_stats",
+  "label": "Live match statistics",
+  "type": "boolean",
+  "default": false,
+  "help": "Loads shots, shots on target, corners and tackles for live matches so those forecasts can tick green. Costs one call per live match every few minutes. Turn on after you confirm the answer shape in Admin > Data > Endpoint explorer (see docs/31).",
+  "group": "Live (SportAPI)",
+  "public": false,
+  "applies_at": "immediately"
+ },
+ {
+  "key": "sportapi.stats_refresh_s",
+  "label": "Live statistics refresh (seconds)",
+  "type": "int",
+  "default": 180,
+  "help": "How often each live match loads its statistics.",
+  "group": "Live (SportAPI)",
+  "public": false,
+  "applies_at": "immediately"
+ },
+ {
+  "key": "sportapi.stats_keys",
+  "label": "Live statistics names",
+  "type": "json",
+  "default": {
+   "shots": [
+    "shots",
+    "total_shots",
+    "shots_total",
+    "total shots"
+   ],
+   "sot": [
+    "shots_on_target",
+    "on_target",
+    "sot",
+    "shots on target"
+   ],
+   "corners": [
+    "corners",
+    "corner_kicks",
+    "corner kicks"
+   ],
+   "tackles": [
+    "tackles",
+    "total_tackles"
+   ]
+  },
+  "help": "The names SportAPI uses for each statistic, lower case. Add a name if a statistic is missing in the probe.",
+  "group": "Live (SportAPI)",
+  "public": false,
+  "applies_at": "immediately"
+ },
+ {
+  "key": "engine.tier_mode",
+  "label": "Tier rule",
+  "type": "string",
+  "default": "earned",
+  "help": "earned: tiers come from the whole chance and our track record (docs/31). classic: the old cut-offs.",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.strong_min",
+  "label": "Strong: whole chance at least",
+  "type": "float",
+  "default": 0.9,
+  "help": "Strong means it happens about this often. A player line counts as chance x chance to play.",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.strong_lo_min",
+  "label": "Strong: low end at least",
+  "type": "float",
+  "default": 0.84,
+  "help": "The low end of the range must also clear this.",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.solid_min",
+  "label": "Solid: whole chance at least",
+  "type": "float",
+  "default": 0.8,
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.solid_lo_min",
+  "label": "Solid: low end at least",
+  "type": "float",
+  "default": 0.7,
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.watch_min",
+  "label": "Watch: whole chance at least",
+  "type": "float",
+  "default": 0.6,
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.earned_min_n",
+  "label": "Track record: results needed",
+  "type": "int",
+  "default": 40,
+  "help": "Similar finished lines needed before a tier is trusted. Fewer: Strong drops to Solid.",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.earned_prior_k",
+  "label": "Track record: weight of the stated chance",
+  "type": "float",
+  "default": 20.0,
+  "help": "Higher keeps the tier closer to the stated chance until results pile up.",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.strong_needs_lineup",
+  "label": "Strong needs a confirmed eleven (players)",
+  "type": "boolean",
+  "default": true,
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
  }
 ]

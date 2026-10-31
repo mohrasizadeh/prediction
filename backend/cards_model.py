@@ -175,7 +175,8 @@ def run_match(db, m, run_id=None, now=None, ln=None) -> int:
             imp, nxt, _ = ctx.get(f["team_iid"], (1.0, 1.0, []))
             lam = rate * mins / 90 * rf * opp_f * math.sqrt(pfr) * imp * nxt
             likely = f.get("tier_basis") == "likely_starter"
-            play = 1.0 if likely else f["p_play"]               # likely starter: no chance-to-play discount
+            earned = S.get(db, "engine.tier_mode") == "earned"
+            play = 1.0 if (likely and not earned) else f["p_play"]    # classic: a likely starter has no discount. Earned tiers use the real chance to play (docs/31)
             p = play * (1 - math.exp(-lam))
             why = [f"{y} yellow card{'s' if y != 1 else ''} in his last {len(ev)} games with card data ({rate:.2f} a full game after blending with the {f.get('pos') or 'squad'} average).",
                    rwhy or "No referee named yet, so the league average is used."]
@@ -188,9 +189,25 @@ def run_match(db, m, run_id=None, now=None, ln=None) -> int:
             d["tier"] = tier(p, d["lo"], d["lineup_confirmed"] or likely, strong=strong, solid=solid)
             d["tier_basis"] = "lineup" if d["lineup_confirmed"] else ("likely_starter" if likely else "pre")
             docs.append(d)
+    if docs and S.get(db, "engine.tier_mode") == "earned":
+        _retier(db, run_id, docs)
     if docs:
         db.forecasts.insert_many(docs)
     return len(docs)
+
+
+_REC: dict = {}
+
+
+def _retier(db, run_id, docs):
+    """Earned tiers (docs/31). A card line's p already includes his chance to play, so it is the whole chance."""
+    import tiering as TI
+    if _REC.get("run") != run_id:
+        _REC.update(run=run_id, rec=TI.Record(db, min_n=int(S.get(db, "engine.earned_min_n")), k=float(S.get(db, "engine.earned_prior_k"))))
+    lineup = bool(S.get(db, "engine.strong_needs_lineup"))
+    for d in docs:
+        badge = None if d["scope"] == "team" else ("confirmed" if d["lineup_confirmed"] else "likely" if d.get("tier_basis") == "likely_starter" else "unsure")
+        d["tier"], d["tier_note"] = TI.assign(db, _REC["rec"], {"p": d["p"], "lo": d["lo"], "scope": d["scope"], "stat": d["stat"], "p_play": None, "lineup_badge": badge}, lineup)
 
 
 def run_league(db, league_iid: int, run_id=None, now=None) -> int:

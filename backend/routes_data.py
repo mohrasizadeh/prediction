@@ -314,3 +314,14 @@ def combo_suggest(match_id: str, response: Response, mode: str = "balanced", db=
         return CB.suggest(db, _iid(db, "matches", match_id), mode)
     except CB.ComboError as e:
         raise D.err(400, e.code, e.message)
+
+
+@router.get("/matches/{match_id}/live-forecasts")
+def live_forecasts(match_id: str, response: Response, db=Depends(D.get_db)):
+    """While a match is on: for each forecast, how far it is (current of needed) and whether it has happened. Reads our database only."""
+    import live_track as LT
+    iid = Q.iid_of(db, "matches", match_id)
+    if iid is None:
+        raise D.err(404, "NOT_FOUND", "No such match.")
+    response.headers["Cache-Control"] = "public, max-age=15, stale-while-revalidate=30"
+    return LT.evaluate(db, iid)

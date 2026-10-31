@@ -110,6 +110,7 @@ def ensure_indexes(db) -> list[str]:
     ix("live_fixtures", [("match_iid", ASC)])
     ix("live_events", [("fixture_sid", ASC), ("minute_num", ASC)])
     ix("live_lineups", [("fixture_sid", ASC), ("side", ASC)], unique=True)
+    ix("live_stats", [("fixture_sid", ASC)], unique=True)
     ix("sportapi_team_map", [("sid", ASC)], unique=True)
     ix("sportapi_team_map", [("status", ASC)])
     ix("sportapi_cache", [("expires_at", ASC)], expireAfterSeconds=0)

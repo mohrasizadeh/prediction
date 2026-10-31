@@ -47,7 +47,7 @@ class Fake:
     def left(s): return 1000
     def tight(s): return False
     def get(s, path, kind, cache_days=None): s.paths.append((path, kind)); return {"data": []}
-setting("sportapi.enabled", True); setting("sportapi.leagues", {"39": 1})
+setting("sportapi.enabled", True); setting("sportapi.leagues", {"1": 39})
 setting("sportapi.upcoming_days", 3)
 f = Fake(); r = SP.live_tick(db, client=f, now=now)
 ups = [p for p, k in f.paths if k == "upcoming"]
