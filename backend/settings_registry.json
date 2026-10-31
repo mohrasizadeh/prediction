@@ -2632,7 +2632,7 @@
   "key": "engine.ratings_blend",
   "label": "Team ratings weight",
   "type": "float",
-  "default": 0.0,
+  "default": 0.7,
   "help": "How much the team attack-and-defence ratings count in each team total (shots, corners, tackles, ...). 0 = engine regression only (docs/33).",
   "group": "Engine",
   "public": false,
