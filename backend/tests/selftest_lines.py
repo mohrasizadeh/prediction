@@ -70,9 +70,10 @@ pre = [r for r in rows if r["scope"] == "player"]
 likely = [r for r in pre if r["tier_basis"] == "likely_starter"]
 plain = [r for r in pre if r["tier_basis"] == "pre"]
 check(all(r["p_play"] >= 0.85 for r in likely) and all(r["p_play"] < 0.85 for r in plain), "likely starter = chance to play 85%+ before lineups")
-check(any(r["tier"] in ("Solid", "Strong") for r in likely) or not likely, "likely starters can be Solid or Strong before lineups")
+check(all(r["tier"] != "Strong" for r in likely) and all(r["p"] * r["p_play"] >= 0.8 - 1e-9 for r in likely if r["tier"] == "Solid"), "likely starters are never Strong before lineups; Solid needs 80% whole chance (docs/31)")
 check(all(r["tier"] in ("Watch", None) for r in plain), "other players stay at most Watch before lineups")
-check(all(r["tier_note"] in (None, "Watch until lineups are out") for r in pre) and all(r["tier_note"] is None for r in likely),
+OK_NOTE = (None, "Watch until lineups are out", "Strong once the lineup is confirmed", "Strong needs more finished matches to back it")
+check(all(r["tier_note"] in OK_NOTE or str(r["tier_note"]).startswith("Similar lines happened") for r in pre),
       "the card can say why it is Watch")
 reasons = collections.Counter(r["reasons"][0] for r in pre if r["reasons"])
 check(len(reasons) >= 2, f"player cards do not all share one sentence ({len(reasons)} different first reasons)")
