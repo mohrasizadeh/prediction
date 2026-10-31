@@ -429,7 +429,8 @@ def score_finished(db) -> int:
                                          "stat": f["stat"], "scope": f["scope"], "tier": f["tier"], "p": f["p"],
                                          "thr": f["thr"], "actual": float(actual), "reached": bool(actual > f["thr"]),
                                          "p_model": f.get("p_model", f["p"]), "state": f.get("state"),
-                                         "player_played": played, "p_basis": f.get("p_basis", "all"), "scored_at": utcnow()})
+                                         "player_played": played, "p_basis": f.get("p_basis", "all"), "p_play": f.get("p_play"),
+                                         "lineup_badge": f.get("lineup_badge"), "kickoff": f.get("kickoff"), "scored_at": utcnow()})
         n += 1
     return n
 

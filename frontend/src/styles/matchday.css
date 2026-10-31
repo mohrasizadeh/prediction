@@ -83,3 +83,37 @@
 .td-min { display: inline-flex; align-items: center; gap: 6px; color: var(--down); font-weight: 800; font-variant-numeric: tabular-nums; }
 .td-teams > span.is-win .td-name, .td-teams > span.is-win .td-sc { font-weight: 800; color: var(--text); }
 .td-teams > span.is-lose .td-name, .td-teams > span.is-lose .td-sc { font-weight: 500; color: var(--text3); }
+
+/* Doc 30: Today rows. Time, teams, score column, insight chip; the win/draw/loss bar sits under the teams. */
+.td-row { grid-template-columns: 84px minmax(0, 1fr) 36px auto; grid-template-areas: "time teams score ins" ". bar bar ins"; row-gap: 8px; min-height: 84px; }
+.td-time { grid-area: time; } .td-teams { grid-area: teams; } .td-scores { grid-area: score; } .td-bar { grid-area: bar; min-width: 0; } .td-ins { grid-area: ins; }
+.td-bar:empty { display: none; }
+.td-ins { align-self: center; }
+.td-scores { display: grid; gap: 6px; justify-items: end; align-self: stretch; align-content: center; }
+.td-scores .td-sc { font-size: 18px; line-height: 24px; font-weight: 800; }
+.td-teams > span { min-height: 24px; }
+.td-teams > span.is-win .td-name { font-weight: 800; }
+.td-row.is-live .td-scores .td-sc { color: var(--down); }
+.td-row.is-off { opacity: .6; } .td-row.is-off .td-name { text-decoration: line-through; text-decoration-color: var(--text3); }
+.td-off { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--tier-watch); }
+.td-livebadge { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
+.td-time b { font-size: 15px; }
+.td-min .k-livedot { flex: none; }
+.td-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+@media (max-width: 720px) {
+  .td-row { grid-template-columns: 64px minmax(0, 1fr) 28px; grid-template-areas: "time teams score" "time bar bar" "ins ins ins"; gap: 6px 10px; }
+  .td-row .td-ins { justify-self: start; margin-left: 74px; } .td-ins--none { display: none; }
+  .td-bar { grid-column: auto; grid-row: auto; }
+}
+@media (prefers-reduced-motion: reduce) { .td-row { transition: none; } }
+
+.td-ghead small { white-space: nowrap; }
+@media (max-width: 520px) { .td-gins { display: none; } }
+
+/* Doc 30: match hero. Date line on top, one action row at the bottom, postponed state. */
+.mc-when { margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text2); }
+.mc-actions { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.mc-actions .btn { min-height: 44px; }
+.status-chip--off { background: color-mix(in srgb, var(--tier-watch) 16%, transparent); color: var(--tier-watch); }
+.mc-hero--off .mc-team { opacity: .75; }
+.mc-mid { min-width: 96px; }

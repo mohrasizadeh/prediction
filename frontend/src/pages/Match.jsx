@@ -1,5 +1,5 @@
 // Screen 2, Match (docs/01 §5): hero with win/draw/loss and tactic chips; tabs Forecasts, Lineups, Players, H2H, Matchup.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { PlayerAvatar } from "../components/Media";
@@ -125,9 +125,12 @@ function Events({ d }) {
 
 export default function Match() {
   const { id } = useParams();
-  const q = useApi(`/matches/${id}`);
+  const [poll, setPoll] = useState(0);
+  const q = useApi(`/matches/${id}`, undefined, { every: poll });
   const [pick, setTab] = useState(null);
   const d = q.data;
+  const isLive = d?.match?.live?.status === "LIVE" && d?.match?.status !== "final";
+  useEffect(() => setPoll(isLive ? 30000 : 0), [isLive]);                  // live score, events and minute refresh by themselves
   const st = d ? matchState(d) : "before";
   const tab = pick || (st === "live" && d?.live?.sid ? "live" : st === "final" ? "events" : "preview");
   useTitle(d ? `${d.home.name} v ${d.away.name}` : "Match");

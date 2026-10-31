@@ -317,6 +317,9 @@ def live_tick(db, client: Client | None = None, now=None) -> dict:
         else:
             interval = int(S.get(db, "sportapi.quiet_interval_s")) * slow
         dates = {today} | {f["date"] for f in hot if f.get("date")}          # a match that started late yesterday stays followed
+        up_days = int(S.get(db, "sportapi.upcoming_days"))                         # days ahead: kick-off times and postponements
+        up_every = int(S.get(db, "sportapi.upcoming_interval_h")) * 3600 * slow
+        upcoming = [(now + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(1, up_days + 1)]
         changed = []
         for d in sorted(dates):
             if _due((st.get("date_polls") or {}).get(d), interval, now):
@@ -326,6 +329,15 @@ def live_tick(db, client: Client | None = None, now=None) -> dict:
                     r = upsert_fixture(db, f, leagues, now)
                     if r and (r["score_changed"] or r["status_changed"]):
                         changed.append(r["doc"])
+                db.sportapi_state.update_one({"_id": "live"}, {"$set": {f"date_polls.{d}": now}}, upsert=True)
+        for d in upcoming:                                                          # one call each, spare budget only
+            if client.left() <= int(S.get(db, "sportapi.reserve_for_live")):
+                break
+            if _due((st.get("date_polls") or {}).get(d), up_every, now):
+                data = client.get(f"/api/fixtures/date/{d}", "upcoming")
+                out["calls"] += 1; out["date_polls"].append(d)
+                for f in data.get("data") or []:
+                    upsert_fixture(db, f, leagues, now)
                 db.sportapi_state.update_one({"_id": "live"}, {"$set": {f"date_polls.{d}": now}}, upsert=True)
 
         # 2) events: on every score or status change, and every few minutes while live (cards, subs)
@@ -494,3 +506,35 @@ def status(db, now=None) -> dict:
             "teams": {s: db.sportapi_team_map.count_documents({"status": s}) for s in ("auto", "approved", "review", "none", "rejected")},
             "review": list(db.sportapi_team_map.find({"status": "review"}, {"_id": 0}).limit(50)),
             "dates_backfilled": db.sportapi_dates.count_documents({"complete": True})}
+
+
+# ------------------------------------------------------------------ SportAPI is the source of truth for the match itself
+PHASE = {"Scheduled": "scheduled", LIVE: "live", "FT": "final", "AET": "final", "PENS": "final", "Postponed": "postponed", "Cancelled": "cancelled"}
+
+
+def overlay(db, ms: list[dict]) -> list[dict]:
+    """Kick-off, status and score of a match row come from SportAPI when it follows the match (docs/30).
+    PitchAPI keeps everything else (statistics, history). Changes the rows in place and returns them."""
+    ids = [m["iid"] for m in ms if m.get("iid") is not None]
+    if not ids:
+        return ms
+    lfs = {f["match_iid"]: f for f in db.live_fixtures.find({"match_iid": {"$in": ids}}, {"_id": 0})}
+    for m in ms:
+        f = lfs.get(m.get("iid"))
+        if not f:
+            continue
+        phase = PHASE.get(f.get("status"))
+        if f.get("kickoff"):
+            m["kickoff"] = f["kickoff"]
+        if phase in ("postponed", "cancelled"):
+            m["status"] = phase
+        elif phase == "final" and f.get("hs") is not None and f.get("as") is not None:
+            m["status"] = "final"
+            if m.get("hg") is None:
+                m["hg"], m["ag"] = f["hs"], f["as"]
+        m["phase"] = phase
+        m["source"] = "sportapi"
+        m["live"] = {"status": f.get("status"), "minute": f.get("minute"), "hs": f.get("hs"), "as": f.get("as"),
+                     "pen_home": f.get("pen_home"), "pen_away": f.get("pen_away"), "sid": f["sid"], "at": f.get("polled_at"),
+                     "ht_home": f.get("ht_home"), "ht_away": f.get("ht_away")}
+    return ms

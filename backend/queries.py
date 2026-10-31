@@ -20,6 +20,10 @@ TIER_RANK = {"Strong": 0, "Solid": 1, "Watch": 2, None: 3}
 _KIND = {"leagues": "league", "teams": "team", "players": "player"}
 
 
+def _aware(d):
+    return d.replace(tzinfo=timezone.utc) if d is not None and d.tzinfo is None else d
+
+
 def attach_images(db, coll, docs):
     """Give each record an `image`: our own stored picture (a same-origin URL) or null. The page shows initials or a
     shield when it is null. Provider links are used only if `images.use_provider_urls` is on."""
@@ -45,10 +49,14 @@ def _names(db, coll, iids):
 def fixtures_for_date(db, day: str, tz_offset_min: int = 0, league_iids=None) -> list[dict]:
     """Matches whose LOCAL date is `day`. tz_offset_min = minutes east of UTC (Toronto in winter: -300)."""
     d0 = datetime.fromisoformat(day).replace(tzinfo=timezone.utc) - timedelta(minutes=tz_offset_min)
-    q = {"kickoff": {"$gte": d0, "$lt": d0 + timedelta(days=1)}}
+    d1 = d0 + timedelta(days=1)
+    lf = [f["match_iid"] for f in db.live_fixtures.find({"kickoff": {"$gte": d0, "$lt": d1}, "match_iid": {"$ne": None}}, {"match_iid": 1})]
+    q = {"$or": [{"kickoff": {"$gte": d0, "$lt": d1}}, {"iid": {"$in": lf}}]}      # SportAPI may have moved the kick-off into or out of the day
     if league_iids:
         q["league_iid"] = {"$in": league_iids}
-    ms = list(db.matches.find(q, {"_id": 0}).sort("kickoff", 1))
+    import sportapi as SP
+    ms = [m for m in SP.overlay(db, list(db.matches.find(q, {"_id": 0}))) if m.get("kickoff") and d0 <= _aware(m["kickoff"]) < d1]
+    ms.sort(key=lambda m: m["kickoff"])
     teams = _names(db, "teams", [m["home_iid"] for m in ms] + [m["away_iid"] for m in ms])
     probs = {p["match_iid"]: p for p in db.match_probs.find({"match_iid": {"$in": [m["iid"] for m in ms]}, "is_current": True}, {"_id": 0})}
     counts = {r["_id"]: r["n"] for r in db.forecasts.aggregate([
@@ -67,6 +75,8 @@ def match_detail(db, match_iid: int) -> dict | None:
     m = db.matches.find_one({"iid": match_iid}, {"_id": 0})
     if not m:
         return None
+    import sportapi as SP
+    SP.overlay(db, [m])
     teams = _names(db, "teams", [m["home_iid"], m["away_iid"]])
     fc = list(db.forecasts.find({"match_iid": match_iid, **NOT_HIDDEN}, {"_id": 0, "contrib": 0}).sort([("p", -1)]))
     players = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
@@ -170,6 +180,8 @@ def h2h(db, a: int, b: int, limit: int = 10) -> dict:
 
 def _with_teams(db, ms: list[dict]) -> list[dict]:
     """Add home / away {id, name, image} to match rows (our database only)."""
+    import sportapi as SP
+    SP.overlay(db, ms)
     teams = _names(db, "teams", [m["home_iid"] for m in ms] + [m["away_iid"] for m in ms])
     for m in ms:
         m["home"], m["away"] = teams.get(m["home_iid"]), teams.get(m["away_iid"])
@@ -708,9 +720,13 @@ def player_ranks(db, player_iid: int, min_minutes: int = 270) -> dict:
 
 def match_days(db, start: datetime, days: int, tz_offset_min: int = 0) -> list[str]:
     """Local days (YYYY-MM-DD) in the window that have at least one match."""
-    rows = db.matches.aggregate([{"$match": {"kickoff": {"$gte": start, "$lt": start + timedelta(days=days)}}},
-                                 {"$group": {"_id": {"$dateToString": {"format": "%Y-%m-%d", "date": {"$add": ["$kickoff", tz_offset_min * 60000]}}}}}])
-    return sorted(r["_id"] for r in rows)
+    win = {"kickoff": {"$gte": start, "$lt": start + timedelta(days=days)}}
+    shift = timedelta(minutes=tz_offset_min)
+    out = set()
+    for coll, extra in ((db.matches, {}), (db.live_fixtures, {"status": {"$nin": ["Postponed", "Cancelled"]}})):
+        for r in coll.find({**win, **extra}, {"_id": 0, "kickoff": 1}):          # grouped here: a few hundred rows at most
+            out.add((_aware(r["kickoff"]) + shift).strftime("%Y-%m-%d"))
+    return sorted(out)
 
 
 def squad_season(db, team_iid: int) -> dict:
