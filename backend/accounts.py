@@ -521,7 +521,7 @@ def update_profile(db, user_id: str, fields: dict) -> dict:
 
 
 # ----------------------------------------------------------------------------- export and delete
-USER_DATA = ("follows", "saved_forecasts", "notes", "alert_subscriptions", "follow_alerts")
+USER_DATA = ("follows", "saved_forecasts", "notes", "alert_subscriptions", "follow_alerts", "combos")
 
 
 def export_account(db, user_id: str) -> dict:

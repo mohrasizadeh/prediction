@@ -117,6 +117,8 @@ def ensure_indexes(db) -> list[str]:
     # ---- users' things --------------------------------------------------------
     ix("follows", [("user_id", ASC), ("kind", ASC), ("ref_iid", ASC)], unique=True)
     ix("saved_forecasts", [("user_id", ASC), ("fkey", ASC)], unique=True)
+    ix("combos", [("user_id", ASC), ("created_at", DESC)])
+    ix("combos", [("id", ASC)], unique=True)
     ix("notes", [("user_id", ASC), ("player_iid", ASC)], unique=True)
     ix("alert_subscriptions", [("user_id", ASC)])
     ix("newsletter", [("email", ASC)], unique=True)

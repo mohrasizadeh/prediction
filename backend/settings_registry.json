@@ -1025,6 +1025,51 @@
     "help": "Before lineups, a player with at least this chance to play can be Solid or Strong. On 2015/16 data, pre-lineup Strong for these players came true 83% of the time, Solid 71% (docs/25). 1.0 = only confirmed lineups."
   },
   {
+    "key": "engine.condition_on_play",
+    "group": "Engine",
+    "label": "Player lines: \"if he plays\"",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "On: a player's percentage assumes he plays, and his chance to play shows as a lineup badge instead (docs/27). On 93,000 real forecasts this was calibrated: players rated 80-85% reached the line 84% of the time, where the old number sat 8 points low at the top. Off: the old number that folds the chance to play in."
+  },
+  {
+    "key": "engine.min_p_play",
+    "group": "Engine",
+    "label": "Hide players unlikely to play",
+    "type": "number",
+    "default": 0.5,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Before lineups, a player whose chance to play is below this gets no card. With 'if he plays' on, a rarely used player could otherwise show a high percentage. Confirmed lineups always show."
+  },
+  {
+    "key": "combo.max_lines",
+    "group": "Engine",
+    "label": "Combo: most lines",
+    "type": "number",
+    "default": 6,
+    "public": true,
+    "applies_at": "immediately",
+    "help": "The most lines one combo can hold. The screens read it so the add button can say \"combo is full\"."
+  },
+  {
+    "key": "combo.pre_factors",
+    "group": "Engine",
+    "label": "Combo: correction before lineups",
+    "type": "list",
+    "default": [
+      1.0,
+      1.11,
+      1.19,
+      1.25
+    ],
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Multiply the lines' chances, then multiply by the entry for the number of players or teams (1, 2, 3, 4 or more). Measured on 237,000 real combinations: before lineups the plain product was 11%, 19% and 25% low for 2, 3 and 4. After lineups no correction is needed (docs/28)."
+  },
+  {
     "key": "engine.style_half_life",
     "group": "Engine",
     "label": "Team averages: half-life in games",

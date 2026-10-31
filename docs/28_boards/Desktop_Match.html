@@ -1,0 +1,91 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Computer layout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer}
+.f{--bg:#0A0E17;--s1:#111827;--s2:#182033;--s3:#212B42;--bd:#243049;--bd2:#33415F;--tx:#E9EEF7;--tx2:#A3AFC6;--tx3:#8A96AE;--br:#7C83FF;--brs:#1E2347;--onbr:#0A0E17;--strong:#2DD4BF;--solid:#60A5FA;--watch:#FBBF24;--up:#34D399;--down:#F87171;font-family:Inter,system-ui,sans-serif;font-feature-settings:'tnum' 1;background:var(--bg);color:var(--tx);position:relative;overflow:hidden;box-sizing:border-box;font-size:14px;line-height:1.35}
+.f *{box-sizing:border-box;margin:0;padding:0}
+.r{display:flex;align-items:center}.c{display:flex;flex-direction:column}.sp{justify-content:space-between}.g4{gap:4px}.g6{gap:6px}.g8{gap:8px}.g10{gap:10px}.g12{gap:12px}.g16{gap:16px}.fl{flex:1;min-width:0}
+.t2{color:var(--tx2)}.t3{color:var(--tx3)}.b{font-weight:700}.sb{font-weight:600}
+.xs{font-size:11px}.sm{font-size:12.5px}.md{font-size:15px}.lg{font-size:18px}.xl{font-size:22px}
+.top{height:60px;padding:0 24px;display:flex;align-items:center;gap:28px;border-bottom:1px solid var(--bd);background:var(--s1)}
+.top a{font-weight:600;font-size:13.5px;color:var(--tx2);height:60px;display:flex;align-items:center;border-bottom:2px solid transparent}
+.top a.on{color:var(--tx);border-color:var(--br)}
+.logo{width:24px;height:24px;border-radius:8px;background:linear-gradient(135deg,#4F46E5,#14b8a6);display:inline-flex;align-items:center;justify-content:center}
+.logo:after{content:"";width:9px;height:9px;border:2.5px solid #fff;border-radius:50%}
+.crest{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;flex:none}
+.av{width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex:none}
+.tier{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;background:var(--s2)}
+.dots{display:inline-flex;gap:2px;color:var(--strong)}.dots i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block}.dots i.o{opacity:.25}
+.tier.solid .dots{color:var(--solid)}.tier.watch .dots{color:var(--watch)}
+.badge{font-size:11px;font-weight:600;color:var(--tx2);display:inline-flex;align-items:center;gap:5px}
+.badge:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--solid)}
+.add{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--bd2);display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--tx);flex:none}
+.add.on{background:var(--br);border-color:var(--br);color:var(--onbr)}
+.line{display:flex;align-items:center;gap:14px;padding:12px 18px;border-top:1px solid var(--bd)}
+.line.sel{background:var(--brs)}
+.grp{display:flex;align-items:center;gap:8px;padding:9px 18px;background:var(--s2)}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:16px;overflow:hidden}
+.chip{border:1px solid var(--bd);background:var(--s1);border-radius:999px;padding:0 14px;height:34px;font-size:13px;font-weight:600;color:var(--tx2);display:inline-flex;align-items:center}
+.chip.on{background:var(--brs);border-color:var(--br);color:var(--tx)}
+.panel{background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:18px;position:sticky}
+.bar{height:8px;border-radius:999px;background:var(--s3);position:relative}.bar .rg{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--br) 35%,transparent);border-radius:999px}
+.pl{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--bd)}
+.avs{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff;flex:none}
+.btn{height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:14.5px;border:0;background:var(--br);color:var(--onbr);width:100%}
+.btn.ghost{background:transparent;color:var(--tx);border:1px solid var(--bd2)}
+.ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.sec{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+</style>
+</head><body style="background:#05080f">
+<div class="f" style="width:1280px;height:860px">
+  <div class="top">
+    <span class="r g8" style="margin-right:12px"><span class="logo"></span><span class="b md">Prediciotn</span></span>
+    <a href="Main.html">Today</a><a href="Main.html">Insights</a><a href="Main.html">Finder</a><a href="My_Combos.html" class="on">Combos</a><a href="Main.html">Teams</a><a href="Main.html">Players</a>
+    <span class="fl"></span><span class="xs t2 sb">Serie A</span>
+  </div>
+
+  <div style="display:flex;gap:24px;padding:24px 32px">
+    <div style="flex:1;min-width:0" class="c g16">
+      <div class="r sp">
+        <div class="r g12"><span class="crest" style="background:#2563eb;width:28px;height:28px;font-size:10px">CO</span><span class="b xl">Como v Venezia</span><span class="crest" style="background:#ea580c;width:28px;height:28px;font-size:10px">VE</span></div>
+        <span class="sm t2 sb">Sun, Nov 1 · 6:30 AM · Lineups not out</span>
+      </div>
+      <div class="r g8"><span class="chip on">All lines</span><span class="chip">Shots</span><span class="chip">On target</span><span class="chip">Team</span><span class="fl"></span><a href="Build_For_Me.html" class="chip" style="color:var(--br);border-color:var(--br)">Build one for me</a></div>
+
+      <div class="card">
+        <div class="grp"><span class="crest" style="background:#2563eb">CO</span><span class="sm b">Como</span></div>
+        <div class="line sel"><span class="av" style="background:#0d9488">AD</span><div class="fl c g4"><div class="b">A. Douvikas</div><div class="sb sm">2+ shots</div></div><span class="badge">Likely lineup</span><span class="xs t3" style="width:90px">Usually 61%</span><span class="b xl" style="width:56px;text-align:right">74%</span><span class="tier solid" style="width:74px"><span class="dots"><i></i><i></i><i class="o"></i></span>Solid</span><button class="add on" aria-label="Remove A. Douvikas 2+ shots"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></div>
+        <div class="line sel"><span class="av" style="background:#6366f1">NP</span><div class="fl c g4"><div class="b">N. Paz</div><div class="sb sm">1+ shot</div></div><span class="badge">Likely lineup</span><span class="xs t3" style="width:90px">Usually 84%</span><span class="b xl" style="width:56px;text-align:right">92%</span><span class="tier" style="width:74px"><span class="dots"><i></i><i></i><i></i></span>Strong</span><button class="add on" aria-label="Remove N. Paz 1+ shot"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></div>
+        <div class="line sel"><span class="av" style="background:#2563eb">CO</span><div class="fl c g4"><div class="b">Como</div><div class="sb sm">12+ team shots</div></div><span class="badge" style="visibility:hidden">Team</span><span class="xs t3" style="width:90px">Usually 55%</span><span class="b xl" style="width:56px;text-align:right">68%</span><span class="tier solid" style="width:74px"><span class="dots"><i></i><i></i><i class="o"></i></span>Solid</span><button class="add on" aria-label="Remove Como 12+ team shots"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></div>
+        <div class="grp"><span class="crest" style="background:#ea580c">VE</span><span class="sm b">Venezia</span></div>
+        <div class="line"><span class="av" style="background:#c2410c">AA</span><div class="fl c g4"><div class="b">A. Adams</div><div class="sb sm">1+ shot on target</div></div><span class="badge">Likely lineup</span><span class="xs t3" style="width:90px">Usually 58%</span><span class="b xl" style="width:56px;text-align:right">71%</span><span class="tier solid" style="width:74px"><span class="dots"><i></i><i></i><i class="o"></i></span>Solid</span><button class="add" aria-label="Add A. Adams 1+ shot on target"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
+        <div class="line"><span class="av" style="background:#9a3412">JY</span><div class="fl c g4"><div class="b">J. Yeboah</div><div class="sb sm">2+ shots</div></div><span class="badge">Likely lineup</span><span class="xs t3" style="width:90px">Usually 49%</span><span class="b xl" style="width:56px;text-align:right">66%</span><span class="tier watch" style="width:74px"><span class="dots"><i></i><i class="o"></i><i class="o"></i></span>Watch</span><button class="add" aria-label="Add J. Yeboah 2+ shots"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
+      </div>
+    </div>
+
+    <div style="width:380px;flex:none">
+      <div class="panel c g12" style="top:24px">
+        <div class="r sp"><span class="b lg">Your combo</span><span class="sm sb t2">Clear</span></div>
+        <div class="r sp" style="align-items:flex-end">
+          <div class="c"><span class="xs t2 sb" style="text-transform:uppercase;letter-spacing:.04em">All 3 lines together</span><span style="font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.05">46%</span></div>
+          <div class="c" style="align-items:flex-end;padding-bottom:4px"><span class="b md">About 1 in 2</span><span class="xs t2">Range 34 to 58%</span></div>
+        </div>
+        <div class="bar"><span class="rg" style="left:34%;width:24%"></span><i style="position:absolute;left:46%;top:-3px;width:3px;height:14px;background:var(--tx);border-radius:2px"></i></div>
+        <div>
+          <div class="pl"><span class="avs" style="background:#0d9488">AD</span><div class="fl c"><span class="b sm">A. Douvikas · 2+ shots</span><span class="xs t3">74% if he plays · 92% to play</span></div><span class="b">68%</span></div>
+          <div class="pl"><span class="avs" style="background:#6366f1">NP</span><div class="fl c"><span class="b sm">N. Paz · 1+ shot</span><span class="xs t3">92% if he plays · 90% to play</span></div><span class="b">83%</span></div>
+          <div class="pl"><span class="avs" style="background:#2563eb">CO</span><div class="fl c"><span class="b sm">Como · 12+ team shots</span><span class="xs t3">Team line</span></div><span class="b">68%</span></div>
+        </div>
+        <div class="xs t2">Lineups are not out, so we add a small, tested correction. We update this when they are.</div>
+        <div class="c g8">
+          <a href="Share_Card.html" class="btn">Save combo</a>
+          <div class="r g8"><a href="Share_Card.html" class="btn ghost">Copy as text</a><a href="Share_Card.html" class="btn ghost">Share image</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

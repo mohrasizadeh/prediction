@@ -1,5 +1,8 @@
 # Building Prediciotn on Emergent
 
+> **Update 27 ("if he plays" and the lineup badge):** already merged in this branch. Spec `docs/27_if_he_plays_and_lineup_badge.md`; screens to build are in `UPDATE_27_PROMPT.md` step 3.
+> **Update 28 (the combo builder):** backend merged. Build the screens with `UPDATE_28_PROMPT.md` (spec `docs/28_combo_builder.md`, pictures `docs/28_boards/`).
+
 This repo is the full hand-off. The backend and the engine are built and tested. The frontend is a working scaffold. Emergent's job is to finish the screens and the admin panel, and to connect the real data.
 
 ## How to work
@@ -7,7 +10,7 @@ This repo is the full hand-off. The backend and the engine are built and tested.
 1. Import this repo into Emergent (GitHub import), or upload it as a zip.
 2. One phase per conversation. Paste the phase prompt below. Do not start the next phase until this one's checklist lines pass in preview (`docs/12_acceptance_checklist.md`).
 3. When something fails, paste the full error text and logs. The agent cannot see the deployed database.
-4. After each phase: `cd backend && bash run_tests.sh` must print 12 PASS lines. Keep a zip of the project.
+4. After each phase: `cd backend && bash run_tests.sh` must print 21 PASS lines. Keep a zip of the project.
 5. Preview and production have separate databases. Indexes and the first owner are created when the server starts. After the first deploy: sign in as the owner, enter keys in Admin → Keys, enable the league again in production.
 
 ## The prompt to paste first, in every phase
@@ -21,7 +24,7 @@ This repo is the full hand-off. The backend and the engine are built and tested.
 > - Images only through `Crest`, `LeagueMark`, `PlayerAvatar` in `frontend/src/components/Media.jsx`.
 > - Every list has loading, empty and error states (`components/States.jsx`). Mobile first; test at 390 px.
 > - Run `yarn check-copy` in `frontend/` before you finish. It must pass.
-> - After your work: `cd backend && bash run_tests.sh` must show 12 PASS lines.
+> - After your work: `cd backend && bash run_tests.sh` must show 21 PASS lines.
 
 ## Phase 0: foundation, accounts, admin shell
 

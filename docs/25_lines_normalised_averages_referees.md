@@ -205,7 +205,7 @@ Old behaviour is one switch away:
 4. **Team cards** show the team's name (`team`) and crest, never the word "Team".
 5. **Player names** show the full surname. Truncate the first name first ("R. Højlund").
 6. **Insights** gets a sort control: "Different from usual" (default), "Most likely", "Kick-off". It passes `?sort=`.
-7. **Match page:** show `referee.sentence` under the stakes chips when present.
+7. **Match page:** show `referee.sentence` under the context chips when present.
 8. **Referees table:** columns Referee, Matches, Cards per game (normalised), vs teams' usual (factor as +6% / −4%). The plain average goes in small grey text under the normalised one.
 9. **Reasons:** show `reasons[0]` on the card and the rest in the detail sheet. Do not invent text.
 

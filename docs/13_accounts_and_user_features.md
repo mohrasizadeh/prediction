@@ -45,7 +45,7 @@ On load call `GET /api/auth/me`. It never fails for signed-out visitors.
   "usage": {"finder_today": 4}, "billing_enabled": true }
 { "user": {...}, "scope": "enroll_2fa" }      // staff who still must set up 2FA
 ```
-Use `entitlements` to draw the UI (disable, show lock icons, upgrade prompts). The server enforces the same limits, so the UI is only a hint.
+Use `entitlements` to draw the UI (disable, show padlock icons, upgrade prompts). The server enforces the same limits, so the UI is only a hint.
 
 ## 4. Sessions in the browser
 - The API sets one cookie: `__Host-sid` (`sid` without HTTPS): `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`. JavaScript cannot read it.

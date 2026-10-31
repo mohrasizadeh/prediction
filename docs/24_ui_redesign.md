@@ -182,7 +182,7 @@ The mock-ups below use our current colours, font and logo, in light and dark mod
 
 | State | Hero (top) | First tab |
 | --- | --- | --- |
-| Before (more than 1 hour) | Crests, kick-off countdown, win/draw/loss bar, "Stakes" chips ("Relegation fight", "Nothing to play for") | **Preview** |
+| Before (more than 1 hour) | Crests, kick-off countdown, win/draw/loss bar, "Context" chips ("Relegation fight", "Nothing to play for") | **Preview** |
 | Lineups out | Same, with a green "Lineups confirmed" tag; forecasts update and say so | **Preview** |
 | Live | Big score, clock, last event, live strip of events | **Live** |
 | Finished | Final score, half-time score, "How our forecasts did: 7 of 9" | **Recap** |
@@ -255,7 +255,7 @@ Tabs (sideways, swipeable): **Preview · Forecasts · Lineups · Stats · Head-t
 
 - Tap **2+**: a stepper (1+ to 6+).
 - Tap **shots**: a list of stats.
-- Tap **7 of the last 10**: two sliders, games window (5 to 20) and hit rate.
+- Tap **7 of the last 10**: two sliders, games window (5 to 20) and usual rate.
 - Tap **at home**: Home / Away / All.
 - Tap **today**: the date scroller.
 - Tap **Premier League**: league chips.
@@ -263,7 +263,7 @@ Tabs (sideways, swipeable): **Preview · Forecasts · Lineups · Stats · Head-t
 The results update live under the sentence:
 
 - Each row: player photo, name, team crest, a **hit-rate strip** of the last 10 games (10 small squares, filled when hit), "7/10", and the forecast for the next game when we have one.
-- Mode switch above the results: **Hit rate · Streak · Our forecast**.
+- Mode switch above the results: **Usual rate · Streak · Our forecast**.
 - Results can be saved as a **preset** ("My corner kings") and appear as chips next time.
 
 **Why it is better:** people read the query in plain English, and the most common tweak is one tap.
@@ -472,7 +472,7 @@ The results update live under the sentence:
 - Two columns on desktop, stacked cards on phone.
 - What each plan unlocks, as plain rows with ticks.
 - No countdowns or "only 3 left" (doc 03).
-- Locked features across the app show a small lock and "Part of Pro", which opens this page as a bottom sheet, not a new page.
+- Locked features across the app show a small padlock and "Part of Pro", which opens this page as a bottom sheet, not a new page.
 
 ![Plans page and the locked-feature sheet](redesign/mockups/pricing_and_lock_sheet.png)
 
@@ -545,7 +545,7 @@ Already built and kept: crest and avatar with fallbacks (docs 19), team matrix (
 
 ## Priorities and how we measure better
 
-We start with five quick wins that change every page at once, then the big bets one page at a time.
+We start with five quick wins that change every page at once, then the big changes one page at a time.
 
 *(Impact-against-effort chart: see the online doc. The five quick wins are the Foundation step of the build order below.)*
 

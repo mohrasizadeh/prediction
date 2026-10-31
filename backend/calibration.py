@@ -13,6 +13,7 @@ leaving each league out in turn: it never made a league worse and fixed both bia
 In production, `refit` builds a new map from our own scored forecasts (`forecast_outcomes`) once there are
 enough of them, and keeps it only if it beats the current map on the newest 30% of results.
 Every forecast keeps its raw number in `p_model`, so a map can always be judged or rolled back.
+Player forecasts are "if he plays" (docs/27): the map is fitted on players who played only.
 """
 from __future__ import annotations
 
@@ -30,8 +31,10 @@ CAP = (0.003, 0.97)            # never show more than 97%: football always leave
 GRID = np.linspace(0, 1, 41)
 
 
-def default_map() -> dict:
-    with open(_DEFAULT_PATH) as f:
+def default_map(cond: bool = True) -> dict:
+    """cond=True: for "if he plays" player lines (docs/27). cond=False: the all-in map from docs/21 and docs/22."""
+    path = _DEFAULT_PATH if cond else _DEFAULT_PATH.replace("calibration_default.json", "calibration_default_allin.json")
+    with open(path) as f:
         m = json.load(f)
     m.setdefault("version", "default")
     return m
@@ -42,7 +45,7 @@ def current(db) -> dict | None:
     if not S.get(db, "engine.calibration"):
         return None
     doc = db.engine_calibration.find_one({"active": True}, {"_id": 0}, sort=[("created_at", -1)])
-    return doc["map"] if doc else default_map()
+    return doc["map"] if doc else default_map(bool(S.get(db, "engine.condition_on_play")))
 
 
 def apply(cal: dict | None, p: float, state: str, scope: str) -> float:
@@ -108,7 +111,13 @@ def refit(db, now=None) -> dict:
     if not S.get(db, "engine.calibration_auto"):
         return {"status": "off"}
     rows = list(db.forecast_outcomes.find({"p_model": {"$ne": None}, "state": {"$in": ["pre", "lineup"]}},
-                                          {"_id": 0, "p_model": 1, "reached": 1, "scope": 1, "state": 1, "scored_at": 1}).sort("scored_at", 1))
+                                          {"_id": 0, "p_model": 1, "reached": 1, "scope": 1, "state": 1, "scored_at": 1,
+                                           "p_basis": 1, "player_played": 1}).sort("scored_at", 1))
+    # Player maps must be fitted on the same kind of number they will correct (docs/27). "If he plays" forecasts are
+    # judged only on players who played; older all-in forecasts are judged on everyone. Team rows are unaffected.
+    cond = bool(S.get(db, "engine.condition_on_play"))
+    rows = [r for r in rows if r["scope"] == "team"
+            or ((r.get("p_basis") == "played") == cond and (r.get("player_played", True) or not cond))]
     need = int(S.get(db, "engine.calib_min_scored"))
     if len(rows) < need:
         return {"status": "waiting", "scored": len(rows), "needed": need}

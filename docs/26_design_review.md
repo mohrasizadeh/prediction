@@ -28,7 +28,7 @@ The new build is clean, calm and already better than most stats sites. What hold
 | 3 | Insights opens with four rows of chips; the first card is half a screen down | Insights | One row of dropdown chips, plus a Filters sheet |
 | 4 | Update 25 is not live yet: "12+ shots" everywhere, "−11 pts vs usual (100% in last 10)", default sort "Most likely" | Insights | Install update 25. The card then reads "Usually 74%" and the lines vary |
 | 5 | Finder can't run until you pick a league, and the limit message sits above the results | Finder | Pre-pick a league; move the limit to a slim bar |
-| 6 | Today has no headline: the best forecasts of the day are one page away | Today | Add "Top picks today" above the fixtures |
+| 6 | Today has no headline: the best forecasts of the day are one page away | Today | Add "Standout forecasts today" above the fixtures |
 | 7 | Explore repeats the side menu (Learn, Track record, Plans) and buries Live | Explore | Live gets the pill; Plans moves to You; Tools shrink to 3 |
 | 8 | On wide screens a third of the page is empty | All | A right column for Live now and Following |
 
@@ -44,7 +44,7 @@ Six rules fix most of what the screenshots show, on every page at once.
 2. **Hide what is zero.** "Live now 0" is noise. A chip, badge or count that is zero does not show. The live pill appears only while something is live.
 3. **Counts are plain numbers, not blue discs.** The filled purple circles on the chips ("All 5", "Has insights 4") shout louder than the labels. Use a muted number after the word: "All 5".
 4. **On phones the side menu becomes a bottom bar.** Today, Insights, Finder, Explore, You, with the live pill floating above it. The footer links ("Learn · Track record · Plans") move into You and Explore.
-5. **One width for content, and use the rest.** On a 1,800 px screen the content stops at about 1,150 px and the right third is empty. Keep the reading width, and add a right column on screens over 1,280 px: Live now, Following, Top picks.
+5. **One width for content, and use the rest.** On a 1,800 px screen the content stops at about 1,150 px and the right third is empty. Keep the reading width, and add a right column on screens over 1,280 px: Live now, Following, Standout forecasts.
 6. **States are always right.**
    - Upcoming shows the time and countdown.
    - Live shows the minute in red.
@@ -70,12 +70,12 @@ The biggest fix is honesty about time. Every match tonight is finished, yet the 
 
 | # | What is wrong | Fix |
 | --- | --- | --- |
-| 1 | Finished matches show the kick-off time next to the final score. The bar still shows pre-match odds as if nothing happened. | Status first: **FT** (plus half-time score). Winner in bold, loser grey. Our call as a chip: "✓ Inter 82%" or "✗ Milan 55%". |
+| 1 | Finished matches show the kick-off time next to the final score. The bar still shows pre-match chances as if nothing happened. | Status first: **FT** (plus half-time score). Winner in bold, loser grey. Our call as a chip: "✓ Inter 82%" or "✗ Milan 55%". |
 | 2 | "Live now 0" is shown | Hide any chip that would show 0 |
 | 3 | Counts in filled purple discs outshout the labels | Plain number after the word: "With insights 4" |
 | 4 | Milan 55% lost 2–4 and nothing says so | An "Upset" note when the favourite loses: honest, and people love upsets |
 | 5 | Rows without insights leave a hole; the right column jumps | Keep the column, show the call chip there |
-| 6 | No title, no headline: the day's best forecasts are on another page | One summary line plus **Top picks today** (3 cards, swipe), each showing its result once finished |
+| 6 | No title, no headline: the day's best forecasts are on another page | One summary line plus **Standout forecasts today** (3 cards, swipe), each showing its result once finished |
 | 7 | The right third of a wide screen is empty | Right column on computers (see Computer layout) |
 | 8 | Footer links squeezed into the side menu | Move to the footer and to Explore / You |
 
@@ -84,7 +84,7 @@ The biggest fix is honesty about time. Every match tonight is finished, yet the 
 ![Today redesigned on a phone](review/pictures/today_phone.png)
 
 1. One line answers "how did today go?": "5 matches · all finished · our favourite won 2 of 5". It is honest even on a bad day, and that builds trust.
-2. Top picks today: swipeable cards. Once played, each shows "✓ Hit" and what happened ("they had 19").
+2. Standout forecasts today: swipeable cards. Once played, each shows "✓ Hit" and what happened ("they had 19").
 3. Chips: no zero counts, no discs.
 4. FT in the time column; the winner in bold; the home team stays on top.
 5. Our call, marked right or wrong, with the insights link under it.
@@ -195,7 +195,7 @@ On wide screens, keep the reading width and turn the empty third into a right co
 ![Today on a computer with the right column](review/pictures/today_desktop_right_column.png)
 
 1. **A real title:** the day ("Wednesday 28 October") and the verdict line. The date strip moves to the right of the title.
-2. **Top picks:** three across, each with its result once played ("✓ They had 19", "✗ He had 2").
+2. **Standout forecasts:** three across, each with its result once played ("✓ They had 19", "✗ He had 2").
 3. **The right column** (shown from 1,280 px wide):
    - **Live:** live scores while matches are on; otherwise the next kick-off. Never a "0".
    - **Following:** your teams' next matches; for visitors, a follow prompt.
@@ -224,7 +224,7 @@ In this order. Bugs first, then the changes every page shares, then page by page
 | 5 | All, phones | Bottom tab bar (Today, Insights, Finder, Explore, You); footer links move to the footer | none |
 | 6 | Today | Our call chip on finished rows: ✓ / ✗ + the favourite's %; "Upset" when the favourite lost | `probs` + final score |
 | 7 | Today | Summary line: matches, status, "our favourite won N of M" | computed on the page from the rows |
-| 8 | Today | Top picks today: 3 cards (swipe on phones), result once played | `GET /api/insights?sort=edge&limit=3`, filtered to the day; outcomes for finished matches |
+| 8 | Today | Standout forecasts today: 3 cards (swipe on phones), result once played | `GET /api/insights?sort=edge&limit=3`, filtered to the day; outcomes for finished matches |
 | 9 | Insights | One row of dropdown chips (Tier, Market, League, ⚙ count); everything else in a Filters sheet with a live count; "Any day" as a normal pill | `GET /api/insights?tiers=&stat=&scope=&leagues=` |
 | 10 | Insights | Card: initial badge instead of the grey shield; line 2 = opponent + venue; date in the footer; "Usually X%" + lift; tier colour on the %; equal heights in a row | `team`, `opp`, `p_usual`, `edge`, `tier` |
 | 11 | Finder | Tokens as tinted chips with ▾, 44 px; plain words plain | none |

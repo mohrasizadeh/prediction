@@ -1,0 +1,101 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Today</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer}
+.f{--bg:#0A0E17;--s1:#111827;--s2:#182033;--s3:#212B42;--bd:#243049;--bd2:#33415F;--tx:#E9EEF7;--tx2:#A3AFC6;--tx3:#8A96AE;--br:#7C83FF;--brs:#1E2347;--onbr:#0A0E17;--strong:#2DD4BF;--solid:#60A5FA;--watch:#FBBF24;--up:#34D399;--down:#F87171;font-family:Inter,system-ui,sans-serif;font-feature-settings:'tnum' 1;background:var(--bg);color:var(--tx);position:relative;overflow:hidden;box-sizing:border-box;font-size:14px;line-height:1.35}
+.f *{box-sizing:border-box;margin:0;padding:0}
+.r{display:flex;align-items:center}.c{display:flex;flex-direction:column}.sp{justify-content:space-between}.g4{gap:4px}.g6{gap:6px}.g8{gap:8px}.g10{gap:10px}.g12{gap:12px}.g16{gap:16px}.fl{flex:1;min-width:0}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:16px}
+.t2{color:var(--tx2)}.t3{color:var(--tx3)}.b{font-weight:700}.sb{font-weight:600}
+.xs{font-size:11px}.sm{font-size:12.5px}.md{font-size:15px}.lg{font-size:18px}.xl{font-size:22px}
+.hdr{height:56px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd)}
+.logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#4F46E5,#14b8a6);display:inline-flex;align-items:center;justify-content:center}
+.logo:after{content:"";width:9px;height:9px;border:2.5px solid #fff;border-radius:50%}
+.beta{font-size:10px;font-weight:700;color:var(--strong);border:1px solid color-mix(in srgb,var(--strong) 50%,transparent);border-radius:999px;padding:1px 7px}
+.crest{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex:none}
+.av{width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex:none}
+.chip{border:1px solid var(--bd);background:var(--s1);border-radius:999px;padding:0 12px;height:32px;font-size:12.5px;font-weight:600;color:var(--tx2);white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.tier{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;color:var(--tx);background:var(--s2)}
+.dots{display:inline-flex;gap:2px;color:var(--strong)}.dots i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block}.dots i.o{opacity:.25}
+.tier.solid .dots{color:var(--solid)}.tier.watch .dots{color:var(--watch)}
+.badge{font-size:11px;font-weight:600;color:var(--tx2);display:inline-flex;align-items:center;gap:5px}
+.badge:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--up)}
+.badge.likely:before{background:var(--solid)}
+.add{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--bd2);display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--tx);flex:none}
+.add.on{background:var(--br);border-color:var(--br);color:var(--onbr)}
+.wdl{display:flex;height:6px;border-radius:999px;overflow:hidden;gap:2px}.wdl i{display:block}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:64px;background:var(--s1);border-top:1px solid var(--bd);display:flex;justify-content:space-around;align-items:center}
+.tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--tx3);min-width:64px;position:relative}
+.tabbar a.on{color:var(--br)}
+.cnt{position:absolute;top:-4px;right:10px;background:var(--br);color:var(--onbr);font-size:10px;font-weight:800;border-radius:999px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.sec{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+.ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.day{border:1px solid var(--bd);background:var(--s1);border-radius:14px;padding:7px 0;width:54px;text-align:center;flex:none}
+.day .w{font-size:10.5px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}.day .n{font-size:16px;font-weight:700}
+.day.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}.day.on .w{color:var(--bg);opacity:.7}
+</style>
+</head><body style="background:#05080f">
+<div class="f" style="width:390px;height:844px">
+  <div class="hdr">
+    <div class="r g8"><span class="logo"></span><span class="b md">Prediciotn</span><span class="beta">Beta</span></div>
+    <div class="r g12"><svg class="ic t2" viewBox="0 0 24 24" aria-label="Search" role="img"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg><span class="av" style="width:30px;height:30px;font-size:11px;background:#4F46E5">MO</span></div>
+  </div>
+
+  <div class="c" style="padding:14px 16px 0;gap:14px">
+    <div class="r g8" style="overflow:hidden">
+      <div class="day"><div class="w">Thu</div><div class="n">29</div></div>
+      <div class="day"><div class="w">Fri</div><div class="n">30</div></div>
+      <div class="day"><div class="w">Sat</div><div class="n">31</div></div>
+      <div class="day on"><div class="w">Sun</div><div class="n">1</div></div>
+      <div class="day"><div class="w">Mon</div><div class="n">2</div></div>
+      <div class="day"><div class="w">Tue</div><div class="n">3</div></div>
+    </div>
+    <div class="r sp"><div><div class="b lg">Sunday, Nov 1</div><div class="sm t2">2 matches · 14 forecasts we stand behind</div></div></div>
+  </div>
+
+  <div style="padding:16px 0 0">
+    <div class="r sp" style="padding:0 16px 10px"><span class="sec">Standout forecasts</span><span class="sm sb" style="color:var(--br)">See all</span></div>
+    <div class="r g12" style="padding:0 16px;overflow:hidden">
+      <div class="card c g8" style="width:262px;padding:14px;flex:none">
+        <div class="r g10"><span class="av" style="background:#0d9488">AD</span><div class="fl"><div class="b">A. Douvikas</div><div class="xs t2">Como · FW · v Venezia</div></div><button class="add" aria-label="Add to combo"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
+        <div class="r sp"><div><div class="sb">2+ shots</div><div class="xs t3">Usually 61%</div></div><div class="r g8"><span style="font-size:28px;font-weight:700">74%</span><span class="tier solid"><span class="dots"><i></i><i></i><i class="o"></i></span>Solid</span></div></div>
+        <div class="r sp xs t2"><span class="badge likely">Likely lineup</span><span>if he plays</span></div>
+      </div>
+      <div class="card c g8" style="width:262px;padding:14px;flex:none">
+        <div class="r g10"><span class="av" style="background:#6366f1">NP</span><div class="fl"><div class="b">N. Paz</div><div class="xs t2">Como · AM · v Venezia</div></div><button class="add" aria-label="Add to combo"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
+        <div class="r sp"><div><div class="sb">1+ shot</div><div class="xs t3">Usually 84%</div></div><div class="r g8"><span style="font-size:28px;font-weight:700">92%</span><span class="tier"><span class="dots"><i></i><i></i><i></i></span>Strong</span></div></div>
+        <div class="r sp xs t2"><span class="badge likely">Likely lineup</span><span>if he plays</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:20px 16px 0">
+    <div class="sec" style="padding-bottom:10px">Matches</div>
+    <div class="c g10">
+      <a href="Match_Browse.html" class="card c g10" style="padding:14px">
+        <div class="r sp"><span class="xs t2 sb">Serie A · 6:30 AM</span><span class="xs sb" style="color:var(--br)">Lineups not out</span></div>
+        <div class="r g10"><span class="crest" style="background:#2563eb">CO</span><span class="b fl">Como</span><span class="t3 xs">v</span><span class="b fl" style="text-align:right">Venezia</span><span class="crest" style="background:#ea580c">VE</span></div>
+        <div class="wdl"><i style="width:48%;background:var(--br)"></i><i style="width:27%;background:var(--tx3);opacity:.6"></i><i style="width:25%;background:#ea580c"></i></div>
+        <div class="r sp"><span class="xs t2">Como 48% · Draw 27% · Venezia 25%</span><span class="r g4 sm sb" style="color:var(--br)">Build a combo<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M9 6l6 6-6 6"/></svg></span></div>
+      </a>
+      <a href="Match_Browse.html" class="card c g10" style="padding:14px">
+        <div class="r sp"><span class="xs t2 sb">Serie A · 2:45 PM</span><span class="xs t3 sb">Lineups not out</span></div>
+        <div class="r g10"><span class="crest" style="background:#0ea5e9">NA</span><span class="b fl">Napoli</span><span class="t3 xs">v</span><span class="b fl" style="text-align:right">Juventus</span><span class="crest" style="background:#52525b">JU</span></div>
+        <div class="wdl"><i style="width:41%;background:var(--br)"></i><i style="width:29%;background:var(--tx3);opacity:.6"></i><i style="width:30%;background:#52525b"></i></div>
+        <div class="r sp"><span class="xs t2">Napoli 41% · Draw 29% · Juventus 30%</span><span class="r g4 sm sb" style="color:var(--br)">Build a combo<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M9 6l6 6-6 6"/></svg></span></div>
+      </a>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <a href="Main.html" class="on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg>Today</a>
+    <a href="Add_From_Anywhere.html"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Insights</a>
+    <a href="Add_From_Anywhere.html"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg>Finder</a>
+    <a href="My_Combos.html"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 16l8 4 8-4"/></svg>Combos<span class="cnt">1</span></a>
+    <a href="Main.html"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg>More</a>
+  </div>
+</div>
+</body></html>

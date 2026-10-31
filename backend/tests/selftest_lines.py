@@ -2,7 +2,7 @@
 
 Proves: automatic lines differ by player and team (no single "12+ shots / 5+ corners" for everyone) and stay inside
 the likelihood band; labels are built for any line; likely starters can be Solid or Strong before the lineup, others
-say "Watch until lineups are out"; every forecast carries its usual number and the lift over it; the feed ranks by
+say "Watch until lineups are out"; every forecast carries its usual number and the lift over it; player lines are \"if he plays\" with a lineup badge; the feed ranks by
 that lift, never leads with a near-certain line, and the old order is one setting away; team averages are recency-
 weighted, opponent-judged and capped; one wild match moves a referee's normalised number far less than his plain
 average; the match page carries the referee line; the daily job writes referee_stats.
@@ -37,6 +37,7 @@ docs = [{"scope": "player", "team_iid": 1, "player_iid": 7, "stat": "shots", "th
         for t, p in ((0.5, 0.97), (1.5, 0.88), (2.5, 0.71), (3.5, 0.55), (4.5, 0.38))]
 kept = B.select_lines(docs, [0.5, 0.95], 3)
 check(sorted(d["thr"] for d in kept) == [1.5, 2.5, 3.5], "kept: inside 50-95%, the three most ambitious (2+, 3+, 4+)")
+check(all(d["ladder"] == {"0.5": 0.97, "1.5": 0.88, "2.5": 0.71, "3.5": 0.55, "4.5": 0.38} for d in kept), "every kept line carries the whole ladder")
 
 print("[tiers]")
 from core import tier
@@ -75,6 +76,27 @@ check(all(r["tier_note"] in (None, "Watch until lineups are out") for r in pre) 
       "the card can say why it is Watch")
 reasons = collections.Counter(r["reasons"][0] for r in pre if r["reasons"])
 check(len(reasons) >= 2, f"player cards do not all share one sentence ({len(reasons)} different first reasons)")
+
+print('[player lines are "if he plays", with a lineup badge (docs/27)]')
+pl_rows = [r for r in rows if r["scope"] == "player"]
+check(all(r["p_basis"] == "played" for r in pl_rows) and all(r["p_basis"] == "all" and r["lineup_badge"] is None for r in rows if r["scope"] == "team"),
+      "player forecasts are marked 'if he plays'; team forecasts are not")
+check(all(r["lineup_badge"] == ("likely" if r["p_play"] >= 0.85 else "unsure") for r in pl_rows), "badge before lineups: Likely lineup at 85%+ chance to play, else Not sure")
+check(all(r["p_play"] >= 0.5 for r in pl_rows), "a player unlikely to play gets no card")
+check(all(r["tier"] in ("Watch", None) for r in pl_rows if r["lineup_badge"] == "unsure"), "Not sure players stay at most Watch")
+S.put(db, "engine.condition_on_play", False)
+B.run_league(db, lg["iid"], now=now)
+old_rows = {r["fkey"]: r for r in db.forecasts.find({"scope": "player"}, {"_id": 0, "contrib": 0})}
+S.put(db, "engine.condition_on_play", True)
+B.run_league(db, lg["iid"], now=now)
+new_rows = {r["fkey"]: r for r in db.forecasts.find({"scope": "player"}, {"_id": 0, "contrib": 0})}
+both = [k for k in old_rows if k in new_rows]
+check(both and all(old_rows[k]["p_basis"] == "all" for k in both), "switch off: the old all-in number comes back")
+down = [k for k in both if new_rows[k]["p_model"] + 1e-9 < old_rows[k]["p_model"]]
+check(not down, f"'if he plays' is never below the old number (chance to play only ever lowered it), {len(both)} lines compared")
+lift = [new_rows[k]["p_model"] / max(old_rows[k]["p_model"], 1e-9) for k in both if old_rows[k]["p_play"] < 0.85]
+check(not lift or float(np.median(lift)) > 1.05, "players with a real chance of missing the match rise the most")
+rows = list(db.forecasts.find({}, {"_id": 0, "contrib": 0}))
 
 print("[feed order]")
 feed = Q.insights_feed(db, limit=500, tiers=("Strong", "Solid", "Watch"), now=now - dt.timedelta(hours=1))

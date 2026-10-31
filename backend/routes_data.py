@@ -10,7 +10,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, Response
+from pydantic import BaseModel, Field
 
+import combo as CB
 import deps as D
 import plans as P
 import queries as Q
@@ -285,3 +287,30 @@ def track_record(response: Response, league: str | None = None,
     _cache(response)
     lg = _iid(db, "leagues", league) if league else None
     return Q.track_record(db, lg, min_n=int(S.get(db, "track_record.min_scored")), stat=stat, scope=scope)
+
+
+
+# ------------------------------------------------------------------ combos (docs/28)
+class ComboBody(BaseModel):
+    ids: list[str] = Field(default_factory=list, max_length=12)         # forecast ids (the `id` on every card line)
+    fkeys: list[str] = Field(default_factory=list, max_length=12)       # or stable keys (they survive a re-run of the engine)
+
+
+@router.post("/combo/estimate")
+def combo_estimate(body: ComboBody, response: Response, db=Depends(D.get_db)):
+    """The combined chance of the lines, with the reasons we adjusted it. Lines must come from one match."""
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return CB.estimate(db, ids=body.ids, fkeys=body.fkeys)
+    except CB.ComboError as e:
+        raise D.err(409 if e.code in ("MIXED_MATCHES", "SAME_STAT", "TOO_MANY") else 404 if e.code == "NOT_FOUND" else 400, e.code, e.message)
+
+
+@router.get("/matches/{match_id}/combo-suggest")
+def combo_suggest(match_id: str, response: Response, mode: str = "balanced", db=Depends(D.get_db)):
+    """A short combo for this match: safer (2 lines, each 80%+), balanced (3, 65%+) or bolder (4, 55%+)."""
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return CB.suggest(db, _iid(db, "matches", match_id), mode)
+    except CB.ComboError as e:
+        raise D.err(400, e.code, e.message)

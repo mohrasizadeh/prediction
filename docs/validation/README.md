@@ -34,6 +34,7 @@ Run every script from this folder, for example `python exp_tactics.py PL SA L1`.
 | `exp_shape.py oracle\|blind` | Which part of the shape matters? | `data/res_shape*_*.pkl` |
 | `exp_home.py PL\|CH` | Does each club need its own home advantage on top of the league's? (walk-forward, 2011-12 to 2024-25) | `data/res_home_*.pkl` |
 | `audit_real.py PL\|SA\|L1`, then `fit_calibration.py` | Are the forecast percentages right on real matches? Fits and checks the shipped calibration map (doc 21) | `data/audit_rows_*.pkl`, `data/calibration_default.json` |
+| `COND=1 python audit_real.py PL\|SA\|L1`, then `fit_calibration27.py` | Is the "if he plays" player number right, and does a lineup map help? (doc 27) | `data/audit_rows_*_cond.pkl`, `data/calibration_default27.json` |
 | `factors_strength.py PL\|CH\|L1\|L2`, then `factors_context.py`, `factors_combo.py` | How much recent form counts; promoted clubs; results form, opponent form, rest, cups, Europe, stakes (doc 22) | `data/dc_*.pkl`, `data/factor_rows.pkl` |
 | `availability_test.py`, `availability_audit.py PL\|SA\|L1` | Does "missed recent matches" predict who plays, and how much does it improve forecasts? (doc 22) | printed, `data/availability_rows_*.pkl` |
 | `pool.py`, `show_pool.py` | Pool the three leagues; paired z; z clustered by team-match | printed |

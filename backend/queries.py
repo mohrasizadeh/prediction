@@ -327,6 +327,8 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
         if nxt:
             f = db.forecasts.find_one({"match_iid": nxt["iid"], **NOT_HIDDEN, "scope": scope, "stat": stat, "thr": threshold - 0.5,
                                        **({"player_iid": o["id"]} if scope == "player" else {"team_iid": o["id"]})}, {"_id": 0, "contrib": 0})
+            if f is None:
+                f = _from_ladder(db, nxt["iid"], scope, stat, threshold - 0.5, o["id"])
             o["forecast"] = f
     if scope == "player":
         names = _names(db, "players", [o["id"] for o in out])
@@ -364,6 +366,23 @@ def _usual(db, fc):
         f["usual_n"] = len(vals)
         f["usual_p"] = round(sum(1 for v in vals if v > f["thr"]) / len(vals), 4) if len(vals) >= 5 else None
     return fc
+
+
+def _from_ladder(db, match_iid, scope, stat, thr, ent):
+    """The exact line was not kept (outside the likelihood band), but every kept line of that player or team and stat
+    carries the whole ladder. Answer from it: `band` says "above" (very likely) or "below" (unlikely). No tier, no id."""
+    q = {**NOT_HIDDEN, "match_iid": match_iid, "scope": scope, "stat": stat, "ladder": {"$exists": True},
+         **({"player_iid": ent} if scope == "player" else {"team_iid": ent})}
+    d = db.forecasts.find_one(q, {"_id": 0, "contrib": 0})
+    key = f"{thr:g}"
+    if not d or key not in d.get("ladder", {}):
+        return None
+    p = d["ladder"][key]
+    keep = ("match_iid", "league_iid", "kickoff", "scope", "team_iid", "opp_iid", "player_iid", "pos", "stat", "p_play", "lineup_badge", "state")
+    f = {k: d.get(k) for k in keep}
+    f.update({"id": None, "fkey": None, "thr": float(thr), "p": p, "lo": None, "hi": None, "tier": None, "from_ladder": True,
+              "band": "above" if p > 0.5 else "below", "addable": False, "p_display": ("95%+" if p > 0.95 else "under 50%" if p < 0.5 else None)})
+    return _decorate(db, [f])[0]
 
 
 def _decorate(db, fc):

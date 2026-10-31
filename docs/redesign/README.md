@@ -40,7 +40,7 @@
 
 | Element | Needs | Status |
 |---|---|---|
-| "Usual" tick on the forecast card bar | the player's usual hit rate for that line | Not in the card yet. Hide the tick. |
+| "Usual" tick on the forecast card bar | the player's usual rate for that line | Not in the card yet. Hide the tick. |
 | League **Table** tab (standings) | a standings route | Not built. Hide the tab, or compute it from results only if a route is added later. |
 | League Overview "Hot right now" | results-form change per team | Partly in `context`. Show only when present. |
 | Live "momentum" bar | events by minute | Use `live_events`. Hide if there are fewer than 3 events. |

@@ -88,7 +88,8 @@ def configure_engine(db) -> E.SoccerEngine:
                          style_half_life=(float(S.get(db, "engine.style_half_life")) or None),
                          style_opp_adjust=tuple(S.get(db, "engine.style_opp_adjust")),
                          style_cap_q=(float(S.get(db, "engine.style_cap_q")) or None),
-                         player_prior=dict(S.get(db, "engine.player_prior")))
+                         player_prior=dict(S.get(db, "engine.player_prior")),
+                         cond_play=bool(S.get(db, "engine.condition_on_play")))     # "if he plays" (docs/27)
     eng.r_player = dict(S.get(db, "engine.r_player"))
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
@@ -132,7 +133,11 @@ def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
         groups.setdefault((d["scope"], d["team_iid"], d.get("player_iid"), d["stat"]), []).append(d)
     out = []
     for g in groups.values():
-        out += sorted((d for d in g if lo <= d["p"] <= hi), key=lambda d: -d["thr"])[:max_lines]
+        keep = sorted((d for d in g if lo <= d["p"] <= hi), key=lambda d: -d["thr"])[:max_lines]
+        ladder = {f"{d['thr']:g}": round(float(d["p"]), 4) for d in g}   # the whole ladder, so the Finder can answer any line
+        for d in keep:
+            d["ladder"] = ladder
+        out += keep
     return out
 
 
@@ -189,6 +194,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
     strong = tuple(S.get(db, "engine.tier_strong")); solid = tuple(S.get(db, "engine.tier_solid"))
     labels = S.get(db, "copy.market_labels")
     likely_gate = float(S.get(db, "engine.likely_starter_p"))
+    min_play = float(S.get(db, "engine.min_p_play")); cond = bool(S.get(db, "engine.condition_on_play"))
     auto_lines = bool(S.get(db, "engine.auto_lines"))
     line_band = S.get(db, "engine.line_band"); max_lines = int(S.get(db, "engine.max_lines_per_stat"))
     pmap = CAL.current(db)         # raw likelihood -> the percentage people see (docs/21); None = off
@@ -240,12 +246,23 @@ def run_league(db, league_iid: int, now=None) -> dict:
             confirmed = True if f.scope == "team" else bool(f.confirmed)
             state = "lineup" if (f.confirmed if f.scope == "player" else lineups.get(f.team)) else "pre"
             p = CAL.apply(pmap, f.p, state, f.scope); lo = CAL.apply(pmap, f.lo, state, f.scope); hi = CAL.apply(pmap, f.hi, state, f.scope)
-            # likely starters may carry Solid and Strong before the lineup is out (docs/25)
-            likely = f.scope == "player" and not confirmed and float(f.p_play) >= likely_gate
-            t = tier(p, lo, confirmed or likely, strong=strong, solid=solid)
-            basis = "team" if f.scope == "team" else ("lineup" if confirmed else ("likely_starter" if likely else "pre"))
+            # Lineup badge (docs/27). A player's percentage is "if he plays"; whether he plays is the badge.
+            #   confirmed: in the announced eleven   bench: lineup out, he is not in it
+            #   likely:    chance to play >= likely_starter_p before lineups (Solid and Strong allowed)
+            #   unsure:    anything else (Watch at most)
+            if f.scope == "team":
+                badge = None
+            elif state == "lineup":
+                badge = "confirmed" if float(f.p_play) >= 0.999 else "bench"
+            else:
+                badge = "likely" if float(f.p_play) >= likely_gate else "unsure"
+            if cond and badge == "unsure" and float(f.p_play) < min_play:
+                continue                                         # rarely plays: no card, however high the "if he plays" number
+            solid_ok = badge in (None, "confirmed", "likely")
+            t = tier(p, lo, solid_ok, strong=strong, solid=solid)
+            basis = {None: "team", "confirmed": "lineup", "likely": "likely_starter"}.get(badge, "pre")
             t_full = tier(p, lo, True, strong=strong, solid=solid)
-            tier_note = "Watch until lineups are out" if (basis == "pre" and t_full != t) else None
+            tier_note = ("On the bench: Watch only" if badge == "bench" else "Watch until lineups are out") if (not solid_ok and t_full != t) else None
             p_usual = CAL.apply(pmap, f.p_usual, state, f.scope) if f.p_usual is not None else None
             fkey = f"{m['iid']}:{f.scope}:{f.team}:{f.player or 0}:{f.stat}:{f.thr:g}"
             docs.append({"id": str(uuid.uuid4()), "fkey": fkey, "run_id": run_id, "match_iid": m["iid"], "league_iid": league_iid,
@@ -254,7 +271,8 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "stat": f.stat, "thr": float(f.thr), "market": label_for(db, f.scope, f.stat, f.thr, labels),
                          "expected": float(f.expected), "p": float(p), "lo": float(lo), "hi": float(hi),
                          "p_model": float(f.p), "state": state, "calibration": (pmap or {}).get("version"),
-                         "p_play": float(f.p_play), "lineup_confirmed": confirmed, "tier": t,
+                         "p_play": float(f.p_play), "lineup_confirmed": confirmed, "lineup_badge": badge,
+                         "p_basis": "played" if (cond and f.scope == "player") else "all", "tier": t,
                          "tier_basis": basis, "tier_note": tier_note,
                          "p_usual": p_usual, "edge": (float(p) - p_usual) if p_usual is not None else 0.0,
                          "reasons": list(f.reasons), "opp_tactics": list(f.opp_tactics), "own_tactics": list(f.own_tactics),
@@ -411,7 +429,7 @@ def score_finished(db) -> int:
                                          "stat": f["stat"], "scope": f["scope"], "tier": f["tier"], "p": f["p"],
                                          "thr": f["thr"], "actual": float(actual), "reached": bool(actual > f["thr"]),
                                          "p_model": f.get("p_model", f["p"]), "state": f.get("state"),
-                                         "player_played": played, "scored_at": utcnow()})
+                                         "player_played": played, "p_basis": f.get("p_basis", "all"), "scored_at": utcnow()})
         n += 1
     return n
 

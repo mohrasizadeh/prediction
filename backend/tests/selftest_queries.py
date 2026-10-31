@@ -71,6 +71,14 @@ fh = Q.finder(db, "form", "shots", 1, last_n=10, venue="home", started=True, min
 check(all(x["reached"] / x["games"] >= 0.5 for x in fh), "finder form: venue, started, minutes, position and min_reached filters")
 fl = Q.finder(db, "likelihood", "shots", 1, positions=["DEF"], min_p=0.2, now=now)
 check(all(x["pos"] == "DEF" and x["p"] >= 0.2 for x in fl), "finder likelihood: position and minimum filters")
+# --- Finder: a line outside the kept band is answered from the stored ladder
+dl = db.forecasts.find_one({"scope": "player", "stat": "shots", "ladder": {"$exists": True}})
+if dl:
+    dl_thr = sorted(float(k) for k in dl["ladder"])[0]
+    db.forecasts.delete_many({"match_iid": dl["match_iid"], "player_iid": dl["player_iid"], "stat": "shots", "thr": dl_thr})
+    lf = Q._from_ladder(db, dl["match_iid"], "player", "shots", dl_thr, dl["player_iid"])
+    check(lf and lf["from_ladder"] and lf["tier"] is None and lf["id"] is None and lf["addable"] is False, "ladder fallback: no tier, no id, not addable")
+    check(lf["p"] == dl["ladder"][f"{dl_thr:g}"] and (lf["p"] <= 0.95 or lf["p_display"] == "95%+"), "ladder fallback: p from the ladder, 95%+ label above the band")
 # --- Finder: pick a day (the PlayerStats date selector)
 day_rows = Q.finder(db, "form", "shots", 1, last_n=10, day=day, now=now)
 teams_that_day = {x for m in fx for x in (m["home_iid"], m["away_iid"])}

@@ -132,8 +132,10 @@ class SoccerEngine:
                  style_k=6.0, min_round=3, n_draws=60, sigma_team=0.07,
                  lineup_l2=10.0, seed=0, tactics=False, tactic_interactions=True, shape=False,
                  extra_stats=(), match_features=(), strength_decay=0.02,
-                 style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None):
+                 style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None, cond_play=False):
         self.interactions = interactions
+        # Player lines are "if he plays" (docs/27). His chance to play is shown as a lineup badge, not folded into the percentage.
+        self.cond_play = bool(cond_play)
         # Normalised team averages (docs/25). None / () = the old plain running sums.
         self.style_half = style_half_life            # a team's game this many games ago counts half
         self.style_opp = tuple(style_opp_adjust)     # stats judged against what each opponent usually allows / makes
@@ -719,7 +721,8 @@ class SoccerEngine:
                     probs = np.array([pr for pr, _ in sc])
                     expected = float(np.sum(probs * mus))
                     contrib = dict(grp[s])
-                    contrib["minutes"] = float(np.log(max(Em, 1.0) / 70.0))
+                    Em_c = Em / max(pplay, 1e-3) if self.cond_play else Em      # minutes if he plays (docs/27)
+                    contrib["minutes"] = float(np.log(max(Em_c, 1.0) / 70.0))
                     contrib["role"] = float(np.log(max(post[pid].mean, 1e-6) / self.rho[s][info["pos"]]))
                     g = info["g"]; ap = g[g["minutes"] > 0]
                     pb = shrunk_rate(ap[s].values, (ap["minutes"] / 90.0).values,
@@ -734,7 +737,14 @@ class SoccerEngine:
                         last = ap[s].values[-10:]
                         p_raw = float((last > thr).mean()) if len(last) else 0.5
                         p_base = float(np.sum(probs * nb_sf(k, mus_b, self.r_player[s])))
-                        out.append(Forecast("player", team, opp, s, thr, expected, p, float(lo), float(hi),
+                        lo, hi = float(lo), float(hi)
+                        if self.cond_play:                  # divide out the chance to play: "if he plays" (docs/27)
+                            d = max(float(pplay), 1e-3)
+                            p, lo, hi, p_base = (min(v / d, 0.999) for v in (p, lo, hi, p_base))
+                            expected_c = expected / d
+                        else:
+                            expected_c = expected
+                        out.append(Forecast("player", team, opp, s, thr, expected_c, p, float(lo), float(hi),
                                             player=int(pid), pos=info["pos"], p_play=float(likely_play.get(pid, pplay)),
                                             confirmed=lineups.get(team) is not None, contrib=contrib,
                                             reasons=reasons, opp_tactics=opp_tac, own_tactics=own_tac,

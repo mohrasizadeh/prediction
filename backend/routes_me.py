@@ -8,6 +8,7 @@ Tested by tests/selftest_routes.py.
 """
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -15,6 +16,7 @@ from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
+import combo as CB
 import deps as D
 import plans as P
 import queries as Q
@@ -207,6 +209,66 @@ def save(body: SavedBody, user=Depends(D.require_user), db=Depends(D.get_db)):
 @router.delete("/saved")
 def unsave(body: SavedBody, user=Depends(D.require_user), db=Depends(D.get_db)):
     return {"ok": True, "removed": db.saved_forecasts.delete_one({"user_id": user["id"], "fkey": body.fkey}).deleted_count}
+
+
+# ------------------------------------------------------------------ my combos (docs/28)
+class ComboSaveBody(BaseModel):
+    ids: list[str] = Field(min_length=1, max_length=12)
+
+
+def _combo_view(db, c: dict) -> dict:
+    """One saved combo for the list: the lines as saved, plus either today's estimate or what happened."""
+    now = utcnow()
+    out = {k: c[k] for k in ("id", "label", "kickoff", "combined", "state", "lines", "created_at")}
+    ko = c["kickoff"] if c["kickoff"].tzinfo else c["kickoff"].replace(tzinfo=timezone.utc)
+    outs = {o["fkey"]: o for o in db.forecast_outcomes.find({"fkey": {"$in": [l["fkey"] for l in c["lines"]]}}, {"_id": 0})}
+    if ko > now:
+        out["status"] = "upcoming"
+        try:
+            est = CB.estimate(db, fkeys=[l["fkey"] for l in c["lines"]])
+            out["now"] = {"combined": est["combined"], "plain": est["plain"], "state": est["state"], "range": est["range"], "notes": est["notes"]}
+        except CB.ComboError:
+            out["now"] = None                                           # a line left the feed (for example the player is out)
+        return out
+    res = []
+    for l in c["lines"]:
+        o = outs.get(l["fkey"])
+        res.append({"fkey": l["fkey"], "reached": None if not o else bool(o["reached"]), "actual": None if not o else o["actual"],
+                    "played": None if not o else bool(o.get("player_played", True))})
+    out["lines"] = [{**l, **r} for l, r in zip(c["lines"], res)]
+    done = all(r["reached"] is not None for r in res)
+    out["status"] = "settled" if done else "waiting"
+    out["result"] = {"reached": sum(1 for r in res if r["reached"]), "of": len(res), "all": done and all(r["reached"] for r in res)}
+    return out
+
+
+@router.get("/combos")
+def combos(response: Response, user=Depends(D.require_user), db=Depends(D.get_db)):
+    _private(response)
+    rows = list(db.combos.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).limit(100))
+    return {"items": [_combo_view(db, c) for c in rows], "limit": P.ent(db, user, "saved_max")}
+
+
+@router.put("/combos", status_code=201)
+def save_combo(body: ComboSaveBody, user=Depends(D.require_user), db=Depends(D.get_db)):
+    try:
+        est = CB.estimate(db, ids=body.ids)
+    except CB.ComboError as e:
+        raise D.err(409 if e.code in ("MIXED_MATCHES", "SAME_STAT", "TOO_MANY") else 404 if e.code == "NOT_FOUND" else 400, e.code, e.message)
+    _room(db, user, "saved_max", db.combos.count_documents({"user_id": user["id"]}))
+    m = db.matches.find_one({"iid": est["match_iid"]}, {"_id": 0, "home_iid": 1, "away_iid": 1, "kickoff": 1})
+    names = Q._names(db, "teams", [m["home_iid"], m["away_iid"]])
+    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "match_iid": est["match_iid"], "kickoff": m["kickoff"],
+           "label": f"{(names.get(m['home_iid']) or {}).get('name')} v {(names.get(m['away_iid']) or {}).get('name')}", "combined": est["combined"], "state": est["state"],
+           "lines": [{k: l[k] for k in ("fkey", "player", "team", "market", "stat", "thr", "chance", "badge")} for l in est["lines"]],
+           "created_at": utcnow()}
+    db.combos.insert_one(dict(doc))
+    return {"ok": True, "id": doc["id"], "estimate": est}
+
+
+@router.delete("/combos/{combo_id}")
+def delete_combo(combo_id: str, user=Depends(D.require_user), db=Depends(D.get_db)):
+    return {"ok": True, "removed": db.combos.delete_one({"id": combo_id, "user_id": user["id"]}).deleted_count}
 
 
 # ------------------------------------------------------------------ notes
