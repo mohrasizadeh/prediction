@@ -201,6 +201,8 @@ def run_league(db, league_iid: int, now=None) -> dict:
     earned = S.get(db, "engine.tier_mode") == "earned"
     rec = TI.Record(db, min_n=int(S.get(db, "engine.earned_min_n")), k=float(S.get(db, "engine.earned_prior_k"))) if earned else None
     strong_lineup = bool(S.get(db, "engine.strong_needs_lineup"))
+    anchor = bool(S.get(db, "engine.player_anchor")); anchor_min = int(S.get(db, "engine.anchor_min_games"))
+    anchor_k = float(S.get(db, "engine.anchor_k")); anchor_w = float(S.get(db, "engine.anchor_max_w")); p_cap = float(S.get(db, "engine.p_cap"))
     pmap = CAL.current(db)         # raw likelihood -> the percentage people see (docs/21); None = off
     lgdoc = db.leagues.find_one({"iid": league_iid}, {"_id": 0}) or {"iid": league_iid}
     lctx = MC.league_context(db, lgdoc, now) if S.get(db, "engine.match_context") else {}   # results form and stakes (docs/22)
@@ -250,6 +252,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
             confirmed = True if f.scope == "team" else bool(f.confirmed)
             state = "lineup" if (f.confirmed if f.scope == "player" else lineups.get(f.team)) else "pre"
             p = CAL.apply(pmap, f.p, state, f.scope); lo = CAL.apply(pmap, f.lo, state, f.scope); hi = CAL.apply(pmap, f.hi, state, f.scope)
+            p_pre_anchor = p
+            if anchor and f.scope == "player" and f.rec_n is not None and f.rec_n >= anchor_min:
+                p, lo, hi = TI.anchor(p, lo, hi, f.rec_k, f.rec_n, anchor_k, anchor_w, p_cap)     # his own record counts (docs/32)
             # Lineup badge (docs/27). A player's percentage is "if he plays"; whether he plays is the badge.
             #   confirmed: in the announced eleven   bench: lineup out, he is not in it
             #   likely:    chance to play >= likely_starter_p before lineups (Solid and Strong allowed)
@@ -277,7 +282,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "player_iid": int(f.player) if f.player is not None else None, "pos": f.pos,
                          "stat": f.stat, "thr": float(f.thr), "market": label_for(db, f.scope, f.stat, f.thr, labels),
                          "expected": float(f.expected), "p": float(p), "lo": float(lo), "hi": float(hi),
-                         "p_model": float(f.p), "state": state, "calibration": (pmap or {}).get("version"),
+                         "p_model": float(f.p), "p_pre_anchor": float(p_pre_anchor), "rec_k": f.rec_k, "rec_n": f.rec_n, "state": state, "calibration": (pmap or {}).get("version"),
                          "p_play": float(f.p_play), "lineup_confirmed": confirmed, "lineup_badge": badge,
                          "p_basis": "played" if (cond and f.scope == "player") else "all", "tier": t,
                          "tier_basis": basis, "tier_note": tier_note,

@@ -93,3 +93,22 @@ def assign(db, rec: Record | None, f: dict, strong_needs_lineup: bool = True) ->
             if t == "Solid" and est < so_min - 0.02:
                 t, note = "Watch", f"Similar lines happened {round(est * 100)}% of the time"
     return t, note
+
+
+def _logit(x):
+    x = min(max(x, 1e-4), 1 - 1e-4)
+    return float(np.log(x / (1 - x)))
+
+
+def _sig(z):
+    return float(1 / (1 + np.exp(-z)))
+
+
+def anchor(p, lo, hi, k, n, K, w_max, cap):
+    """His own record counts. The model's chance and his hit rate over his last n games are blended on the log-odds scale:
+    weight n/(n+K), never above w_max. The hit rate is smoothed ((k+1)/(n+2)) so 40 of 40 is 97.6%, not 100%.
+    The range moves by the same amount. The result never goes above `cap`. Applies to "if he plays" player lines."""
+    emp = (k + 1) / (n + 2)
+    w = min(w_max, n / (n + K))
+    d = w * (_logit(emp) - _logit(p))
+    return min(_sig(_logit(p) + d), cap), min(_sig(_logit(lo) + d), cap), min(_sig(_logit(hi) + d), cap)

@@ -75,6 +75,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       )}
       {d.hits?.length > 0 && <section><h3 className="k-sec">Last {d.hits.length} games · {f.market}</h3><HitStrip hits={d.hits} label={f.market} testid={`${testid}-hits`} /></section>}
       {f.p_usual != null && <p className="k-faint" data-testid={`${testid}-usual`}>Usually {pct(f.p_usual)}</p>}
+      {f.scope === "player" && f.rec_n >= 8 && <p className="k-faint" data-testid={`${testid}-rec`}>Reached this line in {f.rec_k} of his last {f.rec_n} games.</p>}
       {lines.length > 1 && <section><h3 className="k-sec">All lines</h3><ul className="k-fc-lines">{lines.map((x) => <li key={x.fkey} style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}><span>{x.market}</span><b>{pct(x.p)}</b></li>)}</ul></section>}
       {tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} {f.scope} {STAT_WORD[f.stat] || f.stat} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to={`/track-record?stat=${f.stat}`}>Track record</Link></p>}
       <p className="k-faint k-small">{DISCLAIMER} <Link to="/learn/forecast-card" aria-label="How to read a forecast card" data-testid={`${testid}-learn`}>How to read this card (?)</Link></p>

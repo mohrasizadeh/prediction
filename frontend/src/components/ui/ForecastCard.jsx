@@ -71,6 +71,7 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
         {tk && tk.state !== "unknown" && <div className="lv-row"><Track t={tk} id={id} /></div>}
         <span className="k-fc-bar" aria-hidden="true"><b style={{ width: `${Math.round((f.p || 0) * 100)}%` }} />{f.p_usual != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.p_usual * 100)}%` }} />}</span>
         {f.p_usual != null && <small className="k-fc-vs" data-testid={`${id}-usual`}>Usually {pct(f.p_usual)}</small>}
+        {f.scope === "player" && f.rec_n >= 8 && <small className="k-fc-vs" data-testid={`${id}-record`}>Hit in {f.rec_k} of his last {f.rec_n} games</small>}
         {f.reasons?.[0] && <p className="k-fc-why">{f.reasons[0]}</p>}
       </button>
       {(more.length > 0 || lineup || (showTime && f.kickoff)) && (

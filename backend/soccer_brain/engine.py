@@ -89,6 +89,8 @@ class Forecast:
     rotation_why: str = ""         # one plain sentence, empty when low
     p_play_usual: float | None = None   # chance he plays with no calendar pressure (shows the shift)
     p_usual: float | None = None        # the same line from his/the team's own normalised average, before this opponent
+    rec_k: int | None = None            # games (of his last rec_n played) in which he beat this line
+    rec_n: int | None = None
                                         # and match (docs/25). The feed ranks by p - p_usual.
 
 
@@ -735,6 +737,7 @@ class SoccerEngine:
                         p = float(np.sum(probs * nb_sf(k, mus, self.r_player[s])))
                         lo, hi = np.percentile(pdraw, [10, 90])
                         last = ap[s].values[-10:]
+                        last40 = ap[s].values[-40:]
                         p_raw = float((last > thr).mean()) if len(last) else 0.5
                         p_base = float(np.sum(probs * nb_sf(k, mus_b, self.r_player[s])))
                         lo, hi = float(lo), float(hi)
@@ -750,7 +753,8 @@ class SoccerEngine:
                                             reasons=reasons, opp_tactics=opp_tac, own_tactics=own_tac,
                                             opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
                                             rotation=rot[team][0], rotation_why=rot[team][1],
-                                            p_play_usual=usual_ps.get(pid), p_usual=p_base))
+                                            p_play_usual=usual_ps.get(pid), p_usual=p_base,
+                                            rec_k=int((last40 > thr).sum()), rec_n=int(len(last40))))
         mh, ma = (1.0, 1.0)
         if self.match_context and match_ctx:
             mh, ma = context_multipliers(match_ctx.get(home) or {}, match_ctx.get(away) or {})

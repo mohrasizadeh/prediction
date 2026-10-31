@@ -2578,5 +2578,54 @@
   "group": "Engine",
   "public": false,
   "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.player_anchor",
+  "label": "Player record anchor",
+  "type": "boolean",
+  "default": true,
+  "help": "Blend a player's own hit rate over his last games into the line (docs/32). Stars who clear a line almost every game are no longer held down by the average spread.",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.anchor_min_games",
+  "label": "Anchor: games needed",
+  "type": "int",
+  "default": 15,
+  "help": "Games played (of his last 40) before his own record counts.",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.anchor_k",
+  "label": "Anchor: weight of the model",
+  "type": "float",
+  "default": 30.0,
+  "help": "Higher keeps the model's number closer. The record's weight is games / (games + this).",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.anchor_max_w",
+  "label": "Anchor: most weight his record can take",
+  "type": "float",
+  "default": 0.4,
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.p_cap",
+  "label": "Highest chance we show",
+  "type": "float",
+  "default": 0.985,
+  "help": "Anchored lines never show above this. The calibration map still stops at 97%.",
+  "group": "Engine",
+  "public": false,
+  "applies_at": "next engine run"
  }
 ]
