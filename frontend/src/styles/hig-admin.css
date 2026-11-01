@@ -1,0 +1,136 @@
+/* Apple Human Interface Guidelines layer for the admin (docs/redesign/hig).
+   Loaded after admin.css. The admin keeps its own token names and its own light/dark switch (docs/17); this file
+   re-points those tokens to the same system colours the public site uses, and applies the same structure:
+   materials on bars, hairline separators, grouped rows without shadows, capsule buttons, tint for selection.
+
+   The admin is a dense tool, not a content site, so rows stay compact: HIG asks for clarity, not air.
+   Every pair below is the same one checked for the public palette, so text passes 4.5:1 in both modes. */
+
+.admin {
+  /* dark (default) */
+  --bg: #000000; --surface1: #1C1C1E; --surface2: #2C2C2E; --surface3: #3A3A3C; --border: #38383A; --border-strong: #545458;
+  --text: #FFFFFF; --text2: #EBEBF5; --text3: #98989F; --brand: #409CFF; --on-brand: #000000;
+  --up: #30D158; --down: #FF6961; --on-down: #000000; --warn: #FF9F0A;
+  --tier-strong: #30D158; --tier-watch: #FF9F0A; --card-shadow: none;
+  --font-body: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-num: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --btn-radius: 999px; --btn-weight: 600; --radius-md: 10px; --radius-lg: 12px;
+  --a-sep: color-mix(in srgb, var(--text3) 32%, transparent);
+  --a-fill: color-mix(in srgb, var(--text3) 16%, transparent);
+  --a-fill-strong: color-mix(in srgb, var(--text3) 24%, transparent);
+  --a-bar: color-mix(in srgb, var(--surface1) 78%, transparent);
+  -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
+}
+.admin[data-admin-theme="light"] {
+  --bg: #F2F2F7; --surface1: #FFFFFF; --surface2: #F2F2F7; --surface3: #E5E5EA; --border: #E5E5EA; --border-strong: #C7C7CC;
+  --text: #000000; --text2: #3C3C43; --text3: #6C6C70; --brand: #0066CC; --on-brand: #FFFFFF;
+  --up: #1D7A32; --down: #D70015; --on-down: #FFFFFF; --warn: #B25000;
+  --tier-strong: #1D7A32; --tier-watch: #B25000; --card-shadow: none;
+}
+
+/* ---------- Type: the system ramp, titles tighter */
+.admin h1 { font-size: clamp(1.5rem, 2.4vw, 1.75rem); font-weight: 700; letter-spacing: -0.022em; }
+.admin h2, .a-h3, .a-section-title { font-weight: 600; letter-spacing: -0.01em; }
+.a-section-title, .a-lead, .a-muted { text-transform: none; letter-spacing: 0; }
+.a-mono, .a-jt, .a-log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.a-tile-value, .a-table td, .a-meter, .a-cov, .a-budget { font-variant-numeric: tabular-nums; }
+
+/* ---------- Bars on the material, content scrolling under */
+.a-top { background: var(--a-bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: .5px solid var(--a-sep); }
+.a-bar { background: var(--a-bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-top: .5px solid var(--a-sep); }
+.a-bar-btn { font-size: 10.5px; font-weight: 500; }
+.a-bar-btn.active::before { display: none; }            /* a tab bar shows selection with tint only */
+.a-bar-btn:active { opacity: .6; }
+.a-icon-btn { border-radius: 999px; }
+.a-icon-btn:hover { background: var(--a-fill); }
+.a-publishbar, .a-sticky-save { background: var(--a-bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-top: .5px solid var(--a-sep); box-shadow: none; }
+
+/* ---------- Sidebar: a macOS source list */
+@media (min-width: 1025px) {
+  .a-rail { border-right: .5px solid var(--a-sep); background: color-mix(in srgb, var(--surface1) 45%, var(--bg)); }
+  .a-rail-link { min-height: 32px; border-radius: 7px; font-weight: 500; font-size: 14px; }
+  .a-rail-link:hover { background: var(--a-fill); }
+  .a-rail-link.active, .a-rail-link[aria-current="page"] { background: var(--brand); color: var(--on-brand); }
+  .a-rail-link.active .ico, .a-rail-link[aria-current="page"] .ico { color: var(--on-brand); }
+  .a-rail-group { font-size: 12px; font-weight: 600; color: var(--text3); text-transform: none; letter-spacing: 0; }
+}
+
+/* ---------- Grouped content: no borders, no shadows, hairline separators */
+.a-card, .a-tile, .a-setting, .a-plan, .a-person, .a-rowcard, .a-key, .a-league, .a-job, .a-notice, .a-alert,
+.a-review, .a-preset, .a-node, .a-editor, .a-prev, .ah-tile, .ah-sec, .av-card, .a-page-item {
+  border: 0; box-shadow: none; border-radius: 12px; background: var(--surface1); }
+.a-card-head, .a-key-head, .a-person-head, .a-review-head, .ah-head, .a-league-head {
+  border-bottom: .5px solid var(--a-sep); }
+.a-rows > * + *, .a-list-item + .a-list-item, .a-page-list > * + *, .ah-line + .ah-line,
+.a-season-list > * + *, .av-row + .av-row, .a-log-list > * + * { border-top: .5px solid var(--a-sep); }
+.a-dl, .a-kv { row-gap: 6px; }
+.a-notice, .a-alert { background: var(--a-fill); }
+.a-notice--warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--text); }
+.a-alert--red { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--text); }
+
+/* ---------- Tables: hairlines, quiet headers, no zebra */
+.a-table, .a-mini-table, .st-table { border: 0; }
+.a-table th, .a-mini-table th, .st-table th {
+  font-size: 12.5px; font-weight: 600; color: var(--text2); text-transform: none; letter-spacing: 0;
+  border-bottom: .5px solid var(--a-sep); background: transparent; }
+.a-table td, .a-mini-table td, .st-table td { border-bottom: .5px solid var(--a-sep); }
+.a-table tr:hover td { background: var(--a-fill); }
+.a-table-wrap { border: 0; border-radius: 12px; overflow: hidden; background: var(--surface1); }
+
+/* ---------- Chips, badges and tags: capsules, word in the text colour */
+.a-chip, .a-badge, .a-tag, .ah-tag, .a-pub-state, .a-flags span, .av-state, .a-log-status, .p-tag {
+  border-radius: 999px; font-weight: 500; border: 0; }
+.a-chip { background: var(--a-fill); color: var(--text); }
+.a-chip--up { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--text); }
+.a-chip--down { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--text); }
+.a-chip--warn { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--text); }
+.a-chip--brand { background: color-mix(in srgb, var(--brand) 18%, transparent); color: var(--text); }
+.a-chip.is-on, .a-chip[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); }
+
+/* ---------- Segmented control, the iOS one */
+.a-seg, .av-seg { display: inline-flex; gap: 0; padding: 2px; border-radius: 9px; background: var(--a-fill-strong); border: 0; }
+.a-seg button, .av-seg-btn { min-height: 30px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent;
+  color: var(--text); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color .2s; }
+.a-seg button.is-on, .a-seg button[aria-pressed="true"], .av-seg-btn.is-on {
+  background: var(--surface3); font-weight: 600; box-shadow: 0 3px 8px rgba(0,0,0,.18); }
+@media (pointer: coarse) { .a-seg button, .av-seg-btn { min-height: 44px; } }
+
+/* ---------- Forms */
+.admin .field input, .admin .field select, .admin .field textarea, .admin .pw-wrap,
+.a-setting-input, .a-search input, .a-sheet-search input, .a-form input, .a-form select, .a-form textarea {
+  border: .5px solid var(--a-sep); background: var(--surface1); border-radius: 10px; }
+.admin .field input:focus, .admin .field select:focus, .admin .field textarea:focus,
+.a-setting-input:focus, .a-search input:focus {
+  outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 45%, transparent); }
+.a-search { border: 0; border-radius: 10px; background: var(--a-fill); }
+.admin .btn:active:not([disabled]) { opacity: .7; }
+.a-link-btn, .a-link { border-radius: 999px; }
+
+/* ---------- Sheets and overlays: the thick material, a dimming scrim */
+.a-sheet { border: 0; border-radius: 14px 14px 0 0;
+  background: color-mix(in srgb, var(--surface1) 88%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+  box-shadow: 0 -1px 0 var(--a-sep), 0 -10px 40px rgba(0,0,0,.25); }
+.a-sheet-head, .a-sheet-foot { border-color: var(--a-sep); border-width: .5px; }
+@media (min-width: 769px) { .a-sheet { border-radius: 14px; } }
+
+/* ---------- Progress, meters and charts */
+.a-meter, .a-bar-track, .a-budget-bar, .a-cov { background: var(--a-fill-strong); border-radius: 999px; overflow: hidden; }
+.a-chart, .a-matrix, .a-heat { border: 0; }
+
+/* ---------- Fallbacks, the same three the public layer honours */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .a-top, .a-bar, .a-sheet, .a-publishbar, .a-sticky-save { background: var(--surface1); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .a-top, .a-bar, .a-sheet, .a-publishbar, .a-sticky-save {
+    background: var(--surface1); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  .admin { --a-sep: var(--border-strong); }
+  .a-card, .a-tile, .a-setting, .ah-tile { outline: 1px solid var(--border-strong); outline-offset: -1px; }
+}

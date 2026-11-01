@@ -32,7 +32,14 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .btab { font-size: 10.5px; font-weight: 500; letter-spacing: .01em; gap: 2px; }
 .btab::before, .btab.active::before { display: none; }                  /* tab bars show selection with tint only */
 .btab:active { opacity: .6; }
-.beta { background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); border: 0; letter-spacing: .04em; }
+/* Tinted chips print their word in the normal text colour: a 14% tint is too pale to carry coloured text at
+   4.5:1 (docs/03 section 7, docs/36 A11Y-1). The tint and the dots still carry the meaning. */
+.beta { background: color-mix(in srgb, var(--brand) 16%, transparent); color: var(--text); border: 0; letter-spacing: .04em; }
+.k-tier--strong, .k-tier--solid, .k-tier--watch, .k-tag--up, .lk-tag { color: var(--text); }
+.k-tier--strong .k-dots i { background: var(--tier-strong); }   /* the dots keep the colour the word gives up */
+.k-tier--solid .k-dots i { background: var(--tier-solid); }
+.k-tier--watch .k-dots i { background: var(--tier-watch); }
+.k-tag--up svg, .k-tag--up .ico { color: var(--up); }
 .icon-btn { border-radius: 999px; }
 
 /* Search field (iOS / macOS style): filled, no border */
@@ -64,7 +71,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .tab { border: 0; background: var(--hig-fill); color: var(--text); font-weight: 500; }
 .k-day { border: 0; background: var(--surface1); border-radius: 12px; }
 .k-day.on { background: var(--brand); color: var(--on-brand); }
-.k-day.on .w { color: var(--on-brand); opacity: .85; }
+.k-day.on .w { color: var(--on-brand); opacity: 1; }   /* docs/36 A11Y-1: .85 took the label under 4.5:1 */
 .k-day.on .dot:not(.no) { background: var(--on-brand); }
 .seg-opt { border: 0; background: var(--hig-fill); color: var(--text); }
 
@@ -74,7 +81,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .k-seg button.on { background: var(--surface1); font-weight: 600; box-shadow: 0 3px 8px rgba(0,0,0,.12), 0 3px 1px rgba(0,0,0,.04); }
 :root[data-theme="dark"] .k-seg button.on { background: var(--surface3); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .k-seg button.on { background: var(--surface3); } }
-@media (pointer: coarse) { .k-seg button { min-height: 40px; } }
+@media (pointer: coarse) { .k-seg button { min-height: 44px; } }   /* docs/36 A11Y-6: the project's own 44 px rule */
 
 /* ---------- Text fields: filled, rounded, focus ring in the tint */
 .field input, .field select, .field textarea, .pw-wrap { border-radius: 10px; border: .5px solid var(--hig-separator); background: var(--surface1); }
@@ -108,3 +115,119 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   :root { --hig-separator: var(--border-strong); }
   .card, .k-fc, .k-day, .tile { outline: 1px solid var(--border-strong); outline-offset: -1px; }
 }
+
+/* ==========================================================================
+   Pass 2: visitor popups, the rest of the public screens.
+   Same rules as above: structure only, every colour from the Site Studio tokens.
+   ========================================================================== */
+
+/* ---------- Popups an admin builds (banner, slide-in, modal)
+   HIG treats these as sheets and banners: a material, a hairline, one clear way out, and never a hard
+   shadow on a flat page. The modal keeps the sheet shape; banners sit flush and quiet. */
+.pop { border: 0; border-radius: 14px; padding: 20px;
+  background: var(--hig-thick); -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+  box-shadow: 0 0 0 .5px var(--hig-separator), 0 12px 40px rgba(0,0,0,.18); }
+.pop h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.pop p { font-size: 15px; }
+.pop--tone-info { box-shadow: 0 0 0 .5px color-mix(in srgb, var(--brand) 45%, var(--hig-separator)), 0 12px 40px rgba(0,0,0,.18); }
+.pop--tone-warn { box-shadow: 0 0 0 .5px color-mix(in srgb, var(--tier-watch) 55%, var(--hig-separator)), 0 12px 40px rgba(0,0,0,.18); }
+.pop--tone-brand { background: var(--brand); box-shadow: none; }
+.pop-close { top: 8px; right: 8px; border-radius: 999px; }
+.pop-img { border-radius: 10px; }
+.pop--modal { border-radius: 14px 14px 0 0; }
+@media (min-width: 1025px) { .pop--modal { border-radius: 14px; } }
+.pop--slide_in { border-radius: 14px; }
+/* A banner is chrome, not a card: flush, hairline, no shadow (HIG "content over chrome") */
+.pop--banner_top, .pop--banner_bottom { box-shadow: none; border-radius: 0; padding: 10px 52px 10px 16px; }
+.pop--banner_top { border-bottom: .5px solid var(--hig-separator); }
+.pop--banner_bottom { border-top: .5px solid var(--hig-separator); }
+.pop--banner_top h2, .pop--banner_bottom h2 { font-size: 15px; }
+.pop-form-row input, .nl-row input { border: .5px solid var(--hig-separator); background: var(--surface1); border-radius: 10px; }
+.pop-success, .nl-done { border-radius: 10px; }
+.nl { border: 0; border-radius: 14px; background: var(--surface1); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pop { background: var(--surface1); } }
+@media (prefers-reduced-transparency: reduce) { .pop { background: var(--surface1); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+
+/* ---------- Announcements and the stale-data banner: the same bar language as the popup banners */
+.announce { border-bottom: .5px solid var(--hig-separator); }
+.announce-row { padding: 8px 16px; font-size: 14px; }
+
+/* ---------- Alerts (the confirm dialog): HIG asks for a short direct title, a quiet message, Cancel on the
+   left and the action on the right, with a destructive action in red. The component already orders the buttons
+   that way; this is the presentation. An alert is centred on a large screen and a sheet on a phone. */
+.dialog h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.dialog-body { font-size: 14px; color: var(--text2); }
+.dialog-actions { gap: 8px; }
+.dialog-actions .btn { flex: 1 1 auto; }
+@media (min-width: 769px) {
+  .overlay--center { align-items: center; }
+  .dialog { max-width: 340px; }
+  .dialog-actions .btn { flex: 0 0 auto; }
+}
+
+/* ---------- Toasts: a floating capsule on the material, not a bordered box */
+.toast { border: 0; border-radius: 12px; font-weight: 500; background: var(--hig-thick);
+  -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+  box-shadow: 0 0 0 .5px var(--hig-separator), 0 8px 30px rgba(0,0,0,.18); }
+
+/* ---------- Today, Insights, Match (matchday.css) */
+.td-group, .mc-pane, .mc-why-card, .ins-f, .lv-sum { border: 0; box-shadow: none; }
+.td-row, .mc-row, .lv-lines li { border-top-width: .5px; border-top-color: var(--hig-separator); }
+.td-sec-head, .mc-when, .ins-f-label { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: none; letter-spacing: 0; }
+.mc-tabs { border-bottom: .5px solid var(--hig-separator); }
+.mc-hero, .td-livestrip { border: 0; }
+.ins-chips, .td-chips { gap: 8px; }
+.lv-chip, .td-livechip, .status-chip, .tab-badge { border-radius: 999px; font-weight: 500; }
+.lv-chip--hit { color: var(--text); background: color-mix(in srgb, var(--up) 18%, transparent); }
+.lv-chip--miss { color: var(--text); background: var(--hig-fill-strong); }
+
+/* ---------- You, Following, Track record, Learn, Pricing (you.css) */
+.y-item, .pr-card, .ln-tile, .tr-chart, .sq-card, .wl, .st-zone { border: 0; box-shadow: none; }
+.y-item + .y-item, .lk-list li + li { border-top: .5px solid var(--hig-separator); }
+.y-tag, .lk-tag, .tr-tier, .ln-up { border-radius: 999px; }
+.y-tag--hit { color: var(--text); background: color-mix(in srgb, var(--up) 18%, transparent); }
+.y-tag--miss { color: var(--text); background: var(--hig-fill-strong); }
+.pr-card--hi { background: color-mix(in srgb, var(--brand) 10%, var(--surface1)); outline: 1.5px solid var(--brand); outline-offset: -1.5px; }
+.tr-chart, .tr-hero { border: 0; }
+
+/* ---------- Compare, Team matrix, Radar (teams.css) */
+.cp-hero, .cp-pick, .tm-grid, .tr-grid { border: 0; }
+.tm-cell-team, .tm-team, .cp-team { border-color: var(--hig-separator); }
+.tm-sticky { background: var(--hig-bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+.cp-swap, .tm-sort { border-radius: 999px; }
+
+/* ---------- Live (live.css) */
+.live-row, .lev, .llu-row { border-top-width: .5px; border-top-color: var(--hig-separator); }
+.live-group, .live-detail, .llu, .tnews { border: 0; box-shadow: none; }
+.live-chip, .status-chip, .tnews-tag { border-radius: 999px; font-weight: 500; }
+.live-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--down) 22%, transparent); }
+
+/* ---------- Combo builder (combo.css) */
+.cb-card, .cb-hero, .cb-res, .cb-sum { border: 0; box-shadow: none; border-radius: 12px; }
+.cb-line-row + .cb-line-row, .cb-sum-row + .cb-sum-row { border-top: .5px solid var(--hig-separator); }
+.cb-pill, .cb-mode-t, .cb-tick, .cb-mark { border-radius: 999px; }
+.cb-add { border-radius: 999px; border: .5px solid var(--hig-separator); background: var(--surface1); }
+.cb-add.on { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
+/* the combo bar is a floating bar: material, hairline, no heavy shadow */
+.cb-bar { background: var(--hig-bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-top: .5px solid var(--hig-separator); box-shadow: none; }
+
+/* ---------- Finder sentence builder and Studio preview (power.css) */
+.fs-sentence, .fs-results, .fs-list { border: 0; }
+.fs-word { border-radius: 6px; }
+.fs-pop { border: 0; border-radius: 14px; background: var(--hig-thick);
+  -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+  box-shadow: 0 0 0 .5px var(--hig-separator), 0 10px 36px rgba(0,0,0,.18); }
+.fs-row + .fs-row { border-top: .5px solid var(--hig-separator); }
+.fs-meter-dots i { border-radius: 50%; }
+
+/* ---------- Shared leftovers (football.css) */
+.tcard, .pcard, .stile, .tile, .ref-section, .book-list, .finder-block { border: 0; box-shadow: none; }
+.tbl th { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: none; letter-spacing: 0; }
+.tbl td, .tbl th { border-bottom: .5px solid var(--hig-separator); }
+.chip--sm, .tchip, .ra-tag, .ref-badge, .pcard-tag { border-radius: 999px; font-weight: 500; }
+.tchip--warn { color: var(--text); background: color-mix(in srgb, var(--tier-watch) 20%, transparent); }
+.seg2 { border-radius: 9px; background: var(--hig-fill-strong); padding: 2px; }
+.seg2 button { border-radius: 7px; }
+.lbar-track { background: var(--hig-fill-strong); }
+.pitch { border: .5px solid var(--hig-separator); border-radius: 12px; }

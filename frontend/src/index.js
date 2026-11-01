@@ -6,8 +6,6 @@ import { AuthProvider } from "./lib/auth";
 import { SiteProvider } from "./lib/site";
 import { ToastProvider } from "./components/Ui";
 import { ComboProvider } from "./lib/combo";
-import "@fontsource-variable/plus-jakarta-sans/wght.css";
-import "@fontsource-variable/manrope/wght.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/football.css";
@@ -23,6 +21,7 @@ import "./styles/you.css";
 import "./styles/adminhome.css";
 import "./styles/combo.css";
 import "./styles/hig.css";
+import "./styles/hig-admin.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
