@@ -17,6 +17,7 @@ export function lineOf(f) {
   const name = f.player?.name || f.team?.name || "";
   return {
     fkey: f.fkey, id: f.id || null, entity: entityOf(f), stat: f.stat, scope: f.scope, name, market: f.market, p: f.p,
+    match_iid: f.match_iid, kickoff: f.kickoff || null,          // a combo can hold lines from several matches (docs/40)
     player: f.player ? { id: f.player.id, name: f.player.name, image: f.player.image } : null,
     team: f.team ? { id: f.team.id, name: f.team.name, image: f.team.image } : null,
     more: [...(f.more_lines || [])].filter((x) => x.fkey).map((x) => ({ fkey: x.fkey, market: x.market, p: x.p })),
@@ -44,7 +45,7 @@ export function ComboProvider({ children }) {
     if (!f?.fkey || f.match_iid == null) return;
     setCombo((c) => {
       if (!c || !c.lines.length) return { match_iid: f.match_iid, match_id: meta?.match_id || f.match_id || null, label: meta?.label || null, lines: [lineOf(f)] };
-      if (c.match_iid !== f.match_iid) { setAsk({ f, meta }); return c; }
+      // lines from another match are welcome now (docs/40): different matches multiply plainly
       if (c.lines.some((l) => l.fkey === f.fkey)) {
         const lines = c.lines.filter((l) => l.fkey !== f.fkey);
         return lines.length ? { ...c, lines } : null;

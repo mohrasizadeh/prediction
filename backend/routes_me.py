@@ -222,7 +222,10 @@ def _combo_view(db, c: dict) -> dict:
     now = utcnow()
     out = {k: c[k] for k in ("id", "label", "kickoff", "combined", "state", "lines", "created_at")}
     out["match_id"] = c.get("match_id")
-    ko = c["kickoff"] if c["kickoff"].tzinfo else c["kickoff"].replace(tzinfo=timezone.utc)
+    out["matches"] = c.get("matches") or []
+    # a combo that spans matches is still upcoming until the LAST of them has kicked off
+    ko = c.get("last_kickoff") or c["kickoff"]
+    ko = ko if ko.tzinfo else ko.replace(tzinfo=timezone.utc)
     outs = {o["fkey"]: o for o in db.forecast_outcomes.find({"fkey": {"$in": [l["fkey"] for l in c["lines"]]}}, {"_id": 0})}
     if ko > now:
         out["status"] = "upcoming"
@@ -256,13 +259,15 @@ def save_combo(body: ComboSaveBody, user=Depends(D.require_user), db=Depends(D.g
     try:
         est = CB.estimate(db, ids=body.ids, fkeys=body.fkeys)
     except CB.ComboError as e:
-        raise D.err(409 if e.code in ("MIXED_MATCHES", "SAME_STAT", "TOO_MANY") else 404 if e.code == "NOT_FOUND" else 400, e.code, e.message)
+        raise D.err(409 if e.code in ("SAME_STAT", "TOO_MANY") else 404 if e.code == "NOT_FOUND" else 400, e.code, e.message)
     _room(db, user, "saved_max", db.combos.count_documents({"user_id": user["id"]}))
-    m = db.matches.find_one({"iid": est["match_iid"]}, {"_id": 0, "id": 1, "home_iid": 1, "away_iid": 1, "kickoff": 1})
-    names = Q._names(db, "teams", [m["home_iid"], m["away_iid"]])
-    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "match_iid": est["match_iid"], "match_id": m.get("id"), "kickoff": m["kickoff"],
-           "label": f"{(names.get(m['home_iid']) or {}).get('name')} v {(names.get(m['away_iid']) or {}).get('name')}", "combined": est["combined"], "state": est["state"],
-           "lines": [{k: l[k] for k in ("fkey", "player", "team", "market", "stat", "thr", "chance", "badge")} for l in est["lines"]],
+    # a combo may span matches (docs/40): keep the first for the link, and the LAST kick-off, because the combo is
+    # not over until its last match has started
+    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "match_iid": est["match_iid"], "match_id": est.get("match_id"),
+           "kickoff": est["kickoff"], "last_kickoff": est.get("last_kickoff") or est["kickoff"],
+           "matches": [{k: m[k] for k in ("match_iid", "match_id", "label", "kickoff", "combined") if k in m} for m in est.get("matches", [])],
+           "label": est.get("label"), "combined": est["combined"], "state": est["state"],
+           "lines": [{k: l[k] for k in ("fkey", "player", "team", "market", "stat", "thr", "chance", "badge", "match_iid")} for l in est["lines"]],
            "created_at": utcnow()}
     db.combos.insert_one(dict(doc))
     return {"ok": True, "id": doc["id"], "estimate": est}

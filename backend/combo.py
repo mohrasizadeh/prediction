@@ -63,8 +63,10 @@ def _factor(n_entities: int, pre: bool, factors) -> float:
     return float(factors[i])
 
 
-def combine(docs: list[dict], key: str = "p", factors=(1.0, 1.11, 1.19, 1.25)) -> float:
-    """Joint chance of every line in `docs` (all from one match, no two lines on the same stat for one entity)."""
+def _one_match(docs: list[dict], key: str, factors) -> float:
+    """Joint chance of lines that all belong to ONE match. This is where the measured numbers apply: two lines on
+    the same player happen together far more often than the product says, and before the lineup every line in the
+    match shares the same team news, game state and referee, which is what `combo.pre_factors` corrects for."""
     groups: dict = {}
     for f in docs:
         groups.setdefault(_entity(f), []).append(chance(f, key))
@@ -76,7 +78,28 @@ def combine(docs: list[dict], key: str = "p", factors=(1.0, 1.11, 1.19, 1.25)) -
             g *= x ** SAME_PLAYER_EXP
         out *= g
     pre = any(f.get("state") == "pre" for f in docs)
-    return min(out * _factor(len(groups), pre, factors), CAP)
+    return out * _factor(len(groups), pre, factors)
+
+
+def combine(docs: list[dict], key: str = "p", factors=(1.0, 1.11, 1.19, 1.25)) -> float:
+    """Joint chance of every line in `docs`, which may come from several matches (docs/40).
+
+    Lines in the same match lean on each other: the same team news, the same game state, the same referee. That is
+    what we measured, and `_one_match` applies it. Lines in DIFFERENT matches share none of those causes, so the
+    matches multiply plainly. Stretching the within-match correction across matches would inflate the number for a
+    dependence that is not there.
+
+    One line is not a combination: it is returned as it is, so the builder never changes a number you were
+    already looking at."""
+    by_match: dict = {}
+    for f in docs:
+        by_match.setdefault(f.get("match_iid"), []).append(f)
+    out = 1.0
+    for ds in by_match.values():
+        out *= _one_match(ds, key, factors)
+    if len(docs) <= 1:
+        return min(max(out, 0.0), 1.0)
+    return min(out, CAP)
 
 
 def plain(c: float) -> str:
@@ -98,17 +121,29 @@ def _name(x) -> str:
     return (x or {}).get("name") or ""
 
 
-def _s(n: int, word: str) -> str:
-    return f"{n} {word}" + ("" if n == 1 else "s")
+def _s(n: int, word: str, plural: str | None = None) -> str:
+    """'1 match', '2 matches'. A bare 's' gives 'matchs', so words that hiss take 'es' (or an explicit plural)."""
+    if n == 1:
+        return f"{n} {word}"
+    return f"{n} {plural}" if plural else f"{n} {word}" + ("es" if word.endswith(("ch", "sh", "s", "x", "z")) else "s")
 
 
 def _with_match(db, rep: dict) -> dict:
-    """Add the match's public id and its "Home v Away" label, so the screens can name and link the combo."""
-    m = db.matches.find_one({"iid": rep["match_iid"]}, {"_id": 0, "id": 1, "home_iid": 1, "away_iid": 1})
-    if m:
-        names = Q._names(db, "teams", [m["home_iid"], m["away_iid"]])
-        rep["match_id"] = m.get("id")
-        rep["label"] = f"{(names.get(m['home_iid']) or {}).get('name')} v {(names.get(m['away_iid']) or {}).get('name')}"
+    """Name and link every match the combo touches. `matches` is the list, newest kick-off last. `match_iid`,
+    `match_id` and `label` stay as the first match so older screens and saved combos keep working; with more than
+    one match the label counts them instead."""
+    iids = [m["match_iid"] for m in rep.get("matches", [])] or ([rep["match_iid"]] if rep.get("match_iid") else [])
+    rows = {m["iid"]: m for m in db.matches.find({"iid": {"$in": iids}}, {"_id": 0, "iid": 1, "id": 1, "home_iid": 1, "away_iid": 1})}
+    names = Q._names(db, "teams", [t for m in rows.values() for t in (m["home_iid"], m["away_iid"])])
+    for entry in rep.get("matches", []):
+        m = rows.get(entry["match_iid"])
+        if not m:
+            continue
+        entry["match_id"] = m.get("id")
+        entry["label"] = f"{(names.get(m['home_iid']) or {}).get('name')} v {(names.get(m['away_iid']) or {}).get('name')}"
+    first = (rep.get("matches") or [{}])[0]
+    rep["match_id"] = first.get("match_id")
+    rep["label"] = first.get("label") if len(rep.get("matches", [])) <= 1 else f"{_s(len(rep['matches']), 'match')}"
     return rep
 
 
@@ -124,8 +159,6 @@ def estimate(db, ids=None, fkeys=None) -> dict:
     found = {d["id"] for d in docs} | {d["fkey"] for d in docs}
     if [x for x in (*ids, *fkeys) if x not in found]:
         raise ComboError("NOT_FOUND", "One of those lines is no longer available.")
-    if len({d["match_iid"] for d in docs}) > 1:
-        raise ComboError("MIXED_MATCHES", "A combo holds lines from one match.")
     seen = set()
     for d in docs:
         k = (_entity(d), d["stat"])
@@ -142,7 +175,8 @@ def _report(docs: list[dict], factors) -> dict:
         lines.append({"id": d["id"], "fkey": d["fkey"], "scope": d["scope"], "player": _ref(d.get("player")), "team": _ref(d.get("team")),
                       "opp": _ref(d.get("opp")), "stat": d["stat"], "thr": d["thr"], "market": d["market"], "p": round(float(d["p"]), 4),
                       "p_play": round(float(d.get("p_play", 1.0)), 4), "chance": round(chance(d), 4), "includes_play": includes_play(d),
-                      "badge": d.get("lineup_badge"), "tier": d.get("tier"), "state": d.get("state")})
+                      "badge": d.get("lineup_badge"), "tier": d.get("tier"), "state": d.get("state"),
+                      "match_iid": d.get("match_iid"), "kickoff": d.get("kickoff")})
     c = combine(docs, "p", factors)
     lo = combine(docs, "lo", factors); hi = combine(docs, "hi", factors)
     state = "pre" if any(d.get("state") == "pre" for d in docs) else "lineup"
@@ -162,9 +196,25 @@ def _report(docs: list[dict], factors) -> dict:
     if len(ents) > TESTED_ENTITIES:
         notes.append(f"We tested combos of up to {TESTED_ENTITIES} players or teams. Longer ones are less certain.")
     weakest = min(lines, key=lambda x: x["chance"])["id"] if lines else None
-    return {"match_iid": docs[0]["match_iid"], "kickoff": docs[0]["kickoff"], "state": state, "lines": lines,
+    # one entry per match, earliest kick-off first, each with its own joint chance
+    by_match: dict = {}
+    for d in docs:
+        by_match.setdefault(d["match_iid"], []).append(d)
+    matches = sorted(({"match_iid": iid, "kickoff": ds[0]["kickoff"],
+                       "fkeys": [d["fkey"] for d in ds],
+                       "combined": round(min(_one_match(ds, "p", factors), 1.0), 4),
+                       "state": "pre" if any(d.get("state") == "pre" for d in ds) else "lineup"}
+                      for iid, ds in by_match.items()), key=lambda e: (e["kickoff"] is None, e["kickoff"]))
+    if len(matches) > 1:
+        notes.append(f"Lines from {_s(len(matches), 'different match', 'different matches')}. Different matches do not lean on each other, "
+                     "so their chances multiply plainly.")
+    return {"match_iid": matches[0]["match_iid"], "kickoff": matches[0]["kickoff"],
+            "last_kickoff": matches[-1]["kickoff"], "matches": matches,
+            "state": state, "lines": lines,
             "combined": round(c, 4), "range": {"lo": round(min(lo, c), 4), "hi": round(max(hi, c), 4)}, "plain": plain(c),
-            "weakest": weakest, "notes": notes, "factor": _factor(len(ents), state == "pre", factors)}
+            "weakest": weakest, "notes": notes,
+            "factor": max((_factor(len({_entity(d) for d in ds}), e["state"] == "pre", factors)
+                           for e, ds in zip(matches, (by_match[e["match_iid"]] for e in matches))), default=1.0)}
 
 
 def suggest(db, match_iid: int, mode: str = "balanced") -> dict:

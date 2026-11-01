@@ -306,3 +306,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .lv-chip--hit { font-weight: 600; }
 .lv-chip--hit svg { color: var(--up); }
 .k-fc--missed { opacity: .66; }
+
+/* ---------- Combo builder: a fixture heading when a combo spans several matches (docs/40) */
+.cb-fx { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 14px 0 6px;
+  font-size: 13px; font-weight: 600; color: var(--text2); }
+.cb-fx:first-child { margin-top: 0; }
+.cb-fx span { font-weight: 500; color: var(--text3); font-variant-numeric: tabular-nums; }

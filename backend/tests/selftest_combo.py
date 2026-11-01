@@ -74,7 +74,13 @@ def code(fn):
         return ex.code
 other_match = F(11, "player", 2, 6, "shots", 0.5, 0.7)
 same = F(10, "player", 1, 1, "shots", 2.5, 0.55)
-check(code(lambda: est(a, other_match)) == "MIXED_MATCHES", "two matches: refused")
+# docs/40: lines from several matches are allowed now, and the matches multiply plainly
+cross = est(a, other_match)
+check(len(cross["matches"]) == 2, "two matches: accepted, and both are named")
+check(abs(cross["combined"] - CB.chance(a) * CB.chance(other_match)) < 1e-9,
+      "...their chances multiply plainly, with no within-match correction")
+check(any("do not lean on each other" in n for n in cross["notes"]), "...and the screen is told why")
+check(cross["last_kickoff"] is not None, "...and the combo carries the last kick-off, so it is not settled early")
 check(code(lambda: est(a, same)) == "SAME_STAT", "two lines on one stat for one player: refused (keep one)")
 check(code(lambda: CB.estimate(db, ids=["nope"])) == "NOT_FOUND" and code(lambda: CB.estimate(db, ids=[])) == "EMPTY", "unknown line and empty combo")
 many = [F(10, "player", 1 if i % 2 else 2, 20 + i, "shots", 0.5, 0.7) for i in range(7)]
@@ -102,7 +108,8 @@ check(CB.suggest(db, 999, "safer")["lines"] == [] and code(lambda: CB.suggest(db
 print("[routes]")
 r = c.post("/api/combo/estimate", json={"ids": [S_[0]["id"], S_[2]["id"]]})
 check(r.status_code == 200 and abs(r.json()["combined"] - 0.93 * 0.84) < 1e-3 and r.headers["cache-control"] == "no-store", "POST /api/combo/estimate")
-check(c.post("/api/combo/estimate", json={"ids": [S_[0]["id"], other_match["id"]]}).json()["error"]["code"] == "MIXED_MATCHES", "route: two matches -> MIXED_MATCHES (409)")
+r2 = c.post("/api/combo/estimate", json={"ids": [S_[0]["id"], other_match["id"]]}).json()
+check(len(r2.get("matches", [])) == 2, "route: two matches are accepted and both come back (docs/40)")
 check(c.post("/api/combo/estimate", json={"ids": ["zz"]}).status_code == 404, "route: unknown line -> 404")
 check(c.get("/api/matches/m10/combo-suggest?mode=safer").json()["mode"] == "safer" and c.get("/api/matches/m10/combo-suggest?mode=x").status_code == 400, "GET /api/matches/{id}/combo-suggest")
 check(c.get("/api/me/combos").status_code == 401, "my combos: signed out is 401")
@@ -124,7 +131,11 @@ check(r.status_code == 201 and r.json()["estimate"]["combined"] > 0, "A saves a 
 lst = ua.get("/api/me/combos").json()["items"]
 check(len(lst) == 1 and lst[0]["label"] == "Como v Venezia" and lst[0]["status"] == "upcoming" and lst[0]["now"]["combined"] == r.json()["estimate"]["combined"], "list: label, upcoming, today's estimate")
 check(ub.get("/api/me/combos").json()["items"] == [] and ub.request("DELETE", f"/api/me/combos/{lst[0]['id']}").json()["removed"] == 0, "private: B sees nothing and cannot delete A's combo")
-check(ua.put("/api/me/combos", json={"ids": [S_[0]["id"], other_match["id"]]}).status_code == 409, "saving lines from two matches: 409")
+sv = ua.put("/api/me/combos", json={"ids": [S_[0]["id"], other_match["id"]]})
+check(sv.status_code == 201, "a combo spanning two matches can be saved (docs/40)")
+saved = next(x for x in ua.get("/api/me/combos").json()["items"] if x["id"] == sv.json()["id"])
+check(len(saved["matches"]) == 2 and saved["label"] == "2 matches", f"...the list names both matches: {saved['label']}")
+check(saved["status"] == "upcoming", "...and it stays upcoming until the LAST match has kicked off")
 rk = ua.put("/api/me/combos", json={"fkeys": [S_[0]["fkey"], S_[2]["fkey"]]})
 check(rk.status_code == 201 and rk.json()["estimate"]["label"] == "Como v Venezia" and rk.json()["estimate"]["match_id"] == "m10", "save by stable keys (what the screens send); the estimate names the match")
 check([x for x in ua.get("/api/me/combos").json()["items"] if x["id"] == rk.json()["id"]][0]["match_id"] == "m10", "a saved combo links back to its match")
@@ -137,19 +148,20 @@ setting("features.billing", False)
 
 print("[after the match]")
 db.matches.update_one({"iid": 10}, {"$set": {"kickoff": now - dt.timedelta(hours=5), "status": "final"}})
-db.combos.update_one({"id": lst[0]["id"]}, {"$set": {"kickoff": now - dt.timedelta(hours=5)}})
-w = ua.get("/api/me/combos").json()["items"][0]
+# both: a combo is over only when its LAST match has kicked off (docs/40)
+db.combos.update_one({"id": lst[0]["id"]}, {"$set": {"kickoff": now - dt.timedelta(hours=5), "last_kickoff": now - dt.timedelta(hours=5)}})
+w = next(x for x in ua.get("/api/me/combos").json()["items"] if x["id"] == lst[0]["id"])
 check(w["status"] == "waiting" and w["result"]["of"] == 3 and not w["result"]["all"], "no results yet: waiting")
 fk = [l["fkey"] for l in w["lines"]]
 for i, k in enumerate(fk):
     db.forecast_outcomes.insert_one({"fkey": k, "forecast_id": f"o{i}", "actual": 3.0 if i < 2 else 1.0, "reached": i < 2, "player_played": True})
-w = ua.get("/api/me/combos").json()["items"][0]
+w = next(x for x in ua.get("/api/me/combos").json()["items"] if x["id"] == lst[0]["id"])
 check(w["status"] == "settled" and w["result"] == {"reached": 2, "of": 3, "all": False} and w["lines"][0]["reached"] is True and w["lines"][2]["actual"] == 1.0, "settled: 2 of 3 reached, with what each player or team had")
 check(ua.request("DELETE", f"/api/me/combos/{lst[0]['id']}").json()["removed"] == 1, "A deletes the combo")
 
 print("[wording]")
 from itertools import chain
 texts = list(chain.from_iterable(r_["notes"] for r_ in (e, e4, es, e5))) + [CB.plain(x) for x in (0.1, 0.4, 0.6, 0.97)] + [CB.ComboError("x", m).message for m in
-        ("Add at least one line.", "A combo holds lines from one match.", "Keep one line per stat for each player or team.", "One of those lines is no longer available.")]
+        ("Add at least one line.", "Keep one line per stat for each player or team.", "One of those lines is no longer available.")]
 check(not textguard.find(texts), "no sentence a user can see contains a banned word")
 print("\nALL COMBO CHECKS PASSED")

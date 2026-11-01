@@ -102,15 +102,31 @@ function Review() {
         <div><small className="k-sec">All {combo.lines.length} line{combo.lines.length === 1 ? "" : "s"} together</small><b className="cb-big" data-testid="combo-big">{est ? pct(est.combined) : "–"}</b></div>
         <div className="cb-hero-r"><b>{est?.plain || ""}</b>{est && <small>Range {Math.round(est.range.lo * 100)} to {Math.round(est.range.hi * 100)}%</small>}</div>
         <span className="cb-track" aria-hidden="true">{est && <><i className="cb-rg" style={{ left: `${est.range.lo * 100}%`, width: `${(est.range.hi - est.range.lo) * 100}%` }} /><i className="cb-mark" style={{ left: `${est.combined * 100}%` }} /></>}</span>
-        {est?.state === "pre" && <small className="muted">Lineups are not out, so we add a small correction. We tested it on 237,000 real combinations.</small>}
+        {est?.state === "pre" && (est?.matches || []).length <= 1 && <small className="muted">Lineups are not out, so we add a small correction. We tested it on 237,000 real combinations.</small>}
+        {(est?.matches || []).length > 1 && <small className="muted">Lines from {est.matches.length} matches. Different matches do not lean on each other, so we multiply them plainly.</small>}
+        {est && est.lines.length === 1 && est.lines[0].scope === "player" && est.lines[0].p_play < 0.999 && (
+          <small className="muted" data-testid="combo-one-line-why">
+            The card says {pct(est.lines[0].p)} <em>if he plays</em>. Here we also count the {pct(est.lines[0].p_play)} chance he plays,
+            which is why this reads {pct(est.combined)}.
+          </small>
+        )}
       </div>
       <ul className="cb-lines">
-        {combo.lines.map((l) => {
+        {combo.lines.map((l, i) => {
+          const mi = est?.matches || [];
+          const fx = mi.find((x) => x.match_iid === (lineBy[l.fkey]?.match_iid ?? l.match_iid));
+          const prev = i > 0 ? (lineBy[combo.lines[i - 1].fkey]?.match_iid ?? combo.lines[i - 1].match_iid) : null;
+          const newFixture = mi.length > 1 && fx && fx.match_iid !== prev;
           const e = lineBy[l.fkey];
           const sub = e ? (e.scope === "player" ? (e.includes_play ? `${pct(e.p)}, counting his ${pct(e.p_play)} chance to play` : `${pct(e.p)} if he plays · ${pct(e.p_play)} to play`) : "Team line") : "";
           const on = openRow === l.fkey;
           return (
             <li key={l.fkey} className="cb-line" data-testid={`combo-line-${l.fkey}`}>
+              {newFixture && (
+                <p className="cb-fx" data-testid={`combo-fixture-${fx.match_iid}`}>
+                  {fx.label || "Another match"}<span>{pct(fx.combined)} from this match</span>
+                </p>
+              )}
               <div className="cb-line-row">
                 <button type="button" className="cb-line-main" onClick={() => setOpenRow(on ? null : l.fkey)} aria-expanded={on} aria-label={`${who(e || l)}, ${l.market}. Change the line`}>
                   <Face l={e || l} size={36} />
@@ -150,7 +166,7 @@ function SwitchAsk() {
         <button type="button" className="btn btn--secondary" onClick={confirmAsk} data-testid="combo-switch-new">Start a new combo</button>
         <button type="button" className="k-link" onClick={() => setAsk(null)} data-testid="combo-switch-keep">Keep my open combo</button>
       </div>}>
-      <p>Each combo stays inside one match. Your open combo has {combo?.lines.length} line{combo?.lines.length === 1 ? "" : "s"} from {est?.label || "another match"}{est ? `, ${pct(est.combined)} together` : ""}.</p>
+      <p>Your open combo has {combo?.lines.length} line{combo?.lines.length === 1 ? "" : "s"}{est ? `, ${pct(est.combined)} together` : ""}. You can keep adding to it, or start again.</p>
       {err && <p className="cb-err" role="alert">{err}</p>}
     </BottomSheet>
   );
