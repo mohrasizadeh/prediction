@@ -53,3 +53,17 @@ Pass 1 covered the public shell and the shared cards. Pass 2 covers what was lef
 ### Not done
 
 A full before-and-after image set for all ~50 screens was started and not finished. The baseline is captured; the matching after-set is not. Re-run `axe` for the contrast rules once it is.
+
+## Pass 3 (2026-11-01): the weekly e-mail block
+
+Pass 2 flattened it by accident. `hig.css` set `.nl { background: var(--surface1) }`, which outranked `.nl2`'s
+brand gradient, so the block lost the tint that made it read as an invitation and became another white card with
+an empty right half on desktop.
+
+| Fix | Why |
+|---|---|
+| The tint is back, as a soft radial wash built from the brand token. | HIG allows a tinted grouped container for a promotion; a flat surface made it disappear into the page. |
+| The field matches the other HIG fields: filled, hairline, 12 px radius, 16 px text (so iOS does not zoom on focus), with the brand focus ring. | It was still on the old 1 px bordered style and clashed with every other field. |
+| Two columns only when the e-mail preview is really rendered (`:has()`); otherwise the invitation centres on its own measure. | The preview needs three Strong reads. Without it the second column was a dead half of the block. |
+| The preview card keeps its slight tilt and gains a real shadow. | Cards lost their shadows in pass 1; this one needs elevation to read as a piece of paper. |
+| The field and the button sit on one row on desktop, and the button is full width on a phone. | **Pre-existing bug, not from the redesign:** `.nl form` in `growth.css` (one class + one element) outranks `.nl2-form` (one class), so the sign-up row had always been a one-column grid and the two always stacked. |

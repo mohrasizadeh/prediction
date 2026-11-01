@@ -144,7 +144,52 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .pop--banner_top h2, .pop--banner_bottom h2 { font-size: 15px; }
 .pop-form-row input, .nl-row input { border: .5px solid var(--hig-separator); background: var(--surface1); border-radius: 10px; }
 .pop-success, .nl-done { border-radius: 10px; }
-.nl { border: 0; border-radius: 14px; background: var(--surface1); }
+/* The weekly e-mail block. Pass 2 flattened it by accident: `.nl` set a plain surface over `.nl2`'s tint, so the
+   block lost the one thing that made it read as an invitation rather than another card. It is a promotion, and HIG
+   allows a tinted grouped container for that, so the tint comes back, quieter and built from the brand token.
+   The preview card keeps its slight tilt and gains a real shadow, since cards elsewhere no longer have one. */
+.nl, .nl2 {
+  border: 0; border-radius: 16px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 60%),
+    var(--surface1);
+}
+.nl2 { gap: 20px; }
+.nl2-tag { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--text);
+  background: color-mix(in srgb, var(--tier-strong) 22%, transparent); }
+.nl2 h2 { font-size: clamp(1.3125rem, 2vw, 1.75rem); letter-spacing: -0.021em; font-weight: 700; }
+.nl2-main > p { font-size: 15px; }
+/* `.nl form` in growth.css (one class + one element) outranks `.nl2-form` (one class), so the sign-up row has
+   always been a one-column grid and the field and button always stacked. Two classes puts the row back. */
+.nl2 .nl2-form { display: flex; flex-wrap: wrap; align-items: center; }
+.nl2-form input {
+  min-height: 48px; border-radius: 12px; border: .5px solid var(--hig-separator);
+  background: var(--surface1); font-size: 16px;                  /* 16px: iOS does not zoom the page on focus */
+}
+.nl2-form input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 40%, transparent); }
+.nl2-form .btn { min-height: 48px; }
+.nl2-consent { font-size: 12.5px; }
+@media (max-width: 899px) { .nl2 .nl2-form .btn { flex: 1 1 100%; } }   /* one thumb-wide button on a phone */
+/* Two columns only when the preview is really there: it needs three Strong reads, and without it the second
+   column was an empty half of the block. */
+@media (min-width: 900px) {
+  .nl2 { grid-template-columns: minmax(0, 1fr); }
+  .nl2:has(.nl-preview) { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+  /* With the preview there, the text sits left against it. Without it, left-aligned text in a full-width block
+     left a dead half, so the invitation centres on its own measure instead. */
+  .nl2:not(:has(.nl-preview)) .nl2-main { max-width: 620px; margin: 0 auto; justify-items: center; text-align: center; }
+  /* centring the grid item made the form shrink to its content and wrap; give it back a width so the field and
+     the button sit on one line, which is what a sign-up row should look like */
+  .nl2:not(:has(.nl-preview)) .nl2-form { width: 100%; max-width: 540px; margin: 0 auto; flex-wrap: nowrap; justify-content: center; }
+  .nl2:not(:has(.nl-preview)) .nl2-form .btn { flex: 0 0 auto; }
+  .nl2:not(:has(.nl-preview)) .nl2-consent { text-align: center; }
+}
+.nl-preview {
+  border: 0; border-radius: 14px; background: var(--surface1);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 12px 32px rgba(0,0,0,.14);
+}
+.nl-preview li { border-top: .5px solid var(--hig-separator); }
+.nl-preview b { font-size: 15px; font-weight: 600; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pop { background: var(--surface1); } }
 @media (prefers-reduced-transparency: reduce) { .pop { background: var(--surface1); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 
