@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import os
 import re
+import ipaddress
 import smtplib
+import socket
 import ssl
 import time
 import uuid
@@ -205,6 +207,51 @@ class Smtp:
         return {"id": mid}
 
 
+SMTP_PORTS = (25, 465, 587, 2525)
+_RESOLVE = socket.getaddrinfo        # tests replace this (integrations.set_resolver sets both)
+
+
+def check_smtp_target(host, port) -> None:
+    """The SMTP server must be a public host on a standard mail port. Stops the SMTP settings being used to
+    reach our own network, or to hand the stored password to an address nobody vetted (docs/36 C1)."""
+    if not host or not isinstance(host, str) or len(host) > 253 or any(c in host for c in "/@:\\ "):
+        raise ValueError("Enter a host name such as smtp.example.com.")
+    try:
+        port = int(port)
+    except (TypeError, ValueError):
+        raise ValueError("Use port 25, 465, 587 or 2525.")
+    if port not in SMTP_PORTS:
+        raise ValueError("Use port 25, 465, 587 or 2525.")
+    try:
+        addrs = [ipaddress.ip_address(host)]
+    except ValueError:
+        try:
+            addrs = [ipaddress.ip_address(i[4][0]) for i in _RESOLVE(host, port, proto=socket.IPPROTO_TCP)]
+        except OSError:
+            raise ValueError("That host name does not resolve.")
+    for ip in addrs:
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+            raise ValueError("That address points to a private network. Use a public SMTP server.")
+
+
+def set_smtp_target(db, actor: str, host=None, port=None) -> bool:
+    """Saves the SMTP host and port after checking them. A new host clears the stored SMTP password, so the
+    password only ever goes to the server it was entered for. Returns True when the password was cleared."""
+    old_host = S.get(db, "email.smtp_host") or ""
+    new_host = old_host if host is None else (host or "").strip().lower()
+    new_port = S.get(db, "email.smtp_port") if port is None else port
+    if new_host:
+        check_smtp_target(new_host, new_port)
+    if port is not None:
+        S.put(db, "email.smtp_port", int(port), actor=actor)
+    cleared = False
+    if host is not None and new_host != old_host.strip().lower():
+        S.put(db, "email.smtp_host", new_host, actor=actor)
+        if old_host:                # a password saved for one server is never sent to another
+            cleared = db.provider_keys.delete_one({"provider": "smtp_password"}).deleted_count > 0
+    return cleared
+
+
 def get_provider(db) -> str:
     p = S.get(db, "email.provider")
     return p if p in PROVIDERS else "resend"
@@ -228,6 +275,10 @@ def get_client(db):
     mode = S.get(db, "email.smtp_security")
     if not host or mode not in ("starttls", "ssl"):
         return None
+    try:
+        check_smtp_target(host, S.get(db, "email.smtp_port"))
+    except ValueError:
+        return None
     return Smtp(key, host, S.get(db, "email.smtp_port"), user, mode)
 
 
@@ -244,6 +295,10 @@ def test_key(db, pid: str) -> dict:
             host, mode, user = S.get(db, "email.smtp_host"), S.get(db, "email.smtp_security"), S.get(db, "email.smtp_user")
             if not host:
                 return {"ok": False, "code": "no_host"}
+            try:
+                check_smtp_target(host, S.get(db, "email.smtp_port"))
+            except ValueError:
+                return {"ok": False, "code": "bad_host"}
             if _SMTP:
                 c = _SMTP(host, int(S.get(db, "email.smtp_port")), mode)
             elif mode == "ssl":

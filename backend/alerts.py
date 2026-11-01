@@ -60,6 +60,10 @@ def evaluate(db, now=None) -> dict:
     f = db.payments.count_documents({"status": {"$in": ["failed", "uncollectible"]}, "created_at": {"$gte": now.replace(hour=0, minute=0, second=0, microsecond=0)}})
     fl = int(S.get(db, "admin.alert_failed_payments"))
     rule("failed_payments", f >= fl, f"{f} failed payments today (limit {fl}). Open Payments.")
+    import legal_pages
+    todo = legal_pages.needs_review(db)
+    rule("legal_pages", bool(todo), "Legal pages still need your review before launch: " + ", ".join(todo)
+         + ". They are starter text, not legal advice. Open Pages, check each one (with a lawyer) and save it." if todo else "")
     return {"opened": opened, "cleared": cleared}
 
 

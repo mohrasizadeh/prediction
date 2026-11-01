@@ -147,12 +147,16 @@ def rebuild_referees(db, league_iid: int) -> int:
                 r["yellow"] += e["type"] == "yellow"
                 r["red"] += e["type"] == "red"
                 r["pens"] += e["type"] == "goal" and e["penalty"]
-    db.referee_stats.delete_many({"league_iid": league_iid})
+    # Update each row in place. The daily `referees` job adds the normalised factor and sentence to the same rows;
+    # deleting and re-inserting here wiped them, so match pages said "No history" for most of every match day (docs/36 H7).
     for name, r in rows.items():
         n = r["with_events"] or None
-        db.referee_stats.insert_one({"league_iid": league_iid, "referee": name, "name": name, "matches": r["matches"], "last_match": r["last"],
-                                     "yellow_pg": r["yellow"] / n if n else None, "red_pg": r["red"] / n if n else None,
-                                     "pens_pg": r["pens"] / n if n else None, "home_win_pct": r["home_wins"] / r["matches"]})
+        db.referee_stats.update_one({"league_iid": league_iid, "referee": name},
+                                    {"$set": {"name": name, "matches": r["matches"], "last_match": r["last"],
+                                              "yellow_pg": r["yellow"] / n if n else None, "red_pg": r["red"] / n if n else None,
+                                              "pens_pg": r["pens"] / n if n else None, "home_win_pct": r["home_wins"] / r["matches"]}},
+                                    upsert=True)
+    db.referee_stats.delete_many({"league_iid": league_iid, "referee": {"$nin": list(rows)}, "factor": {"$exists": False}})
     return len(rows)
 
 

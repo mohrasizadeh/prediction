@@ -17,7 +17,7 @@ import ComboHost from "./ComboHost";
 import { useCombo } from "../lib/combo";
 import { LiveSheet, useLiveNow } from "./LiveSheet";
 import { LivePill } from "./ui";
-import { setConsent, usePageBeacon, useTagLoader } from "../lib/growth";
+import { reopenConsent, setConsent, usePageBeacon, useTagLoader } from "../lib/growth";
 
 // Five sections, each a verb people already have in mind (docs/24 "Navigation").
 const NAV5 = [
@@ -99,8 +99,17 @@ const NO_BANNER = /^\/(sign-in|sign-up|enroll-2fa|change-password|reset-password
 function CookieBanner({ c }) {
   const [choice, setChoice] = useState(() => localStorage.getItem("consent"));
   const { pathname } = useLocation();
+  useEffect(() => {
+    const reopen = () => setChoice(null);
+    window.addEventListener("consent-reopen", reopen);
+    return () => window.removeEventListener("consent-reopen", reopen);
+  }, []);
   if (!c?.banner || choice || NO_BANNER.test(pathname)) return null;
-  const pick = (v) => { setConsent(v); setChoice(v); };
+  const pick = (v) => {
+    const withdrew = choice === null && localStorage.getItem("consent-was") === "all" && v !== "all";
+    setConsent(v); setChoice(v); localStorage.removeItem("consent-was");
+    if (withdrew) window.location.reload();               // unload tags that were already running on this page
+  };
   return (
     <div className="cookie" role="region" aria-label="Privacy choices" data-testid="cookie-banner">
       <p>{c.text} {c.policy_route && <Link to={route(c.policy_route)}>Read more</Link>}</p>
@@ -108,6 +117,18 @@ function CookieBanner({ c }) {
         <button className="btn btn--secondary btn--sm" onClick={() => pick("essential")} data-testid="cookie-reject">{c.reject_label || "No thanks"}</button>
         <button className="btn btn--primary btn--sm" onClick={() => pick("all")} data-testid="cookie-accept">{c.accept_label || "Allow optional"}</button>
       </div>
+    </div>
+  );
+}
+
+// docs/03 §4.7, docs/36 H10: when our data feed falls behind, say so above every page. Not dismissible while it lasts.
+function StaleBanner({ status }) {
+  if (!status?.stale) return null;
+  const h = status.stale_hours;
+  const age = h >= 48 ? `${Math.round(h / 24)} days` : `${h} hours`;
+  return (
+    <div className="announce announce--warn" role="status" data-testid="stale-banner">
+      <div className="wrap announce-row"><Icon name="alert" size={16} /><p>Data last updated {age} ago. Forecasts may not reflect the latest results, lineups or news.</p></div>
     </div>
   );
 }
@@ -137,6 +158,7 @@ function Footer({ cfg, updated, mode }) {
           <div className="foot2-brand"><BrandLogo brand={cfg?.brand} mode={mode} /><strong>{cfg?.brand?.name || "Prediciotn"}</strong><span>Football stats and forecasts, for information.</span></div>
           <nav aria-label="Footer" className="foot2-links" data-testid="footer-links">
             {links.map(([label, r]) => isExternal(r) ? <a key={r} href={r} target="_blank" rel="noopener noreferrer">{label}</a> : <Link key={r} to={route(r)} data-testid={`footer-link-${label.toLowerCase().replace(/\s+/g, "-")}`}>{label}</Link>)}
+            <button type="button" className="linkish" onClick={reopenConsent} data-testid="footer-privacy-choices">Privacy choices</button>
           </nav>
           <ThemeToggle />
         </div>
@@ -242,6 +264,7 @@ export default function Layout({ children }) {
           </div>
         </div>
       </header>
+      <StaleBanner status={status.data} />
       <Announcements />
       <div className="body-row">
         {rail && (

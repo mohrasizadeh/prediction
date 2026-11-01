@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { get, put } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { DISCLAIMER, pct } from "../../lib/copy";
+import { DISCLAIMER, pct, range } from "../../lib/copy";
 import { PlayerAvatar, Crest } from "../Media";
 import { SaveButton } from "../Actions";
 import { BottomSheet } from "./BottomSheet";
@@ -55,7 +55,8 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
     const text = `${f.player?.name || fx.team?.name || ""}: ${f.market}, ${pct(f.p)}`;
     try { if (navigator.share) await navigator.share({ title: text, text, url }); else await navigator.clipboard.writeText(`${text} ${url}`); } catch { /* closed */ }
   };
-  const lines = [{ fkey: f.fkey, market: f.market, p: f.p, tier: f.tier }, ...(f.more_lines || [])];
+  const lines = [{ fkey: f.fkey, market: f.market, p: f.p, lo: f.lo, hi: f.hi, tier: f.tier }, ...(f.more_lines || [])];
+  const rng = f.p_display ? null : range(f.lo, f.hi);
   const title = `${f.player?.name || fx.team?.name || "Forecast"} · ${f.market}`;
   return (
     <BottomSheet open={open} onClose={onClose} title={title} testid={testid}
@@ -63,20 +64,21 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       <div className="k-fs-head" style={{ "--tone": f.tier ? `var(--tier-${f.tier.toLowerCase()})` : "var(--text3)" }}>
         {f.player ? <PlayerAvatar player={f.player} size={52} /> : <Crest team={fx.team} size={52} />}
         <span className="k-fc-who"><small>{[fx.text, f.kickoff ? timeOf(f.kickoff) : null].filter(Boolean).join(" · ")}</small></span>
-        <b className="k-fc-p">{pct(f.p)}</b>
+        <span className="k-fc-pwrap"><b className="k-fc-p">{pct(f.p)}</b>{rng && <small className="k-fc-range" data-testid={`${testid}-range`}>{rng}</small>}</span>
       </div>
+      {rng && <p className="k-faint" data-testid={`${testid}-range-note`}>Likely range {rng}%. The wider the range, the less sure the forecast.</p>}
       {(f.reasons || []).length > 0 && <section><h3 className="k-sec">Why</h3><ul className="k-fs-why">{f.reasons.map((r) => <li key={r}>{r}</li>)}</ul></section>}
       {f.scope === "player" && (
         <div className="k-fs-tiles">
           {f.p_play != null && <div className="k-fs-tile"><small>Chance he plays</small><b data-testid={`${testid}-pplay`}>{pct(f.p_play)}</b></div>}
-          {f.p != null && <div className="k-fs-tile"><small>If he plays</small><b>{pct(f.p)}</b></div>}
+          {f.p != null && <div className="k-fs-tile"><small>If he plays</small><b>{pct((f.p_basis === "all" || f.model === "cards") && f.p_play ? Math.min(1, f.p / f.p_play) : f.p)}</b></div>}
           <div className="k-fs-tile"><small>Lineup</small><b className={f.lineup_badge === "confirmed" || (!f.lineup_badge && f.lineup_confirmed) ? "k-up" : "k-watch"}>{{ confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" }[f.lineup_badge] || (f.lineup_confirmed ? "Confirmed" : "Not out yet")}</b></div>
         </div>
       )}
       {d.hits?.length > 0 && <section><h3 className="k-sec">Last {d.hits.length} games · {f.market}</h3><HitStrip hits={d.hits} label={f.market} testid={`${testid}-hits`} /></section>}
       {f.p_usual != null && <p className="k-faint" data-testid={`${testid}-usual`}>Usually {pct(f.p_usual)}</p>}
       {f.scope === "player" && f.rec_n >= 8 && <p className="k-faint" data-testid={`${testid}-rec`}>Reached this line in {f.rec_k} of his last {f.rec_n} games.</p>}
-      {lines.length > 1 && <section><h3 className="k-sec">All lines</h3><ul className="k-fc-lines">{lines.map((x) => <li key={x.fkey} style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}><span>{x.market}</span><b>{pct(x.p)}</b></li>)}</ul></section>}
+      {lines.length > 1 && <section><h3 className="k-sec">All lines</h3><ul className="k-fc-lines">{lines.map((x) => <li key={x.fkey} style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}><span>{x.market}</span><b>{pct(x.p)}{range(x.lo, x.hi) && <small className="k-fc-range"> ({range(x.lo, x.hi)})</small>}</b></li>)}</ul></section>}
       {tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} {f.scope} {STAT_WORD[f.stat] || f.stat} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to={`/track-record?stat=${f.stat}`}>Track record</Link></p>}
       <p className="k-faint k-small">{DISCLAIMER} <Link to="/learn/forecast-card" aria-label="How to read a forecast card" data-testid={`${testid}-learn`}>How to read this card (?)</Link></p>
     </BottomSheet>

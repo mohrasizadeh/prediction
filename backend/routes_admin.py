@@ -34,7 +34,8 @@ from cached_fetch import PitchClient, PitchError
 
 router = APIRouter(prefix="/api/admin")
 perm = D.require_perm
-OWNER_ONLY_SETTINGS = ("security.", "billing.", "auth.", "features.billing", "tracking.")
+# email.provider and email.smtp_* decide where the stored mail password and every reset link go (docs/36 C1)
+OWNER_ONLY_SETTINGS = ("security.", "billing.", "auth.", "features.billing", "tracking.", "email.provider", "email.smtp_")
 
 
 def utcnow():
@@ -597,7 +598,13 @@ def settings_put(key: str, body: SetValue, user=Depends(perm("settings.write")),
     if key.startswith(OWNER_ONLY_SETTINGS) and not A.can(user, "keys.write"):
         raise D.err(403, "FORBIDDEN", "Only an owner can change this setting.")
     try:
-        S.put(db, key, body.value, actor=user["email"])
+        if key in ("email.smtp_host", "email.smtp_port"):
+            if key not in S.registry():
+                raise KeyError(key)
+            if T.set_smtp_target(db, user["email"], **{key.split("_", 1)[1]: body.value}):
+                AQ.audit(db, user, "key.delete", "smtp_password", detail="SMTP host changed")
+        else:
+            S.put(db, key, body.value, actor=user["email"])
     except KeyError:
         raise D.err(404, "NOT_FOUND", "Unknown setting.")
     except ValueError as e:
@@ -784,7 +791,7 @@ class PageBody(BaseModel):
 
 @router.get("/content")
 def content_list(user=Depends(perm("content.write")), db=Depends(D.get_db)):
-    return {"pages": list(db.content_pages.find({}, {"_id": 0, "slug": 1, "title": 1, "updated_at": 1}))}
+    return {"pages": list(db.content_pages.find({}, {"_id": 0, "slug": 1, "title": 1, "updated_at": 1, "starter": 1}))}
 
 
 @router.put("/content/{slug}")
@@ -796,6 +803,7 @@ def content_put(slug: str, body: PageBody, user=Depends(perm("content.write")), 
         textguard.require_clean("Page", [body.title, body.body_md])
     except ValueError as e:
         raise D.err(400, "BANNED_WORDS", str(e))
-    db.content_pages.update_one({"slug": slug}, {"$set": {"title": body.title, "body_md": body.body_md, "updated_at": utcnow(), "updated_by": user["email"]}}, upsert=True)
+    db.content_pages.update_one({"slug": slug}, {"$set": {"title": body.title, "body_md": body.body_md, "updated_at": utcnow(), "updated_by": user["email"]},
+                                                 "$unset": {"starter": ""}}, upsert=True)      # saving = reviewed (docs/36 C2)
     AQ.audit(db, user, "content.save", slug)
     return {"ok": True}

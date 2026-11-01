@@ -38,10 +38,16 @@ class ComboError(Exception):
         self.code, self.message = code, message
 
 
+def includes_play(f: dict) -> bool:
+    """True when p already counts the chance he plays (yellow-card lines from cards_model), so it must not be
+    multiplied by p_play again. Other player lines are "if he plays". (docs/36 H6)"""
+    return f.get("p_basis") == "all" or f.get("model") == "cards"
+
+
 def chance(f: dict, key: str = "p") -> float:
     """How likely this line is to happen at all: a player has to play first."""
     v = float(f[key])
-    if f["scope"] == "player":
+    if f["scope"] == "player" and not includes_play(f):
         v *= float(f.get("p_play", 1.0))
     return min(max(v, 0.0), 1.0)
 
@@ -135,7 +141,7 @@ def _report(docs: list[dict], factors) -> dict:
     for d in docs:
         lines.append({"id": d["id"], "fkey": d["fkey"], "scope": d["scope"], "player": _ref(d.get("player")), "team": _ref(d.get("team")),
                       "opp": _ref(d.get("opp")), "stat": d["stat"], "thr": d["thr"], "market": d["market"], "p": round(float(d["p"]), 4),
-                      "p_play": round(float(d.get("p_play", 1.0)), 4), "chance": round(chance(d), 4),
+                      "p_play": round(float(d.get("p_play", 1.0)), 4), "chance": round(chance(d), 4), "includes_play": includes_play(d),
                       "badge": d.get("lineup_badge"), "tier": d.get("tier"), "state": d.get("state")})
     c = combine(docs, "p", factors)
     lo = combine(docs, "lo", factors); hi = combine(docs, "hi", factors)

@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 import normalize as N
 import settings_store as S
-from cached_fetch import (FOREVER, BreakerOpen, BudgetExhausted, NotFound, PitchClient, Unauthorized,
+from cached_fetch import (FOREVER, BreakerOpen, BudgetExhausted, NotFound, PitchClient, PitchError, Unauthorized,
                           next_iid, utcnow)
 
 
@@ -213,11 +213,39 @@ def lineup_watch(client: PitchClient, now: datetime | None = None) -> int:
 
 
 # ------------------------------------------------------------------- queue
+STUCK_AFTER = timedelta(minutes=15)     # a task "running" longer than this was cut off (crash, restart, timeout)
+MAX_ATTEMPTS = 5
+
+
+def _retry_later(db, t, err: str) -> bool:
+    """Back-off retry for a task that raised. Returns True when it gave up. (docs/36 H4)"""
+    attempts = t.get("attempts", 0) + 1
+    if attempts >= MAX_ATTEMPTS:
+        db.ingest_queue.update_one({"_id": t["_id"]}, {"$set": {"status": "failed", "attempts": attempts, "last_error": err, "finished_at": utcnow()}})
+        issue(db, "task_failed", f"{t['task']} {t['key']}: {err}")
+        return True
+    wait = min(timedelta(minutes=15) * (2 ** (attempts - 1)), hours(24))     # 15 min, 30, 60, 120
+    db.ingest_queue.update_one({"_id": t["_id"]}, {"$set": {"status": "pending", "attempts": attempts, "last_error": err,
+                                                            "next_run_at": utcnow() + wait}})
+    return False
+
+
+def release_stuck(db, now: datetime | None = None) -> int:
+    """Tasks left "running" by a crash or restart go back to the queue (they count as one attempt)."""
+    now = now or utcnow()
+    n = 0
+    for t in db.ingest_queue.find({"status": "running", "started_at": {"$lt": now - STUCK_AFTER}}):
+        _retry_later(db, t, "interrupted while running")
+        n += 1
+    return n
+
+
 def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
     db = client.db
     done = skipped = failed = 0
     stop = None
     ref_leagues = set()
+    release_stuck(db)
     while done + skipped + failed < max_tasks:
         t = db.ingest_queue.find_one_and_update(
             {"status": "pending", "next_run_at": {"$lte": utcnow()}},
@@ -262,6 +290,17 @@ def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
             else:   # retry in 24 hours
                 db.ingest_queue.update_one({"_id": t["_id"]}, {"$set": {"status": "pending", "attempts": attempts,
                                                                         "next_run_at": utcnow() + hours(24)}})
+                skipped += 1
+        except PitchError as e:
+            # the provider failed after its own retries (timeout, 5xx): retry this task later and stop the run,
+            # so an outage does not burn the budget on every other task
+            failed += _retry_later(db, t, f"{type(e).__name__}: {e}"[:300])
+            stop = "PitchError"
+            break
+        except Exception as e:           # bad payload, bug: never leave the task "running" (docs/36 H4)
+            if _retry_later(db, t, f"{type(e).__name__}: {e}"[:300]):
+                failed += 1
+            else:
                 skipped += 1
     if ref_leagues:
         import match_extras as MX

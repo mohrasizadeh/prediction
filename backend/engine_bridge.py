@@ -254,8 +254,6 @@ def run_league(db, league_iid: int, now=None) -> dict:
             state = "lineup" if (f.confirmed if f.scope == "player" else lineups.get(f.team)) else "pre"
             p = CAL.apply(pmap, f.p, state, f.scope); lo = CAL.apply(pmap, f.lo, state, f.scope); hi = CAL.apply(pmap, f.hi, state, f.scope)
             p_pre_anchor = p
-            if anchor and f.scope == "player" and f.rec_n is not None and f.rec_n >= anchor_min:
-                p, lo, hi = TI.anchor(p, lo, hi, f.rec_k, f.rec_n, anchor_k, anchor_w, p_cap)     # his own record counts (docs/32)
             # Lineup badge (docs/27). A player's percentage is "if he plays"; whether he plays is the badge.
             #   confirmed: in the announced eleven   bench: lineup out, he is not in it
             #   likely:    chance to play >= likely_starter_p before lineups (Solid and Strong allowed)
@@ -266,6 +264,10 @@ def run_league(db, league_iid: int, now=None) -> dict:
                 badge = "confirmed" if float(f.p_play) >= 0.999 else "bench"
             else:
                 badge = "likely" if float(f.p_play) >= likely_gate else "unsure"
+            # His own record counts (docs/32), but only when he is expected to start: the record comes mostly from
+            # starts, so for a substitute it pulled a short-minutes chance far above the model (docs/36 H9).
+            if anchor and badge in ("confirmed", "likely") and f.rec_n is not None and f.rec_n >= anchor_min:
+                p, lo, hi = TI.anchor(p, lo, hi, f.rec_k, f.rec_n, anchor_k, anchor_w, p_cap)
             if cond and badge == "unsure" and float(f.p_play) < min_play:
                 continue                                         # rarely plays: no card, however high the "if he plays" number
             solid_ok = badge in (None, "confirmed", "likely")

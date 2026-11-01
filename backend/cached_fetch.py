@@ -25,6 +25,20 @@ BASE_URL = "https://api.pitchapi.dev"
 FOREVER = None   # ttl value meaning "never expires" (finished matches, finished seasons)
 
 
+def _retry_after(value, default: float, cap: float = 10.0) -> float:
+    """Seconds to wait from a Retry-After header. Seconds or an HTTP date; anything odd falls back to the default.
+    Capped, so one answer cannot hold the job lock for an hour (docs/36 H4)."""
+    try:
+        wait = float(value)
+    except (TypeError, ValueError):
+        try:
+            from email.utils import parsedate_to_datetime
+            wait = (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds()
+        except Exception:
+            wait = default
+    return max(0.0, min(wait, cap))
+
+
 class PitchError(Exception):
     def __init__(self, code, status, message=""):
         super().__init__(f"{status} {code} {message}")
@@ -146,7 +160,7 @@ class PitchClient:
                 if attempts_429 > 3:
                     self._trip_breaker("429 rate limit")
                     raise BreakerOpen("429 rate limit")
-                self._sleep(float(r.headers.get("Retry-After", 2 ** attempts_429)))
+                self._sleep(_retry_after(r.headers.get("Retry-After"), 2 ** attempts_429))
                 continue
             if r.status_code == 404:
                 raise NotFound(code or "RESOURCE_NOT_FOUND", 404)

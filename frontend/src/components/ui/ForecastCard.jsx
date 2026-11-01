@@ -2,7 +2,7 @@
 // Tap opens the detail sheet. The tick on the bar sits at p_usual (the player's or team's normalised usual).
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { pct } from "../../lib/copy";
+import { pct, range } from "../../lib/copy";
 import { utc } from "../../lib/time";
 import { Crest, PlayerAvatar } from "../Media";
 import { TierBadge } from "./Marks";
@@ -58,18 +58,19 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
   const canAdd = !!f.fkey && f.match_iid != null && f.addable !== false && !f.from_ladder && !(f.kickoff && utc(f.kickoff).getTime() < Date.now());
   const on = canAdd && has(f.fkey);
   const shown = f.p_display || pct(f.p);
+  const rng = f.p_display ? null : range(f.lo, f.hi);          // docs/03 §4.4: show the band with the number
   const tk = track?.[f.fkey];
   return (
     <article className={"k-fc" + (canAdd ? " k-fc--add" : "") + (tk?.state === "hit" ? " k-fc--hit" : tk?.state === "missed" ? " k-fc--missed" : "")} style={{ "--tone": tone(f.tier) }} data-testid={id}>
-      <button type="button" className="k-fc-main" onClick={() => setSheet(true)} aria-label={`${name}, ${f.market}, ${shown}${f.tier ? `, ${f.tier}` : ""}. Open details`} data-testid={`${id}-open`}>
+      <button type="button" className="k-fc-main" onClick={() => setSheet(true)} aria-label={`${name}, ${f.market}, ${shown}${rng ? `, likely range ${rng}` : ""}${f.tier ? `, ${f.tier}` : ""}. Open details`} data-testid={`${id}-open`}>
         <header className="k-fc-head">
           <Who f={f} fx={fx} />
           <span className="k-fc-who"><b>{name}</b><small data-testid={`${id}-fixture`}>{sub}</small></span>
           <span className="k-fc-tier"><TierBadge tier={f.tier} testid={`${id}-tier`} />{f.tier_note && <small className="k-fc-note" data-testid={`${id}-tier-note`}>{f.tier_note}</small>}</span>
         </header>
-        <div className="k-fc-line"><span className="k-fc-market">{f.market}</span><b className="k-fc-p" data-testid={`${id}-p`}>{shown}</b></div>
+        <div className="k-fc-line"><span className="k-fc-market">{f.market}</span><span className="k-fc-pwrap"><b className="k-fc-p" data-testid={`${id}-p`}>{shown}</b>{rng && <small className="k-fc-range" data-testid={`${id}-range`}>{rng}</small>}</span></div>
         {tk && tk.state !== "unknown" && <div className="lv-row"><Track t={tk} id={id} /></div>}
-        <span className="k-fc-bar" aria-hidden="true"><b style={{ width: `${Math.round((f.p || 0) * 100)}%` }} />{f.p_usual != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.p_usual * 100)}%` }} />}</span>
+        <span className="k-fc-bar" aria-hidden="true">{rng && <i className="k-fc-band" style={{ left: `${Math.round(f.lo * 100)}%`, width: `${Math.max(0, Math.round((f.hi - f.lo) * 100))}%` }} />}<b style={{ width: `${Math.round((f.p || 0) * 100)}%` }} />{f.p_usual != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.p_usual * 100)}%` }} />}</span>
         {f.p_usual != null && <small className="k-fc-vs" data-testid={`${id}-usual`}>Usually {pct(f.p_usual)}</small>}
         {f.scope === "player" && f.rec_n >= 8 && <small className="k-fc-vs" data-testid={`${id}-record`}>Hit in {f.rec_k} of his last {f.rec_n} games</small>}
         {f.reasons?.[0] && <p className="k-fc-why">{f.reasons[0]}</p>}
@@ -83,7 +84,7 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
       )}
       {open && (
         <ul className="k-fc-lines" data-testid={`${id}-lines`}>
-          {more.map((x) => <li key={x.fkey} style={{ "--tone": tone(x.tier) }}><span>{x.market}{track?.[x.fkey]?.state === "hit" && <span className="lv-tick" aria-label="Happened"><Icon name="check" size={14} /></span>}</span><b>{pct(x.p)}</b></li>)}
+          {more.map((x) => <li key={x.fkey} style={{ "--tone": tone(x.tier) }}><span>{x.market}{track?.[x.fkey]?.state === "hit" && <span className="lv-tick" aria-label="Happened"><Icon name="check" size={14} /></span>}</span><b>{pct(x.p)}{range(x.lo, x.hi) && <small className="k-fc-range"> ({range(x.lo, x.hi)})</small>}</b></li>)}
         </ul>
       )}
       {canAdd && (

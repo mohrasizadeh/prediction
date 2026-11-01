@@ -145,7 +145,8 @@ def _doc(db, m, run_id, now, scope, team, opp, player, pos, stat, thr, market, l
          "market": market, "expected": float(lam), "p": float(p), "lo": float(min(lo, p)), "hi": float(max(hi, p)), "p_play": float(play),
          "lineup_confirmed": confirmed, "tier": tier(p, min(lo, p), confirmed, strong=strong, solid=solid), "reasons": reasons,
          "opp_tactics": [], "own_tactics": [], "opp_key_players": [], "contrib": {}, "rotation": None, "rotation_why": None,
-         "p_play_usual": None, "p_raw": float(p), "p_base": float(p), "is_current": True, "hidden": False, "created_at": now, "model": "cards"}
+         "p_play_usual": None, "p_raw": float(p), "p_base": float(p), "is_current": True, "hidden": False, "created_at": now, "model": "cards",
+         "p_basis": "all"}                 # p already includes the chance he plays (combo.includes_play, docs/36 H6)
     k = _kept(db, fkey)
     if k:
         d.update(k, hidden=True)

@@ -46,6 +46,7 @@ _RESOLVE = socket.getaddrinfo        # tests replace this
 def set_resolver(f):
     global _RESOLVE
     _RESOLVE = f
+    T._RESOLVE = f                   # the SMTP host check uses the same resolver
 
 
 def utcnow():

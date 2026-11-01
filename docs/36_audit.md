@@ -20,6 +20,26 @@ Date: 2026-11-01. Findings only: nothing in the app was changed. The owner picks
 - **Medium:** a real problem in limited cases.
 - **Low:** hardening or polish.
 
+## Fix status
+
+**Fixed 2026-11-01 (round 1):**
+
+| Finding | What changed | Test |
+|---|---|---|
+| C1 | SMTP target is owner-only. A new host clears the stored password. Only public hosts on mail ports, checked on save and on connect. | `selftest_growth.py` |
+| C2 | Starter Terms (18+, auto-renewal), Privacy (sub-processors, CCPA, PIPEDA) and About pages are seeded when missing. Admin alert until each is reviewed and saved. "Privacy choices" footer link reopens the cookie banner. | `selftest_legal.py` |
+| H4 | Every error in a queue task is retried with back-off and gives up after 5 tries with an ingest issue. Tasks cut off by a crash are released after 15 min. Retry-After is parsed safely and capped at 10 s. | `selftest_queue.py` |
+| H5 | Cards, sheets and extra lines show the likely range ("92%, 90 to 93") with a band on the bar. | screenshot |
+| H6 | Card lines are marked `p_basis: "all"`, so combos no longer count the chance to play twice. The combo panel and the "If he plays" tile are corrected. | `selftest_numbers.py` |
+| H7 | The referee rebuild updates rows in place, so the factor and sentence survive. | `selftest_numbers.py` |
+| H8 | The player page shows only the next match's lines. | `selftest_numbers.py` |
+| H9 | The own-record adjustment applies only to confirmed or likely starters. | `selftest_numbers.py` |
+| H10 | `/api/public/status` returns `stale` from `ingest.stale_limit_hours`. A banner shows on every page. The engine job name is fixed. | `selftest_status.py` |
+
+**Still open:**
+- H1–H3 (account deletion and billing, the staff-invite session, double checkout) and H11–H14.
+- Everything at Medium and Low.
+
 ---
 
 ## Summary

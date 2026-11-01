@@ -20,6 +20,7 @@ import accounts
 import analytics as AN
 import deps as D
 import jobs
+import legal_pages
 import mongo_init
 import plans as P
 import queries as Q
@@ -70,6 +71,7 @@ def startup():
     db = app.state.db
     mongo_init.ensure_indexes(db)
     P.seed(db)
+    legal_pages.seed(db)                    # starter Terms / Privacy / About when missing (docs/36 C2); never overwrites
     accounts.bootstrap_owner(db)            # first start only; the owner must change this password at first sign-in
     _start_live_loop(db)
 

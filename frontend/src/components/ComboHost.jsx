@@ -107,7 +107,7 @@ function Review() {
       <ul className="cb-lines">
         {combo.lines.map((l) => {
           const e = lineBy[l.fkey];
-          const sub = e ? (e.scope === "player" ? `${pct(e.p)} if he plays · ${pct(e.p_play)} to play` : "Team line") : "";
+          const sub = e ? (e.scope === "player" ? (e.includes_play ? `${pct(e.p)}, counting his ${pct(e.p_play)} chance to play` : `${pct(e.p)} if he plays · ${pct(e.p_play)} to play`) : "Team line") : "";
           const on = openRow === l.fkey;
           return (
             <li key={l.fkey} className="cb-line" data-testid={`combo-line-${l.fkey}`}>

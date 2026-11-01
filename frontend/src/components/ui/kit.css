@@ -147,3 +147,9 @@
 .kit-row > * { max-width: 100%; } .kit-panel > * { min-width: 0; }
 .kit-two { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: end; } @media (max-width: 600px) { .kit-two { grid-template-columns: 1fr; } }
 .kit-panel .btn--danger { background: var(--down); color: var(--on-brand); }
+/* Likely range (docs/03 §4.4, docs/36 H5): "74%  66 to 81" next to the number, and a faint band on the bar */
+.k-fc-pwrap { display: inline-grid; justify-items: end; gap: 2px; }
+.k-fc-range { font-size: 12px; font-weight: 500; color: var(--text2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.k-fc-lines .k-fc-range { color: var(--text2); font-weight: 500; }
+.k-fc-band { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: color-mix(in srgb, var(--tone) 32%, transparent); }
+.k-fc-bar b { position: relative; }

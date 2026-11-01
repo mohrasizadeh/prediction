@@ -189,15 +189,15 @@ with TestClient(srv.app) as owner:
     ov = admin.get("/api/admin/integrations").json()
     check(ov["email"]["provider"] == "resend" and ov["email"]["key_set"] and ov["email"]["bounces"] == "automatic" and {p["id"] for p in ov["email"]["providers"]} == {"emergent", "resend", "postmark", "sendgrid", "brevo", "smtp"}, "integrations page: Resend active, six choices")
     check(support.get("/api/admin/integrations").status_code == 403 and analyst.get("/api/admin/integrations").status_code == 403, "support and analyst cannot open Integrations")
-    check(admin.put("/api/admin/integrations/email", json={"provider": "mailgun"}).status_code == 400, "unknown provider refused")
-    r = admin.put("/api/admin/integrations/email", json={"provider": "postmark"}).json()
+    check(owner.put("/api/admin/integrations/email", json={"provider": "mailgun"}).status_code == 400, "unknown provider refused")
+    r = owner.put("/api/admin/integrations/email", json={"provider": "postmark"}).json()
     check(r["provider"] == "postmark" and r["key_set"] is False and "No key" in (r["warning"] or ""), "choosing a provider with no key warns you")
     sent.clear(); n0 = len(calls)
     t = admin.post("/api/admin/integrations/email/test-send", json={}).json(); check(t["status"] != "sent" and not sent, "no key, nothing sent, clear status")
     check(admin.post("/api/admin/integrations/email/test-send", json={"to": "stranger@example.com"}).status_code == 400, "test mail can only go to a team member")
     for prov, key, host in (("postmark", "abcdefghij-abcdefghij-abcd", "api.postmarkapp.com"), ("sendgrid", "SG.abcdefghijkl.abcdefghijklmnop", "api.sendgrid.com"), ("brevo", "xkeysib-abcdefghijklmnopqrstuvwx", "api.brevo.com")):
         security.save_provider_key(db, prov, key)
-        admin.put("/api/admin/integrations/email", json={"provider": prov}); sent.clear(); calls.clear()
+        owner.put("/api/admin/integrations/email", json={"provider": prov}); sent.clear(); calls.clear()
         t = admin.post("/api/admin/integrations/email/test-send", json={}).json()
         h = [c for c in calls if c[1].startswith("https://" + host)]
         check(t["status"] == "sent" and len(sent) == 1 and sent[0]["to"] == ["admin@example.com"] and h, f"{prov}: test mail sent through its own API")
@@ -213,19 +213,33 @@ with TestClient(srv.app) as owner:
         def quit(self): pass
     T.set_smtp_factory(FakeSMTP)
     security.save_provider_key(db, "smtp_password", "app-password-xyz")
-    r = admin.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_host": "smtp.example.com", "smtp_port": 587, "smtp_user": "me@example.com", "smtp_security": "starttls"}).json()
+    r = owner.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_host": "smtp.example.com", "smtp_port": 587, "smtp_user": "me@example.com", "smtp_security": "starttls"}).json()
     check(r["provider"] == "smtp" and r["key_set"], "SMTP settings saved")
     t = admin.post("/api/admin/integrations/email/test-send", json={}).json()
     check(t["status"] == "sent" and ("connect", "smtp.example.com", 587, "starttls") in FakeSMTP.log and ("login", "me@example.com", "app-password-xyz") in FakeSMTP.log and any(x[0] == "send" for x in FakeSMTP.log), "SMTP: connects, logs in, sends")
-    check(admin.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_security": "plain"}).status_code == 400, "SMTP without encryption refused")
-    check(admin.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_port": 99999}).status_code == 400, "bad SMTP port refused")
+    check(owner.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_security": "plain"}).status_code == 400, "SMTP without encryption refused")
+    check(owner.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_port": 99999}).status_code == 400, "bad SMTP port refused")
+    # docs/36 C1: only an owner decides where mail (and the stored SMTP password) goes
+    check(admin.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_host": "mx.attacker.example"}).status_code == 403, "an admin cannot change the e-mail provider or SMTP server")
+    check(admin.put("/api/admin/settings/email.smtp_host", json={"value": "mx.attacker.example"}).status_code == 403
+          and admin.put("/api/admin/settings/email.provider", json={"value": "smtp"}).status_code == 403, "...not through Settings either")
+    check(owner.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_host": "private.example.com"}).status_code == 400
+          and owner.put("/api/admin/settings/email.smtp_host", json={"value": "10.0.0.7"}).status_code == 400, "SMTP host on a private network refused")
+    check(owner.put("/api/admin/settings/email.smtp_port", json={"value": 6379}).status_code == 400, "SMTP port must be a mail port")
+    FakeSMTP.log.clear()
+    r = owner.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_host": "mail.other-host.example"}).json()
+    check(r["key_set"] is False and T.test_key(db, "smtp")["code"] == "no_key" and not any(x[0] == "login" for x in FakeSMTP.log),
+          "a new SMTP host clears the stored password, so it is never sent to the new host")
+    check(db.audit_log.find_one({"action": "key.delete", "target": "smtp_password", "detail": "SMTP host changed"}) is not None, "...and the audit log says why")
+    owner.put("/api/admin/integrations/email", json={"provider": "smtp", "smtp_host": "smtp.example.com"})
+    security.save_provider_key(db, "smtp_password", "app-password-xyz")
     # header injection through the transport
     try:
         T.Smtp("p", "h", 25, "", "starttls").send({"from": "A <a@example.com>", "to": ["b@example.com"], "subject": "s", "html": "<p>x</p>", "text": "x", "headers": {"X-A\r\nBcc": "evil@example.com"}}); check(False, "header injection blocked")
     except T.SendError: check(True, "SMTP header injection blocked")
     # errors map cleanly
     web_orig = handler
-    admin.put("/api/admin/integrations/email", json={"provider": "resend"})
+    owner.put("/api/admin/integrations/email", json={"provider": "resend"})
     # a provider test-key call
     for prov in ("postmark", "sendgrid", "brevo"):
         check(T.test_key(db, prov)["ok"] is True, f"{prov}: key check call works")

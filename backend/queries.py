@@ -757,7 +757,8 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
     team = db.teams.find_one({"iid": p["team_iid"]}, {"_id": 0})
     nxt = db.matches.find_one({"status": "scheduled", "kickoff": {"$gte": now},
                                "$or": [{"home_iid": p["team_iid"]}, {"away_iid": p["team_iid"]}]}, {"_id": 0}, sort=[("kickoff", 1)])
-    fc = list(db.forecasts.find({"player_iid": player_iid, **NOT_HIDDEN}, {"_id": 0, "contrib": 0}).sort("p", -1)) if nxt else []
+    # only the lines for the match the page calls "next": finished matches keep is_current rows for a while (docs/36 H8)
+    fc = list(db.forecasts.find({"player_iid": player_iid, "match_iid": nxt["iid"], **NOT_HIDDEN}, {"_id": 0, "contrib": 0}).sort("p", -1)) if nxt else []
     p = attach_images(db, "players", [p])[0]
     team = attach_images(db, "teams", [team])[0] if team else None
     if nxt:

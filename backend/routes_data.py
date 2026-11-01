@@ -56,10 +56,21 @@ def public_status(response: Response, db=Depends(D.get_db)):
     _cache(response)
     last = {}
     for job in ("fixtures_sync", "results_sync", "engine", "reference_sync"):
-        r = db.job_runs.find_one({"job": job, "status": "ok"}, {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
+        # the engine logs one run per league as "engine:<league>" (jobs.py), so match on the prefix (docs/36 H10)
+        q = {"job": {"$regex": r"^engine(:|$)"}} if job == "engine" else {"job": job}
+        r = db.job_runs.find_one({**q, "status": "ok"}, {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
         last[job] = (r.get("finished_at") or r.get("started_at")) if r else None
     stamps = [v for v in last.values() if v]
-    return {"last_ok": last, "data_updated_at": max(stamps) if stamps else None}
+    # Stale banner (docs/03 §4.7): data is the provider pulls, not the engine re-running on old data
+    pulls = [v for v in (last["fixtures_sync"], last["results_sync"]) if v]
+    limit = float(S.get(db, "ingest.stale_limit_hours") or 0)
+    newest = max(pulls) if pulls else None
+    if newest is not None and newest.tzinfo is None:
+        newest = newest.replace(tzinfo=timezone.utc)
+    hours_old = (datetime.now(timezone.utc) - newest).total_seconds() / 3600 if newest else None
+    stale = bool(limit and hours_old is not None and hours_old > limit)
+    return {"last_ok": last, "data_updated_at": max(stamps) if stamps else None,
+            "stale": stale, "stale_hours": round(hours_old) if stale else None, "stale_limit_hours": limit or None}
 
 
 @router.get("/public/pages/{slug}")

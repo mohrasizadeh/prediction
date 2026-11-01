@@ -17,6 +17,13 @@ export function visitorType() {
 }
 export const consent = () => localStorage.getItem("consent");
 export const setConsent = (v) => { localStorage.setItem("consent", v); window.dispatchEvent(new Event("consent-change")); };
+// "Privacy choices" in the footer: forget the stored choice and show the banner again, so consent can be withdrawn (docs/36).
+// If optional tags were allowed and the visitor now says no, the banner reloads the page so loaded tags stop.
+export const reopenConsent = () => {
+  localStorage.setItem("consent-was", localStorage.getItem("consent") || "");
+  localStorage.removeItem("consent");
+  window.dispatchEvent(new Event("consent-reopen"));
+};
 const privacySignal = () => navigator.doNotTrack === "1" || navigator.globalPrivacyControl === true;
 export const PRIVATE_PATHS = /^\/(admin|sign-in|sign-up|signin|signup|login|reset|verify|enroll-2fa|change-password|forgot-password|reset-password|confirm-email|account\/billing|checkout|newsletter\/confirm|unsubscribe)/;
 

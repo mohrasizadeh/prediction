@@ -436,10 +436,14 @@ class EmailProviderBody(BaseModel):
 
 
 @admin.put("/integrations/email")
-def integrations_email(body: EmailProviderBody, user=Depends(perm("integrations.write")), db=Depends(D.get_db)):
+def integrations_email(body: EmailProviderBody, user=Depends(perm("keys.write")), db=Depends(D.get_db)):
+    # owner only: these settings decide where the stored mail password and every reset link go (docs/36 C1)
     try:
         S.put(db, "email.provider", body.provider, actor=user["email"])
-        for k in ("smtp_host", "smtp_port", "smtp_user", "smtp_security"):
+        if body.smtp_host is not None or body.smtp_port is not None:
+            if T.set_smtp_target(db, user["email"], host=body.smtp_host, port=body.smtp_port):
+                AQ.audit(db, user, "key.delete", "smtp_password", detail="SMTP host changed")
+        for k in ("smtp_user", "smtp_security"):
             v = getattr(body, k)
             if v is not None:
                 S.put(db, f"email.{k}", v, actor=user["email"])
