@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
 import combo as CB
+import live_track as LT
 import deps as D
 import plans as P
 import queries as Q
@@ -218,7 +219,14 @@ class ComboSaveBody(BaseModel):
 
 
 def _combo_view(db, c: dict) -> dict:
-    """One saved combo for the list: the lines as saved, plus either today's estimate or what happened."""
+    """One saved combo for the list.
+
+    Four states, because a match being under way is not the same as it being over (docs/40):
+      upcoming  nothing has kicked off yet          -> today's estimate
+      live      at least one match is under way     -> what has happened so far, from live tracking
+      waiting   every match is over, results still arriving
+      settled   every line has been graded
+    """
     now = utcnow()
     out = {k: c[k] for k in ("id", "label", "kickoff", "combined", "state", "lines", "created_at")}
     out["match_id"] = c.get("match_id")
@@ -235,15 +243,47 @@ def _combo_view(db, c: dict) -> dict:
         except CB.ComboError:
             out["now"] = None                                           # a line left the feed (for example the player is out)
         return out
+
+    iids = [m["match_iid"] for m in out["matches"]] or [i for i in {l.get("match_iid") for l in c["lines"]} if i] or [c.get("match_iid")]
+    iids = [i for i in iids if i is not None]
+    statuses = {m["iid"]: m.get("status") for m in db.matches.find({"iid": {"$in": iids}}, {"_id": 0, "iid": 1, "status": 1})}
+    over = bool(statuses) and all(v == "final" for v in statuses.values())
+
     res = []
     for l in c["lines"]:
         o = outs.get(l["fkey"])
         res.append({"fkey": l["fkey"], "reached": None if not o else bool(o["reached"]), "actual": None if not o else o["actual"],
                     "played": None if not o else bool(o.get("player_played", True))})
+    graded = all(r["reached"] is not None for r in res)
+
+    if not over:
+        # under way: show what has happened so far. A line we cannot count stays unknown, never a false cross.
+        out["status"] = "live"
+        live = {}
+        for iid in iids:
+            if statuses.get(iid) == "final":
+                continue
+            try:
+                ev = LT.evaluate(db, iid)
+            except Exception:
+                continue
+            live.update(ev.get("items") or {})
+        for r in res:
+            it = live.get(r["fkey"]) or {}
+            r["live"] = it.get("state")                                 # hit | live | missed | unknown | None
+            r["current"], r["needed"] = it.get("current"), it.get("needed")
+            if r["reached"] is None and it.get("state") == "hit":
+                r["reached"] = True                                     # already happened: say so now, not after full time
+        out["lines"] = [{**l, **r} for l, r in zip(c["lines"], res)]
+        hit = sum(1 for r in res if r["reached"] is True)
+        out["result"] = {"reached": hit, "of": len(res), "all": False,
+                         "unknown": sum(1 for r in res if r["reached"] is None)}
+        return out
+
     out["lines"] = [{**l, **r} for l, r in zip(c["lines"], res)]
-    done = all(r["reached"] is not None for r in res)
-    out["status"] = "settled" if done else "waiting"
-    out["result"] = {"reached": sum(1 for r in res if r["reached"]), "of": len(res), "all": done and all(r["reached"] for r in res)}
+    out["status"] = "settled" if graded else "waiting"
+    out["result"] = {"reached": sum(1 for r in res if r["reached"]), "of": len(res), "all": graded and all(r["reached"] for r in res),
+                     "unknown": sum(1 for r in res if r["reached"] is None)}
     return out
 
 

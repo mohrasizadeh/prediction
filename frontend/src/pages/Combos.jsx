@@ -17,6 +17,7 @@ const Face = ({ l }) => (l.player ? <PlayerAvatar player={l.player} size={28} />
 
 function Card({ c, onDelete }) {
   const done = c.status !== "upcoming";
+  const live = c.status === "live";
   const r = c.result;
   return (
     <article className="cb-card card" data-testid={`combo-card-${c.id}`}>
@@ -24,6 +25,7 @@ function Card({ c, onDelete }) {
         <span className="cb-faces">{c.lines.slice(0, 4).map((l) => <span key={l.fkey}><Face l={l} /></span>)}</span>
         <span className="cb-card-t"><b>{c.label}</b><small>{lineWhen(c.kickoff)}</small></span>
         {!done ? <span className="cb-pill">Waiting</span>
+          : live ? <span className="cb-pill cb-pill--live" data-testid={`combo-live-${c.id}`}><span className="k-livedot" aria-hidden="true" />{r.reached} of {r.of} so far</span>
           : c.status === "waiting" ? <span className="cb-pill">Counting up</span>
           : <span className={"cb-pill " + (r.all ? "cb-pill--yes" : "cb-pill--mid")}>{r.all ? `Reached all ${r.of}` : `Reached ${r.reached} of ${r.of}`}</span>}
       </header>
@@ -33,10 +35,25 @@ function Card({ c, onDelete }) {
           <div className="cb-card-r"><small>When saved: {pct(c.combined)}</small><small>{c.now ? (c.now.state === "pre" ? "Lineups not out yet" : "Lineups are out") : "A line left the feed"}</small></div>
         </div>
       ) : (
-        <ul className="cb-res">{c.lines.map((l) => (
-          <li key={l.fkey}><span className={"cb-tick " + (l.reached ? "y" : "n")} aria-label={l.reached ? "Reached" : "Not reached"}>{l.reached ? <Icon name="check" size={12} /> : <Icon name="x" size={12} />}</span>
-            <span className="cb-res-t">{l.player?.name || l.team?.name} · {l.market}</span><small className="muted">{l.played === false ? "Did not play" : l.actual != null ? `Had ${l.actual}` : ""}</small></li>))}
-          <li className="muted small">Saved at {pct(c.combined)}</li>
+        <ul className="cb-res">{c.lines.map((l) => {
+          // reached === null means we do not know yet: a dash, never a cross (docs/03 section 4.6)
+          const mark = l.reached === true ? "y" : l.reached === false ? "n" : "u";
+          const says = l.reached === true ? "Happened" : l.reached === false ? "Did not happen" : "Not known yet";
+          const note = l.played === false ? "Did not play"
+            : l.actual != null ? `Had ${l.actual}`
+            : l.current != null && l.needed != null ? `${l.current} of ${l.needed} so far`
+            : live ? "Counting" : "";
+          return (
+            <li key={l.fkey}>
+              <span className={"cb-tick " + mark} aria-label={says}>
+                {l.reached === true ? <Icon name="check" size={12} /> : l.reached === false ? <Icon name="x" size={12} /> : "–"}
+              </span>
+              <span className="cb-res-t">{l.player?.name || l.team?.name} · {l.market}</span>
+              <small className="muted">{note}</small>
+            </li>
+          );
+        })}
+          <li className="muted small">{live ? "Still being played. " : ""}Saved at {pct(c.combined)}</li>
         </ul>
       )}
       <footer className="cb-card-f">
@@ -48,7 +65,7 @@ function Card({ c, onDelete }) {
 }
 
 function Summary({ done }) {
-  const settled = done.filter((c) => c.status === "settled");
+  const settled = done.filter((c) => c.status === "settled");   // never a match still being played
   if (!settled.length) return null;
   const allHit = settled.filter((c) => c.result.all).length;
   const lines = settled.reduce((n, c) => n + c.result.of, 0);
@@ -73,7 +90,9 @@ export default function Combos() {
   const [gone, setGone] = useState([]);
   const items = (q.data?.items || []).filter((c) => !gone.includes(c.id));
   const up = items.filter((c) => c.status === "upcoming");
-  const done = items.filter((c) => c.status !== "upcoming");
+  const nowOn = items.filter((c) => c.status === "live");
+  const done = items.filter((c) => c.status === "waiting" || c.status === "settled");
+  const shown = tab === "up" ? up : tab === "live" ? nowOn : done;
   const remove = async (id) => { try { await del(`/me/combos/${id}`); setGone((g) => [...g, id]); } catch { q.reload(); } };
   return (
     <section data-testid="combos-page">
@@ -89,10 +108,14 @@ export default function Combos() {
         : !items.length ? <EmptyState icon="layers" title="No saved combos yet" testid="combos-empty">Open any match and tap + on the lines you like. <Link to="/">Find a match</Link></EmptyState>
         : (
           <>
-            <Segmented options={[{ id: "up", label: `Coming up · ${up.length}` }, { id: "done", label: `Finished · ${done.length}` }]} value={tab} onChange={setTab} label="Show" testid="combos-tabs" />
+            <Segmented
+              options={[{ id: "up", label: `Coming up · ${up.length}` },
+                        ...(nowOn.length ? [{ id: "live", label: `In play · ${nowOn.length}` }] : []),
+                        { id: "done", label: `Finished · ${done.length}` }]}
+              value={tab} onChange={setTab} label="Show" testid="combos-tabs" />
             {tab === "done" && <Summary done={done} />}
-            <div className="cb-list">{(tab === "up" ? up : done).map((c) => <Card key={c.id} c={c} onDelete={remove} />)}
-              {!(tab === "up" ? up : done).length && <p className="muted" data-testid="combos-none">{tab === "up" ? "Nothing coming up." : "Nothing finished yet."}</p>}</div>
+            <div className="cb-list">{shown.map((c) => <Card key={c.id} c={c} onDelete={remove} />)}
+              {!shown.length && <p className="muted" data-testid="combos-none">{tab === "up" ? "Nothing coming up." : tab === "live" ? "No match under way." : "Nothing finished yet."}</p>}</div>
           </>
         )}
     </section>

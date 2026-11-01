@@ -146,6 +146,16 @@ db.plans.update_one({"key": "free"}, {"$set": {"entitlements.saved_max": 1}})
 check(ua.put("/api/me/combos", json={"ids": [S_[1]["id"], S_[4]["id"]]}).status_code == 409, "over the plan limit: 409 LIMIT_REACHED")
 setting("features.billing", False)
 
+print("[while the match is on]")
+# docs/40: a match under way is not a finished match. It used to fall into "Finished" the moment it kicked off,
+# and every ungraded line showed a cross, which said "did not happen" about a match still being played.
+db.matches.update_one({"iid": 10}, {"$set": {"kickoff": now - dt.timedelta(minutes=30), "status": "scheduled"}})
+db.combos.update_one({"id": lst[0]["id"]}, {"$set": {"kickoff": now - dt.timedelta(minutes=30), "last_kickoff": now - dt.timedelta(minutes=30)}})
+liv = next(x for x in ua.get("/api/me/combos").json()["items"] if x["id"] == lst[0]["id"])
+check(liv["status"] == "live", f"kicked off but not final: the combo is live, not finished (got {liv['status']!r})")
+check(all(l["reached"] is not True and l.get("actual") is None for l in liv["lines"]), "no line claims a result yet")
+check(liv["result"]["unknown"] == len(liv["lines"]) and liv["result"]["all"] is False, "...the card can say how many are still unknown")
+
 print("[after the match]")
 db.matches.update_one({"iid": 10}, {"$set": {"kickoff": now - dt.timedelta(hours=5), "status": "final"}})
 # both: a combo is over only when its LAST match has kicked off (docs/40)
@@ -156,7 +166,7 @@ fk = [l["fkey"] for l in w["lines"]]
 for i, k in enumerate(fk):
     db.forecast_outcomes.insert_one({"fkey": k, "forecast_id": f"o{i}", "actual": 3.0 if i < 2 else 1.0, "reached": i < 2, "player_played": True})
 w = next(x for x in ua.get("/api/me/combos").json()["items"] if x["id"] == lst[0]["id"])
-check(w["status"] == "settled" and w["result"] == {"reached": 2, "of": 3, "all": False} and w["lines"][0]["reached"] is True and w["lines"][2]["actual"] == 1.0, "settled: 2 of 3 reached, with what each player or team had")
+check(w["status"] == "settled" and {k: w["result"][k] for k in ("reached", "of", "all")} == {"reached": 2, "of": 3, "all": False} and w["lines"][0]["reached"] is True and w["lines"][2]["actual"] == 1.0, "settled: 2 of 3 reached, with what each player or team had")
 check(ua.request("DELETE", f"/api/me/combos/{lst[0]['id']}").json()["removed"] == 1, "A deletes the combo")
 
 print("[wording]")
