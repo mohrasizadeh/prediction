@@ -35,6 +35,43 @@ def upsert_entity(db, coll: str, ext_id: str, fields: dict, on_insert: dict | No
     return iid
 
 
+def upsert_player(db, p: dict, team_iid: int, kickoff) -> int:
+    """Create or update a player, and set his club from his LATEST match only.
+
+    The queue does not run in date order (it sorts by priority, and a failed task is retried later), so taking the
+    club from whichever match happened to be processed last put a loaned player back at the club he left: an old
+    match ingested after a recent one overwrote it. `team_as_of` records the kick-off the club came from, and an
+    older match never moves it (docs/41)."""
+    cur = db.players.find_one({"ext_id": p["ext_id"]}, {"_id": 0, "iid": 1, "team_as_of": 1})
+    fields = {"name": p["name"], "pos": p["pos"], "pos_raw": p["pos_raw"]}
+    as_of = cur.get("team_as_of") if cur else None
+    if as_of is not None and as_of.tzinfo is None:
+        as_of = as_of.replace(tzinfo=timezone.utc)
+    ko = kickoff.replace(tzinfo=timezone.utc) if kickoff is not None and kickoff.tzinfo is None else kickoff
+    if cur is None or as_of is None or (ko is not None and ko >= as_of):
+        fields["team_iid"] = team_iid
+        fields["team_as_of"] = ko
+    return upsert_entity(db, "players", p["ext_id"], fields)
+
+
+def refresh_player_clubs(db, league_iid: int | None = None) -> int:
+    """Put every player at the club he last played for. Repairs rows written before `team_as_of` existed, and
+    anything a provider correction leaves behind. One pass over the stats, newest first."""
+    q = {"league_iid": league_iid} if league_iid else {}
+    latest: dict = {}
+    for r in db.player_match_stats.find(q, {"_id": 0, "player_iid": 1, "team_iid": 1, "kickoff": 1}).sort("kickoff", -1):
+        if r["player_iid"] not in latest:
+            latest[r["player_iid"]] = r
+    n = 0
+    for pid, r in latest.items():
+        ko = r["kickoff"].replace(tzinfo=timezone.utc) if r.get("kickoff") is not None and r["kickoff"].tzinfo is None else r.get("kickoff")
+        res = db.players.update_one({"iid": pid, "$or": [{"team_iid": {"$ne": r["team_iid"]}},
+                                                          {"team_as_of": {"$exists": False}}, {"team_as_of": None}]},
+                                    {"$set": {"team_iid": r["team_iid"], "team_as_of": ko}})
+        n += res.modified_count
+    return n
+
+
 def issue(db, kind: str, detail: str = "", match_iid: int | None = None, league_iid: int | None = None):
     db.ingest_issues.insert_one({"at": utcnow(), "kind": kind, "detail": detail, "match_iid": match_iid,
                                  "league_iid": league_iid, "resolved": False})
@@ -155,7 +192,7 @@ def ingest_match(client: PitchClient, match: dict) -> bool:
         tid = iid_of_team.get(p["team_ext_id"])
         if tid is None:
             issue(db, "player_team_unknown", f"{p['ext_id']} team {p['team_ext_id']}", match_iid=match["iid"]); continue
-        pid = upsert_entity(db, "players", p["ext_id"], {"name": p["name"], "team_iid": tid, "pos": p["pos"], "pos_raw": p["pos_raw"]})
+        pid = upsert_player(db, p, tid, ko)
         side = "home" if tid == home["iid"] else "away"
         row = {"match_iid": match["iid"], "player_iid": pid, "team_iid": tid, "home": side == "home",
                "opp_iid": away["iid"] if side == "home" else home["iid"], "kickoff": ko,

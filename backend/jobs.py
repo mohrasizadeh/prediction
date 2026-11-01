@@ -123,6 +123,7 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
                      or db.matches.count_documents({"league_iid": lg["iid"], "ingested_at": {"$gt": since}}) > 0
                      or db.matches.count_documents({"league_iid": lg["iid"], "lineups_at": {"$gt": since}}) > 0)
             I.update_coverage(db, lg["iid"])
+            I.refresh_player_clubs(db, lg["iid"])     # a loan moves a player; the club follows his latest match (docs/41)
             if "engine" in forced or dirty:
                 if _run(db, f"engine:{lg['iid']}", lambda: B.run_league(db, lg["iid"], now), now) is not None: out["ran"].append(f"engine:{lg['iid']}")
         if left():
