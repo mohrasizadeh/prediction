@@ -10,6 +10,7 @@ import MatchEvents from "../components/MatchEvents";
 import LiveLineups from "../components/LiveLineups";
 import { useTitle } from "../components/Football";
 import { Empty, ErrorBox, Loading } from "../components/States";
+import { fxLive, fxStarted } from "../lib/live";
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -53,11 +54,11 @@ function Detail({ f }) {
 function Row({ f }) {
   const [open, setOpen] = useState(false);
   const sc = f.score || {};
-  const show = f.status !== "Scheduled" && sc.home != null;
+  const show = fxStarted(f) && sc.home != null;
   return (
-    <li className={`live-row ${f.status === "LIVE" ? "is-live" : ""} ${open ? "is-open" : ""}`}>
+    <li className={`live-row ${fxLive(f) ? "is-live" : ""} ${open ? "is-open" : ""}`}>
       <button type="button" className="live-main" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid={`live-row-${f.sid}`}>
-        <span className="live-status"><LiveStatus status={f.status} minute={f.minute} kickoff={f.kickoff} text={f.status_text} testid={`live-status-${f.sid}`} /></span>
+        <span className="live-status"><LiveStatus status={f.status} state={f.state} live={f.live} minute={f.minute} kickoff={f.kickoff} text={f.status_text} testid={`live-status-${f.sid}`} /></span>
         <span className="live-team"><Crest team={f.home.team} size={22} /><span>{f.home.team?.name || f.home.name}</span></span>
         <span className="live-score" data-testid={`live-score-${f.sid}`} aria-label={show ? `${sc.home} to ${sc.away}` : "not started"}>
           {show ? <>{sc.home}<i>–</i>{sc.away}</> : <i>v</i>}

@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import math
 
-FINAL = {"FT", "AET", "PENS"}
+from sportapi import in_play, is_final                        # one rule for "is this match on" (docs/42)
+
 EVENT_STATS = {"yellow_cards", "match_yellow_cards"}
 STATS_STATS = {"shots", "sot", "corners", "tackles"}
 
@@ -39,9 +40,13 @@ def event_counts(db, sid: int) -> dict:
 
 def evaluate(db, match_iid: int) -> dict:
     lf = db.live_fixtures.find_one({"match_iid": match_iid}, {"_id": 0})
-    if not lf or lf.get("status") in (None, "Scheduled", "Postponed", "Cancelled"):
+    # A match counts for this once it is being played, and still counts once it is over so a line can read missed.
+    # This used to name the four words it knew about, so "HT", "ET", "BT" or any word the provider sends that we
+    # have never seen fell through as active-but-not-final and could show "live" for a match that was never on.
+    st_now = lf.get("status") if lf else None
+    final = is_final(st_now)
+    if not lf or not (final or in_play(st_now)):
         return {"active": False, "items": {}}
-    final = lf.get("status") in FINAL
     sid = lf["sid"]
     ev = event_counts(db, sid)
     st = db.live_stats.find_one({"fixture_sid": sid}, {"_id": 0}) or {}

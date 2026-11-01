@@ -2,6 +2,7 @@
 // The card reads the public fixture shape of GET /api/live (sportapi.public_fixture) and, optionally, its events.
 import { Crest } from "../Media";
 import LiveStatus from "../LiveStatus";
+import { fxLive, fxStarted } from "../../lib/live";
 
 export function LivePill({ count, onClick, floating = false, testid = "ui-live-pill" }) {
   if (!count) return null;
@@ -26,13 +27,14 @@ function Momentum({ events }) {
 }
 
 export function LiveCard({ f, events = [], flash = false, onOpen, testid }) {
+  const playing = fxLive(f);
   const sc = f.score || {};
   const last = [...events].reverse().find((e) => e.type !== "substitution") || events[events.length - 1];
   const id = testid || `ui-live-card-${f.sid}`;
-  const started = f.status !== "Scheduled" && sc.home != null;
+  const started = fxStarted(f) && sc.home != null;
   return (
-    <button type="button" className={`k-livecard${f.status === "LIVE" ? " is-live" : ""}${flash ? " is-flash" : ""}`} onClick={onOpen} data-testid={id}>
-      <div className="k-livecard-top"><LiveStatus status={f.status} minute={f.minute} kickoff={f.kickoff} text={f.status_text} testid={`${id}-status`} /><span className="k-faint">{f.league_name}</span></div>
+    <button type="button" className={`k-livecard${playing ? " is-live" : ""}${flash ? " is-flash" : ""}`} onClick={onOpen} data-testid={id}>
+      <div className="k-livecard-top"><LiveStatus status={f.status} state={f.state} live={f.live} minute={f.minute} kickoff={f.kickoff} text={f.status_text} testid={`${id}-status`} /><span className="k-faint">{f.league_name}</span></div>
       <div className="k-livecard-row">
         <span className="k-lc-team"><Crest team={f.home.team} size={24} /><span>{f.home.team?.name || f.home.name}</span></span>
         <b className="k-lc-score" data-testid={`${id}-score`}>{started ? `${sc.home}–${sc.away}` : "v"}</b>

@@ -10,8 +10,9 @@ import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/pref
 import Icon from "../components/Icon";
 import { useTitle } from "../components/Football";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, Skeleton, WdlBar, isoDay, useSessionDay } from "../components/ui";
+import { atHalfTime, mLive } from "../lib/live";
 
-const isLive = (m) => m.live?.status === "LIVE" && m.status !== "final";
+const isLive = (m) => mLive(m) && m.status !== "final";
 const isOff = (m) => m.status === "postponed" || m.status === "cancelled";
 const localDay = (s) => isoDay(utc(s));
 const shift = (day, n) => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() + n); return isoDay(d); };
@@ -48,7 +49,7 @@ function Top3({ day }) {
 }
 
 function StatusCell({ m, live }) {
-  if (live) return <span className="td-min" data-testid={`today-live-status-${m.id}`} aria-label={m.live.minute === "HT" ? "Live, half-time" : `Live, minute ${m.live.minute || ""}`}><span className="k-livedot" aria-hidden="true" />{m.live.minute === "HT" ? "HT" : m.live.minute}</span>;
+  if (live) return <span className="td-min" data-testid={`today-live-status-${m.id}`} aria-label={atHalfTime(m.live.status, m.live.minute) ? "Live, half-time" : `Live, minute ${m.live.minute || ""}`}><span className="k-livedot" aria-hidden="true" />{atHalfTime(m.live.status, m.live.minute) ? "HT" : m.live.minute}</span>;
   if (m.status === "final") return <span className="td-ft" data-testid={`today-ft-${m.id}`}>FT</span>;
   if (isOff(m)) return <span className="td-off" data-testid={`today-off-${m.id}`}>{m.status === "postponed" ? "Postponed" : "Cancelled"}</span>;
   const soon = until(m.kickoff);

@@ -30,6 +30,44 @@ function Status({ s, reload }) {
   );
 }
 
+// Are the provider's fixtures tied to our own matches? An unlinked fixture is followed and paid for, but reaches
+// no page: no live score, no events, no ticking forecasts. Clubs can all be matched and a fixture still miss,
+// when the kick-off moved or we never had that match (docs/42).
+function Matching({ s }) {
+  const f = s.fixtures || {};
+  const rows = f.rows || [];
+  const seen = Object.entries(s.status_seen || {}).sort((a, b) => b[1] - a[1]);
+  const tone = f.unlinked_live ? "warn" : f.unlinked ? "muted" : "up";
+  return (
+    <Card title="Fixtures matched to our matches" testid="sportapi-matching"
+          actions={<Chip tone={tone} testid="sportapi-matching-state">{f.unlinked ? `${num(f.unlinked)} unmatched` : "All matched"}</Chip>}>
+      <p className="muted small">Fixtures SportAPI is following within {num(f.days || 7)} days either side of now. An unmatched fixture still
+        costs calls but shows nowhere: the match page keeps PitchAPI's kick-off, the live score never arrives and no forecast can tick.</p>
+      <div className="a-tiles-grid">
+        <StatTile label="Followed" value={num(f.total)} testid="sportapi-fx-total" />
+        <StatTile label="Matched" value={num(f.linked)} testid="sportapi-fx-linked" />
+        <StatTile label="Unmatched" value={num(f.unlinked)} tone={f.unlinked ? "amber" : undefined} testid="sportapi-fx-unlinked" />
+        <StatTile label="Unmatched, being played" value={num(f.unlinked_live)} sub={f.unlinked_live ? "Live data is being lost now" : "Nothing live is being lost"}
+                  tone={f.unlinked_live ? "red" : undefined} testid="sportapi-fx-unlinked-live" />
+      </div>
+      {rows.length ? (
+        <div className="a-table-wrap"><table className="a-table" data-testid="sportapi-fx-rows">
+          <thead><tr><th>Kick-off</th><th>League</th><th>Fixture</th><th>Status</th><th>Clubs known</th></tr></thead>
+          <tbody>{rows.map((r) => (
+            <tr key={r.sid} data-testid={`sportapi-fx-${r.sid}`}>
+              <td>{when(r.kickoff)}</td><td>{r.league || "—"}</td><td>{r.home} v {r.away}</td><td>{r.status || "—"}</td>
+              <td>{r.clubs_known ? "Yes" : <strong>No</strong>}</td>
+            </tr>
+          ))}</tbody>
+        </table></div>
+      ) : <p className="muted small" data-testid="sportapi-fx-empty">Every followed fixture is tied to one of our matches.</p>}
+      {rows.some((r) => !r.clubs_known) && <p className="muted small">A fixture whose clubs are not known needs a club matched in Team review below.
+        One whose clubs <em>are</em> known but is still unmatched means we hold no match for it, usually a changed kick-off or a competition we do not carry.</p>}
+      {seen.length ? <p className="muted small" data-testid="sportapi-status-seen">Status words seen: {seen.map(([k, v]) => `${k} ${num(v)}`).join(" · ")}</p> : null}
+    </Card>
+  );
+}
+
 function Mapping({ s, reload }) {
   const toast = useToast();
   const clubs = useApi("/admin/clubs");
@@ -214,6 +252,7 @@ export default function SportAPI() {
       <div className="a-stack" data-testid="admin-sportapi">
         <Status s={s} reload={q.reload} />
         <LiveStats />
+        <Matching s={s} />
         <Mapping s={s} reload={q.reload} />
         <Review s={s} reload={q.reload} />
         <Backfill reload={q.reload} />

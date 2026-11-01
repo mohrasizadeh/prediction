@@ -726,7 +726,10 @@ def match_days(db, start: datetime, days: int, tz_offset_min: int = 0) -> dict:
     win = {"kickoff": {"$gte": start, "$lt": start + timedelta(days=days)}}
     shift = timedelta(minutes=tz_offset_min)
     out: dict = {}
-    for coll, extra in ((db.matches, {}), (db.live_fixtures, {"status": {"$nin": ["Postponed", "Cancelled"]}})):
+    import sportapi as SP
+    # A called-off fixture puts no crest on the date strip. Every spelling the provider uses counts, not the two
+    # words that were named here (docs/42).
+    for coll, extra in ((db.matches, {}), (db.live_fixtures, {"status": {"$nin": sorted(SP.DEAD)}})):
         for r in coll.find({**win, **extra}, {"_id": 0, "kickoff": 1, "league_iid": 1, "match_iid": 1, "iid": 1}):
             day = (_aware(r["kickoff"]) + shift).strftime("%Y-%m-%d")
             d = out.setdefault(day, {})

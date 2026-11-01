@@ -13,13 +13,14 @@ import { ShareCard } from "./Share";
 import { num1 } from "./Football";
 import BuildForMe from "./BuildForMe";
 import { EmptyState, ErrorState, ForecastCard, RangeSlider, Segmented, Skeleton, WdlBar } from "./ui";
+import { fxState, mLive } from "../lib/live";
 
 const cardsOf = (d) => d.cards || d.forecasts;
 export function matchState(d) {
   const m = d.match;
   if (m.status === "postponed" || m.status === "cancelled") return "off";
   if (m.status === "final" && m.hg != null) return "final";
-  if (m.live && m.live.status === "LIVE") return "live";
+  if (mLive(m)) return "live";
   return (d.starters || []).length && d.starters.every((s) => s.confirmed) ? "lineups" : "before";
 }
 
@@ -103,8 +104,9 @@ export function MatchNotes({ d }) {
 }
 
 export function Forecasts({ d, matchId }) {
-  const live = !!d.match.live && d.match.live.status !== "Scheduled" && d.match.status !== "postponed";
-  const lt = useApi(live && matchId ? `/matches/${matchId}/live-forecasts` : null, undefined, { every: d.match.live?.status === "LIVE" ? 30000 : 0 });
+  const live = !!d.match.live && fxState(d.match.live) !== "later" && d.match.status !== "postponed";
+  // While the match is on, ask every 30 s which lines have happened. This used to stop at half time (docs/42).
+  const lt = useApi(live && matchId ? `/matches/${matchId}/live-forecasts` : null, undefined, { every: mLive(d.match) ? 30000 : 0 });
   const track = lt.data?.active ? lt.data.items : null;
   const all = track ? cardsOf(d).flatMap((f) => [f, ...(f.more_lines || [])]) : [];
   const tracked = all.filter((x) => track[x.fkey] && track[x.fkey].state !== "unknown").length;

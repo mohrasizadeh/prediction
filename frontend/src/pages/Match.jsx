@@ -11,6 +11,7 @@ import { Forecasts, Form, Hero, MatchNotes, matchState } from "../components/Mat
 import MatchEvents from "../components/MatchEvents";
 import LiveLineups from "../components/LiveLineups";
 import { ProLock } from "../components/ui";
+import { mLive } from "../lib/live";
 
 const cardsOf = (d) => d.cards || d.forecasts;
 
@@ -156,7 +157,7 @@ export default function Match() {
   const q = useApi(`/matches/${id}`, undefined, { every: poll });
   const [pick, setTab] = useState(null);
   const d = q.data;
-  const isLive = d?.match?.live?.status === "LIVE" && d?.match?.status !== "final";
+  const isLive = mLive(d?.match) && d?.match?.status !== "final";
   useEffect(() => setPoll(isLive ? 30000 : 0), [isLive]);                  // live score, events and minute refresh by themselves
   const st = d ? matchState(d) : "before";
   // Four tabs. The first one is the match itself while it is on (Live) or over (Recap); before kick-off it is the forecasts.

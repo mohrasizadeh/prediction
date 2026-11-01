@@ -32,17 +32,49 @@ BASE = "https://sportapi.ai"
 PROVIDER = "sportapi"
 KEY_RE = r"^[A-Za-z0-9_\-]{16,128}$"
 LIVE = "LIVE"
-FINAL = {"FT", "AET", "PENS"}
-DEAD = {"Postponed", "Cancelled"}
-# A match is "on" for anything that is not scheduled, finished or called off. The provider's exact words are not
-# verified (docs/08, docs/23), so we do not keep a list of in-play words: half-time, extra time, a break, penalties
-# or a word we have never seen all count as on. Before this, only the exact word "LIVE" did, so events stopped
-# refreshing at half-time and during extra time, and a card in those periods showed late or not at all.
-NOT_PLAYING = {"Scheduled", "TBD", "Abandoned", "Awarded", "WO", "Walkover", None, ""} | FINAL | DEAD
+
+
+def _c(x) -> str:
+    """One spelling for a provider's word: letters and digits only, lower case. "Full Time", "full_time" and
+    "FULLTIME" are the same word; "FT" is not, so every short code is listed in its own right."""
+    return re.sub(r"[^a-z0-9]+", "", str(x).lower())
+
+
+# The match is over, with a result.
+FINAL = {"FT", "AET", "PENS", "PEN", "AP", "Full Time", "After Extra Time", "After Penalties", "Match Finished"}
+# It was called off.
+DEAD = {"Postponed", "PST", "Match Postponed", "Cancelled", "Canceled", "CANC", "Match Cancelled",
+        "Abandoned", "ABD", "Match Abandoned", "Awarded", "AWD", "WO", "Walkover", "Technical Loss"}
+# It has not started.
+NOT_YET = {"Scheduled", "NS", "Not Started", "TBD", "TBA", "Time to be defined", "Delayed", "Deferred"}
+
+# A match is "on" for anything that is none of those three. The provider's exact vocabulary is not verified
+# (docs/08, docs/23), so we do not keep a list of in-play words: half time, extra time, a break, penalties being
+# taken, or a word we have never seen all count as on. Before this, only the exact word "LIVE" did, so events
+# stopped refreshing at half time and in extra time, no forecast could tick in those periods, and the match
+# stopped looking live on every screen (docs/42). The cost of that choice is the opposite mistake, so the three
+# sets above list every spelling we have seen or can expect, including short codes.
+NOT_PLAYING = FINAL | DEAD | NOT_YET | {None, ""}
+_FINAL_C = {_c(x) for x in FINAL}
+_OVER_C = {_c(x) for x in FINAL | DEAD}
+_NOT_PLAYING_C = {_c(x) for x in NOT_PLAYING if x}
 
 
 def in_play(status) -> bool:
-    return status not in NOT_PLAYING
+    """Is this match being played right now? The one rule, used by every screen and by live_track (docs/42)."""
+    return bool(status) and _c(status) not in _NOT_PLAYING_C
+
+
+def is_final(status) -> bool:
+    """Is it over, with a result? Spelled any of the ways a provider spells it."""
+    return bool(status) and _c(status) in _FINAL_C
+
+
+def is_over(status) -> bool:
+    """Is it over for good: finished, or called off and never coming back?"""
+    return bool(status) and _c(status) in _OVER_C
+
+
 POS = {"goalkeeper": "GK", "defender": "DEF", "midfielder": "MID", "forward": "FWD", "attacker": "FWD", "attacking midfielder": "MID"}
 
 _FACTORY = lambda: httpx.Client(timeout=15.0, follow_redirects=False)
@@ -221,7 +253,7 @@ def upsert_fixture(db, f: dict, leagues: dict, now) -> dict | None:
     if doc.get("status") and (not old or old.get("status") != doc["status"]):
         # what words this provider really uses, so `in_play` can be checked against reality (Admin -> SportAPI)
         db.sportapi_state.update_one({"_id": "live"}, {"$inc": {f"status_seen.{str(doc['status']).replace('.', '_')}": 1}}, upsert=True)
-    if old.get("status") != doc["status"] and doc["status"] in FINAL:
+    if old.get("status") != doc["status"] and is_final(doc["status"]):
         doc["final_at"] = now
     db.live_fixtures.update_one({"sid": sid}, {"$set": doc}, upsert=True)
     if match_iid:                                           # a light mirror on our match, for the Today and match pages
@@ -332,7 +364,7 @@ def live_tick(db, client: Client | None = None, now=None) -> dict:
         tracked_today = list(db.live_fixtures.find({"league_iid": {"$in": list(leagues.values())},
                                                     "kickoff": {"$gte": now - timedelta(hours=30), "$lte": now + timedelta(hours=24)}},
                                                    {"_id": 0, "sid": 1, "status": 1, "kickoff": 1, "date": 1}))
-        hot = [f for f in tracked_today if in_play(f.get("status")) or (f["status"] not in FINAL | DEAD and f.get("kickoff")
+        hot = [f for f in tracked_today if in_play(f.get("status")) or (not is_over(f.get("status")) and f.get("kickoff")
                and _aware(f["kickoff"]) - window <= now <= _aware(f["kickoff"]) + timedelta(hours=3))]
         if hot:
             interval = int(S.get(db, "sportapi.live_interval_s")) * slow
@@ -460,7 +492,7 @@ def backfill(db, start: str, end: str, client: Client | None = None, now=None, m
         for f in rows:
             if upsert_fixture(db, f, leagues, now):
                 n += 1
-        complete = all((f.get("status") in FINAL | DEAD) for f in rows if f.get("league_id") in leagues)
+        complete = all(is_over(f.get("status")) for f in rows if f.get("league_id") in leagues)
         db.sportapi_dates.update_one({"_id": ds}, {"$set": {"complete": complete and d < now.date(), "tracked": n, "at": now}}, upsert=True)
         done.append(ds); stored += n
         d += timedelta(days=1)
@@ -483,9 +515,23 @@ STATUS_WORDS = {"Scheduled": "Not started", "LIVE": "Live", "FT": "Full time", "
                 "Postponed": "Postponed", "Cancelled": "Cancelled", "Suspended": "Suspended"}
 
 
+def status_text(status) -> str:
+    """Words for the page. An in-play word we do not know still reads as live, never as the raw code."""
+    if status in STATUS_WORDS:
+        return STATUS_WORDS[status]
+    return "Live" if in_play(status) else (str(status) if status else "Not started")
+
+
+def fixture_state(status) -> str:
+    """live | later | done, for the screens. The browser must not test the provider's word itself: a match at half
+    time or in extra time is being played, whatever the word, and only this side knows the vocabulary (docs/42)."""
+    return "live" if in_play(status) else "done" if is_over(status) else "later"
+
+
 def public_fixture(f: dict, names=None) -> dict:
     return {"sid": f["sid"], "match_id": (names or {}).get(("m", f.get("match_iid"))), "league_iid": f.get("league_iid"), "league_name": f.get("league_name"),
-            "kickoff": f.get("kickoff"), "status": f.get("status"), "status_text": STATUS_WORDS.get(f.get("status"), f.get("status")),
+            "kickoff": f.get("kickoff"), "status": f.get("status"), "status_text": status_text(f.get("status")),
+            "state": fixture_state(f.get("status")), "live": in_play(f.get("status")),
             "minute": f.get("minute"), "home": {"name": f.get("home_name"), "short": f.get("home_short"), "team": (names or {}).get(("t", f.get("home_iid")))},
             "away": {"name": f.get("away_name"), "short": f.get("away_short"), "team": (names or {}).get(("t", f.get("away_iid")))},
             "score": {"home": f.get("hs"), "away": f.get("as"), "ht_home": f.get("ht_home"), "ht_away": f.get("ht_away"),
@@ -509,13 +555,13 @@ def scoreboard(db, day: str | None = None, tz_offset_min: int = 0, now=None) -> 
     d0 = d - timedelta(minutes=tz_offset_min)
     rows = list(db.live_fixtures.find({"kickoff": {"$gte": d0, "$lt": d0 + timedelta(days=1)}}, {"_id": 0}).sort("kickoff", 1))
     names = _names(db, rows)
-    order = {LIVE: 0, "Scheduled": 1}
-    rows.sort(key=lambda f: (order.get(f.get("status"), 2), f.get("kickoff") or now))
+    rows.sort(key=lambda f: (0 if in_play(f.get("status")) else 1 if f.get("status") == "Scheduled" else 2,
+                             f.get("kickoff") or now))
     groups = {}
     for f in rows:
         groups.setdefault(f.get("league_name") or "Other", []).append(public_fixture(f, names))
     st = db.sportapi_state.find_one({"_id": "live"}) or {}
-    return {"leagues": [{"league": k, "fixtures": v} for k, v in groups.items()], "live_count": sum(1 for f in rows if f.get("status") == LIVE),
+    return {"leagues": [{"league": k, "fixtures": v} for k, v in groups.items()], "live_count": sum(1 for f in rows if in_play(f.get("status"))),
             "updated": st.get("last_tick")}
 
 
@@ -548,14 +594,43 @@ def status(db, now=None) -> dict:
     return {"enabled": bool(S.get(db, "sportapi.enabled")), "key_saved": bool(security.get_provider_key(db, PROVIDER, env_fallback="SPORTAPI_KEY")),
             "calls_today": c["n"], "by_kind": c["by_kind"], "cap": int(S.get(db, "sportapi.daily_calls")), "plan_limit": 2000,
             "leagues": S.get(db, "sportapi.leagues"), "last_tick": st.get("last_tick"), "last_result": st.get("last_result"),
-            "live_now": db.live_fixtures.count_documents({"status": LIVE}),
+            "live_now": sum(1 for f in db.live_fixtures.find({}, {"_id": 0, "status": 1}) if in_play(f.get("status"))),
             "teams": {s: db.sportapi_team_map.count_documents({"status": s}) for s in ("auto", "approved", "review", "none", "rejected")},
             "review": list(db.sportapi_team_map.find({"status": "review"}, {"_id": 0}).limit(50)),
+            "fixtures": fixture_links(db, now),
+            "status_seen": st.get("status_seen") or {},
             "dates_backfilled": db.sportapi_dates.count_documents({"complete": True})}
+
+
+def fixture_links(db, now=None, days: int = 7, limit: int = 25) -> dict:
+    """Are SportAPI's fixtures tied to our own matches? A fixture with no `match_iid` is followed but reaches no
+    page: no live score, no events, no ticking forecasts. Clubs can all be matched and a fixture still miss, when
+    the kick-off moved or we never had that match. Nothing here calls the provider (docs/42)."""
+    now = now or utcnow()
+    win = {"kickoff": {"$gte": now - timedelta(days=days), "$lte": now + timedelta(days=days)}}
+    rows = list(db.live_fixtures.find(win, {"_id": 0, "sid": 1, "match_iid": 1, "status": 1, "kickoff": 1,
+                                            "home_name": 1, "away_name": 1, "home_iid": 1, "away_iid": 1, "league_name": 1}))
+    unlinked = [r for r in rows if r.get("match_iid") is None]
+    return {"days": days, "total": len(rows), "linked": len(rows) - len(unlinked), "unlinked": len(unlinked),
+            "unlinked_live": sum(1 for r in unlinked if in_play(r.get("status"))),
+            "rows": [{"sid": r["sid"], "kickoff": r.get("kickoff"), "status": r.get("status"),
+                      "league": r.get("league_name"), "home": r.get("home_name"), "away": r.get("away_name"),
+                      "clubs_known": bool(r.get("home_iid")) and bool(r.get("away_iid"))}
+                     for r in sorted(unlinked, key=lambda r: r.get("kickoff") or now)[:limit]]}
 
 
 # ------------------------------------------------------------------ SportAPI is the source of truth for the match itself
 PHASE = {"Scheduled": "scheduled", LIVE: "live", "FT": "final", "AET": "final", "PENS": "final", "Postponed": "postponed", "Cancelled": "cancelled"}
+
+
+def phase_of(status) -> str | None:
+    """scheduled | live | final | postponed | cancelled, for any word the provider sends.
+
+    The table only knew a handful, so half-time, extra time, a break or a word we have never seen produced no
+    phase at all and the match stopped looking live on every screen. Anything in play is now 'live' (docs/42)."""
+    if status in PHASE:
+        return PHASE[status]
+    return "live" if in_play(status) else None
 
 
 def overlay(db, ms: list[dict]) -> list[dict]:
@@ -569,7 +644,7 @@ def overlay(db, ms: list[dict]) -> list[dict]:
         f = lfs.get(m.get("iid"))
         if not f:
             continue
-        phase = PHASE.get(f.get("status"))
+        phase = phase_of(f.get("status"))
         if f.get("kickoff"):
             m["kickoff"] = f["kickoff"]
         if phase in ("postponed", "cancelled"):
@@ -580,7 +655,8 @@ def overlay(db, ms: list[dict]) -> list[dict]:
                 m["hg"], m["ag"] = f["hs"], f["as"]
         m["phase"] = phase
         m["source"] = "sportapi"
-        m["live"] = {"status": f.get("status"), "minute": f.get("minute"), "hs": f.get("hs"), "as": f.get("as"),
+        # `playing` is the flag the screens use; `status` is kept for older ones and for the admin (docs/42)
+        m["live"] = {"status": f.get("status"), "playing": phase == "live", "state": fixture_state(f.get("status")), "minute": f.get("minute"), "hs": f.get("hs"), "as": f.get("as"),
                      "pen_home": f.get("pen_home"), "pen_away": f.get("pen_away"), "sid": f["sid"], "at": f.get("polled_at"),
                      "ht_home": f.get("ht_home"), "ht_away": f.get("ht_away")}
     return ms

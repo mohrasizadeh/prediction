@@ -7,6 +7,7 @@ import { get } from "../lib/api";
 import { utc } from "../lib/time";
 import { BottomSheet, EmptyState, LiveCard, Skeleton } from "./ui";
 import { isoDay } from "./ui/DateScroller";
+import { fxState } from "../lib/live";
 
 export function useLiveNow(fast = false) {
   const [d, setD] = useState(null);
@@ -41,11 +42,11 @@ function Card({ f, onClose, flash }) {
 export function LiveSheet({ open, onClose, data }) {
   const [fin, setFin] = useState(false);
   const all = (data?.leagues || []).flatMap((g) => g.fixtures.map((f) => ({ ...f, league_name: g.league })));
-  const live = all.filter((f) => f.status === "LIVE");
+  const live = all.filter((f) => fxState(f) === "live");
   const flash = useFlash(live);
   live.sort((a, b) => Number(!!flash(b.sid)) - Number(!!flash(a.sid)));
-  const later = all.filter((f) => f.status === "Scheduled");
-  const done = all.filter((f) => !["LIVE", "Scheduled"].includes(f.status));
+  const later = all.filter((f) => fxState(f) === "later");
+  const done = all.filter((f) => fxState(f) === "done");
   return (
     <BottomSheet open={open} onClose={onClose} title={live.length ? `Live now · ${live.length}` : "Live scores"} testid="live-sheet"
       footer={<Link to="/live" className="btn btn--primary k-grow" onClick={onClose} data-testid="live-sheet-all">All scores today</Link>}>
