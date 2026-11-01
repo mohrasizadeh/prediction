@@ -108,11 +108,11 @@ function Mapping() {
   );
 }
 
-export default function Quality() {
+export default function Quality({ head = true }) {
   const [tab, setTab] = useState("issues");
   return (
     <div className="a-page" data-testid="admin-quality">
-      <PageHead title="Data quality" lead="Problems found while ingesting, how complete each league is, and whether the field mapping reads the right keys." />
+      {head && <PageHead title="Data quality" lead="Problems found while ingesting, how complete each league is, and whether the field mapping reads the right keys." />}
       <Tabs tabs={[{ id: "issues", label: "Issues" }, { id: "coverage", label: "Coverage" }, { id: "mapping", label: "Mapping check" }]} value={tab} onChange={setTab} testid="quality-tabs" />
       {tab === "issues" ? <Issues /> : tab === "coverage" ? <Coverage /> : <Mapping />}
     </div>

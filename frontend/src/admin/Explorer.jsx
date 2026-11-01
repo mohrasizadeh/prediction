@@ -22,7 +22,7 @@ const CALLS = [
   { id: "player", label: "One player", path: "/v1/players/{player}", parts: ["player"], params: [] },
 ];
 
-export default function Explorer() {
+export default function Explorer({ head = true }) {
   const [callId, setCallId] = useState("leagues");
   const [vals, setVals] = useState({});
   const [res, setRes] = useState(null);
@@ -45,7 +45,7 @@ export default function Explorer() {
   };
   return (
     <div className="a-page" data-testid="admin-explorer">
-      <PageHead title="Endpoint explorer" lead="Runs one allowed PitchAPI call through the cache. A cached answer costs nothing; a real call counts toward today's budget." />
+      {head && <PageHead title="Endpoint explorer" lead="Runs one allowed PitchAPI call through the cache. A cached answer costs nothing; a real call counts toward today's budget." />}
       <Card testid="explorer-form">
         <form className="a-form" onSubmit={(e) => { e.preventDefault(); run(false); }}>
           <Field label="Call" as="select" value={callId} onChange={(e) => { setCallId(e.target.value); setRes(null); setErr(null); }} testid="explorer-call">

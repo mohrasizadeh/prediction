@@ -8,7 +8,7 @@ import { utc } from "../lib/time";
 import Icon from "../components/Icon";
 import { useToast } from "../components/Ui";
 import { ErrorBox, Loading } from "../components/States";
-import { Budget, num } from "./parts";
+import { Budget, PageHead, num } from "./parts";
 
 const BADGE = { green: "OK", amber: "Look", red: "Fix", off: "Off" };
 const at = (s) => {
@@ -114,7 +114,14 @@ export function Needs() {
   const q = useApi("/admin/home");
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
-  return <div className="a-page" data-testid="admin-needs"><NeedsList q={q} /></div>;
+  // On Home the list sits under the greeting, so its own heading is an h2. On its own page it needs a title of its
+  // own, or the screen has no h1 at all -- the one screen in the admin that did not (docs/43).
+  return (
+    <div className="a-page" data-testid="admin-needs">
+      <PageHead title="Needs you" lead="Everything waiting for a person: clubs to match, images to approve, failed jobs, alerts and ingest problems." />
+      <NeedsList q={q} />
+    </div>
+  );
 }
 
 export default function AdminHome({ shell }) {
@@ -131,7 +138,7 @@ export default function AdminHome({ shell }) {
       </header>
       <div className="ah-tiles" data-testid="home-tiles">{q.data.tiles.map((t) => <Tile key={t.id} t={t} route={route(t.module)} />)}</div>
       <NeedsList q={q} limit={8} />
-      {route("stats") && <Link to={route("stats")} className="a-link-btn" data-testid="home-stats">Sign-ups, visitors and revenue charts</Link>}
+      {route("analytics") && <Link to={`${route("analytics")}/overview`} className="a-link-btn" data-testid="home-stats">Sign-ups, visitors and revenue charts</Link>}
     </div>
   );
 }

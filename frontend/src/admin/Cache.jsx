@@ -92,11 +92,11 @@ function CacheTable() {
   );
 }
 
-export default function Cache() {
+export default function Cache({ head = true }) {
   const q = useApi("/admin/usage");
   return (
     <div className="a-page" data-testid="admin-cache">
-      <PageHead title="Cache and usage" lead="Every PitchAPI answer is cached. Finished matches are kept for ever." />
+      {head && <PageHead title="Cache and usage" lead="Every PitchAPI answer is cached. Finished matches are kept for ever." />}
       {notMounted(q.error) ? <MissingRoutes /> : <><Usage q={q} /><CacheTable /></>}
     </div>
   );

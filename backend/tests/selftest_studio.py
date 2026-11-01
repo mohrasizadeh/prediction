@@ -216,7 +216,9 @@ with TestClient(srv.app) as owner:
     # ---------------- the admin menu (desktop rail and phone bottom bar)
     sh = owner.get("/api/admin/shell").json()
     ids = {m["id"] for m in sh["modules"]}
-    check({"studio", "popups", "integrations", "staff", "keys", "settings", "users", "analytics"} <= ids and sh["groups"][0] == "Overview" and "Growth" in sh["groups"] and "Site" in sh["groups"], "owner menu: every module, in groups")
+    check({"studio", "popups", "integrations", "staff", "keys", "settings", "users", "analytics"} <= ids and sh["groups"][0] == "Overview"
+          and {"Football data", "Marketing", "Website"} <= set(sh["groups"]), "owner menu: every module, in groups")
+    check({"feeds", "pitchapi", "sportapi"} <= ids, "the owner's menu reaches both football providers (docs/43)")
     check(1 < len(sh["mobile_tabs"]) <= 4 and all(t in ids for t in sh["mobile_tabs"]), "phone bottom bar: up to 4 modules plus More")
     a_ids = {m["id"] for m in admin.get("/api/admin/shell").json()["modules"]}
     check("staff" not in a_ids and "studio" in a_ids and "keys" in a_ids, "admin menu: no Staff; Keys is viewable but owner-only to change")

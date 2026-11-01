@@ -1,9 +1,15 @@
-// Analytics extras (docs/16 §7): right now, this period vs the last, where people come from, e-mail health, popups, list growth, CSV export.
+// Analytics (docs/16 §7, docs/43). Two tabs: Overview (the numbers and charts that were a separate "Dashboard"
+// menu entry) and Audience (right now, this period vs the last, where people come from, e-mail health, popups,
+// list growth, CSV export). The tab is in the URL, so links and Back work.
 import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
-import { useToast } from "../components/Ui";
+import { Tabs, useToast } from "../components/Ui";
 import { Card, DataState, PageHead, ResponsiveTable, StatTile } from "./parts";
+import Dashboard from "./Dashboard";
 import { download } from "./Newsletter";
+
+const TABS = [{ id: "overview", label: "Overview" }, { id: "audience", label: "Audience" }];
 
 const pct = (v) => (v == null ? "No data" : `${(v * 100).toFixed(1)}%`);
 const ch = (v) => (v == null ? "New" : `${v > 0 ? "+" : ""}${(v * 100).toFixed(0)}%`);
@@ -50,24 +56,30 @@ function ListGrowth({ days }) {
 
 export default function Analytics() {
   const toast = useToast();
+  const { tab } = useParams();
+  const nav = useNavigate();
+  const pick = TABS.some((t) => t.id === tab) ? tab : "overview";
   const [days, setDays] = useState(30);
   const [rep, setRep] = useState("visitors");
   const exp = async () => { try { await download(`/admin/analytics/export?report=${rep}&days=${days}`, `${rep}-${days}d.csv`); } catch (x) { toast(x.message, "err"); } };
   return (
     <div className="a-page" data-testid="admin-analytics">
       <PageHead title="Analytics" lead="Our own counts, no third-party trackers. Do Not Track is respected."
-        actions={<div className="a-inline-actions">
+        actions={pick === "audience" ? <div className="a-inline-actions">
           <select aria-label="Period" value={days} onChange={(e) => setDays(Number(e.target.value))} data-testid="an-days">{[7, 30, 90].map((d) => <option key={d} value={d}>Last {d} days</option>)}</select>
           <select aria-label="Report to export" value={rep} onChange={(e) => setRep(e.target.value)} data-testid="an-report">{REPORTS.map((r) => <option key={r}>{r}</option>)}</select>
-          <button className="btn btn--secondary btn--sm" onClick={exp} data-testid="an-export">Export CSV</button></div>} />
-      <div className="a-grid2">
-        <Realtime />
-        <Compare days={days} />
-        <Sources days={days} />
-        <ListGrowth days={days} />
-        <EmailHealth days={days} />
-        <PopupsList />
-      </div>
+          <button className="btn btn--secondary btn--sm" onClick={exp} data-testid="an-export">Export CSV</button></div> : null} />
+      <Tabs tabs={TABS} value={pick} onChange={(t) => nav(`/admin/analytics/${t}`)} testid="analytics-tabs" />
+      {pick === "overview" ? <Dashboard head={false} /> : (
+        <div className="a-grid2">
+          <Realtime />
+          <Compare days={days} />
+          <Sources days={days} />
+          <ListGrowth days={days} />
+          <EmailHealth days={days} />
+          <PopupsList />
+        </div>
+      )}
     </div>
   );
 }

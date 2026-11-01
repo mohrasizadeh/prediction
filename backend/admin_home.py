@@ -8,6 +8,7 @@ import accounts as A
 import admin_queries as AQ
 import alerts as AL
 import calibration as CAL
+import security
 import settings_store as S
 import sportapi as SP
 
@@ -21,11 +22,11 @@ def tiles(db, now: datetime) -> list[dict]:
     reset = day0 + timedelta(days=1)
     h = AQ.health(db, now)
     sync = db.job_runs.find_one({"job": {"$in": ["fixtures_sync", "results_sync"]}, "status": "ok"}, {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
-    data = {"id": "data", "module": "jobs", "title": "Data", "tone": "red" if h["breaker_open"] else _tone(h["api_calls_today"], h["api_budget"]),
+    data = {"id": "data", "module": "pitchapi", "title": "Data", "tone": "red" if h["breaker_open"] else _tone(h["api_calls_today"], h["api_budget"]),
             "provider": "PitchAPI", "used": h["api_calls_today"], "cap": h["api_budget"], "reset_at": reset,
             "last_sync": (sync or {}).get("finished_at") or (sync or {}).get("started_at"), "breaker_open": h["breaker_open"]}
     sp = SP.status(db, now)
-    live = {"id": "live", "module": "integrations", "title": "Live", "tone": _tone(sp["calls_today"], sp["cap"]) if sp["enabled"] else "off",
+    live = {"id": "live", "module": "sportapi", "title": "Live", "tone": _tone(sp["calls_today"], sp["cap"]) if sp["enabled"] else "off",
             "provider": "SportAPI", "enabled": sp["enabled"], "used": sp["calls_today"], "cap": sp["cap"], "by_kind": sp["by_kind"], "reset_at": reset,
             "live_now": sp["live_now"], "review": sp["teams"].get("review", 0)}
     run = db.job_runs.find_one({"job": {"$regex": "^engine"}}, {"_id": 0, "started_at": 1, "status": 1}, sort=[("started_at", -1)])
@@ -44,6 +45,38 @@ def tiles(db, now: datetime) -> list[dict]:
     money = {"id": "money", "module": "subscriptions", "title": "Money", "tone": ("amber" if due or h["webhook_errors_24h"] else "green") if on else "off",
              "billing": on, "mode": S.get(db, "billing.mode"), "past_due": due, "webhook_errors_24h": h["webhook_errors_24h"]}
     return [data, live, engine, images, users, money]
+
+
+def feeds(db, now: datetime | None = None) -> dict:
+    """Both football feeds side by side: what each one is for, whether it is working, and what it costs today.
+
+    The two providers do different jobs and their controls used to be in different parts of the menu, so the first
+    question in any live problem -- which feed is at fault -- had no screen that answered it (docs/43). Nothing here
+    calls a provider.
+    """
+    now = now or datetime.now(timezone.utc)
+    reset = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    h = AQ.health(db, now)
+    sync = db.job_runs.find_one({"job": {"$in": ["fixtures_sync", "results_sync"]}, "status": "ok"},
+                                {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
+    queued = db.ingest_queue.count_documents({"status": "queued"})
+    pitch = {"id": "pitchapi", "name": "PitchAPI", "module": "pitchapi", "route": "/admin/data/pitchapi",
+             "feeds": ["Match and player history", "Season backfill", "Depth analytics the forecasts are built from"],
+             "enabled": not S.get(db, "ingest.paused_reason"), "key_saved": bool(security.get_provider_key(db, "pitchapi", env_fallback="PITCHAPI_KEY")),
+             "used": h["api_calls_today"], "cap": h["api_budget"], "reset_at": reset, "breaker_open": h["breaker_open"],
+             "paused_reason": S.get(db, "ingest.paused_reason") or None, "queued": queued,
+             "last_at": (sync or {}).get("finished_at") or (sync or {}).get("started_at"),
+             "tone": "red" if h["breaker_open"] else _tone(h["api_calls_today"], h["api_budget"])}
+    sp = SP.status(db, now)
+    fx = sp.get("fixtures") or {}
+    live = {"id": "sportapi", "name": "SportAPI", "module": "sportapi", "route": "/admin/data/sportapi",
+            "feeds": ["Live scores and the minute", "Match events that feed the cards", "Lineups", "Final scores"],
+            "enabled": sp["enabled"], "key_saved": sp["key_saved"], "used": sp["calls_today"], "cap": sp["cap"],
+            "reset_at": reset, "last_at": sp.get("last_tick"), "last_result": sp.get("last_result"),
+            "live_now": sp["live_now"], "review": (sp.get("teams") or {}).get("review", 0),
+            "unlinked": fx.get("unlinked", 0), "unlinked_live": fx.get("unlinked_live", 0),
+            "tone": ("red" if fx.get("unlinked_live") else _tone(sp["calls_today"], sp["cap"])) if sp["enabled"] else "off"}
+    return {"now": now, "providers": [pitch, live]}
 
 
 def needs(db, user, now: datetime) -> list[dict]:

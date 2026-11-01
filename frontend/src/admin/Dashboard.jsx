@@ -1,4 +1,6 @@
-// Dashboard (docs/10 §3.1): stat tiles, sign-ups and visitors per day, alerts from health.
+// The Overview tab of Analytics (docs/10 §3.1, docs/43): stat tiles, sign-ups and visitors per day, alerts from
+// health. It was a separate menu entry called Dashboard, beside Home and Analytics, which gave three names to
+// roughly one job.
 import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import Icon from "../components/Icon";
@@ -17,7 +19,7 @@ export function AlertList({ alerts, testid = "alert-list" }) {
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ head = true }) {
   const q = useApi("/admin/dashboard");
   if (q.loading && !q.data) return <Loading rows={6} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
@@ -25,7 +27,7 @@ export default function Dashboard() {
   const mrr = (o.revenue?.by_currency || []).map((r) => `${((r.mrr_cents || 0) / 100).toLocaleString()} ${String(r.currency || "").toUpperCase()}`).join(" · ") || "No data";
   return (
     <div className="a-page" data-testid="admin-dashboard">
-      <PageHead title="Dashboard" lead={`Last ${o.window_days} days`} actions={<button className="btn btn--secondary btn--sm" onClick={q.reload} data-testid="dashboard-refresh"><Icon name="refresh" size={16} />Refresh</button>} />
+      {head && <PageHead title="Dashboard" lead={`Last ${o.window_days} days`} actions={<button className="btn btn--secondary btn--sm" onClick={q.reload} data-testid="dashboard-refresh"><Icon name="refresh" size={16} />Refresh</button>} />}
       <div className="a-tiles-grid">
         <StatTile label="People" value={num(o.people.total)} sub={`${num(o.people.free)} free · ${num(o.people.paid)} paid · ${num(o.people.comp)} comp`} testid="tile-people" />
         <StatTile label="Active today" value={num(o.active.dau)} sub={`${num(o.active.wau)} this week · ${num(o.active.mau)} this month`} testid="tile-active" />

@@ -12,45 +12,64 @@ import accounts as A
 import settings_store as S
 
 # id, label, group, icon, route, permissions (any one is enough)
+#
+# The order here is the order on screen. Groups answer "what am I here to do", and inside a group the most-used
+# tool comes first. Everything that pulls football data sits in one group, named after the provider it talks to,
+# because the two providers do different jobs and the first question is always which one is at fault (docs/43).
 MODULES = [
     ("dashboard", "Home", "Overview", "home", "/admin", ("analytics.read",)),
     ("needs", "Needs you", "Overview", "bell", "/admin/needs", ("logs.read",)),
-    ("stats", "Dashboard", "Overview", "bar-chart", "/admin/stats", ("analytics.read",)),
     ("analytics", "Analytics", "Overview", "bar-chart", "/admin/analytics", ("analytics.read",)),
+
+    # Football data. PitchAPI backfills history and depth; SportAPI does everything live (docs/42).
+    ("feeds", "Feeds", "Football data", "plug", "/admin/data/feeds", ("logs.read", "jobs.run")),
+    ("pitchapi", "PitchAPI", "Football data", "book", "/admin/data/pitchapi", ("jobs.run",)),
+    ("sportapi", "SportAPI", "Football data", "activity", "/admin/data/sportapi", ("logs.read", "jobs.run")),
+    ("leagues", "Leagues", "Football data", "trophy", "/admin/data/leagues", ("jobs.run",)),
+    ("jobs", "Jobs", "Football data", "clock", "/admin/data/jobs", ("jobs.run",)),
+
+    ("engine", "Engine", "Forecasts", "target", "/admin/data/engine", ("jobs.run",)),
+
     ("users", "Users", "People", "users", "/admin/users", ("users.read",)),
     ("staff", "Staff", "People", "shield", "/admin/staff", ("staff.manage",)),
     ("inbox", "Inbox", "People", "mail", "/admin/inbox", ("inbox.write", "users.read")),
-    ("newsletter", "E-mail list", "People", "list", "/admin/newsletter", ("email.read",)),
-    ("popups", "Popups", "Growth", "layers", "/admin/popups", ("popups.read",)),
-    ("announcements", "Announcements", "Growth", "bell", "/admin/announcements", ("content.write",)),
-    ("campaigns", "Campaigns", "Growth", "send", "/admin/campaigns", ("email.write",)),
-    ("studio", "Site Studio", "Site", "palette", "/admin/studio", ("site.read",)),
-    ("pages", "Pages", "Site", "file-text", "/admin/pages", ("content.write",)),
-    ("media", "Images", "Site", "image", "/admin/media", ("site.read",)),
+
+    ("popups", "Popups", "Marketing", "layers", "/admin/popups", ("popups.read",)),
+    ("announcements", "Announcements", "Marketing", "flag", "/admin/announcements", ("content.write",)),
+    ("campaigns", "Campaigns", "Marketing", "send", "/admin/campaigns", ("email.write",)),
+    ("newsletter", "E-mail list", "Marketing", "list", "/admin/newsletter", ("email.read",)),
+
+    # The group already says E-mail, so the labels do not repeat it.
+    ("templates", "Templates", "E-mail", "copy", "/admin/email/templates", ("email.read",)),
+    ("email_log", "Log", "E-mail", "list", "/admin/email/log", ("email.read",)),
+    ("suppressions", "Blocked addresses", "E-mail", "eye-off", "/admin/email/suppressions", ("email.read",)),
+
     ("plans", "Plans", "Money", "tag", "/admin/plans", ("plans.read",)),
     ("subscriptions", "Subscriptions", "Money", "credit-card", "/admin/subscriptions", ("billing.read",)),
     ("payments", "Payments", "Money", "receipt", "/admin/payments", ("billing.read",)),
     ("coupons", "Coupons", "Money", "gift", "/admin/coupons", ("billing.write",)),
     ("revenue", "Revenue", "Money", "trending-up", "/admin/revenue", ("billing.read",)),
-    ("templates", "E-mail templates", "E-mail", "mail", "/admin/email/templates", ("email.read",)),
-    ("email_log", "E-mail log", "E-mail", "list", "/admin/email/log", ("email.read",)),
-    ("suppressions", "Blocked addresses", "E-mail", "shield", "/admin/email/suppressions", ("email.read",)),
-    ("integrations", "Integrations", "Connect", "plug", "/admin/integrations", ("integrations.read",)),
-    ("leagues", "Leagues", "Data", "trophy", "/admin/data/leagues", ("jobs.run",)),
-    ("jobs", "Jobs", "Data", "clock", "/admin/data/jobs", ("jobs.run",)),
-    ("quality", "Data quality", "Data", "activity", "/admin/data/quality", ("jobs.run",)),
-    ("engine", "Engine", "Data", "target", "/admin/data/engine", ("jobs.run",)),
-    ("explorer", "Endpoint explorer", "Data", "compass", "/admin/data/explorer", ("jobs.run",)),
-    ("cache", "Cache and usage", "Data", "layers", "/admin/data/cache", ("jobs.run",)),
+
+    ("studio", "Site Studio", "Website", "palette", "/admin/studio", ("site.read",)),
+    ("pages", "Pages", "Website", "file-text", "/admin/pages", ("content.write",)),
+    ("media", "Images", "Website", "image", "/admin/media", ("site.read",)),
+
     ("settings", "Settings", "System", "settings", "/admin/settings", ("settings.read",)),
     ("keys", "Keys", "System", "key", "/admin/keys", ("settings.read",)),
+    ("integrations", "Integrations", "System", "external", "/admin/integrations", ("integrations.read",)),
     ("logs", "Logs", "System", "list", "/admin/logs", ("logs.read",)),
-    ("security", "Security", "System", "shield", "/admin/security", ("security.read",)),
-    ("health", "Health", "System", "activity", "/admin/health", ("logs.read",)),
+    ("security", "Security", "System", "padlock", "/admin/security", ("security.read",)),
+    ("health", "Health", "System", "monitor", "/admin/health", ("logs.read",)),
 ]
-GROUP_ORDER = ["Overview", "People", "Growth", "Site", "Money", "E-mail", "Connect", "Data", "System"]
+GROUP_ORDER = ["Overview", "Football data", "Forecasts", "People", "Marketing", "E-mail", "Money", "Website", "System"]
+
+# Screens folded into another one, kept so an old bookmark or link still lands somewhere sensible. The front end
+# redirects; nothing else needs to know.
+MOVED = {"stats": "/admin/analytics", "cache": "/admin/data/pitchapi/usage", "quality": "/admin/data/pitchapi/quality",
+         "explorer": "/admin/data/pitchapi/explorer"}
+
 # the phone bottom bar prefers these, in this order, from whatever the role may use
-DEFAULT_TABS = ["dashboard", "needs", "jobs", "engine", "users", "analytics", "studio", "popups", "inbox", "subscriptions", "logs"]
+DEFAULT_TABS = ["dashboard", "needs", "feeds", "sportapi", "jobs", "engine", "users", "analytics", "studio", "popups", "inbox", "subscriptions", "logs"]
 MAX_TABS = 4
 
 

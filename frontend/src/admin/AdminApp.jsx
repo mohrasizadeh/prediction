@@ -1,14 +1,13 @@
 // Admin shell (docs/17): left rail >=1025 px; below, a bottom app bar (4 tabs + More) and a full-screen "All tools" sheet.
 // The menu comes from GET /api/admin/shell. Hiding a module is a convenience; the server checks every route.
 import { Component, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { get, put } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import Icon from "../components/Icon";
 import { ErrorBox, Loading } from "../components/States";
 import { useEsc, useToast } from "../components/Ui";
 import { Chip } from "./parts";
-import Dashboard from "./Dashboard";
 import Users from "./Users";
 import Staff from "./Staff";
 import Settings from "./Settings";
@@ -20,11 +19,8 @@ import Content from "./Content";
 import Inbox from "./Inbox";
 import Announcements from "./Announcements";
 import Plans from "./Plans";
-import Explorer from "./Explorer";
-import Cache from "./Cache";
 import Leagues from "./Leagues";
 import Jobs from "./Jobs";
-import Quality from "./Quality";
 import Engine from "./Engine";
 import { Coupons, Payments, Revenue, Subscriptions } from "./Money";
 import { Campaigns, EmailLog, Suppressions, Templates } from "./Email";
@@ -34,12 +30,21 @@ import Newsletter from "./Newsletter";
 import Integrations from "./Integrations";
 import Analytics from "./Analytics";
 import AdminHome, { Needs } from "./Home";
+import Feeds from "./Feeds";
+import PitchAPI from "./PitchAPI";
+import SportAPI from "./SportAPI";
 
-const SCREENS = { dashboard: AdminHome, needs: Needs, stats: Dashboard, users: Users, staff: Staff, settings: Settings, keys: Keys, logs: Logs, security: Security, health: Health,
-  studio: Studio, pages: Content, inbox: Inbox, announcements: Announcements, plans: Plans, explorer: Explorer, cache: Cache, leagues: Leagues, jobs: Jobs, quality: Quality, engine: Engine,
+const SCREENS = { dashboard: AdminHome, needs: Needs, analytics: Analytics, users: Users, staff: Staff, settings: Settings, keys: Keys, logs: Logs, security: Security, health: Health,
+  studio: Studio, pages: Content, inbox: Inbox, announcements: Announcements, plans: Plans, leagues: Leagues, jobs: Jobs, engine: Engine,
+  feeds: Feeds, pitchapi: PitchAPI, sportapi: SportAPI,
   subscriptions: Subscriptions, payments: Payments, coupons: Coupons, revenue: Revenue, templates: Templates, suppressions: Suppressions, campaigns: Campaigns,
-  popups: Popups, newsletter: Newsletter, integrations: Integrations, analytics: Analytics, email_log: EmailLog, media: Media };
-const SHORT = { "Site Studio": "Studio", "E-mail templates": "Templates", "E-mail list": "List", "Blocked addresses": "Blocked", "Endpoint explorer": "Explorer", "Cache and usage": "Cache", "Data quality": "Quality", Announcements: "News" };
+  popups: Popups, newsletter: Newsletter, integrations: Integrations, email_log: EmailLog, media: Media };
+// A tabbed screen owns the routes below its own, so a link to one tab works and Back leaves the screen.
+const WITH_TABS = { analytics: "analytics/:tab", pitchapi: "data/pitchapi/:tab" };
+// Screens that were folded into a tabbed one. An old bookmark or an in-app link still lands in the right place.
+const MOVED = [["stats", "/admin/analytics/overview"], ["data/cache", "/admin/data/pitchapi/usage"],
+  ["data/quality", "/admin/data/pitchapi/quality"], ["data/explorer", "/admin/data/pitchapi/explorer"]];
+const SHORT = { "Site Studio": "Studio", "E-mail list": "List", "Blocked addresses": "Blocked", "Football data feeds": "Feeds", Announcements: "News" };
 
 export function useAdminShell() {
   const [s, setS] = useState({ data: null, error: null, loading: true });
@@ -189,10 +194,14 @@ export default function AdminApp() {
         <main className="a-main" id="main">
           <Boundary path={pathname}>
           <Routes>
-            {d.modules.map((m) => {
+            {d.modules.flatMap((m) => {
               const C = SCREENS[m.id];
-              return <Route key={m.id} path={sub(m.route) || "/"} element={C ? <C shell={d} /> : <Soon m={m} />} />;
+              const el = C ? <C shell={d} /> : <Soon m={m} />;
+              const rs = [<Route key={m.id} path={sub(m.route) || "/"} element={el} />];
+              if (WITH_TABS[m.id]) rs.push(<Route key={`${m.id}-tab`} path={WITH_TABS[m.id]} element={el} />);
+              return rs;
             })}
+            {MOVED.map(([from, to]) => <Route key={from} path={from} element={<Navigate to={to} replace />} />)}
             <Route path="*" element={<div className="a-soon" data-testid="admin-not-found"><h1>Not here</h1><p>This tool does not exist or your role cannot use it.</p></div>} />
           </Routes>
           </Boundary>

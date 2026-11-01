@@ -15,7 +15,9 @@ from testkit import check, db
 import sportapi as SP, live_track as LT
 
 UTC = dt.timezone.utc
-now = dt.datetime.now(UTC)
+# Midday, not the real time: the scoreboard asks for one local day, and a kick-off three hours from "now"
+# lands on tomorrow when the suite happens to run in the evening.
+now = dt.datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0)
 
 # ---------------------------------------------------------------- in_play: the single rule
 ON = ["LIVE", "1H", "2H", "HT", "ET", "BT", "P", "Half Time", "Extra Time", "Break Time", "Penalty In Progress",

@@ -1,9 +1,11 @@
-// Admin > Integrations > SportAPI (docs/23 §7.7): status, calls today, league mapping, team review, backfill, run now.
+// Admin > Football data > SportAPI (docs/23 §7.7, docs/43): status, calls today, which fixtures are matched to our
+// matches, live statistics, league mapping, team review, backfill, run now.
+// It had no menu entry of its own until docs/43 and sat at the foot of Integrations, next to e-mail and ad tags.
 import { useState } from "react";
 import { get, post, put } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { Field, FormError, useToast } from "../components/Ui";
-import { Card, Chip, DataState, JsonTree, KV, StatTile, num, when } from "./parts";
+import { Card, Chip, DataState, JsonTree, KV, PageHead, StatTile, num, when } from "./parts";
 
 const KINDS = ["date", "events", "final", "lineups", "backfill", "leagues"];
 
@@ -13,7 +15,7 @@ function Status({ s, reload }) {
   const share = Math.min(100, Math.round((s.calls_today / Math.max(1, s.cap)) * 100));
   const run = async () => { setBusy(true); try { const r = await post("/admin/sportapi/tick"); toast(`Run finished: ${r.status}${r.note ? ` (${r.note})` : ""}`, r.status === "ok" || r.status === "off" ? "ok" : "err"); reload(); } catch (x) { toast(x.message, "err"); } finally { setBusy(false); } };
   return (
-    <Card title="SportAPI live data" testid="sportapi-status" actions={<Chip tone={s.enabled && s.key_saved ? "up" : "warn"} testid="sportapi-state">{s.enabled ? (s.key_saved ? "On" : "No key") : "Off"}</Chip>}>
+    <Card title="Status and budget" testid="sportapi-status" actions={<Chip tone={s.enabled && s.key_saved ? "up" : "warn"} testid="sportapi-state">{s.enabled ? (s.key_saved ? "On" : "No key") : "Off"}</Chip>}>
       <p className="muted small">Live scores, match events and lineups. Only the minute job calls SportAPI; visitors never do. Turn it on with <code>sportapi.enabled</code> in Settings once the key and leagues are set.</p>
       <div className="a-tiles-grid">
         <StatTile label="Calls today" value={`${num(s.calls_today)} / ${num(s.cap)}`} sub={`Plan limit ${num(s.plan_limit)}`} testid="sportapi-calls" />
@@ -23,7 +25,7 @@ function Status({ s, reload }) {
       </div>
       <div className="sp-bar" role="progressbar" aria-valuenow={share} aria-valuemin={0} aria-valuemax={100} aria-label="Calls used today" data-testid="sportapi-bar"><span style={{ width: `${share}%` }} className={share > 75 ? "is-tight" : ""} /></div>
       <p className="muted small" data-testid="sportapi-by-kind">{KINDS.map((k) => `${k} ${num(s.by_kind?.[k] || 0)}`).join(" · ")} · resets {(() => { const r = new Date(); r.setUTCHours(24, 0, 0, 0); return r.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); })()}</p>
-      <p className="muted small">Last run: {when(s.last_tick)}{s.last_result ? ` · ${s.last_result.status}${s.last_result.note ? `: ${s.last_result.note}` : ""}` : ""}</p>
+      <p className="muted small">Last run: {s.last_tick ? when(s.last_tick) : "never"}{s.last_result ? ` · ${s.last_result.status}${s.last_result.note ? `: ${s.last_result.note}` : ""}` : ""}</p>
       <p className="muted small">Clubs matched: {Object.entries(s.teams || {}).map(([k, v]) => `${k} ${v}`).join(" · ")}</p>
       <button className="btn btn--primary btn--sm self-start" onClick={run} disabled={busy} data-testid="sportapi-run-now">{busy ? "Running" : "Run now"}</button>
     </Card>
@@ -46,9 +48,9 @@ function Matching({ s }) {
       <div className="a-tiles-grid">
         <StatTile label="Followed" value={num(f.total)} testid="sportapi-fx-total" />
         <StatTile label="Matched" value={num(f.linked)} testid="sportapi-fx-linked" />
-        <StatTile label="Unmatched" value={num(f.unlinked)} tone={f.unlinked ? "amber" : undefined} testid="sportapi-fx-unlinked" />
+        <StatTile label="Unmatched" value={num(f.unlinked)} tone={f.unlinked ? "down" : undefined} testid="sportapi-fx-unlinked" />
         <StatTile label="Unmatched, being played" value={num(f.unlinked_live)} sub={f.unlinked_live ? "Live data is being lost now" : "Nothing live is being lost"}
-                  tone={f.unlinked_live ? "red" : undefined} testid="sportapi-fx-unlinked-live" />
+                  tone={f.unlinked_live ? "down" : undefined} testid="sportapi-fx-unlinked-live" />
       </div>
       {rows.length ? (
         <div className="a-table-wrap"><table className="a-table" data-testid="sportapi-fx-rows">
@@ -249,7 +251,8 @@ export default function SportAPI() {
   const q = useApi("/admin/sportapi");
   return (
     <DataState q={q}>{(s) => (
-      <div className="a-stack" data-testid="admin-sportapi">
+      <div className="a-page" data-testid="admin-sportapi">
+        <PageHead title="SportAPI" lead="Everything live: scores, the minute, the events that feed the cards, lineups and final scores. History and depth come from PitchAPI." />
         <Status s={s} reload={q.reload} />
         <LiveStats />
         <Matching s={s} />

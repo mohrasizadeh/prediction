@@ -1,11 +1,11 @@
 // Integrations (docs/16 §5-6): e-mail provider, list sync, outbound webhooks, tracking tags (owner only).
+// The football feeds are NOT here: they have their own group in the menu (docs/43).
 import { useEffect, useState } from "react";
 import { del, post, put } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
 import { Confirm, Drawer, Field, FormError, Switch, useToast } from "../components/Ui";
 import { Card, Chip, DataState, PageHead, ResponsiveTable, when } from "./parts";
-import SportAPI from "./SportAPI";
 
 function EmailCard({ e, reload }) {
   const toast = useToast();
@@ -115,15 +115,13 @@ export default function Integrations() {
   const q = useApi("/admin/integrations");
   return (
     <div className="a-page" data-testid="admin-integrations">
-      <PageHead title="Integrations" lead="Connect e-mail, your marketing list, automation tools and ad tags. Keys live under Keys." />
+      <PageHead title="Integrations" lead="Outside services this app talks to: e-mail sending, your marketing list, automation tools and ad tags. Football data has its own group. Keys live under Keys." />
       <DataState q={q}>{(d) => <div className="a-grid2">
         <EmailCard e={d.email} reload={q.reload} />
         <AudienceCard a={d.audience} reload={q.reload} />
         <TrackingCard t={d.tracking} reload={q.reload} />
         <Webhooks />
       </div>}</DataState>
-      <h2 className="h3 a-section-title">SportAPI</h2>
-      <SportAPI />
     </div>
   );
 }

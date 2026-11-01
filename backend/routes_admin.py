@@ -78,6 +78,13 @@ def admin_home(user=Depends(perm("analytics.read")), db=Depends(D.get_db)):
     return AH.home(db, user)
 
 
+@router.get("/feeds")
+def admin_feeds(user=Depends(perm("logs.read")), db=Depends(D.get_db)):
+    """Both football feeds side by side (docs/43)."""
+    import admin_home as AH
+    return AH.feeds(db)
+
+
 @router.get("/analytics/overview")
 def a_overview(days: int = Query(30, ge=1, le=400), user=Depends(perm("analytics.read")), db=Depends(D.get_db)):
     return AN.overview(db, days)
