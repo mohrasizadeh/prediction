@@ -69,7 +69,7 @@ check(c.get(f"/api/players/{player['id']}/history?last=5").status_code == 200, "
 check(c.get("/api/players/nope").status_code == 404, "unknown player: 404")
 check(c.get("/api/track-record").json().get("ready") is False, "track record not ready yet: says so")
 check("data_updated_at" in c.get("/api/public/status").json(), "status answers")
-db.content_pages.insert_one({"slug": "about", "title": "About", "body_md": "Hi", "published": True})
+db.content_pages.update_one({"slug": "about"}, {"$set": {"title": "About", "body_md": "Hi", "published": True}}, upsert=True)   # seeded at start (docs/36 C2)
 db.content_pages.insert_one({"slug": "draft", "title": "Draft", "body_md": "x", "published": False})
 check(c.get("/api/public/pages/about").json()["title"] == "About" and c.get("/api/public/pages/draft").status_code == 404, "published page shows, draft does not")
 
