@@ -156,7 +156,7 @@ def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
     return out
 
 
-def _goal_lines(db, m, probs, run_id, now, labels) -> list[dict]:
+def _goal_lines(db, m, probs, run_id, now, labels, usual=None) -> list[dict]:
     """Total goals in the match, read off the team-strength model's own scoreline matrix (docs/39).
 
     No statistics feed is involved, so this market works in a league where shots or tackles are missing, and the
@@ -167,11 +167,15 @@ def _goal_lines(db, m, probs, run_id, now, labels) -> list[dict]:
         return []
     ladder = {str(k): round(float(v), 4) for k, v in tot.items()}
     out = []
-    for thr in S.get(db, "engine.team_ladder").get("goals", []):
+    # the same source every other team line uses: configure_engine filled it from the ladder, or from the fixed
+    # thresholds when engine.auto_lines is off, so this market follows that switch too
+    for thr in E.TEAM_THR.get("goals", []):
         p = tot.get(f"{float(thr):g}")
         if p is None:
             continue
         p = float(min(max(p, 0.0), float(S.get(db, "engine.p_cap"))))
+        pu = (usual or {}).get(f"{float(thr):g}")                 # the same line in an average fixture here
+        pu = float(min(max(pu, 0.0), 1.0)) if pu is not None else None
         lo, hi = max(0.0, p - 0.06), min(1.0, p + 0.06)       # the strength model's own spread, as for the 1x2
         out.append({"id": str(uuid.uuid4()), "fkey": f"{m['iid']}:team:{m['home_iid']}:0:match_goals:{float(thr):g}",
                     "run_id": run_id, "match_iid": m["iid"], "league_iid": m["league_iid"], "kickoff": m["kickoff"],
@@ -181,7 +185,8 @@ def _goal_lines(db, m, probs, run_id, now, labels) -> list[dict]:
                     "p": p, "lo": float(lo), "hi": float(hi), "p_model": p, "p_pre_anchor": p,
                     "rec_k": None, "rec_n": None, "state": "pre", "calibration": None,
                     "p_play": 1.0, "lineup_confirmed": False, "lineup_badge": None, "p_basis": "all",
-                    "tier": None, "tier_basis": "team", "tier_note": None, "p_usual": None, "edge": 0.0,
+                    "tier": None, "tier_basis": "team", "tier_note": None,
+                    "p_usual": pu, "edge": (p - pu) if pu is not None else 0.0,
                     "reasons": [], "opp_tactics": [], "own_tactics": [], "opp_key_players": [], "contrib": {},
                     "rotation": None, "rotation_why": None, "p_play_usual": None, "p_raw": p, "p_base": p,
                     "ladder": ladder, "model": "strength", "is_current": True, "hidden": False, "created_at": now})
@@ -224,6 +229,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
                                     "n_test": gate["n_test"], "gain": gate["gain"], "se": gate["se"], "z": gate["z"],
                                     "reason": gate["reason"], "coefficients": gate["model"].coefficients() if gate["model"] else {},
                                     "at": now})
+
+    # the same goal lines in an average fixture here, so each one can show its lift over usual (docs/39)
+    goal_usual = eng.dc.baseline_totals() if getattr(eng, "dc", None) is not None else {}
 
     # --- team styles and tactic labels (for the Matchup and Team pages)
     snap = eng.snaps[as_of]
@@ -287,7 +295,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
                                                       "next_comp": c["next_comp"], "n14": c["n14"], "at": now}}, upsert=True)
         db.match_probs.update_many({"match_iid": m["iid"], "is_current": True}, {"$set": {"is_current": False}})
         db.match_probs.insert_one({"match_iid": m["iid"], "run_id": run_id, "is_current": True, "at": now, **probs})
-        goal_lines = _goal_lines(db, m, probs, run_id, now, labels) if markets.get("team.goals") else []
+        goal_lines = _goal_lines(db, m, probs, run_id, now, labels, goal_usual) if markets.get("team.goals") else []
         kept = {d["fkey"]: d for d in db.forecasts.find({"match_iid": m["iid"], "is_current": True, "hidden": True},
                                                          {"_id": 0, "fkey": 1, "hidden_reason": 1, "hidden_by": 1, "hidden_at": 1})}
         before = {d["fkey"]: d for d in db.forecasts.find({"match_iid": m["iid"]}, {"_id": 0, "fkey": 1, "p": 1, "created_at": 1, "p_prev": 1, "p_prev_at": 1})}

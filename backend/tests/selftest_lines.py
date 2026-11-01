@@ -2,7 +2,7 @@
 
 Proves: automatic lines differ by player and team (no single "12+ shots / 5+ corners" for everyone) and stay inside
 the likelihood band; labels are built for any line; likely starters can be Solid or Strong before the lineup, others
-say "Watch until lineups are out"; every forecast carries its usual number and the lift over it; player lines are \"if he plays\" with a lineup badge; the feed ranks by
+say "Watch until lineups are out"; every forecast carries its usual number and the lift over it, total goals included; player lines are \"if he plays\" with a lineup badge; the feed ranks by
 that lift, never leads with a near-certain line, and the old order is one setting away; team averages are recency-
 weighted, opponent-judged and capped; one wild match moves a referee's normalised number far less than his plain
 average; the match page carries the referee line; the daily job writes referee_stats.
@@ -36,7 +36,7 @@ check(B.label_for(None, "team", "shots", 11.5, {"team_shots:11.5": "12+ team sho
 docs = [{"scope": "player", "team_iid": 1, "player_iid": 7, "stat": "shots", "thr": t, "p": p}
         for t, p in ((0.5, 0.97), (1.5, 0.88), (2.5, 0.71), (3.5, 0.55), (4.5, 0.38))]
 kept = B.select_lines(docs, [0.5, 0.95], 3)
-check(sorted(d["thr"] for d in kept) == [1.5, 2.5, 3.5], "kept: inside 50-95%, the three most ambitious (2+, 3+, 4+)")
+check(sorted(d["thr"] for d in kept) == [1.5, 2.5, 3.5], "kept: inside the band it was given, the three most ambitious (2+, 3+, 4+)")
 check(all(d["ladder"] == {"0.5": 0.97, "1.5": 0.88, "2.5": 0.71, "3.5": 0.55, "4.5": 0.38} for d in kept), "every kept line carries the whole ladder")
 
 print("[tiers]")
@@ -57,7 +57,10 @@ I.assign_rounds(db, lg["iid"]); I.update_coverage(db, lg["iid"])
 now = fake.kick(n_final) - dt.timedelta(hours=26)
 B.run_league(db, lg["iid"], now=now)
 rows = list(db.forecasts.find({}, {"_id": 0, "contrib": 0}))
-check(rows and all(0.5 <= r["p"] <= 0.95 for r in rows), f"{len(rows)} forecasts, all inside the 50-95% band")
+band = S.get(db, "engine.line_band")          # read the setting: the upper end moved to the display cap (docs/39)
+check(rows and all(float(band[0]) <= r["p"] <= float(band[1]) for r in rows),
+      f"{len(rows)} forecasts, all inside the {band[0]:.0%}-{band[1]:.1%} band")
+check(any(r["p"] > 0.95 for r in rows), "near-certain lines are kept, not discarded before they are stored (docs/39)")
 team_shots = {r["thr"] for r in rows if r["scope"] == "team" and r["stat"] == "shots"}
 check(len(team_shots) >= 4, f"team shot lines differ by team: {sorted(team_shots)}")
 pl_shots = {r["thr"] for r in rows if r["scope"] == "player" and r["stat"] == "shots"}
@@ -101,7 +104,10 @@ rows = list(db.forecasts.find({}, {"_id": 0, "contrib": 0}))
 
 print("[feed order]")
 feed = Q.insights_feed(db, limit=500, tiers=("Strong", "Solid", "Watch"), now=now - dt.timedelta(hours=1))
-check(all(f["p"] <= 0.93 or all(m["p"] > 0.93 for m in f["more_lines"]) for f in feed), "a near-certain line never leads a card while another can")
+fmax = float(S.get(db, "engine.feed_max_p"))     # the owner moved this to the display cap (docs/39)
+check(all(f["p"] <= fmax or all(m["p"] > fmax for m in f["more_lines"]) for f in feed),
+      f"a line above {fmax:.0%} only leads when no other line could")
+check(any(f["p"] >= 0.90 for f in feed), "near-certain lines reach the feed and lead their card (docs/39)")
 order = [(Q.CONFIDENT[f["tier"]], -f["edge"]) for f in feed]
 check(order == sorted(order), "default order: Strong and Solid together by the biggest lift over usual, then Watch")
 heads = [f for f in feed if f["tier"] in ("Strong", "Solid")]

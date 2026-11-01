@@ -59,6 +59,22 @@ class DixonColes:
         la = np.exp(self.mu0 + self.att.get(away, 0.0) - self.dfn.get(home, 0.0))
         return float(lh), float(la)
 
+    def baseline_totals(self, max_goals=9):
+        """Total-goal chances for an AVERAGE fixture in this league: the same maths with no team attack or defence,
+        so a card can say "usually 48%, this match 61%" and the feed can rank by the lift (docs/39)."""
+        lh, la = float(np.exp(self.mu0 + self.gam)), float(np.exp(self.mu0))
+        from scipy.stats import poisson
+        g = np.arange(max_goals + 1)
+        M = np.outer(poisson.pmf(g, lh), poisson.pmf(g, la))
+        for (x, y) in [(0, 0), (0, 1), (1, 0), (1, 1)]:
+            M[x, y] *= float(_tau(np.array(x), np.array(y), np.array(lh), np.array(la), self.rho))
+        M /= M.sum()
+        tot = np.zeros(2 * max_goals + 1)
+        for i in range(max_goals + 1):
+            for j in range(max_goals + 1):
+                tot[i + j] += M[i, j]
+        return {f"{k - 0.5:g}": float(tot[k:].sum()) for k in range(1, max_goals + 1)}
+
     def outcome_probs(self, home, away, max_goals=9, mult_h=1.0, mult_a=1.0):
         """`mult_h`, `mult_a`: match-context multipliers on expected goals (form, stakes; docs/22)."""
         lh, la = self.expected_goals(home, away)
