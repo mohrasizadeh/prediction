@@ -69,7 +69,16 @@ class DixonColes:
         for (x, y) in [(0, 0), (0, 1), (1, 0), (1, 1)]:
             M[x, y] *= float(_tau(np.array(x), np.array(y), np.array(lh), np.array(la), self.rho))
         M /= M.sum()
+        # Total goals in the match, straight off the same scoreline matrix: P(total >= k) for each line.
+        # No new data and no second model: the draw correction and the context multipliers are already in M.
+        tot = np.zeros(2 * max_goals + 1)
+        for i in range(max_goals + 1):
+            for j in range(max_goals + 1):
+                tot[i + j] += M[i, j]
+        # keyed by the line itself ("2.5" = three or more goals), so it stores and reads as a plain document
+        over = {f"{k - 0.5:g}": float(tot[k:].sum()) for k in range(1, max_goals + 1)}
         return {"xg_home": lh, "xg_away": la,
                 "p_home": float(np.tril(M, -1).sum()),
                 "p_draw": float(np.trace(M)),
-                "p_away": float(np.triu(M, 1).sum())}
+                "p_away": float(np.triu(M, 1).sum()),
+                "totals": over}

@@ -32,7 +32,10 @@ import match_context as MC    # noqa: E402  (backend/match_context.py)
 
 MARKET_COVERAGE = {"player.shots": "player_match_stats.shots", "player.sot": "player_match_stats.sot",
                    "player.tackles": "player_match_stats.tackles", "team.corners": "team_match_stats.corners",
-                   "team.shots": "team_match_stats.shots"}
+                   "team.shots": "team_match_stats.shots", "team.sot": "team_match_stats.sot"}
+# Total goals in the match come from the team-strength model, not from the statistics feed, so they need no
+# coverage check: a finished match always has a score (docs/39).
+NO_COVERAGE_MARKETS = ("team.goals",)
 TEAM_REQUIRED = ["shots", "sot", "corners", "tackles", "poss", "shots_against", "corners_against", "tackles_against"]
 PLAYER_REQUIRED = ["minutes", "shots", "sot", "tackles", "team_shots", "team_sot", "team_tackles"]
 
@@ -112,11 +115,14 @@ def enabled_markets(db, league_iid: int) -> dict:
     for m, field in MARKET_COVERAGE.items():
         cov = db.data_coverage.find_one({"league_iid": league_iid, "field": field})
         out[m] = bool(flags.get(m, True)) and bool(cov) and cov["share"] >= floor
+    for m in NO_COVERAGE_MARKETS:
+        out[m] = bool(flags.get(m, True))
     return out
 
 
 STAT_LABEL = {"shots": ("shot", "shots"), "sot": ("shot on target", "shots on target"), "tackles": ("tackle", "tackles"),
-              "corners": ("corner", "corners"), "fouls": ("foul", "fouls"), "yellow": ("yellow card", "yellow cards")}
+              "corners": ("corner", "corners"), "fouls": ("foul", "fouls"), "yellow": ("yellow card", "yellow cards"),
+              "goals": ("goal", "goals"), "match_goals": ("goal", "goals")}
 
 
 def label_for(db, scope, stat, thr, labels) -> str:
@@ -128,6 +134,8 @@ def label_for(db, scope, stat, thr, labels) -> str:
         return labels[f"{stat}:{thr:g}"]
     n = int(np.floor(thr)) + 1
     one, many = STAT_LABEL.get(stat, (stat, stat))
+    if stat == "match_goals":
+        return f"{n}+ {one if n == 1 else many} in the match"
     return f"{n}+ {one if n == 1 else many}"
 
 
@@ -145,6 +153,38 @@ def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
         for d in keep:
             d["ladder"] = ladder
         out += keep
+    return out
+
+
+def _goal_lines(db, m, probs, run_id, now, labels) -> list[dict]:
+    """Total goals in the match, read off the team-strength model's own scoreline matrix (docs/39).
+
+    No statistics feed is involved, so this market works in a league where shots or tackles are missing, and the
+    draw correction and match context are already inside the numbers. The band in engine.line_band applies, as for
+    every other line."""
+    tot = (probs or {}).get("totals") or {}
+    if not tot:
+        return []
+    ladder = {str(k): round(float(v), 4) for k, v in tot.items()}
+    out = []
+    for thr in S.get(db, "engine.team_ladder").get("goals", []):
+        p = tot.get(f"{float(thr):g}")
+        if p is None:
+            continue
+        p = float(min(max(p, 0.0), float(S.get(db, "engine.p_cap"))))
+        lo, hi = max(0.0, p - 0.06), min(1.0, p + 0.06)       # the strength model's own spread, as for the 1x2
+        out.append({"id": str(uuid.uuid4()), "fkey": f"{m['iid']}:team:{m['home_iid']}:0:match_goals:{float(thr):g}",
+                    "run_id": run_id, "match_iid": m["iid"], "league_iid": m["league_iid"], "kickoff": m["kickoff"],
+                    "scope": "team", "team_iid": int(m["home_iid"]), "opp_iid": int(m["away_iid"]), "player_iid": None, "pos": None,
+                    "stat": "match_goals", "thr": float(thr), "market": label_for(db, "team", "match_goals", float(thr), labels),
+                    "expected": float(probs.get("xg_home", 0) + probs.get("xg_away", 0)),
+                    "p": p, "lo": float(lo), "hi": float(hi), "p_model": p, "p_pre_anchor": p,
+                    "rec_k": None, "rec_n": None, "state": "pre", "calibration": None,
+                    "p_play": 1.0, "lineup_confirmed": False, "lineup_badge": None, "p_basis": "all",
+                    "tier": None, "tier_basis": "team", "tier_note": None, "p_usual": None, "edge": 0.0,
+                    "reasons": [], "opp_tactics": [], "own_tactics": [], "opp_key_players": [], "contrib": {},
+                    "rotation": None, "rotation_why": None, "p_play_usual": None, "p_raw": p, "p_base": p,
+                    "ladder": ladder, "model": "strength", "is_current": True, "hidden": False, "created_at": now})
     return out
 
 
@@ -247,6 +287,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
                                                       "next_comp": c["next_comp"], "n14": c["n14"], "at": now}}, upsert=True)
         db.match_probs.update_many({"match_iid": m["iid"], "is_current": True}, {"$set": {"is_current": False}})
         db.match_probs.insert_one({"match_iid": m["iid"], "run_id": run_id, "is_current": True, "at": now, **probs})
+        goal_lines = _goal_lines(db, m, probs, run_id, now, labels) if markets.get("team.goals") else []
         kept = {d["fkey"]: d for d in db.forecasts.find({"match_iid": m["iid"], "is_current": True, "hidden": True},
                                                          {"_id": 0, "fkey": 1, "hidden_reason": 1, "hidden_by": 1, "hidden_at": 1})}
         before = {d["fkey"]: d for d in db.forecasts.find({"match_iid": m["iid"]}, {"_id": 0, "fkey": 1, "p": 1, "created_at": 1, "p_prev": 1, "p_prev_at": 1})}
@@ -300,6 +341,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "contrib": {k: round(float(v), 4) for k, v in f.contrib.items()},
                          "rotation": f.rotation, "rotation_why": f.rotation_why, "p_play_usual": f.p_play_usual,
                          "p_raw": f.p_raw, "p_base": f.p_base, "is_current": True, "hidden": False, "created_at": now})
+        docs += goal_lines
         if auto_lines:
             docs = select_lines(docs, line_band, max_lines)
         for d in docs:   # an admin's Hide survives the next run
@@ -437,6 +479,9 @@ def score_finished(db) -> int:
             r = db.player_match_stats.find_one({"match_iid": f["match_iid"], "player_iid": f["player_iid"]})
             actual = (r or {}).get(f["stat"]) if r else 0.0           # did not play: 0 and flagged
             played = r is not None
+        elif f["stat"] == "match_goals":
+            actual = (m.get("hg") + m.get("ag")) if m.get("hg") is not None and m.get("ag") is not None else None
+            played = True
         elif f["stat"] == "match_yellow_cards":
             rows = [r.get("yellow_cards") for r in db.team_match_stats.find({"match_iid": f["match_iid"]}, {"yellow_cards": 1})]
             actual = sum(rows) if len(rows) == 2 and None not in rows else None; played = True
