@@ -127,6 +127,8 @@ REASONS = {
                    "The team's expected lineup creates fewer {s}."),
     "role": ("Takes a larger share of the team's {s} than most in the role.",
              "Takes a smaller share of the team's {s} than most in the role."),
+    "opp_role": ("The opponent gives up more {s} to players in his position.",
+                 "The opponent holds down {s} from players in his position."),
 }
 
 

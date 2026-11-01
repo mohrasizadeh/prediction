@@ -2647,5 +2647,45 @@
   "group": "Engine",
   "public": false,
   "applies_at": "next engine run"
+ },
+ {
+  "key": "engine.script_v2",
+  "group": "Engine",
+  "label": "Game state: lopsided and tempo",
+  "type": "boolean",
+  "default": false,
+  "public": false,
+  "applies_at": "next engine run",
+  "help": "Adds two things the model can see before kick-off: how one-sided the fixture looks, and how many goals the two clubs' matches usually carry. A side expected to lead sits deeper; an open game has more of everything. Off until engine_ab.py passes it on your data (docs/37)."
+ },
+ {
+  "key": "engine.fit_player_r",
+  "group": "Engine",
+  "label": "Fit player spread from results",
+  "type": "boolean",
+  "default": false,
+  "public": false,
+  "applies_at": "next engine run",
+  "help": "Works out how much a player's count bounces around its average from your own results, instead of the fixed numbers in 'Player dispersion'. Off until engine_ab.py passes it on your data (docs/37)."
+ },
+ {
+  "key": "engine.opp_pos_k",
+  "group": "Engine",
+  "label": "Opponent by position: prior strength",
+  "type": "float",
+  "default": 0,
+  "public": false,
+  "applies_at": "next engine run",
+  "help": "0 = off. Above 0, each forecast also uses what this opponent lets players in that position do (what a full-back allows a winger). Higher numbers trust the opponent's record less. 20 is the tested starting point. The team total never changes, only how it is split between players (docs/37)."
+ },
+ {
+  "key": "engine.xg_blend",
+  "group": "Engine",
+  "label": "Expected goals in team strength",
+  "type": "float",
+  "default": 0,
+  "public": false,
+  "applies_at": "next engine run",
+  "help": "0 = off. Above 0, match chances use a second strength model fitted on expected goals as well as the one fitted on goals. Expected goals are steadier than goals, which are few and swingy. 0.5 counts them equally. Needs expected goals in the feed (docs/37)."
  }
 ]

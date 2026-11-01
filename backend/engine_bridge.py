@@ -91,8 +91,13 @@ def configure_engine(db) -> E.SoccerEngine:
                          style_opp_adjust=tuple(S.get(db, "engine.style_opp_adjust")),
                          style_cap_q=(float(S.get(db, "engine.style_cap_q")) or None),
                          player_prior=dict(S.get(db, "engine.player_prior")),
-                         cond_play=bool(S.get(db, "engine.condition_on_play")))     # "if he plays" (docs/27)
-    eng.r_player = dict(S.get(db, "engine.r_player"))
+                         cond_play=bool(S.get(db, "engine.condition_on_play")),     # "if he plays" (docs/27)
+                         # docs/37 upgrades. Each default is off; switch one on only after engine_ab.py passes it.
+                         script_v2=bool(S.get(db, "engine.script_v2")),
+                         fit_player_r=bool(S.get(db, "engine.fit_player_r")),
+                         opp_pos_k=float(S.get(db, "engine.opp_pos_k") or 0.0),
+                         xg_blend=float(S.get(db, "engine.xg_blend") or 0.0))
+    eng.r_player = dict(S.get(db, "engine.r_player"))      # fit_player_r replaces these during fit() when it is on
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
     eng.likely_starter_p = float(S.get(db, "engine.likely_starter_p"))   # likely starters get full minutes, no chance-to-play discount
