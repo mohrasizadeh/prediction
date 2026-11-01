@@ -9,7 +9,7 @@ the minute job; scheduled and postponed matches track nothing.
 import datetime as dt
 import testkit as K
 from testkit import check, db, setting, srv
-import live_track as LT, sportapi as SP
+import live_track as LT, settings_store as S, sportapi as SP
 from fastapi.testclient import TestClient
 
 now = dt.datetime.now(dt.timezone.utc)
@@ -110,5 +110,43 @@ SP.upsert_fixture(db, {"id": 95, "league_id": 39, "date": now.strftime("%Y-%m-%d
                        "home_id": 1, "away_id": 2, "home_team": "Como", "away_team": "Venezia"}, {39: 1}, now)
 seen = (db.sportapi_state.find_one({"_id": "live"}) or {}).get("status_seen") or {}
 check(seen.get("Second Half") == 1, f"the words this provider sends are counted, so the list can be checked: {sorted(seen)}")
+
+# ---- docs/38: reading the provider's statistic names without a hand-kept list
+check(SP._canon("Shots (Total)") == SP._canon("shots total") == "shotstotal", "a name is matched on letters and digits only")
+a = SP.stat_alias({})
+check(a.get("totalshots") == "shots" and a.get("shotsongoal") == "sot" and a.get("cornerkicks") == "corners" and a.get("tackleswon") == "tackles",
+      "the built-in names work with no setting at all")
+check(SP.stat_alias({"shots": ["Goal Attempts"]}).get("goalattempts") == "shots", "a name from the setting is added to the built-in ones")
+
+K2 = {"shots": [], "sot": [], "corners": [], "tackles": []}
+rows = SP.parse_stats([{"type": "Total Shots", "home": 14, "away": 8}, {"type": "Shots on Goal", "home": 5, "away": 2},
+                       {"type": "Corner Kicks", "home": 7, "away": 3}, {"type": "Ball Possession", "home": "55%", "away": "45%"}], K2)
+check(rows["teams"]["home"] == {"shots": 14.0, "sot": 5.0, "corners": 7.0}, f"a row-shaped answer is read: {rows['teams']['home']}")
+blocks = SP.parse_stats({"home": {"stats": {"shots-total": 11, "Shots On Target": 4, "Tackles Won": 19}},
+                         "away": {"stats": {"shots-total": 9, "Shots On Target": 3, "Tackles Won": 14}}}, K2)
+check(blocks["teams"]["away"] == {"shots": 9.0, "sot": 3.0, "tackles": 14.0}, "a home/away answer is read")
+check(rows["unmatched"] == ["Ball Possession"] and not blocks["unmatched"], "names we cannot place are reported, and only those")
+
+# coverage is written on every fetch, so Admin shows it without spending a call
+SP.store_stats(db, 77, SP.parse_stats([{"type": "Total Shots", "home": 3, "away": 1}, {"type": "Offsides", "home": 2, "away": 0}], K2), now)
+cov = SP.stats_coverage(db)
+check(cov["found"]["shots"] is True and cov["found"]["tackles"] is False, f"coverage says which counts were found: {cov['found']}")
+check("Offsides" in cov["unmatched"], "...and which names were not placed")
+
+# the admin panel's routes: see the state with no provider call, and teach a name
+with TestClient(srv.app) as owner:
+    admin = K.boot(owner)[0]
+    r = admin.get("/api/admin/sportapi/live-stats")
+    j = r.json()
+    check(r.status_code == 200 and set(j["stats"]) == set(SP.BUILTIN_STAT_NAMES) and "coverage" in j,
+          "Admin can read the live-statistics state without spending a call")
+    check(j["coverage"]["found"]["shots"] is True and "Offsides" in j["coverage"]["unmatched"], "...and it carries the coverage just written")
+    check(any(f["sid"] == 77 for f in j["fixtures"]), "...and lists fixtures that can be checked")
+    check(admin.post("/api/admin/sportapi/stats-keys", json={"stat": "nope", "name": "x"}).status_code == 400, "an unknown count is refused")
+    ok = admin.post("/api/admin/sportapi/stats-keys", json={"stat": "shots", "name": "Goal Attempts"})
+    check(ok.status_code == 200 and "Goal Attempts" in ok.json()["stats_keys"]["shots"], "a provider name can be taught from the panel")
+    check(SP.stat_alias(S.get(db, "sportapi.stats_keys")).get("goalattempts") == "shots", "...and it is used from then on")
+    again = admin.post("/api/admin/sportapi/stats-keys", json={"stat": "shots", "name": "goal attempts"})
+    check(again.json().get("note") == "already known", "the same name twice is not added twice")
 
 print("PASS selftest_livetrack")

@@ -64,15 +64,35 @@ card shows a "Happened" chip. What was missing:
   target, tackles and corners come from the provider's **statistics** endpoint, and that is off:
   `sportapi.live_stats` defaults to false because its field names are unverified (`sportapi.stats_keys`).
 
-**So, to get shot and tackle lines ticking green you need to:**
+### Making it work: Admin -> Integrations -> SportAPI -> "Live statistics"
 
-1. Turn on `sportapi.live_stats`.
-2. Check `sportapi.stats_keys` against a real answer: the engine looks for its own names (`shots`, `sot`,
-   `corners`, `tackles`) among the provider's. A wrong map means the count stays `unknown`, and the page shows **no
-   tick rather than a false one**, which is the intended behaviour.
-3. Watch the budget: statistics add one call per live match per `sportapi.stats_refresh_s` (180 s).
+The old answer was "edit `sportapi.stats_keys` by hand and hope". Three changes removed the guesswork.
 
-Until then, a shot line simply shows no tick while the match is on. That is honest, not broken.
+**a) Names are matched on letters and digits only, against a built-in list.** `_canon()` strips everything that is
+not a letter or digit, so `Total Shots`, `total_shots`, `shots-total` and `Shots (Total)` are one name. The names
+themselves now live in code (`BUILTIN_STAT_NAMES`) and cover the usual wordings: *total shots, goal attempts, shots
+on goal, attempts on target, corner kicks, tackles won* and more. `sportapi.stats_keys` **adds to** that list
+instead of being the only source, so a provider we have never seen usually works with nothing configured. Before
+this, the stored names and the incoming names were normalised differently, so even a correct entry could miss.
+
+**b) Every answer records what it contained.** `store_stats` writes, per fetch: which of the four counts were
+found, and which provider names could not be placed. No extra call, and it is visible in Admin.
+
+**c) The panel.** `GET /api/admin/sportapi/live-stats` backs a card that shows:
+
+- a tile per count: **Found** (ticks green) or **Not seen** (no tick yet);
+- when the last answer was read, and both refresh intervals;
+- **Check (1 call)** against any fixture in the list, live or finished;
+- the provider names we could not place, each with a button to say which count it is — that appends to
+  `sportapi.stats_keys` and takes effect at once;
+- **Turn on live statistics**, so the setting is where the evidence is;
+- the provider's raw answer, collapsed, when you want to see it.
+
+So the sequence is now: open the panel, pick a fixture, press Check, look at the four tiles, map anything missing,
+press Turn on. A count we still cannot read shows **no tick rather than a false one** — unchanged, and deliberate.
+
+**Budget:** statistics cost one call per live match per `sportapi.stats_refresh_s` (180 s). A two-hour match is
+about 40 calls; `sportapi.daily_calls` is 1800.
 
 ## 3. Three screen changes
 
@@ -94,12 +114,16 @@ Until then, a shot line simply shows no tick while the match is on. That is hone
 | `frontend/src/pages/Today.jsx`, `pages/Insights.jsx` | Pass the leagues in. |
 | `frontend/src/pages/Player.jsx` | The new game strip. |
 | `frontend/src/styles/hig.css` | Styles for the strip, the day crests and the live hit state. |
-| `backend/tests/selftest_livetrack.py` | Every in-play word counts as on; events refresh at half-time and in extra time; a finished match is not polled again; the provider's words are counted. |
+| `backend/routes_live.py` | `GET /live-stats` (state, coverage, fixtures, no provider call), a fuller `GET /stats-probe/{sid}`, `POST /stats-keys` to teach one name. |
+| `backend/sportapi.py` | `BUILTIN_STAT_NAMES`, `_canon`, `stat_alias`, coverage written on every fetch, unmatched names reported. |
+| `frontend/src/admin/SportAPI.jsx` | The Live statistics panel. |
+| `backend/tests/selftest_livetrack.py` | Every in-play word counts as on; events refresh at half-time and in extra time; a finished match is not polled again; the provider's words are counted; names match across wordings and answer shapes; coverage is recorded; the panel's routes work and a taught name is used from then on. |
 | `backend/tests/selftest_overlay.py` | `match_days` names the leagues and counts each match once. |
 
 ## 5. Still open
 
 - `sportapi.events_refresh_s` is still 600. Lower it to 300 if you want cards within five minutes (section 1b).
-- `sportapi.live_stats` is still off, so only card lines tick green (section 2).
-- Neither the provider's status words nor its statistics field names have been verified against a real answer. The
-  `status_seen` counter now gives you the first; `sportapi.stats_keys` still needs the second.
+- `sportapi.live_stats` is still off by default. Turn it on from the panel once the tiles show the counts being
+  read; it is off rather than on because it spends call budget, not because it is unfinished.
+- Neither the provider's status words nor its statistics field names have been verified against a real answer.
+  `status_seen` gives you the first; the Live statistics panel gives you the second. Both need one real match day.

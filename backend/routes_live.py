@@ -133,9 +133,27 @@ def sportapi_tick(user=Depends(D.require_perm("jobs.run")), db=Depends(D.get_db)
     return SP.live_tick(db)
 
 
+# ------------------------------------------------------------------ live statistics: see it, fix it, switch it on
+@admin.get("/live-stats")
+def sportapi_live_stats(user=Depends(D.require_perm("settings.read")), db=Depends(D.get_db)):
+    """What the live-statistics layer is doing, with no provider call: is it on, which of the four counts the last
+    answers contained, which provider names we could not place, and which fixtures can be probed right now."""
+    cov = SP.stats_coverage(db)
+    fx = [{"sid": f["sid"], "status": f.get("status"), "minute": f.get("minute"),
+           "home": f.get("home_name"), "away": f.get("away_name"), "kickoff": f.get("kickoff"),
+           "live": SP.in_play(f.get("status")), "stats_at": (db.live_stats.find_one({"fixture_sid": f["sid"]}, {"at": 1}) or {}).get("at")}
+          for f in db.live_fixtures.find({}, {"_id": 0, "sid": 1, "status": 1, "minute": 1, "home_name": 1, "away_name": 1, "kickoff": 1})
+          .sort("kickoff", -1).limit(25)]
+    return {"enabled": bool(S.get(db, "sportapi.live_stats")), "refresh_s": S.get(db, "sportapi.stats_refresh_s"),
+            "events_refresh_s": S.get(db, "sportapi.events_refresh_s"),
+            "stats": list(SP.BUILTIN_STAT_NAMES), "coverage": cov, "extra_names": S.get(db, "sportapi.stats_keys"),
+            "fixtures": fx, "status_seen": (db.sportapi_state.find_one({"_id": "live"}) or {}).get("status_seen") or {}}
+
+
 @admin.get("/stats-probe/{sid}")
 def sportapi_stats_probe(sid: int, user=Depends(D.require_perm("jobs.run")), db=Depends(D.get_db)):
-    """One call: the raw live statistics answer and what we read from it. Use it to check the answer shape before turning on live statistics."""
+    """One call: the live statistics answer for a fixture, what we read from it, and the provider names we could not
+    place. Use it to check a fixture before switching live statistics on, or when a count is missing."""
     try:
         client = SP.Client(db)
         raw = client.get(f"/api/fixtures/{sid}/stats", "stats")
@@ -144,4 +162,29 @@ def sportapi_stats_probe(sid: int, user=Depends(D.require_perm("jobs.run")), db=
     except SP.SportAPIError as e:
         raise D.err(502, "PROVIDER_ERROR", str(e))
     AQ.audit(db, user, "sportapi.stats_probe", str(sid), {})
-    return {"raw": raw, "read": SP.parse_stats(raw, S.get(db, "sportapi.stats_keys"))}
+    read = SP.parse_stats(raw, S.get(db, "sportapi.stats_keys"))
+    found = sorted({k for side in read["teams"].values() for k in side} | {k for p in read["players"] for k in p if k in SP.BUILTIN_STAT_NAMES})
+    return {"sid": sid, "read": read, "raw": raw,
+            "found": {k: (k in found) for k in SP.BUILTIN_STAT_NAMES},
+            "unmatched": read.get("unmatched") or [], "players": len(read["players"])}
+
+
+class StatName(BaseModel):
+    stat: str = Field(max_length=20)
+    name: str = Field(min_length=1, max_length=60)
+
+
+@admin.post("/stats-keys")
+def sportapi_stats_keys(body: StatName, user=Depends(D.require_perm("settings.write")), db=Depends(D.get_db)):
+    """Teach us one of the provider's names ('Goal Attempts' is shots). Appends to sportapi.stats_keys."""
+    if body.stat not in SP.BUILTIN_STAT_NAMES:
+        raise D.err(400, "BAD_STAT", f"One of {', '.join(SP.BUILTIN_STAT_NAMES)}.")
+    keys = dict(S.get(db, "sportapi.stats_keys") or {})
+    names = list(keys.get(body.stat) or [])
+    if SP._canon(body.name) in {SP._canon(n) for n in names}:
+        return {"ok": True, "stats_keys": keys, "note": "already known"}
+    names.append(body.name.strip())
+    keys[body.stat] = names
+    S.put(db, "sportapi.stats_keys", keys, actor=user["email"])
+    AQ.audit(db, user, "sportapi.stats_key_add", body.stat, {"name": body.name.strip()})
+    return {"ok": True, "stats_keys": keys}

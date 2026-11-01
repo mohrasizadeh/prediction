@@ -596,18 +596,57 @@ def _num(v):
         return None
 
 
+# Names providers use for the four live counts. Matching strips everything that is not a letter or a digit, so
+# "Total Shots", "total_shots", "shots-total" and "Shots (total)" are one name. The sportapi.stats_keys setting adds
+# to this list; it does not replace it, so a provider we have never seen usually works with no configuration.
+BUILTIN_STAT_NAMES = {
+    "shots": ["shots", "total shots", "shots total", "total attempts", "attempts", "shots all", "goal attempts"],
+    "sot": ["shots on target", "shots on goal", "on target", "shots ontarget", "attempts on target",
+            "shots on target total", "ontarget scoring att", "shots on goal total"],
+    "corners": ["corners", "corner kicks", "corners taken", "corner", "total corners", "won corners"],
+    "tackles": ["tackles", "total tackles", "tackles won", "tackles total", "tackle"],
+}
+
+
+def _canon(label) -> str:
+    """One spelling for a provider's name: letters and digits only, lower case."""
+    return re.sub(r"[^a-z0-9]+", "", str(label).lower())
+
+
+def stat_alias(keys: dict | None = None) -> dict:
+    """{canonical provider name: our stat}. Built-in names first, then whatever the setting adds."""
+    alias = {}
+    for stat, names in BUILTIN_STAT_NAMES.items():
+        for n in names:
+            alias[_canon(n)] = stat
+    for stat, names in (keys or {}).items():
+        for n in names or []:
+            alias[_canon(n)] = stat
+    return alias
+
+
 def parse_stats(data, keys: dict) -> dict:
     """Read a live statistics answer into {'teams': {'home': {stat: n}, 'away': {...}}, 'players': [...]}.
-    The exact answer shape is not verified yet, so several shapes are accepted; a name we do not know is ignored.
-    `keys` maps our stat to the names SportAPI may use (setting sportapi.stats_keys)."""
-    alias = {n.lower(): k for k, names in keys.items() for n in names}
-    out = {"teams": {"home": {}, "away": {}}, "players": []}
+    The exact answer shape is not verified, so several shapes are accepted. Also returns `seen` (every name the
+    provider used) and `unmatched` (the ones we could not place), so the admin can see what is missing instead of
+    guessing. A name we cannot place is ignored: the page shows no tick rather than a wrong one."""
+    alias = stat_alias(keys)
+    out = {"teams": {"home": {}, "away": {}}, "players": [], "seen": {}, "unmatched": []}
+
+    def note(label, placed):
+        c = _canon(label)
+        if not c:
+            return
+        out["seen"][str(label)] = placed
+        if not placed and str(label) not in out["unmatched"]:
+            out["unmatched"].append(str(label))
     if isinstance(data, dict) and isinstance(data.get("data"), (dict, list)):
         data = data["data"]
 
     def put(side, label, val):
-        k = alias.get(str(label).strip().lower().replace("-", "_").replace(" ", "_")) or alias.get(str(label).strip().lower())
+        k = alias.get(_canon(label))
         v = _num(val)
+        note(label, bool(k))
         if k and side in out["teams"] and v is not None:
             out["teams"][side][k] = v
 
@@ -632,7 +671,8 @@ def parse_stats(data, keys: dict) -> dict:
         stats = p.get("stats") if isinstance(p.get("stats"), dict) else p
         row = {"name": p.get("name") or p.get("player_name"), "side": p.get("side") or p.get("team_side")}
         for label, val in stats.items():
-            k = alias.get(str(label).strip().lower().replace(" ", "_"))
+            k = alias.get(_canon(label))
+            note(label, bool(k))
             if k and _num(val) is not None:
                 row[k] = _num(val)
         if row["name"] and len(row) > 2:
@@ -640,12 +680,26 @@ def parse_stats(data, keys: dict) -> dict:
     return out
 
 
+def stats_coverage(db) -> dict:
+    """What the last statistics answers contained: which of our four counts were found, and which provider names we
+    could not place. Written on every fetch, so Admin can show it without spending a call."""
+    st = (db.sportapi_state.find_one({"_id": "live"}) or {}).get("stats_coverage") or {}
+    return {"found": st.get("found") or {}, "unmatched": st.get("unmatched") or [], "at": st.get("at"),
+            "fixtures": st.get("fixtures", 0), "players": st.get("players", 0)}
+
+
 def store_stats(db, sid: int, parsed: dict, now) -> dict:
     fx = db.live_fixtures.find_one({"sid": sid}, {"home_iid": 1, "away_iid": 1}) or {}
     for p in parsed["players"]:
         p["player_iid"] = _event_player(db, fx, p.get("side"), p["name"])
     db.live_stats.update_one({"fixture_sid": sid}, {"$set": {"fixture_sid": sid, "teams": parsed["teams"], "players": parsed["players"], "at": now}}, upsert=True)
-    return {"teams": {k: sorted(v) for k, v in parsed["teams"].items()}, "players": len(parsed["players"])}
+    found = sorted({k for side in parsed["teams"].values() for k in side} | {k for p in parsed["players"] for k in p if k in BUILTIN_STAT_NAMES})
+    db.sportapi_state.update_one({"_id": "live"}, {"$set": {
+        "stats_coverage.found": {k: (k in found) for k in BUILTIN_STAT_NAMES},
+        "stats_coverage.unmatched": (parsed.get("unmatched") or [])[:40],
+        "stats_coverage.at": now, "stats_coverage.fixtures": sid, "stats_coverage.players": len(parsed["players"])}}, upsert=True)
+    return {"teams": {k: sorted(v) for k, v in parsed["teams"].items()}, "players": len(parsed["players"]),
+            "found": found, "unmatched": parsed.get("unmatched") or []}
 
 
 def fetch_stats(client, sid: int, now) -> dict | None:
