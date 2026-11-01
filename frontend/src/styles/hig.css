@@ -231,3 +231,33 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .seg2 button { border-radius: 7px; }
 .lbar-track { background: var(--hig-fill-strong); }
 .pitch { border: .5px solid var(--hig-separator); border-radius: 12px; }
+
+/* ---------- Date strip: which leagues play that day (crests under the number) */
+.k-day { min-height: 70px; }
+.k-day-lgs { display: inline-flex; align-items: center; gap: 2px; margin-top: 3px; min-height: 16px; }
+.k-day-lgs .media-chip, .k-day-lgs .media-fallback { border-radius: 4px; }
+.k-day-more { font-style: normal; font-size: 10px; font-weight: 600; color: var(--text2); }
+.k-day.on .k-day-more { color: var(--on-brand); }
+.k-day.on .k-day-lgs .media-fallback { background: color-mix(in srgb, var(--on-brand) 22%, transparent); color: var(--on-brand); }
+
+/* ---------- Player page: one column per game (minutes, count, opponent) */
+.pgs { display: grid; gap: 8px; }
+.pgs-row { list-style: none; margin: 0; padding: 2px 0 4px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.pgs-row::-webkit-scrollbar { display: none; }
+.pgs-g { flex: none; width: 44px; display: grid; justify-items: center; gap: 4px; padding: 6px 2px;
+  border-radius: 10px; background: var(--hig-fill); }
+.pgs-g.on { background: color-mix(in srgb, var(--tier-strong) 22%, transparent); }
+.pgs-g.nd { background: transparent; outline: 1px dashed var(--hig-separator); outline-offset: -1px; }
+.pgs-min { font-size: 10.5px; font-weight: 500; color: var(--text2); font-variant-numeric: tabular-nums; }
+.pgs-v { font-size: 17px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.pgs-g.nd .pgs-v { color: var(--text3); font-weight: 500; }
+.pgs-opp { display: grid; place-items: center; }
+.pgs-key { margin: 0; }
+
+/* ---------- A forecast that has happened: a green tick, not just a tinted border
+   (pass 1 dropped card borders, which had been carrying this) */
+.k-fc--hit { outline: 2px solid var(--up); outline-offset: -2px; }
+.k-fc--hit .k-fc-bar b { background: var(--up); }
+.lv-chip--hit { font-weight: 600; }
+.lv-chip--hit svg { color: var(--up); }
+.k-fc--missed { opacity: .66; }

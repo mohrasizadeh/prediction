@@ -38,8 +38,13 @@ db.live_fixtures.update_one({"sid": 900}, {"$set": {"status": "Postponed", "hs":
 check("postponed shows as postponed", Q.match_detail(db, 10)["match"]["status"] == "postponed")
 
 db.live_fixtures.insert_one({"sid": 901, "match_iid": None, "league_iid": 1, "status": "Scheduled", "kickoff": now + dt.timedelta(days=5)})
-days = Q.match_days(db, now, 10)
+md = Q.match_days(db, now, 10)
+days = md["days"]
 check("day list has SportAPI-only days, not postponed ones", day(5) in days and day(2) not in days)
+check("each day names the leagues playing, with a crest field", all(
+    isinstance(md["leagues"].get(d), list) and all({"id", "name", "matches"} <= set(x) for x in md["leagues"][d]) for d in days))
+check("a league is counted once per match, not once per source",
+      all(sum(x["matches"] for x in md["leagues"][d]) <= 40 for d in days))
 
 # the minute job loads the upcoming days
 class Fake:

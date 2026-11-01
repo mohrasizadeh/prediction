@@ -2,6 +2,7 @@
 // The last day picked is remembered for the session (sessionStorage) when `storeKey` is given.
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../Icon";
+import { LeagueMark } from "../Media";
 
 export const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const NAMES = { "-1": "Yest.", 0: "Today", 1: "Tmrw" };
@@ -12,7 +13,9 @@ export function useSessionDay(storeKey) {
   return [day, set];
 }
 
-export function DateScroller({ value, onChange, from = -1, count = 7, gameDays, testid = "ui-dates" }) {
+const MAX_MARKS = 3;                       // more than three crests on a 62 px day is a smudge, not information
+
+export function DateScroller({ value, onChange, from = -1, count = 7, gameDays, dayLeagues, testid = "ui-dates" }) {
   const ref = useRef(null);
   const days = useMemo(() => [...Array(count)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() + from + i); return { d, off: from + i }; }), [from, count]);
   useEffect(() => {
@@ -26,12 +29,18 @@ export function DateScroller({ value, onChange, from = -1, count = 7, gameDays, 
         {days.map(({ d, off }) => {
           const k = isoDay(d);
           const has = gameDays ? gameDays.has(k) : false;
+          const lgs = (dayLeagues && dayLeagues[k]) || [];
           return (
             <button key={k} type="button" role="tab" aria-selected={k === value} aria-current={k === value ? "date" : undefined} className={`k-day${k === value ? " on" : ""}`} onClick={() => onChange(k)}
-              aria-label={`${d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}${has ? ", has games" : ""}`} data-testid={`${testid}-${k}`}>
+              aria-label={`${NAMES[off] || d.toLocaleDateString(undefined, { weekday: "short" })} ${d.getDate()}, ${d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}${lgs.length ? `, ${lgs.map((l) => l.name).join(", ")}` : has ? ", has games" : ""}`} data-testid={`${testid}-${k}`}>
               <span className="w">{NAMES[off] || d.toLocaleDateString(undefined, { weekday: "short" })}</span>
               <span className="n">{d.getDate()}</span>
-              <span className={`dot${has ? "" : " no"}`} aria-hidden="true" />
+              {lgs.length ? (
+                <span className="k-day-lgs" aria-hidden="true">
+                  {lgs.slice(0, MAX_MARKS).map((l) => <LeagueMark key={l.id} league={l} size={14} />)}
+                  {lgs.length > MAX_MARKS && <i className="k-day-more">+{lgs.length - MAX_MARKS}</i>}
+                </span>
+              ) : <span className={`dot${has ? "" : " no"}`} aria-hidden="true" />}
             </button>
           );
         })}

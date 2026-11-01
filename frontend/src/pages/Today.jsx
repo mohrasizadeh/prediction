@@ -6,7 +6,7 @@ import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
 import { Crest, LeagueMark } from "../components/Media";
-import { favFirst, useFavLeagues, useGameDays } from "../lib/prefs";
+import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
 import Icon from "../components/Icon";
 import { useTitle } from "../components/Football";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, Skeleton, WdlBar, isoDay, useSessionDay } from "../components/ui";
@@ -110,6 +110,7 @@ export default function Today() {
   const pick = { all: () => true, following: isFol, live: isLive, insights: (m) => m.insight_count > 0 }[chip];
   const fav = useFavLeagues();
   const gameDays = useGameDays(-1, 7);
+  const dayLeagues = useDayLeagues(-1, 7);
   const groups = useMemo(() => {
     const g = new Map();
     all.filter(pick).forEach((m) => { const k = m.league?.id || "other"; if (!g.has(k)) g.set(k, { league: m.league, rows: [], fol: false }); g.get(k).rows.push(m); if (isFol(m)) g.get(k).fol = true; });
@@ -124,7 +125,7 @@ export default function Today() {
   return (
     <section className="td" data-testid="today-page">
       <h1 className="sr-only">Today</h1>
-      <DateScroller value={day} onChange={setDay} gameDays={gameDays} testid="today-dates" />
+      <DateScroller value={day} onChange={setDay} gameDays={gameDays} dayLeagues={dayLeagues} testid="today-dates" />
       <Top3 day={day} />
       {live.length > 0 && <div className="td-livestrip" aria-label="Live now" data-testid="today-livestrip">{live.map((m) => (
         <Link key={m.id} to={`/match/${m.id}`} className="td-livechip" data-testid={`today-livechip-${m.id}`}><span className="k-livedot" aria-hidden="true" /><b>{m.live.minute}</b>{m.home?.name} {m.live.hs}–{m.live.as} {m.away?.name}</Link>

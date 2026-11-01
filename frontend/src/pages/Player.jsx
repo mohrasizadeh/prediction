@@ -35,22 +35,37 @@ function Note({ id }) {
   );
 }
 
+// One column per game, oldest to newest: minutes on top, the count in the middle, the opponent's crest below.
+// A column the player reached the line in is filled; one he did not is quiet; a game with no figure says so.
+// The crest answers "who against", which a plain box never could.
 function Chart({ games, stat, line }) {
   const rows = [...games].reverse();
-  const max = Math.max(line + 1, ...rows.map((g) => g[stat] || 0));
-  const hits = rows.filter((g) => g[stat] != null && g[stat] >= line).length;
   const known = rows.filter((g) => g[stat] != null).length;
+  const hits = rows.filter((g) => g[stat] != null && g[stat] >= line).length;
+  const label = STATS.find((x) => x.id === stat)?.label || stat;
   return (
     <>
       <p className="muted small" data-testid="chart-summary">{known ? `${line} or more in ${hits} of ${known} games.` : "No data for this stat."}</p>
-      <div className="chart" role="img" aria-label={`${hits} of ${known} games at ${line} or more`} data-testid="quick-chart">
-        <span className="chart-line" style={{ bottom: `${(line / max) * 100}%` }} aria-hidden="true" />
-        {rows.map((g) => {
-          const v = g[stat];
-          return <span key={g.match_iid} className={"chart-bar" + (v != null && v >= line ? " hit" : "")} style={{ height: `${v ? (v / max) * 100 : 2}%` }} title={`${g.opp?.name || ""} ${shortDay(g.kickoff)}: ${v ?? "No data"}`}><i>{v ?? ""}</i></span>;
-        })}
+      <div className="pgs" data-testid="quick-chart">
+        <ol className="pgs-row" aria-label={`${label}, game by game, oldest first`}>
+          {rows.map((g) => {
+            const v = g[stat];
+            const hit = v != null && v >= line;
+            const mins = g.minutes;
+            const who = g.opp?.name || "the opponent";
+            const when = shortDay(g.kickoff);
+            return (
+              <li key={g.match_iid} className={"pgs-g" + (hit ? " on" : "") + (v == null ? " nd" : "")} data-testid={`pgs-${g.match_iid}`}>
+                <span className="pgs-min" title="Minutes played">{mins == null ? "–" : `${Math.round(mins)}'`}</span>
+                <span className="pgs-v" aria-hidden="true">{v == null ? "–" : v}</span>
+                <span className="pgs-opp"><Crest team={g.opp} size={22} /></span>
+                <span className="sr-only">{`${when} against ${who}: ${v == null ? "no figure" : `${v} ${label.toLowerCase()}`}${mins == null ? "" : `, ${Math.round(mins)} minutes`}.`}</span>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="pgs-key muted small">Minutes above, {label.toLowerCase()} in the middle, opponent below. Filled = {line} or more.</p>
       </div>
-      <div className="chart-x" aria-hidden="true">{rows.map((g) => <span key={g.match_iid}><Crest team={g.opp} size={16} /><small>{shortDay(g.kickoff)}</small></span>)}</div>
     </>
   );
 }

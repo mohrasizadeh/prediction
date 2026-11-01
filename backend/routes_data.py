@@ -153,7 +153,7 @@ def match_days(response: Response, start: str = Query(..., pattern=r"^\d{4}-\d{2
                tz_offset_min: int = Query(0, ge=-840, le=840), db=Depends(D.get_db)):
     _cache(response)
     d0 = datetime.fromisoformat(start).replace(tzinfo=timezone.utc) - timedelta(minutes=tz_offset_min)
-    return {"days": Q.match_days(db, d0, days, tz_offset_min)}
+    return Q.match_days(db, d0, days, tz_offset_min)          # {"days": [...], "leagues": {day: [league, ...]}}
 
 
 @router.get("/leagues/{league_id}/fixtures")

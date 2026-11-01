@@ -5,7 +5,7 @@ import { useApi } from "../lib/useApi";
 import { pct } from "../lib/copy";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
-import { favFirst, useFavLeagues, useGameDays } from "../lib/prefs";
+import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
 import { useTitle } from "../components/Football";
 import Icon from "../components/Icon";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard, ProLock, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
@@ -41,6 +41,7 @@ export function Insights() {
   const data = useMemo(() => q.data || [], [q.data]);
   const fav = useFavLeagues();
   const gameDays = useGameDays(0, 7);
+  const dayLeagues = useDayLeagues(0, 7);
   const lq = useApi("/leagues");
   const leagues = useMemo(() => favFirst((lq.data?.countries || []).flatMap((c) => c.leagues).map((l) => [l.id, l.name]), fav, ([id]) => id), [lq.data, fav]);
   const pos = (f) => (f.pos || f.player?.pos || "")[0];
@@ -57,7 +58,7 @@ export function Insights() {
       <h1>Insights</h1>
       {q.data && <p className="ins-answer" data-testid="ins-answer"><b>{rows.length} forecast{rows.length === 1 ? "" : "s"}</b> · {sortWord}</p>}
       <div className="ins-days"><button type="button" className={`k-chip${!day ? " on" : ""}`} onClick={() => setDay("")} aria-pressed={!day} data-testid="ins-any-day">Any day</button>
-        <DateScroller value={day} onChange={setDay} from={0} count={7} gameDays={gameDays} testid="ins-dates" /></div>
+        <DateScroller value={day} onChange={setDay} from={0} count={7} gameDays={gameDays} dayLeagues={dayLeagues} testid="ins-dates" /></div>
       <section className="ins-filters card" aria-label="Filters" data-testid="ins-filters-panel">
         <div className="ins-f ins-f--min"><span className="ins-f-label">At least <b data-testid="ins-min-value">{more.min}%</b> likely</span>
           <RangeSlider min={50} max={95} step={5} value={more.min} onChange={(v) => setMore({ ...more, min: v })} label="Minimum likelihood" format={(v) => `${v}%`} testid="ins-min" /></div>

@@ -11,6 +11,13 @@ export function useGameDays(from = -1, count = 7) {
   return useMemo(() => new Set(q.data?.days || []), [q.data]);
 }
 
+// Which leagues play on each day: { "2026-11-01": [{id, name, image, matches}, ...] }, most matches first.
+export function useDayLeagues(from = -1, count = 7) {
+  const start = useMemo(() => { const d = new Date(); d.setDate(d.getDate() + from); return iso(d); }, [from]);
+  const q = useApi("/match-days", { start, days: count, tz_offset_min: -new Date().getTimezoneOffset() });
+  return useMemo(() => q.data?.leagues || {}, [q.data]);
+}
+
 export function useFavLeagues() {
   const { user } = useAuth();
   return user?.prefs?.leagues || [];

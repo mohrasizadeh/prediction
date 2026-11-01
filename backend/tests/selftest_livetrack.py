@@ -75,4 +75,40 @@ class Bad:
 setting("sportapi.enabled", True); setting("sportapi.leagues", {"1": 39}); setting("sportapi.live_stats", True); setting("sportapi.upcoming_days", 0)
 out = SP.live_tick(db, client=Bad(), now=now + dt.timedelta(minutes=10))
 check(out.get("stats_error") == "boom" and out["status"] == "ok", "a failing statistics call is reported and the rest of the job still runs")
+
+# ---- docs/38: a match is "on" for every in-play word, not only the exact word LIVE.
+# Before this, events stopped refreshing at half-time and in extra time, so a card shown then arrived late or never.
+for word in ("LIVE", "HT", "1H", "2H", "ET", "BT", "P", "INT", "SUSP", "Live", "In Play", "45+"):
+    check(SP.in_play(word), f"'{word}' counts as a match that is on")
+for word in ("Scheduled", "TBD", "FT", "AET", "PENS", "Postponed", "Cancelled", "Abandoned", "WO", None, ""):
+    check(not SP.in_play(word), f"'{word}' does not count as on")
+
+class Counting:
+    """Answers every call and remembers which fixtures were asked for events."""
+    def __init__(s): s.events_for = []
+    def left(s): return 10_000
+    def tight(s): return False
+    def get(s, path, kind, cache_days=None):
+        if kind == "events":
+            s.events_for.append(int(path.split("/")[3]))
+            return {"data": []}
+        return {"data": []}
+
+setting("sportapi.live_stats", False)
+db.live_fixtures.delete_many({"sid": {"$in": [91, 92, 93]}})
+base = {"league_iid": 1, "home_iid": 1, "away_iid": 2, "kickoff": now, "polled_at": now, "match_iid": None}
+db.live_fixtures.insert_many([{**base, "sid": 91, "status": "HT"}, {**base, "sid": 92, "status": "ET"},
+                              {**base, "sid": 93, "status": "FT", "final_done": True}])
+c = Counting()
+SP.live_tick(db, client=c, now=now + dt.timedelta(hours=2))
+check(91 in c.events_for and 92 in c.events_for, "events are refreshed at half-time and in extra time, not only while the word is LIVE")
+check(93 not in c.events_for, "a finished match is not polled again")
+check(db.live_fixtures.find_one({"sid": 91}).get("events_at") is not None, "...and the refresh time is recorded")
+
+# the provider's own status words are remembered, so `in_play` can be checked against what it really sends
+SP.upsert_fixture(db, {"id": 95, "league_id": 39, "date": now.strftime("%Y-%m-%d"), "status": "Second Half",
+                       "home_id": 1, "away_id": 2, "home_team": "Como", "away_team": "Venezia"}, {39: 1}, now)
+seen = (db.sportapi_state.find_one({"_id": "live"}) or {}).get("status_seen") or {}
+check(seen.get("Second Half") == 1, f"the words this provider sends are counted, so the list can be checked: {sorted(seen)}")
+
 print("PASS selftest_livetrack")

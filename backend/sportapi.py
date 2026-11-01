@@ -34,6 +34,15 @@ KEY_RE = r"^[A-Za-z0-9_\-]{16,128}$"
 LIVE = "LIVE"
 FINAL = {"FT", "AET", "PENS"}
 DEAD = {"Postponed", "Cancelled"}
+# A match is "on" for anything that is not scheduled, finished or called off. The provider's exact words are not
+# verified (docs/08, docs/23), so we do not keep a list of in-play words: half-time, extra time, a break, penalties
+# or a word we have never seen all count as on. Before this, only the exact word "LIVE" did, so events stopped
+# refreshing at half-time and during extra time, and a card in those periods showed late or not at all.
+NOT_PLAYING = {"Scheduled", "TBD", "Abandoned", "Awarded", "WO", "Walkover", None, ""} | FINAL | DEAD
+
+
+def in_play(status) -> bool:
+    return status not in NOT_PLAYING
 POS = {"goalkeeper": "GK", "defender": "DEF", "midfielder": "MID", "forward": "FWD", "attacker": "FWD", "attacking midfielder": "MID"}
 
 _FACTORY = lambda: httpx.Client(timeout=15.0, follow_redirects=False)
@@ -209,6 +218,9 @@ def upsert_fixture(db, f: dict, leagues: dict, now) -> dict | None:
         if k in f:
             doc[k] = f[k]
     changed = any(old.get(k) != doc[k] for k in ("status", "hs", "as", "minute")) if old else True
+    if doc.get("status") and (not old or old.get("status") != doc["status"]):
+        # what words this provider really uses, so `in_play` can be checked against reality (Admin -> SportAPI)
+        db.sportapi_state.update_one({"_id": "live"}, {"$inc": {f"status_seen.{str(doc['status']).replace('.', '_')}": 1}}, upsert=True)
     if old.get("status") != doc["status"] and doc["status"] in FINAL:
         doc["final_at"] = now
     db.live_fixtures.update_one({"sid": sid}, {"$set": doc}, upsert=True)
@@ -320,7 +332,7 @@ def live_tick(db, client: Client | None = None, now=None) -> dict:
         tracked_today = list(db.live_fixtures.find({"league_iid": {"$in": list(leagues.values())},
                                                     "kickoff": {"$gte": now - timedelta(hours=30), "$lte": now + timedelta(hours=24)}},
                                                    {"_id": 0, "sid": 1, "status": 1, "kickoff": 1, "date": 1}))
-        hot = [f for f in tracked_today if f["status"] == LIVE or (f["status"] not in FINAL | DEAD and f.get("kickoff")
+        hot = [f for f in tracked_today if in_play(f.get("status")) or (f["status"] not in FINAL | DEAD and f.get("kickoff")
                and _aware(f["kickoff"]) - window <= now <= _aware(f["kickoff"]) + timedelta(hours=3))]
         if hot:
             interval = int(S.get(db, "sportapi.live_interval_s")) * slow
@@ -354,8 +366,11 @@ def live_tick(db, client: Client | None = None, now=None) -> dict:
 
         # 2) events: on every score or status change, and every few minutes while live (cards, subs)
         refresh = int(S.get(db, "sportapi.events_refresh_s")) * slow
-        live_now = list(db.live_fixtures.find({"league_iid": {"$in": list(leagues.values())}, "status": LIVE}, {"_id": 0, "sid": 1, "events_at": 1, "stats_try": 1}))
-        want = {f["sid"] for f in changed if f["status"] == LIVE} | {f["sid"] for f in live_now if _due(f.get("events_at"), refresh, now)}
+        live_now = [f for f in db.live_fixtures.find({"league_iid": {"$in": list(leagues.values())},
+                                                      "status": {"$nin": [x for x in NOT_PLAYING if isinstance(x, str)]}},
+                                                     {"_id": 0, "sid": 1, "status": 1, "events_at": 1, "stats_try": 1})
+                    if in_play(f.get("status"))]
+        want = {f["sid"] for f in changed if in_play(f.get("status"))} | {f["sid"] for f in live_now if _due(f.get("events_at"), refresh, now)}
         for sid in sorted(want):
             ev = client.get(f"/api/fixtures/{sid}/events", "events")
             out["calls"] += 1

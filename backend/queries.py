@@ -718,15 +718,30 @@ def player_ranks(db, player_iid: int, min_minutes: int = 270) -> dict:
     return {"league": name, "ranks": out, "min_minutes": min_minutes}
 
 
-def match_days(db, start: datetime, days: int, tz_offset_min: int = 0) -> list[str]:
-    """Local days (YYYY-MM-DD) in the window that have at least one match."""
+def match_days(db, start: datetime, days: int, tz_offset_min: int = 0) -> dict:
+    """Which local days (YYYY-MM-DD) in the window have matches, and which leagues play on each one.
+
+    `days` is the list of days with at least one match. `leagues` maps a day to the leagues playing that day,
+    most matches first, each with its crest, so the date strip can show whose games they are (docs/24)."""
     win = {"kickoff": {"$gte": start, "$lt": start + timedelta(days=days)}}
     shift = timedelta(minutes=tz_offset_min)
-    out = set()
+    out: dict = {}
     for coll, extra in ((db.matches, {}), (db.live_fixtures, {"status": {"$nin": ["Postponed", "Cancelled"]}})):
-        for r in coll.find({**win, **extra}, {"_id": 0, "kickoff": 1}):          # grouped here: a few hundred rows at most
-            out.add((_aware(r["kickoff"]) + shift).strftime("%Y-%m-%d"))
-    return sorted(out)
+        for r in coll.find({**win, **extra}, {"_id": 0, "kickoff": 1, "league_iid": 1, "match_iid": 1, "iid": 1}):
+            day = (_aware(r["kickoff"]) + shift).strftime("%Y-%m-%d")
+            d = out.setdefault(day, {})
+            lg = r.get("league_iid")
+            if lg is not None:
+                # a SportAPI row and our own row for the same match must not count twice
+                key = r.get("match_iid") or r.get("iid")
+                d.setdefault(lg, set()).add(key)
+    names = _names(db, "leagues", [lg for d in out.values() for lg in d])
+    leagues = {}
+    for day, d in out.items():
+        rows = sorted(((len(ids), lg) for lg, ids in d.items()), key=lambda x: (-x[0], x[1]))
+        leagues[day] = [{**{k: v for k, v in (names.get(lg) or {}).items() if k in ("id", "name", "image")}, "matches": n}
+                        for n, lg in rows if names.get(lg)]
+    return {"days": sorted(out), "leagues": leagues}
 
 
 def squad_season(db, team_iid: int) -> dict:
