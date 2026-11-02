@@ -316,3 +316,23 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* ---------- Combos: a match under way is not a finished one (docs/40) */
 .cb-pill--live { display: inline-flex; align-items: center; gap: 6px; background: color-mix(in srgb, var(--down) 16%, transparent); color: var(--text); }
 .cb-tick.u { background: var(--hig-fill-strong); color: var(--text2); font-weight: 600; }
+
+/* ---------------------------------------------------------------- pass 4: the forecast sheet (docs/45)
+   The sheet that opens on a line was a flat column of nine sections: the range was printed twice, three tiles
+   wrapped 2+1 leaving a hole, the game strip was plain squares, and "Usually 79%" sat adrift under it. */
+
+/* Fixture and kick-off on ONE line with nothing between them. The fixture gives way first when the sheet is
+   narrow; the time never wraps and never ellipses, because a half-shown time is worse than a half-shown club. */
+.k-fs-fx { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; }
+.k-fs-fx-m { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.k-fs-fx-t { flex: none; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+/* Three tiles used to be forced into two columns, so the third sat alone beside a gap. They fit on one row when
+   there is room; when there is not, the odd one out spans the width and looks deliberate. */
+.k-fs-tiles { grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); }
+.k-fs-tiles > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+.k-fs-tile b { font-size: 20px; line-height: 1.2; }
+.k-fs-tile small { font-size: 12.5px; }
+
+/* "Usually ..." and the record line now sit together under the strip they describe. */
+.k-fs-ctx { display: grid; gap: 2px; margin: 0; }

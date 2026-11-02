@@ -1,4 +1,4 @@
-export { TierBadge, WdlBar, HitStrip } from "./Marks";
+export { TierBadge, WdlBar, HitStrip, GameStrip } from "./Marks";
 export { DateScroller, useSessionDay, isoDay } from "./DateScroller";
 export { ChipsRow, Segmented } from "./Chips";
 export { RangeSlider } from "./RangeSlider";

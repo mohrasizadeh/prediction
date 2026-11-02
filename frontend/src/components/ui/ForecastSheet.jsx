@@ -8,15 +8,17 @@ import { DISCLAIMER, pct, range } from "../../lib/copy";
 import { PlayerAvatar, Crest } from "../Media";
 import { SaveButton } from "../Actions";
 import { BottomSheet } from "./BottomSheet";
-import { HitStrip } from "./Marks";
+import { GameStrip } from "./Marks";
 import { timeOf } from "./ForecastCard";
 
 function useSheetData(open, f) {
-  const [d, setD] = useState({ hits: null, record: null });
+  const [d, setD] = useState({ games: null, record: null });
   useEffect(() => {
     if (!open) return undefined;
     let stop = false;
-    const strip = (r) => { if (!stop) setD((x) => ({ ...x, hits: (r.games || []).filter((g) => g[f.stat] != null).map((g) => g[f.stat] > f.thr).reverse() })); };
+    // Keep the API's rows whole. This used to map each game to a single true/false, which threw away the
+    // opponent, the minutes and the figure itself -- everything the strip needs to say more than "yes/no" (docs/45).
+    const strip = (r) => { if (!stop) setD((x) => ({ ...x, games: r.games || [] })); };
     if (f.player?.id && f.scope === "player") get(`/players/${f.player.id}/history`, { last: 10 }).then(strip).catch(() => {});
     else if (f.scope === "team" && f.team?.id) get(`/teams/${f.team.id}/history`, { stat: f.stat, last: 10 }).then(strip).catch(() => {});
     get("/track-record", { scope: f.scope, stat: f.stat }).then((r) => { if (!stop) setD((x) => ({ ...x, record: r })); }).catch(() => {});
@@ -63,10 +65,14 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       footer={<>{f.fkey && <SaveButton fkey={f.fkey} />}{f.scope === "player" && f.player?.id && <NoteBox player={f.player} testid={testid} />}<button type="button" className="btn btn--secondary" onClick={share} data-testid={`${testid}-share`}>Share</button></>}>
       <div className="k-fs-head" style={{ "--tone": f.tier ? `var(--tier-${f.tier.toLowerCase()})` : "var(--text3)" }}>
         {f.player ? <PlayerAvatar player={f.player} size={52} /> : <Crest team={fx.team} size={52} />}
-        <span className="k-fc-who"><small>{[fx.text, f.kickoff ? timeOf(f.kickoff) : null].filter(Boolean).join(" · ")}</small></span>
+        <span className="k-fc-who">
+          <small className="k-fs-fx" data-testid={`${testid}-fixture`}>
+            <span className="k-fs-fx-m">{fx.text}</span>{f.kickoff ? <span className="k-fs-fx-t">{timeOf(f.kickoff)}</span> : null}
+          </small>
+        </span>
         <span className="k-fc-pwrap"><b className="k-fc-p">{pct(f.p)}</b>{rng && <small className="k-fc-range" data-testid={`${testid}-range`}>{rng}</small>}</span>
       </div>
-      {rng && <p className="k-faint" data-testid={`${testid}-range-note`}>Likely range {rng}%. The wider the range, the less sure the forecast.</p>}
+      {rng && <p className="k-faint k-small" data-testid={`${testid}-range-note`}>That range is how sure we are: the wider it is, the less sure the forecast.</p>}
       {(f.reasons || []).length > 0 && <section><h3 className="k-sec">Why</h3><ul className="k-fs-why">{f.reasons.map((r) => <li key={r}>{r}</li>)}</ul></section>}
       {f.scope === "player" && (
         <div className="k-fs-tiles">
@@ -75,9 +81,20 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
           <div className="k-fs-tile"><small>Lineup</small><b className={f.lineup_badge === "confirmed" || (!f.lineup_badge && f.lineup_confirmed) ? "k-up" : "k-watch"}>{{ confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" }[f.lineup_badge] || (f.lineup_confirmed ? "Confirmed" : "Not out yet")}</b></div>
         </div>
       )}
-      {d.hits?.length > 0 && <section><h3 className="k-sec">Last {d.hits.length} games · {f.market}</h3><HitStrip hits={d.hits} label={f.market} testid={`${testid}-hits`} /></section>}
-      {f.p_usual != null && <p className="k-faint" data-testid={`${testid}-usual`}>Usually {pct(f.p_usual)}</p>}
-      {f.scope === "player" && f.rec_n >= 8 && <p className="k-faint" data-testid={`${testid}-rec`}>Reached this line in {f.rec_k} of his last {f.rec_n} games.</p>}
+      {/* only when the feed actually carries this stat: a strip of dashes says nothing. The old boolean strip got
+          this for free by filtering nulls away before counting. */}
+      {d.games?.some((g) => g[f.stat] != null) && (
+        <section>
+          <h3 className="k-sec">Last {d.games.filter((g) => g[f.stat] != null).length} games · {f.market}</h3>
+          <GameStrip games={d.games} stat={f.stat} line={Math.floor(f.thr) + 1} label={f.market} testid={`${testid}-hits`} />
+        </section>
+      )}
+      {(f.p_usual != null || (f.scope === "player" && f.rec_n >= 8)) && (
+        <p className="k-faint k-small k-fs-ctx">
+          {f.scope === "player" && f.rec_n >= 8 && <span data-testid={`${testid}-rec`}>Reached this line in {f.rec_k} of his last {f.rec_n} games.</span>}
+          {f.p_usual != null && <span data-testid={`${testid}-usual`}>A player like him in a fixture like this: usually {pct(f.p_usual)}.</span>}
+        </p>
+      )}
       {lines.length > 1 && <section><h3 className="k-sec">All lines</h3><ul className="k-fc-lines">{lines.map((x) => <li key={x.fkey} style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}><span>{x.market}</span><b>{pct(x.p)}{range(x.lo, x.hi) && <small className="k-fc-range"> ({range(x.lo, x.hi)})</small>}</b></li>)}</ul></section>}
       {tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} {f.scope} {STAT_WORD[f.stat] || f.stat} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to={`/track-record?stat=${f.stat}`}>Track record</Link></p>}
       <p className="k-faint k-small">{DISCLAIMER} <Link to="/learn/forecast-card" aria-label="How to read a forecast card" data-testid={`${testid}-learn`}>How to read this card (?)</Link></p>

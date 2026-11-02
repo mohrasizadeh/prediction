@@ -9,7 +9,7 @@ import { FollowButton } from "../components/Actions";
 import { useAuth } from "../lib/auth";
 import { del, put } from "../lib/api";
 import { useToast } from "../components/Ui";
-import { HitStrip } from "../components/ui";
+import { GameStrip, HitStrip } from "../components/ui";
 
 function Note({ id }) {
   const { user } = useAuth();
@@ -35,37 +35,15 @@ function Note({ id }) {
   );
 }
 
-// One column per game, oldest to newest: minutes on top, the count in the middle, the opponent's crest below.
-// A column the player reached the line in is filled; one he did not is quiet; a game with no figure says so.
-// The crest answers "who against", which a plain box never could.
+// The strip itself lives in components/ui/Marks.jsx, so this page and the forecast sheet cannot drift apart.
 function Chart({ games, stat, line }) {
-  const rows = [...games].reverse();
-  const known = rows.filter((g) => g[stat] != null).length;
-  const hits = rows.filter((g) => g[stat] != null && g[stat] >= line).length;
+  const known = games.filter((g) => g[stat] != null).length;
+  const hits = games.filter((g) => g[stat] != null && g[stat] >= line).length;
   const label = STATS.find((x) => x.id === stat)?.label || stat;
   return (
     <>
       <p className="muted small" data-testid="chart-summary">{known ? `${line} or more in ${hits} of ${known} games.` : "No data for this stat."}</p>
-      <div className="pgs" data-testid="quick-chart">
-        <ol className="pgs-row" aria-label={`${label}, game by game, oldest first`}>
-          {rows.map((g) => {
-            const v = g[stat];
-            const hit = v != null && v >= line;
-            const mins = g.minutes;
-            const who = g.opp?.name || "the opponent";
-            const when = shortDay(g.kickoff);
-            return (
-              <li key={g.match_iid} className={"pgs-g" + (hit ? " on" : "") + (v == null ? " nd" : "")} data-testid={`pgs-${g.match_iid}`}>
-                <span className="pgs-min" title="Minutes played">{mins == null ? "–" : `${Math.round(mins)}'`}</span>
-                <span className="pgs-v" aria-hidden="true">{v == null ? "–" : v}</span>
-                <span className="pgs-opp"><Crest team={g.opp} size={22} /></span>
-                <span className="sr-only">{`${when} against ${who}: ${v == null ? "no figure" : `${v} ${label.toLowerCase()}`}${mins == null ? "" : `, ${Math.round(mins)} minutes`}.`}</span>
-              </li>
-            );
-          })}
-        </ol>
-        <p className="pgs-key muted small">Minutes above, {label.toLowerCase()} in the middle, opponent below. Filled = {line} or more.</p>
-      </div>
+      <GameStrip games={games} stat={stat} line={line} label={label} testid="quick-chart" />
     </>
   );
 }
