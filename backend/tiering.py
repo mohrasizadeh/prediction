@@ -82,6 +82,15 @@ def assign(db, rec: Record | None, f: dict, strong_needs_lineup: bool = True) ->
         t, note = "Watch", "Watch until lineups are out"
     if t == "Strong" and scope == "player" and badge != "confirmed" and strong_needs_lineup:
         t, note = "Solid", "Strong once the lineup is confirmed"
+    # A player line is tiered on the WHOLE chance -- "if he plays" times the chance he plays -- so a 97% line on a
+    # likely starter is judged as 97 x 84 = 81%. That is why it reads Solid while the card says 97%, and nothing
+    # said so: the note below only fired when the line reached Strong and was held back for the lineup. Say it
+    # whenever the chance to play is the only thing between this tier and a better one (docs/48).
+    if note is None and scope == "player" and badge != "confirmed" and f.get("p_play") is not None:
+        would = "Strong" if (f["p"] >= s_min and f["lo"] >= s_lo) else "Solid" if (f["p"] >= so_min and f["lo"] >= so_lo) else None
+        if would and would != t and (would == "Strong" or t != "Strong"):
+            note = f"{would} once the lineup is confirmed"
+
     if rec is not None and t in ("Strong", "Solid"):
         est, n = rec.earned(scope, f["stat"], w)
         if n < rec.min_n:

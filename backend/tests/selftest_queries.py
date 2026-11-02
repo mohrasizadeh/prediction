@@ -35,7 +35,9 @@ d = Q.match_detail(db, fx[0]["iid"])
 check(d and d["forecasts"] and d["styles"] and d["h2h"] is not None, "match_detail: forecasts, styles, head-to-head")
 check(all(not f.get("hidden") for f in d["forecasts"]), "match_detail hides hidden forecasts")
 feed = Q.insights_feed(db, limit=20, tiers=("Strong", "Solid", "Watch"), now=now)
-o = [(Q.CONFIDENT[f["tier"]], -(f.get("edge") or 0.0)) for f in feed]
+# Ranked on the fair measure the sort actually uses, not raw percentage points: since docs/48 "different from
+# usual" is a log-odds change, so that a line usually at 90% is not beaten automatically by one usually at 30%.
+o = [(Q.CONFIDENT[f["tier"]], -Q.lift(f)) for f in feed]
 check(len(feed) > 0 and o == sorted(o), "insights_feed: Strong and Solid together by the lift over usual, then Watch (docs/25)")
 lk = Q.insights_feed(db, limit=20, tiers=("Strong", "Solid", "Watch"), now=now, sort="likely")
 o2 = [(Q.TIER_RANK[f["tier"]], -f["p"]) for f in lk]

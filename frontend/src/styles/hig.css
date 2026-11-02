@@ -344,3 +344,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .ins-per select { min-height: 36px; }
 .ins-pager-btns { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
 @media (max-width: 480px) { .ins-pager-btns { margin-left: 0; width: 100%; justify-content: space-between; } }
+
+/* The Quick view inside a sheet (docs/48): the strip comes first, already set to the line that was tapped, and
+   the five rows of controls fold away, because stacked above it they pushed the strip clean off a phone. */
+.qv { display: grid; gap: 10px; }
+.qv .filters { display: grid; gap: 10px; }
+.qv-toggle { justify-self: start; }

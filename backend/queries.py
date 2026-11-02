@@ -8,6 +8,7 @@ The FastAPI routes in 06_api_routes_and_queries.md call these. All of them:
 from __future__ import annotations
 
 import re
+import math
 from datetime import datetime, timedelta, timezone
 
 import settings_store as S
@@ -140,7 +141,33 @@ def _availability(db, teams):
 
 
 # ----------------------------------------------------------- cards (docs/21, docs/46)
-def prominence(f: dict, weights: dict | None = None) -> float:
+def _logit(x: float) -> float:
+    x = min(max(float(x), 1e-4), 1 - 1e-4)
+    return math.log(x / (1 - x))
+
+
+def lift(f: dict, scale: str = "odds") -> float:
+    """How unusual this line is, on a scale that is fair between markets (docs/48).
+
+    `edge` is p minus what this player or team usually does, in percentage points, and that is the right thing to
+    SHOW. It is the wrong thing to RANK by, because how far a line can move depends on where it sits: one that is
+    usually 90% cannot gain more than 10 points, one usually 30% has 70 to play with. Measured on our own
+    forecasts, median |edge| runs 0.196 for lines usually under 40% against 0.029 for lines usually over 80%. So
+    ranking on points quietly promotes whichever markets happen to sit mid-table -- shots on target over shots,
+    every time, whatever the market weights say.
+
+    "odds" compares the change in log-odds instead, so "twice as likely as usual" counts the same wherever it
+    starts. "points" restores the old behaviour.
+    """
+    pu = f.get("p_usual")
+    if pu is None:
+        return max(0.0, float(f.get("edge") or 0.0))
+    if scale == "points":
+        return max(0.0, float(f.get("p") or 0.0) - float(pu))
+    return max(0.0, _logit(f.get("p") or 0.0) - _logit(pu))
+
+
+def prominence(f: dict, weights: dict | None = None, scale: str = "odds") -> float:
     """How much this line is worth saying out loud.
 
     Reported: "mbappe one shot or benfica 7 shots are not that much great insights those are almost given".
@@ -156,8 +183,7 @@ def prominence(f: dict, weights: dict | None = None) -> float:
     else has something to say. When nothing in the group has any lift, the caller falls back to likelihood.
     """
     w = ((weights or {}).get(f.get("scope")) or {}).get(f.get("stat"), 1.0)
-    lift = max(0.0, float(f.get("edge") or 0.0))
-    return float(w) * lift * float(f.get("p") or 0.0)
+    return float(w) * lift(f, scale) * float(f.get("p") or 0.0)
 
 
 def _card_key(f: dict, group: str):
@@ -169,7 +195,7 @@ def _card_key(f: dict, group: str):
     return (*base, f.get("stat"))                      # player_market: shots and on-target are separate cards
 
 
-def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weights: dict | None = None) -> list[dict]:
+def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weights: dict | None = None, scale: str = "odds") -> list[dict]:
     """One card per player (or team) per match, per market when `group` is "player_market" (docs/46).
 
     The line that leads is the one with the most to say -- `prominence` above -- not the highest percentage.
@@ -182,9 +208,9 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
     out = []
     for g in groups.values():
         lead = [f for f in g if f["p"] <= max_p] or g
-        best = max(prominence(f, weights) for f in lead)
+        best = max(prominence(f, weights, scale) for f in lead)
         # nothing in this group is saying anything unusual: fall back to the likeliest, as before
-        head = (max(lead, key=lambda f: (prominence(f, weights), f["p"], f["thr"])) if best > 0
+        head = (max(lead, key=lambda f: (prominence(f, weights, scale), f["p"], f["thr"])) if best > 0
                 else max(lead, key=lambda f: (f["p"], f["thr"])))
         card = dict(head)
         card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge")}
@@ -201,8 +227,9 @@ def lead_stat(fs):
 
 
 CONFIDENT = {"Strong": 0, "Solid": 0, "Watch": 1, None: 2}
+# "edge" ranks on the same fair scale the cards use, not on raw percentage points (docs/48).
 FEED_SORTS = {
-    "edge": lambda f: (CONFIDENT[f["tier"]], -(f.get("edge") or 0.0), -f["p"]),
+    "edge": lambda f: (CONFIDENT[f["tier"]], -lift(f), -f["p"]),
     "likely": lambda f: (TIER_RANK[f["tier"]], -f["p"]),
     "kickoff": lambda f: (f["kickoff"], TIER_RANK[f["tier"]], -f["p"]),
 }
@@ -257,7 +284,8 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     fc = list(db.forecasts.find(q, {"_id": 0, "contrib": 0}).limit(3000))
     grp = S.get(db, "engine.feed_group")
     if grp in ("player", "player_market"):
-        fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")), grp, S.get(db, "engine.market_weights"))
+        fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")), grp, S.get(db, "engine.market_weights"),
+                         S.get(db, "engine.lift_scale"))
     fc.sort(key=FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"]))
     fc = fc[:limit]
     _usual(db, fc)

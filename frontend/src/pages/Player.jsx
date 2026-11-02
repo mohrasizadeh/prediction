@@ -3,13 +3,13 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { Crest, PlayerAvatar } from "../components/Media";
-import { Empty, ErrorBox, Loading } from "../components/States";
-import { ColumnPicker, ForecastCard, STATS, Seg, Select, kickoff, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
+import { ErrorBox, Loading } from "../components/States";
+import { ColumnPicker, ForecastCard, STATS, kickoff, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
 import { useAuth } from "../lib/auth";
 import { del, put } from "../lib/api";
 import { useToast } from "../components/Ui";
-import { GameStrip, HitStrip } from "../components/ui";
+import { HitStrip, QuickView } from "../components/ui";
 
 function Note({ id }) {
   const { user } = useAuth();
@@ -35,56 +35,30 @@ function Note({ id }) {
   );
 }
 
-// The strip itself lives in components/ui/Marks.jsx, so this page and the forecast sheet cannot drift apart.
-function Chart({ games, stat, line }) {
-  const known = games.filter((g) => g[stat] != null).length;
-  const hits = games.filter((g) => g[stat] != null && g[stat] >= line).length;
-  const label = STATS.find((x) => x.id === stat)?.label || stat;
-  return (
-    <>
-      <p className="muted small" data-testid="chart-summary">{known ? `${line} or more in ${hits} of ${known} games.` : "No data for this stat."}</p>
-      <GameStrip games={games} stat={stat} line={line} label={label} testid="quick-chart" />
-    </>
-  );
-}
-
 function History({ id }) {
-  const [stat, setStat] = useState("shots");
-  const [last, setLast] = useState(10);
-  const [line, setLine] = useState(1);
-  const [venue, setVenue] = useState("all");
-  const [started, setStarted] = useState(false);
   const [table, setTable] = useState(false);
   const [cols, setCols] = useStored("cols:history", ["minutes", "shots", "sot", "tackles", "goals"]);
   const shown = STATS.filter((s) => cols.includes(s.id));
-  const q = useApi(`/players/${id}/history`, { last, started, ...(venue !== "all" ? { venue } : {}) });
+  // The controls and the strip live in components/ui/QuickView.jsx, shared with the forecast sheet (docs/48).
   return (
-    <section className="card" data-testid="quick-view">
+    <section className="card" data-testid="quick-view-card">
       <h2 className="h3">Quick view</h2>
-      <div className="filters">
-        <Select label="Stat" value={stat} onChange={setStat} options={STATS} testid="qv-stat" />
-        <Seg label="Window" value={last} onChange={setLast} options={[5, 10, 20].map((n) => ({ id: n, label: `Last ${n}` }))} testid="qv-window" />
-        <Seg label="Line" value={line} onChange={(v) => setLine(Number(v))} options={[1, 2, 3, 4, 5].map((n) => ({ id: n, label: `${n}+` }))} testid="qv-line" />
-        <Seg label="Venue" value={venue} onChange={setVenue} options={[{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid="qv-venue" />
-        <label className="check-inline"><input type="checkbox" checked={started} onChange={(e) => setStarted(e.target.checked)} data-testid="qv-started" /> Started only</label>
-      </div>
-      {q.loading && !q.data ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.games.length ? <Empty icon="activity">No games match these filters.</Empty> : (
+      <QuickView playerId={id} testid="quick-view">{(games) => (
         <>
-          <Chart games={q.data.games} stat={stat} line={line} />
           <button type="button" className="linkish" onClick={() => setTable(!table)} data-testid="qv-table-toggle">{table ? "Hide table" : "Show table"}</button>
           {table && <ColumnPicker options={STATS} value={cols} onChange={setCols} testid="history-cols" />}
           {table && (
             <div className="tbl-wrap"><table className="tbl" data-testid="history-table">
-              <thead><tr><th scope="col">Match</th>{shown.map((s) => <th key={s.id} scope="col">{s.label}</th>)}<th scope="col">Cards</th></tr></thead>
-              <tbody>{q.data.games.map((g) => (
+              <thead><tr><th scope="col">Match</th>{shown.map((st) => <th key={st.id} scope="col">{st.label}</th>)}<th scope="col">Cards</th></tr></thead>
+              <tbody>{games.map((g) => (
                 <tr key={g.match_iid}><td><span className="team"><Crest team={g.opp} size={20} /> {g.home ? "v" : "at"} {g.opp?.name}<small className="muted"> {shortDay(g.kickoff)}</small></span>
                   {(g.sub_on != null || g.sub_off != null) && <small className="sub-note" data-testid="history-sub">{g.sub_on != null ? `On ${g.sub_on}'${g.replaced ? ` for ${g.replaced.name}` : ""}` : ""}{g.sub_on != null && g.sub_off != null ? " · " : ""}{g.sub_off != null ? `Off ${g.sub_off}'${g.replaced_by ? `, ${g.replaced_by.name} on` : ""}` : ""}</small>}</td>
-                  {shown.map((s) => <td key={s.id} className="num">{num1(g[s.id])}</td>)}<td className="num">{Array.from({ length: g.red_cards || 0 }, (_, i) => <span key={`r${i}`} className="card-dot card-dot--r" title="Red card" />)}{Array.from({ length: g.yellow_cards || 0 }, (_, i) => <span key={`y${i}`} className="card-dot card-dot--y" title="Yellow card" />)}{!g.red_cards && !g.yellow_cards ? "–" : null}</td></tr>
+                  {shown.map((st) => <td key={st.id} className="num">{num1(g[st.id])}</td>)}<td className="num">{Array.from({ length: g.red_cards || 0 }, (_, i) => <span key={`r${i}`} className="card-dot card-dot--r" title="Red card" />)}{Array.from({ length: g.yellow_cards || 0 }, (_, i) => <span key={`y${i}`} className="card-dot card-dot--y" title="Yellow card" />)}{!g.red_cards && !g.yellow_cards ? "–" : null}</td></tr>
               ))}</tbody>
             </table></div>
           )}
         </>
-      )}
+      )}</QuickView>
     </section>
   );
 }

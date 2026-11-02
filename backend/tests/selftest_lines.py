@@ -100,9 +100,17 @@ plain = [r for r in pre if r["tier_basis"] == "pre"]
 check(all(r["p_play"] >= 0.85 for r in likely) and all(r["p_play"] < 0.85 for r in plain), "likely starter = chance to play 85%+ before lineups")
 check(all(r["tier"] != "Strong" for r in likely) and all(r["p"] * r["p_play"] >= 0.8 - 1e-9 for r in likely if r["tier"] == "Solid"), "likely starters are never Strong before lineups; Solid needs 80% whole chance (docs/31)")
 check(all(r["tier"] in ("Watch", None) for r in plain), "other players stay at most Watch before lineups")
-OK_NOTE = (None, "Watch until lineups are out", "Strong once the lineup is confirmed", "Strong needs more finished matches to back it")
-check(all(r["tier_note"] in OK_NOTE or str(r["tier_note"]).startswith("Similar lines happened") for r in pre),
-      "the card can say why it is Watch")
+# A whitelist of exact sentences needs editing every time a note is added, which is how it missed the one docs/48
+# introduced ("Solid once the lineup is confirmed", on a line held back by the chance to play rather than by the
+# lineup rule). Match the shapes instead.
+import re as _re
+OK_NOTE = (None, "Watch until lineups are out", "On the bench: Watch only", "Strong needs more finished matches to back it")
+_SHAPES = (r"^(Strong|Solid) once the lineup is confirmed$", r"^Similar lines happened \d+% of the time$")
+bad = [r["tier_note"] for r in pre
+       if r["tier_note"] not in OK_NOTE and not any(_re.match(x, str(r["tier_note"])) for x in _SHAPES)]
+check(not bad, f"every card can say why it is not a better tier: {sorted(set(bad))[:3]}")
+check(any(str(r["tier_note"]).endswith("once the lineup is confirmed") for r in pre),
+      "...and a line held back only by the chance to play says so, instead of leaving the reader to multiply (docs/48)")
 reasons = collections.Counter(r["reasons"][0] for r in pre if r["reasons"])
 check(len(reasons) >= 2, f"player cards do not all share one sentence ({len(reasons)} different first reasons)")
 
@@ -133,8 +141,11 @@ fmax = float(S.get(db, "engine.feed_max_p"))     # the owner moved this to the d
 check(all(f["p"] <= fmax or all(m["p"] > fmax for m in f["more_lines"]) for f in feed),
       f"a line above {fmax:.0%} only leads when no other line could")
 check(any(f["p"] >= 0.90 for f in feed), "near-certain lines reach the feed and lead their card (docs/39)")
-order = [(Q.CONFIDENT[f["tier"]], -f["edge"]) for f in feed]
+order = [(Q.CONFIDENT[f["tier"]], -Q.lift(f)) for f in feed]      # log-odds since docs/48, not raw points
 check(order == sorted(order), "default order: Strong and Solid together by the biggest lift over usual, then Watch")
+# the measure the ORDER uses must not be the one that favours whichever market sits mid-table (docs/48)
+pts = [(Q.CONFIDENT[f["tier"]], -Q.lift(f, "points")) for f in feed]
+check(pts != sorted(pts) or len(feed) < 3, "...and that is a different order from ranking on plain percentage points")
 heads = [f for f in feed if f["tier"] in ("Strong", "Solid")]
 # Since docs/46 the line that leads is the one with the most to say -- market importance x lift over usual x
 # likelihood -- not simply the likeliest. "Mbappe 1+ shot" and "Benfica 7+ shots" are near certainties that are

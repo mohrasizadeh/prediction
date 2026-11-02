@@ -9,6 +9,7 @@ import { PlayerAvatar, Crest } from "../Media";
 import { SaveButton } from "../Actions";
 import { BottomSheet } from "./BottomSheet";
 import { GameStrip } from "./Marks";
+import { QuickView } from "./QuickView";
 import { timeOf } from "./ForecastCard";
 
 function useSheetData(open, f) {
@@ -18,9 +19,10 @@ function useSheetData(open, f) {
     let stop = false;
     // Keep the API's rows whole. This used to map each game to a single true/false, which threw away the
     // opponent, the minutes and the figure itself -- everything the strip needs to say more than "yes/no" (docs/45).
-    const strip = (r) => { if (!stop) setD((x) => ({ ...x, games: r.games || [] })); };
-    if (f.player?.id && f.scope === "player") get(`/players/${f.player.id}/history`, { last: 10 }).then(strip).catch(() => {});
-    else if (f.scope === "team" && f.team?.id) get(`/teams/${f.team.id}/history`, { stat: f.stat, last: 10 }).then(strip).catch(() => {});
+    const strip = (r) => { if (!stop) setD((x) => ({ ...x, games: r.games || [] })); };    // team lines only
+    // A player's history is fetched by the QuickView below, which can change the window and the filters; asking
+    // for it here as well would be the same call twice (docs/48).
+    if (f.scope === "team" && f.team?.id) get(`/teams/${f.team.id}/history`, { stat: f.stat, last: 10 }).then(strip).catch(() => {});
     get("/track-record", { scope: f.scope, stat: f.stat }).then((r) => { if (!stop) setD((x) => ({ ...x, record: r })); }).catch(() => {});
     return () => { stop = true; };
   }, [open, f]);
@@ -81,9 +83,14 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
           <div className="k-fs-tile"><small>Lineup</small><b className={f.lineup_badge === "confirmed" || (!f.lineup_badge && f.lineup_confirmed) ? "k-up" : "k-watch"}>{{ confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" }[f.lineup_badge] || (f.lineup_confirmed ? "Confirmed" : "Not out yet")}</b></div>
         </div>
       )}
-      {/* only when the feed actually carries this stat: a strip of dashes says nothing. The old boolean strip got
-          this for free by filtering nulls away before counting. */}
-      {d.games?.some((g) => g[f.stat] != null) && (
+      {/* For a player, the full Quick view, opened on the line being looked at: the reader's next question is
+          almost always "what about 2+, or only at home", and that used to mean leaving the sheet (docs/48). */}
+      {f.scope === "player" && f.player?.id && (
+        <QuickView playerId={f.player.id} stat={f.stat} line={Math.floor(f.thr) + 1} title="Quick view" collapsible testid={`${testid}-qv`} />
+      )}
+      {/* A team line has no Quick view, so it keeps the plain strip. Only when the feed carries the stat: a strip
+          of dashes says nothing. */}
+      {f.scope !== "player" && d.games?.some((g) => g[f.stat] != null) && (
         <section>
           <h3 className="k-sec">Last {d.games.filter((g) => g[f.stat] != null).length} games · {f.market}</h3>
           <GameStrip games={d.games} stat={f.stat} line={Math.floor(f.thr) + 1} label={f.market} testid={`${testid}-hits`} />
