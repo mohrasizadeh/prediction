@@ -136,8 +136,15 @@ check(any(f["p"] >= 0.90 for f in feed), "near-certain lines reach the feed and 
 order = [(Q.CONFIDENT[f["tier"]], -f["edge"]) for f in feed]
 check(order == sorted(order), "default order: Strong and Solid together by the biggest lift over usual, then Watch")
 heads = [f for f in feed if f["tier"] in ("Strong", "Solid")]
-check(all(m["p"] <= f["p"] or m["p"] > 0.93 for f in heads for m in f["more_lines"]),
-      "headline: the most likely line leads the card (owner's rule)")
+# Since docs/46 the line that leads is the one with the most to say -- market importance x lift over usual x
+# likelihood -- not simply the likeliest. "Mbappe 1+ shot" and "Benfica 7+ shots" are near certainties that are
+# also entirely usual, and they were heading cards and dragging the feed's own lift sort down with them.
+W = S.get(db, "engine.market_weights")
+check(all(Q.prominence(f, W) >= max([Q.prominence({**m, "scope": f["scope"]}, W) for m in f["more_lines"]] or [0])
+          for f in heads if f["p"] <= fmax),
+      "headline: the line with the most to say leads the card, not the likeliest (docs/46)")
+dull = [f for f in heads if (f.get("edge") or 0) <= 0.01 and any((m.get("edge") or 0) > 0.05 for m in f["more_lines"])]
+check(not dull, f"no card is headed by a line that is exactly as usual while it holds one that is not: {len(dull)}")
 check(all([m["p"] for m in f["more_lines"]] == sorted([m["p"] for m in f["more_lines"]], reverse=True) for f in feed),
       "other lines are listed most likely first")
 lk = Q.insights_feed(db, limit=500, tiers=("Strong", "Solid", "Watch"), now=now - dt.timedelta(hours=1), sort="likely")

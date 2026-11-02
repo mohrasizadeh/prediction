@@ -94,7 +94,8 @@ def match_detail(db, match_iid: int) -> dict | None:
         e["player"], e["player_in"] = ep.get(e.get("player_iid")), ep.get(e.get("in_iid"))
     return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]], "events": ev,
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
-            "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p"))), "styles": styles, "starters": lu,
+            "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights")),
+            "styles": styles, "starters": lu,
             "referee": RF.for_match(db, m),
             "predicted": [] if lu else predicted_xi(db, fc, (m["home_iid"], m["away_iid"])),
             "rotation": {c["team_iid"]: {"level": c.get("level", "low"), "why": c.get("why", ""), "rest_days": c.get("rest_days"), "next_gap": c.get("next_gap")}
@@ -138,20 +139,58 @@ def _availability(db, teams):
     return AV.public_list(db, teams)
 
 
-# ----------------------------------------------------------- one card per player (docs/21)
-def group_cards(fc: list[dict], max_p: float = 1.0) -> list[dict]:
-    """Keep ONE card per player (or team) per match. The most likely line leads (owner's rule); the other lines go
-    into `more_lines`, most likely first. Lines above `max_p` never lead while another line can (docs/25)."""
+# ----------------------------------------------------------- cards (docs/21, docs/46)
+def prominence(f: dict, weights: dict | None = None) -> float:
+    """How much this line is worth saying out loud.
+
+    Reported: "mbappe one shot or benfica 7 shots are not that much great insights those are almost given".
+    They were leading cards because the lead was picked on raw likelihood, which after docs/44 is always the
+    dullest line a player owns. A near-certainty that is also usual carries no information.
+
+    Three things decide it, multiplied, so a line has to have all three (docs/46):
+      * how much the market matters   -- the owner's own order, engine.market_weights;
+      * how unusual this line is      -- its lift over what this player or team usually does;
+      * how likely it is              -- an unusual line nobody can act on is not an insight either.
+
+    A line with no lift scores 0 on the second term, so "1+ shot, usually 93%" cannot lead a card while anything
+    else has something to say. When nothing in the group has any lift, the caller falls back to likelihood.
+    """
+    w = ((weights or {}).get(f.get("scope")) or {}).get(f.get("stat"), 1.0)
+    lift = max(0.0, float(f.get("edge") or 0.0))
+    return float(w) * lift * float(f.get("p") or 0.0)
+
+
+def _card_key(f: dict, group: str):
+    base = (f["match_iid"], f["scope"], f["team_iid"], f.get("player_iid"))
+    if group == "line":
+        return (*base, f.get("fkey"))
+    if group == "player":
+        return base
+    return (*base, f.get("stat"))                      # player_market: shots and on-target are separate cards
+
+
+def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weights: dict | None = None) -> list[dict]:
+    """One card per player (or team) per match, per market when `group` is "player_market" (docs/46).
+
+    The line that leads is the one with the most to say -- `prominence` above -- not the highest percentage.
+    The rest go into `more_lines`, most likely first, so what is near-certain is still one glance away and still
+    available to a combo. Lines above `max_p` never lead while another line can (docs/25).
+    """
     groups: dict = {}
     for f in fc:
-        groups.setdefault((f["match_iid"], f["scope"], f["team_iid"], f.get("player_iid")), []).append(f)
+        groups.setdefault(_card_key(f, group), []).append(f)
     out = []
     for g in groups.values():
         lead = [f for f in g if f["p"] <= max_p] or g
-        head = max(lead, key=lambda f: (f["p"], f["thr"]))
+        best = max(prominence(f, weights) for f in lead)
+        # nothing in this group is saying anything unusual: fall back to the likeliest, as before
+        head = (max(lead, key=lambda f: (prominence(f, weights), f["p"], f["thr"])) if best > 0
+                else max(lead, key=lambda f: (f["p"], f["thr"])))
         card = dict(head)
         card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge")}
                                      for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
+        # the best percentage anywhere in the card, so a "show me 90%+" filter can see past the lead line
+        card["best_p"] = max(f["p"] for f in g)
         out.append(card)
     return out
 
@@ -216,8 +255,9 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     if stat: q["stat"] = stat
     if scope: q["scope"] = scope
     fc = list(db.forecasts.find(q, {"_id": 0, "contrib": 0}).limit(3000))
-    if S.get(db, "engine.feed_one_per_player"):
-        fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")))
+    grp = S.get(db, "engine.feed_group")
+    if grp in ("player", "player_market"):
+        fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")), grp, S.get(db, "engine.market_weights"))
     fc.sort(key=FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"]))
     fc = fc[:limit]
     _usual(db, fc)
@@ -781,7 +821,8 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
     team = attach_images(db, "teams", [team])[0] if team else None
     if nxt:
         _with_teams(db, [nxt])
-    return {"player": p, "team": team, "next_match": nxt, "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")))}
+    return {"player": p, "team": team, "next_match": nxt,
+            "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"))}
 
 
 # -------------------------------------------------------------- Team page

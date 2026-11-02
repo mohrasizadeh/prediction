@@ -1323,16 +1323,6 @@
   "help": ""
  },
  {
-  "key": "engine.feed_one_per_player",
-  "group": "Engine",
-  "label": "One card per player per match in feeds",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "The headline line is shown; the player's other lines sit inside the card (docs/21)."
- },
- {
   "key": "engine.exclude_positions",
   "group": "Engine",
   "label": "Positions excluded from player markets",
@@ -2706,5 +2696,46 @@
   "public": false,
   "applies_at": "next engine run",
   "help": "0 = off. Above 0, match chances use a second strength model fitted on expected goals as well as the one fitted on goals. Expected goals are steadier than goals, which are few and swingy. 0.5 counts them equally. Needs expected goals in the feed (docs/37)."
+ },
+ {
+  "key": "engine.market_weights",
+  "group": "Engine",
+  "label": "How important each market is",
+  "type": "json",
+  "default": {
+   "player": {
+    "sot": 1.4,
+    "tackles": 1.3,
+    "passes": 1.25,
+    "fouls_won": 1.2,
+    "fouls": 1.15,
+    "goals": 1.2,
+    "assists": 1.1,
+    "yellow_cards": 1.05,
+    "shots": 1.0
+   },
+   "team": {
+    "goals": 1.4,
+    "match_goals": 1.4,
+    "yellow_cards": 1.3,
+    "match_yellow_cards": 1.3,
+    "corners": 1.25,
+    "shots": 1.1,
+    "sot": 1.2
+   }
+  },
+  "public": false,
+  "applies_at": "immediately",
+  "help": "What each market is worth when choosing the one line a card leads with. A line's score is this weight x its lift over usual x its likelihood, so an important market still has to be saying something. Anything not listed counts as 1.0. Order from docs/39 (docs/46)."
+ },
+ {
+  "key": "engine.feed_group",
+  "group": "Engine",
+  "label": "How feed cards are grouped",
+  "type": "enum",
+  "default": "player_market",
+  "public": false,
+  "applies_at": "immediately",
+  "help": "player_market (default) = one card per player or team per market, so a good shots line and a good on-target line both surface; player = one card for everything that player has; line = no grouping, every line its own card (docs/46)."
  }
 ]

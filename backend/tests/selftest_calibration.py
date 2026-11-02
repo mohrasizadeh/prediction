@@ -71,10 +71,14 @@ check(not mapped or all(r["p"] <= CAL.CAP[1] for r in mapped),
 mp = db.match_probs.find_one({"is_current": True})
 check(mp and "context" in mp and mp["context"]["mult_home"] > 0, "win/draw/loss carries the match-context multipliers (docs/22)")
 
-print("[one card per player]")
+print("[one card per player per market]")
+# Since docs/46 a player may appear once per MARKET, so a good shots line and a good on-target line both surface.
+# What must never repeat is the same player in the same market.
 feed = Q.insights_feed(db, limit=500, tiers=("Strong", "Solid", "Watch"), now=now2 - dt.timedelta(hours=1))
-keys = collections.Counter((f["match_iid"], f["scope"], f["team_iid"], f.get("player_iid")) for f in feed)
-check(feed and max(keys.values()) == 1, f"insights: {len(feed)} cards, never the same player twice in one match")
+keys = collections.Counter((f["match_iid"], f["scope"], f["team_iid"], f.get("player_iid"), f["stat"]) for f in feed)
+check(feed and max(keys.values()) == 1, f"insights: {len(feed)} cards, never the same player and market twice in one match")
+check(all(f.get("best_p") is not None and f["best_p"] >= f["p"] for f in feed),
+      "every card carries the best percentage it holds, so a likelihood filter can see past the lead line")
 withmore = [f for f in feed if f["more_lines"]]
 check(withmore and all(m["fkey"] != f["fkey"] for f in withmore for m in f["more_lines"]), "the player's other lines sit inside the card")
 ex = withmore[0]
@@ -85,9 +89,12 @@ if same:
     check(all(m["thr"] < h["thr"] or m["p"] >= h["p"] for m in tops), "headline = the most ambitious line in the best tier")
 md = Q.match_detail(db, ex["match_iid"])
 check(len(md["cards"]) < len(md["forecasts"]) and len({(x["team_iid"], x.get("player_iid")) for x in md["cards"]}) == len(md["cards"]), "match page: grouped cards next to the full list")
-S.put(db, "engine.feed_one_per_player", False)
-check(len(Q.insights_feed(db, limit=500, tiers=("Strong", "Solid", "Watch"), now=now2 - dt.timedelta(hours=1))) > len(feed), "switch off: every line listed again")
-S.put(db, "engine.feed_one_per_player", True)
+S.put(db, "engine.feed_group", "line")                 # docs/46: replaced the old on/off with three choices
+check(len(Q.insights_feed(db, limit=500, tiers=("Strong", "Solid", "Watch"), now=now2 - dt.timedelta(hours=1))) > len(feed), "group=line: every line listed again")
+S.put(db, "engine.feed_group", "player")
+one = Q.insights_feed(db, limit=500, tiers=("Strong", "Solid", "Watch"), now=now2 - dt.timedelta(hours=1))
+check(len(one) < len(feed), f"group=player: fewer cards than one per market ({len(one)} < {len(feed)})")
+S.put(db, "engine.feed_group", "player_market")                  # back to the default for whatever runs next
 
 print("[scoring]")
 for m in db.matches.find({"iid": {"$in": list({r["match_iid"] for r in rows})}}):

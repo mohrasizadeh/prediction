@@ -336,3 +336,11 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 
 /* "Usually ..." and the record line now sit together under the strip they describe. */
 .k-fs-ctx { display: grid; gap: 2px; margin: 0; }
+
+/* The Insights pager (docs/46). One card per player per market makes more cards, so the list is paged. */
+.ins-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px;
+  padding-top: 14px; border-top: 1px solid var(--hig-separator); }
+.ins-per { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); }
+.ins-per select { min-height: 36px; }
+.ins-pager-btns { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+@media (max-width: 480px) { .ins-pager-btns { margin-left: 0; width: 100%; justify-content: space-between; } }

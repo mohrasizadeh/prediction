@@ -1,12 +1,12 @@
 // Insights: strongest forecasts across leagues (docs/24 §4).
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { pct } from "../lib/copy";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
-import { useTitle } from "../components/Football";
+import { useStored, useTitle } from "../components/Football";
 import Icon from "../components/Icon";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard, ProLock, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
 
@@ -45,12 +45,20 @@ export function Insights() {
   const lq = useApi("/leagues");
   const leagues = useMemo(() => favFirst((lq.data?.countries || []).flatMap((c) => c.leagues).map((l) => [l.id, l.name]), fav, ([id]) => id), [lq.data, fav]);
   const pos = (f) => (f.pos || f.player?.pos || "")[0];
-  const rows = data.filter((f) => (!day || isoDay(utc(f.kickoff)) === day) && f.p * 100 >= more.min
+  // A card leads with its most telling line, which is rarely its most likely one. "At least N% likely" therefore
+  // asks about the best line the card holds (best_p), or nothing a player owns above N% would ever match (docs/46).
+  const rows = data.filter((f) => (!day || isoDay(utc(f.kickoff)) === day) && Math.max(f.p, f.best_p ?? 0) * 100 >= more.min
     && (!more.pos.length || more.pos.includes(pos(f))) && (more.venue === "all" || (f.team_iid === f.home_iid) === (more.venue === "home"))
     && (!more.confirmed || f.lineup_confirmed));
   const nMore = more.pos.length + (more.venue !== "all") + more.confirmed + (lg.length > 0);
   const nAll = nMore + (more.min > 50) + tier.length + (mk ? 1 : 0);
   const clearAll = () => { setDay(""); setLg([]); setMk(""); setTier([]); setMore(NOF); };
+  // One card per player per market means more cards than before, so the list is paged rather than endless.
+  const [per, setPer] = useStored("ins-per-page", 25);
+  const [page, setPage] = useState(1);
+  const pages = Math.max(1, Math.ceil(rows.length / per));
+  const shown = rows.slice((Math.min(page, pages) - 1) * per, Math.min(page, pages) * per);
+  useEffect(() => { setPage(1); }, [day, mk, tier, lg, more, sort, per]);
   const sortWord = { edge: "biggest change first", likely: "most likely first", kickoff: "by kick-off" }[sort];
   const cap = entitlements?.insights_per_day;
   return (
@@ -77,7 +85,26 @@ export function Insights() {
       </div>
       {q.loading && !q.data ? <Skeleton shape="card" count={6} testid="ins-loading" /> : q.error && !q.data ? <ErrorState message="We could not load the insights." onRetry={q.reload} testid="ins-error" />
         : !rows.length ? <EmptyState icon="sparkles" title="No forecasts match" testid="ins-empty" action={<button type="button" className="btn btn--secondary btn--sm" onClick={clearAll} data-testid="ins-clear">Clear all filters</button>}>Try another day, market or tier.</EmptyState>
-        : view === "list" ? <Compact rows={rows} /> : <div className="fgrid ins-grid">{rows.map((f) => <ForecastCard key={f.id} f={f} testid={`ins-card-${f.id}`} />)}</div>}
+        : view === "list" ? <Compact rows={shown} /> : <div className="fgrid ins-grid">{shown.map((f) => <ForecastCard key={f.id} f={f} testid={`ins-card-${f.id}`} />)}</div>}
+      {rows.length > 0 && (
+        <nav className="ins-pager" aria-label="Pages" data-testid="ins-pager">
+          <label className="ins-per">Per page
+            <select value={per} onChange={(e) => setPer(Number(e.target.value))} aria-label="Cards per page" data-testid="ins-per-page">
+              {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <span className="k-faint k-small" data-testid="ins-pager-count">
+            {(Math.min(page, pages) - 1) * per + 1}–{Math.min(rows.length, Math.min(page, pages) * per)} of {rows.length}
+          </span>
+          {pages > 1 && (
+            <span className="ins-pager-btns">
+              <button type="button" className="btn btn--secondary btn--sm" disabled={page <= 1} onClick={() => setPage((n) => Math.max(1, n - 1))} data-testid="ins-prev">Previous</button>
+              <span className="k-faint k-small">Page {Math.min(page, pages)} of {pages}</span>
+              <button type="button" className="btn btn--secondary btn--sm" disabled={page >= pages} onClick={() => setPage((n) => Math.min(pages, n + 1))} data-testid="ins-next">Next</button>
+            </span>
+          )}
+        </nav>
+      )}
       {cap >= 0 && data.length >= cap && <p className="notice small" data-testid="ins-capped">Your plan shows {cap} insights a day. <ProLock label="Unlimited with Pro" testid="ins-capped-pro" /></p>}
       <FilterSheet open={sheet} onClose={() => setSheet(false)} onReset={() => { setMore({ ...NOF, min: more.min }); setLg([]); }} count={rows.length} title="League and more" testid="ins-filters">
         {leagues.length > 1 && <FilterGroup label="League"><ChipsRow multi value={lg} onChange={setLg} label="League" testid="ins-league" options={leagues.map(([id, name]) => ({ id, label: name }))} /></FilterGroup>}
