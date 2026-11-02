@@ -1019,7 +1019,7 @@
   ],
   "public": false,
   "applies_at": "next_engine_run",
-  "help": "Lines kept per player or team and stat. The lower end drops coin-flips; the upper end used to drop near-certain lines before they were ever stored. It is now just under the display cap, so a 96% line is a real card you can open, follow and put in a combo (docs/39)."
+  "help": "Lines kept per player or team and stat. The lower end decides how ambitious we are willing to get: raise it to drop long shots, lower it to keep them. Of whatever it leaves, the most likely engine.max_lines_per_stat are kept (docs/39, docs/44)."
  },
  {
   "key": "engine.max_lines_per_stat",
@@ -1029,7 +1029,7 @@
   "default": 3,
   "public": false,
   "applies_at": "next_engine_run",
-  "help": "The most ambitious lines inside the band are kept."
+  "help": "How many lines each player or team keeps for one stat. The most LIKELY lines inside the band are kept, so a near-certain line is never crowded out by an ambitious one. How far down the ladder we go is engine.line_band's job (docs/44)."
  },
  {
   "key": "engine.likely_starter_p",

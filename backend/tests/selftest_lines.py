@@ -36,8 +36,27 @@ check(B.label_for(None, "team", "shots", 11.5, {"team_shots:11.5": "12+ team sho
 docs = [{"scope": "player", "team_iid": 1, "player_iid": 7, "stat": "shots", "thr": t, "p": p}
         for t, p in ((0.5, 0.97), (1.5, 0.88), (2.5, 0.71), (3.5, 0.55), (4.5, 0.38))]
 kept = B.select_lines(docs, [0.5, 0.95], 3)
-check(sorted(d["thr"] for d in kept) == [1.5, 2.5, 3.5], "kept: inside the band it was given, the three most ambitious (2+, 3+, 4+)")
+check(sorted(d["thr"] for d in kept) == [1.5, 2.5, 3.5], "exactly three sit inside this band, so all three are kept")
 check(all(d["ladder"] == {"0.5": 0.97, "1.5": 0.88, "2.5": 0.71, "3.5": 0.55, "4.5": 0.38} for d in kept), "every kept line carries the whole ladder")
+
+# When the band leaves more lines than we may keep, the LIKELIEST win -- not the most ambitious (docs/44).
+# Reported: a striker's card read "4+ shots 52%, 5+ 40%, 6+ 26%" and his 1+ and 2+ lines were nowhere in the app.
+kane = [{"scope": "player", "team_iid": 1, "player_iid": 9, "stat": "shots", "thr": t, "p": p}
+        for t, p in ((0.5, 0.95), (1.5, 0.85), (2.5, 0.70), (3.5, 0.52), (4.5, 0.40), (5.5, 0.26))]
+k = B.select_lines(kane, [0.05, 0.99], 3)
+check(sorted(d["thr"] for d in k) == [0.5, 1.5, 2.5],
+      f"the three most likely are kept (1+, 2+, 3+), not the three most ambitious: got {sorted(d['thr'] for d in k)}")
+check(max(k, key=lambda d: d["p"])["thr"] == 0.5, "...so the near-certain 1+ shot leads the card, instead of being thrown away")
+check(all(d["p"] >= 0.70 for d in k), "nothing below the three best survives when the band is wide open")
+# the band, not the slice, is what decides how ambitious we get
+tight = B.select_lines(kane, [0.5, 0.99], 3)
+check(sorted(d["thr"] for d in tight) == [0.5, 1.5, 2.5], "raising the band floor does not change which three: it only removes long shots")
+one = B.select_lines(kane, [0.9, 0.99], 3)
+check([d["thr"] for d in one] == [0.5], "a floor above the rest of the ladder leaves just the one near-certain line")
+check(B.select_lines(kane, [0.99, 1.0], 3) == [], "a band nothing reaches keeps nothing, rather than falling back to the ambitious end")
+# equally likely lines: the more ambitious one is worth more
+tie = [{"scope": "player", "team_iid": 1, "player_iid": 8, "stat": "sot", "thr": t, "p": 0.8} for t in (0.5, 1.5)]
+check([d["thr"] for d in B.select_lines(tie, [0.5, 0.99], 1)] == [1.5], "of two equally likely lines, the more ambitious is kept")
 
 print("[tiers]")
 from core import tier
@@ -61,8 +80,14 @@ band = S.get(db, "engine.line_band")          # read the setting: the upper end 
 check(rows and all(float(band[0]) <= r["p"] <= float(band[1]) for r in rows),
       f"{len(rows)} forecasts, all inside the {band[0]:.0%}-{band[1]:.1%} band")
 check(any(r["p"] > 0.95 for r in rows), "near-certain lines are kept, not discarded before they are stored (docs/39)")
+# Since docs/44 the likeliest in-band lines are kept, so every team lands on the same low rungs of the ladder and
+# it is the PERCENTAGE that tells them apart, not the threshold. That is the trade for never hiding a near-certain
+# line; it is also how the statistics sites this app is measured against present a market.
 team_shots = {r["thr"] for r in rows if r["scope"] == "team" and r["stat"] == "shots"}
-check(len(team_shots) >= 4, f"team shot lines differ by team: {sorted(team_shots)}")
+check(len(team_shots) <= int(S.get(db, "engine.max_lines_per_stat")),
+      f"team shot lines are a consistent market across teams: {sorted(team_shots)}")
+tp = [r["p"] for r in rows if r["scope"] == "team" and r["stat"] == "shots" and r["thr"] == min(team_shots)]
+check(len(set(round(p, 3) for p in tp)) > 1, f"...and the same line reads differently per team: {min(tp):.0%}-{max(tp):.0%}")
 pl_shots = {r["thr"] for r in rows if r["scope"] == "player" and r["stat"] == "shots"}
 check(len(pl_shots) >= 3, f"player shot lines differ by player: {sorted(pl_shots)}")
 per = collections.Counter((r["scope"], r["team_iid"], r.get("player_iid"), r["stat"], r["match_iid"]) for r in rows)

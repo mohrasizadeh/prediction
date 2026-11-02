@@ -141,14 +141,26 @@ def label_for(db, scope, stat, thr, labels) -> str:
 
 def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
     """Automatic lines (docs/25): per player (or team) and stat, keep only lines whose likelihood sits inside `band`,
-    and of those the `max_lines` most ambitious."""
+    and of those the `max_lines` **most likely**.
+
+    This used to keep the most ambitious lines instead -- the highest thresholds in the band. That threw away the
+    near-certain end of every ladder before it ever reached the database: a striker with 1+ shot at 95% showed
+    "4+ shots 52%, 5+ 40%, 6+ 26%" and his 1+ and 2+ lines existed nowhere in the app (docs/44). It is the wrong
+    way round for the people this app is for, who want to know what is close to certain, and it quietly undid
+    docs/39, which had widened the band precisely so that 90%+ lines could exist.
+
+    Ambition is now the band's job: `engine.line_band`'s lower end decides how far down the ladder we are willing
+    to go, and this keeps the likeliest of whatever that leaves. The whole ladder is still stored on every line,
+    so the Finder can still answer any threshold the band excluded.
+    """
     lo, hi = float(band[0]), float(band[1])
     groups: dict = {}
     for d in docs:
         groups.setdefault((d["scope"], d["team_iid"], d.get("player_iid"), d["stat"]), []).append(d)
     out = []
     for g in groups.values():
-        keep = sorted((d for d in g if lo <= d["p"] <= hi), key=lambda d: -d["thr"])[:max_lines]
+        # -p first, then -thr: of two lines equally likely, the more ambitious one is worth more to the reader
+        keep = sorted((d for d in g if lo <= d["p"] <= hi), key=lambda d: (-d["p"], -d["thr"]))[:max_lines]
         ladder = {f"{d['thr']:g}": round(float(d["p"]), 4) for d in g}   # the whole ladder, so the Finder can answer any line
         for d in keep:
             d["ladder"] = ladder

@@ -54,13 +54,20 @@ check(first > 0 and db.forecasts.count_documents({"p_model": {"$exists": True}, 
 now2 = fake.kick(n_final) - dt.timedelta(hours=1)
 I.lineup_watch(c, now=now2); B.run_league(db, lg["iid"], now=now2)      # lineups out: the engine runs again
 B.run_league(db, lg["iid"], now=now2)                                   # and once more (a re-run must change nothing)
-rows = list(db.forecasts.find({}, {"_id": 0, "fkey": 1, "run_id": 1, "is_current": 1, "match_iid": 1, "state": 1, "p": 1, "p_model": 1, "scope": 1}))
+rows = list(db.forecasts.find({}, {"_id": 0, "fkey": 1, "run_id": 1, "is_current": 1, "match_iid": 1, "state": 1, "p": 1, "p_model": 1, "scope": 1, "calibration": 1}))
 dup = [k for k, v in collections.Counter(r["fkey"] for r in rows).items() if v > 1]
 check(not dup, f"after three runs: one row per forecast ({len(rows)} rows, no duplicates)")
 check(all(r["is_current"] for r in rows) and len({r["run_id"] for r in rows if r["match_iid"] == rows[0]["match_iid"]}) == 1, "each match carries only its latest run")
 lineup_player = [r for r in rows if r["state"] == "lineup" and r["scope"] == "player"]
 check(lineup_player and any(abs(r["p"] - r["p_model"]) > 1e-6 for r in lineup_player), "confirmed-lineup forecasts are calibrated (shown % differs from raw)")
-check(all(r["p"] <= 0.97 for r in rows), "no forecast shows more than 97%")
+# Two ceilings, by design (docs/39): a line that went through the calibration map stops at calibration.CAP, and
+# an anchored one stops at engine.p_cap. The blanket "nothing over 97%" here was never exercised until docs/44
+# started keeping the likeliest lines, which is exactly where the gap between the two ceilings shows up.
+cap = float(S.get(db, "engine.p_cap"))
+check(all(r["p"] <= cap for r in rows), f"no forecast shows more than engine.p_cap ({cap:.1%})")
+mapped = [r for r in rows if r.get("calibration")]
+check(not mapped or all(r["p"] <= CAL.CAP[1] for r in mapped),
+      f"a calibrated line still stops at {CAL.CAP[1]:.0%}: football always leaves room for surprise")
 mp = db.match_probs.find_one({"is_current": True})
 check(mp and "context" in mp and mp["context"]["mult_home"] > 0, "win/draw/loss carries the match-context multipliers (docs/22)")
 
