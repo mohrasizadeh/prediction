@@ -348,7 +348,7 @@ def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
 
 # ----------------------------------------------------------------- coverage
 COVERAGE_FIELDS = {"team_match_stats": ["shots", "sot", "corners", "tackles", "poss", "xg"],
-                   "player_match_stats": ["minutes", "shots", "sot", "tackles", "pos"]}
+                   "player_match_stats": ["minutes", "shots", "sot", "tackles", "pos", "passes", "fouls_won", "fouls_committed"]}
 
 
 def update_coverage(db, league_iid: int) -> dict:

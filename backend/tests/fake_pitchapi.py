@@ -21,7 +21,8 @@ PLAYER_KEYS = {"minutes": {"group": "top_stats", "key": "minutes_played_fake"},
                "goals": {"group": "top_stats", "key": None}, "assists": {"group": "top_stats", "key": None},
                "xg": {"group": "top_stats", "key": None}, "saves": {"group": "top_stats", "key": None},
                "interceptions": {"group": "defense", "key": None}, "clearances": {"group": "defense", "key": None},
-               "fouls_committed": {"group": "duels", "key": None}, "fouls_won": {"group": "duels", "key": None}}
+               "fouls_committed": {"group": "duels", "key": "fouls_fake"}, "fouls_won": {"group": "duels", "key": "fouls_won_fake"},
+               "passes": {"group": "attack", "key": "accurate_passes_fake", "use": "value"}}
 POS_RAW = {"GK": 0, "DEF": 1, "MID": 2, "FWD": 3}
 
 
@@ -110,6 +111,18 @@ class FakePitch:
             groups = [{"key": "top_stats", "stats": top}]
             if p.pos != "GK":
                 groups.append({"key": "defense", "stats": {"Tackles": {"key": "tackles_fake", "stat": {"type": "integer", "value": int(p.tackles)}}}})
+                # The simulation does not model passes or fouls, so these are invented from minutes and position.
+                # They exist to exercise the shapes the real provider uses -- a made/attempted pair in `attack`, plain
+                # counts in `duels` -- not to be realistic football (docs/47).
+                mins = max(1, int(round(p.minutes)))
+                att = {"DEF": 0.75, "MID": 0.95, "FWD": 0.45}.get(p.pos, 0.6) * mins
+                done = int(att * 0.84)
+                groups.append({"key": "attack", "stats": {
+                    "Accurate passes": {"key": "accurate_passes_fake",
+                                        "stat": {"type": "fractionWithPercentage", "value": done, "total": int(att)}}}})
+                groups.append({"key": "duels", "stats": {
+                    "Fouls committed": {"key": "fouls_fake", "stat": {"type": "integer", "value": (int(p.player) + mins) % 4}},
+                    "Fouls won": {"key": "fouls_won_fake", "stat": {"type": "integer", "value": (int(p.player) * 3 + mins) % 5}}}})
             out.append({"player": {"id": self.pid(p.player), "name": f"Player {p.player}", "position_id": POS_RAW[p.pos]},
                         "team_id": self.tid(p.team), "stats": groups})
         return out

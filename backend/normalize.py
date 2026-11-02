@@ -88,7 +88,7 @@ def has_group(p: dict, group: str) -> bool:
 
 
 PLAYER_COLS = ["minutes", "shots", "sot", "tackles", "goals", "assists", "xg", "saves",
-               "interceptions", "clearances", "fouls_committed", "fouls_won"]
+               "interceptions", "clearances", "fouls_committed", "fouls_won", "passes"]
 ZERO_WHEN_ABSENT = ("shots", "sot")
 
 

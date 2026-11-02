@@ -1530,11 +1530,16 @@
    "fouls_won": {
     "group": "duels",
     "key": null
+   },
+   "passes": {
+    "group": "attack",
+    "key": null,
+    "use": "value"
    }
   },
   "public": false,
   "applies_at": "immediately",
-  "help": ""
+  "help": "Where each player number lives in a PitchAPI stat line: the group and the inner `key` (never the display label, which changes). `use` picks which half of a made/attempted pair: value = completed, total = attempted. Map them from the list on PitchAPI > Quality and mapping, which reads the keys out of a real answer. minutes and the duels group (fouls won, fouls committed) are unmapped by default and are what the fouls markets are waiting on (docs/47)."
  },
  {
   "key": "features.show_match_probs",
