@@ -15,7 +15,11 @@ const MARKETS = [{ id: "shots", label: "Shots", q: { stat: "shots", scope: "play
   { id: "team_shots", label: "Team shots", q: { stat: "shots", scope: "team" } }, { id: "cards", label: "Cards", q: { stat: "yellow_cards" } }];
 const TIERS = ["Strong", "Solid", "Watch"];
 const POS = [{ id: "G", label: "GK" }, { id: "D", label: "DEF" }, { id: "M", label: "MID" }, { id: "F", label: "FWD" }];
-const NOF = { min: 50, pos: [], venue: "all", confirmed: false };
+// docs/52: the floor used to be 50% because no line below that existed -- engine.line_band started there.
+// With a line for each player and team, a forecast BELOW an entity's usual is as real as one above
+// ("likely to fall well short of his normal game"), and a 50% floor silently threw all of them away:
+// 20 cards became 8 on the first run. The floor is 0 and the slider reaches it.
+const NOF = { min: 0, pos: [], venue: "all", confirmed: false };
 
 function Compact({ rows }) {
   return (
@@ -35,6 +39,8 @@ export function Insights() {
   const [sheet, setSheet] = useState(false);
   const [sort, setSort] = useState("edge");
   const q = useApi("/insights", { limit: 200, sort, ...(MARKETS.find((m) => m.id === mk)?.q || {}), leagues: lg.join(",") || undefined, tiers: tier.length ? tier.join(",") : undefined });
+  const [who, setWho] = useState("");          // one player, by id (docs/52)
+  const [club, setClub] = useState("");        // one club, by id
   const [day, setDay] = useState(sp.get("day") || "");
   const [view, setView] = useState("cards");
   useTitle("Insights");
@@ -45,20 +51,25 @@ export function Insights() {
   const lq = useApi("/leagues");
   const leagues = useMemo(() => favFirst((lq.data?.countries || []).flatMap((c) => c.leagues).map((l) => [l.id, l.name]), fav, ([id]) => id), [lq.data, fav]);
   const pos = (f) => (f.pos || f.player?.pos || "")[0];
+  // docs/52: the pickers offer what this feed actually holds, so choosing one can never empty the list.
+  const byId = (list) => [...new Map(list).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const players = useMemo(() => byId(data.filter((f) => f.player?.id).map((f) => [f.player.id, f.player.name])), [data]);
+  const clubs = useMemo(() => byId(data.filter((f) => f.team?.id).map((f) => [f.team.id, f.team.name])), [data]);
   // A card leads with its most telling line, which is rarely its most likely one. "At least N% likely" therefore
   // asks about the best line the card holds (best_p), or nothing a player owns above N% would ever match (docs/46).
   const rows = data.filter((f) => (!day || isoDay(utc(f.kickoff)) === day) && Math.max(f.p, f.best_p ?? 0) * 100 >= more.min
     && (!more.pos.length || more.pos.includes(pos(f))) && (more.venue === "all" || (f.team_iid === f.home_iid) === (more.venue === "home"))
-    && (!more.confirmed || f.lineup_confirmed));
+    && (!more.confirmed || f.lineup_confirmed)
+    && (!who || f.player?.id === who) && (!club || f.team?.id === club));
   const nMore = more.pos.length + (more.venue !== "all") + more.confirmed + (lg.length > 0);
-  const nAll = nMore + (more.min > 50) + tier.length + (mk ? 1 : 0);
-  const clearAll = () => { setDay(""); setLg([]); setMk(""); setTier([]); setMore(NOF); };
+  const nAll = nMore + (more.min > 0) + tier.length + (mk ? 1 : 0) + (who ? 1 : 0) + (club ? 1 : 0);
+  const clearAll = () => { setDay(""); setLg([]); setMk(""); setTier([]); setMore(NOF); setWho(""); setClub(""); };
   // One card per player per market means more cards than before, so the list is paged rather than endless.
   const [per, setPer] = useStored("ins-per-page", 25);
   const [page, setPage] = useState(1);
   const pages = Math.max(1, Math.ceil(rows.length / per));
   const shown = rows.slice((Math.min(page, pages) - 1) * per, Math.min(page, pages) * per);
-  useEffect(() => { setPage(1); }, [day, mk, tier, lg, more, sort, per]);
+  useEffect(() => { setPage(1); }, [day, mk, tier, lg, more, sort, per, who, club]);
   const sortWord = { edge: "biggest change first", likely: "most likely first", kickoff: "by kick-off" }[sort];
   const cap = entitlements?.insights_per_day;
   return (
@@ -69,11 +80,21 @@ export function Insights() {
         <DateScroller value={day} onChange={setDay} from={0} count={7} gameDays={gameDays} dayLeagues={dayLeagues} testid="ins-dates" /></div>
       <section className="ins-filters card" aria-label="Filters" data-testid="ins-filters-panel">
         <div className="ins-f ins-f--min"><span className="ins-f-label">At least <b data-testid="ins-min-value">{more.min}%</b> likely</span>
-          <RangeSlider min={50} max={95} step={5} value={more.min} onChange={(v) => setMore({ ...more, min: v })} label="Minimum likelihood" format={(v) => `${v}%`} testid="ins-min" /></div>
+          <RangeSlider min={0} max={95} step={5} value={more.min} onChange={(v) => setMore({ ...more, min: v })} label="Minimum likelihood" format={(v) => `${v}%`} testid="ins-min" /></div>
         <div className="ins-f"><span className="ins-f-label">Tier</span>
           <ChipsRow multi value={tier} onChange={setTier} label="Tier" testid="ins-tier" options={TIERS.map((t) => ({ id: t, label: t }))} /></div>
         <div className="ins-f"><span className="ins-f-label">Market</span>
           <ChipsRow value={mk || "all"} onChange={(v) => setMk(v === "all" || v === mk ? "" : v)} label="Market" testid="ins-market" options={[{ id: "all", label: "All" }, ...MARKETS.map(({ id, label }) => ({ id, label }))]} /></div>
+        <div className="ins-f"><span className="ins-f-label">Player</span>
+          <select className="ins-pick" value={who} onChange={(e) => setWho(e.target.value)} aria-label="Player" data-testid="ins-player">
+            <option value="">Every player</option>
+            {players.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select></div>
+        <div className="ins-f"><span className="ins-f-label">Club</span>
+          <select className="ins-pick" value={club} onChange={(e) => setClub(e.target.value)} aria-label="Club" data-testid="ins-team">
+            <option value="">Every club</option>
+            {clubs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select></div>
         <div className="ins-f-foot">
           <button type="button" className={`k-chip${nMore ? " br" : ""}`} onClick={() => setSheet(true)} data-testid="ins-more-more"><Icon name="settings" size={16} />League and more{nMore ? <span className="k-count">{nMore}</span> : null}</button>
           {nAll > 0 && <button type="button" className="k-link" onClick={clearAll} data-testid="ins-clear-top">Clear filters</button>}

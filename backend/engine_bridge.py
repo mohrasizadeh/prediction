@@ -98,6 +98,9 @@ def configure_engine(db) -> E.SoccerEngine:
                          # docs/37 upgrades. Each default is off; switch one on only after engine_ab.py passes it.
                          script_v2=bool(S.get(db, "engine.script_v2")),
                          fit_player_r=bool(S.get(db, "engine.fit_player_r")),
+                         # docs/52: each player and team gets its own line
+                         personal_lines=bool(S.get(db, "engine.personal_lines")),
+                         personal_spread=int(S.get(db, "engine.personal_spread")),
                          opp_pos_k=float(S.get(db, "engine.opp_pos_k") or 0.0),
                          xg_blend=float(S.get(db, "engine.xg_blend") or 0.0))
     eng.r_player = dict(S.get(db, "engine.r_player"))      # fit_player_r replaces these during fit() when it is on
@@ -159,8 +162,16 @@ def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
         groups.setdefault((d["scope"], d["team_iid"], d.get("player_iid"), d["stat"]), []).append(d)
     out = []
     for g in groups.values():
-        # -p first, then -thr: of two lines equally likely, the more ambitious one is worth more to the reader
-        keep = sorted((d for d in g if lo <= d["p"] <= hi), key=lambda d: (-d["p"], -d["thr"]))[:max_lines]
+        personal = [d for d in g if d.get("is_personal")]
+        if personal:
+            # docs/52: the band was a way of guessing where a line is worth reading. When the entity has
+            # its own line there is nothing to guess, so the band does not apply to it -- it IS the answer.
+            rest = sorted((d for d in g if not d.get("is_personal") and lo <= d["p"] <= hi),
+                          key=lambda d: abs(d["p"] - 0.5))
+            keep = (personal + rest)[:max_lines]
+        else:
+            # -p first, then -thr: of two lines equally likely, the more ambitious one is worth more to the reader
+            keep = sorted((d for d in g if lo <= d["p"] <= hi), key=lambda d: (-d["p"], -d["thr"]))[:max_lines]
         ladder = {f"{d['thr']:g}": round(float(d["p"]), 4) for d in g}   # the whole ladder, so the Finder can answer any line
         for d in keep:
             d["ladder"] = ladder
@@ -201,6 +212,9 @@ def _goal_lines(db, m, probs, run_id, now, labels, usual=None) -> list[dict]:
                     "p_usual": pu, "edge": (p - pu) if pu is not None else 0.0,
                     "reasons": [], "opp_tactics": [], "own_tactics": [], "opp_key_players": [], "contrib": {},
                     "rotation": None, "rotation_why": None, "p_play_usual": None, "p_raw": p, "p_base": p,
+                    # docs/52: a match total belongs to the fixture, not to one team, so "the count this entity
+                    # usually manages" has no meaning here. The keys exist so every line has the same shape.
+                    "thr_personal": None, "is_personal": False, "expected_usual": None,
                     "ladder": ladder, "model": "strength", "is_current": True, "hidden": False, "created_at": now})
     return out
 
@@ -336,15 +350,27 @@ def run_league(db, league_iid: int, now=None) -> dict:
                 p, lo, hi = TI.anchor(p, lo, hi, f.rec_k, f.rec_n, anchor_k, anchor_w, p_cap)
             if cond and badge == "unsure" and float(f.p_play) < min_play:
                 continue                                         # rarely plays: no card, however high the "if he plays" number
+            # docs/52: is this the entity's own half-way line, or one of the neighbours kept for the Finder?
+            is_own = f.thr_personal is not None and abs(float(f.thr) - float(f.thr_personal)) < 1e-9
+            p_usual_raw = CAL.apply(pmap, f.p_usual, state, f.scope) if f.p_usual is not None else None
             solid_ok = badge in (None, "confirmed", "likely")
             basis = {None: "team", "confirmed": "lineup", "likely": "likely_starter"}.get(badge, "pre")
             if earned:                                           # docs/31: the label is earned from the whole chance and our results
-                t, tier_note = TI.assign(db, rec, {"p": p, "lo": lo, "scope": f.scope, "stat": f.stat, "p_play": float(f.p_play), "lineup_badge": badge}, strong_lineup)
+                t, tier_note = TI.assign(db, rec, {"p": p, "lo": lo, "hi": hi, "scope": f.scope, "stat": f.stat,
+                                                   "p_play": float(f.p_play), "lineup_badge": badge,
+                                                   # docs/52: the departure tier needs to know which rung this is
+                                                   "is_personal": is_own, "p_usual": p_usual_raw}, strong_lineup)
             else:
                 t = tier(p, lo, solid_ok, strong=strong, solid=solid)
                 t_full = tier(p, lo, True, strong=strong, solid=solid)
                 tier_note = ("On the bench: Watch only" if badge == "bench" else "Watch until lineups are out") if (not solid_ok and t_full != t) else None
-            p_usual = CAL.apply(pmap, f.p_usual, state, f.scope) if f.p_usual is not None else None
+            # docs/52: with personal lines on, only the entity's own rung is a forecast worth grading. The
+            # neighbours exist so the Finder can answer "what about 2+?" -- they are not insights, and if they
+            # keep a tier the feed falls back to them the moment the entity's own line has nothing to say,
+            # which is exactly the near-certain card this change exists to stop.
+            if f.thr_personal is not None and not is_own:
+                t, tier_note = None, None
+            p_usual = p_usual_raw
             fkey = f"{m['iid']}:{f.scope}:{f.team}:{f.player or 0}:{f.stat}:{f.thr:g}"
             docs.append({"id": str(uuid.uuid4()), "fkey": fkey, "run_id": run_id, "match_iid": m["iid"], "league_iid": league_iid,
                          "kickoff": m["kickoff"], "scope": f.scope, "team_iid": int(f.team), "opp_iid": int(f.opp),
@@ -360,7 +386,11 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "opp_key_players": [[int(p), float(v)] for p, v in f.opp_key_players],
                          "contrib": {k: round(float(v), 4) for k, v in f.contrib.items()},
                          "rotation": f.rotation, "rotation_why": f.rotation_why, "p_play_usual": f.p_play_usual,
-                         "p_raw": f.p_raw, "p_base": f.p_base, "is_current": True, "hidden": False, "created_at": now})
+                         "p_raw": f.p_raw, "p_base": f.p_base, "is_current": True, "hidden": False, "created_at": now,
+                         # docs/52: the entity's own 50% line, and the count it manages in its usual game
+                         "thr_personal": (float(f.thr_personal) if f.thr_personal is not None else None),
+                         "is_personal": (f.thr_personal is not None and abs(float(f.thr) - float(f.thr_personal)) < 1e-9),
+                         "expected_usual": (float(f.expected_usual) if f.expected_usual is not None else None)})
         docs += goal_lines
         if auto_lines:
             docs = select_lines(docs, line_band, max_lines)

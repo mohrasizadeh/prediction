@@ -71,7 +71,13 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
         <div className="k-fc-line"><span className="k-fc-market">{f.market}</span><span className="k-fc-pwrap"><b className="k-fc-p" data-testid={`${id}-p`}>{shown}</b>{rng && <small className="k-fc-range" data-testid={`${id}-range`}>{rng}</small>}</span></div>
         {tk && tk.state !== "unknown" && <div className="lv-row"><Track t={tk} id={id} /></div>}
         <span className="k-fc-bar" aria-hidden="true">{rng && <i className="k-fc-band" style={{ left: `${Math.round(f.lo * 100)}%`, width: `${Math.max(0, Math.round((f.hi - f.lo) * 100))}%` }} />}<b style={{ width: `${Math.round((f.p || 0) * 100)}%` }} />{f.p_usual != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.p_usual * 100)}%` }} />}</span>
-        {f.p_usual != null && <small className="k-fc-vs" data-testid={`${id}-usual`}>Usually {pct(f.p_usual)}</small>}
+        {f.is_personal && f.expected_usual != null
+          ? <small className="k-fc-vs" data-testid={`${id}-usual`}>
+              {f.scope === "player" ? "His usual game is " : "They usually manage "}
+              <b>{f.expected_usual.toFixed(1)}</b>
+              {f.p_usual != null && <> · this line lands {pct(f.p_usual)} of the time for {f.scope === "player" ? "him" : "them"}</>}
+            </small>
+          : f.p_usual != null && <small className="k-fc-vs" data-testid={`${id}-usual`}>Usually {pct(f.p_usual)}</small>}
         {f.scope === "player" && f.rec_n >= 8 && <small className="k-fc-vs" data-testid={`${id}-record`}>Hit in {f.rec_k} of his last {f.rec_n} games</small>}
         {f.reasons?.[0] && <p className="k-fc-why">{f.reasons[0]}</p>}
       </button>

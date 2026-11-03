@@ -64,6 +64,37 @@ TACTIC_WORDS = {"low_block": "a low block",
                 "long_ball": "a long-ball approach"}
 
 
+def personal_k(sf_at, hi: int = 40, target: float = 0.5) -> int:
+    """The count where an entity's OWN distribution crosses `target` (docs/52).
+
+    `sf_at(k)` is P(N >= k) under that entity's usual rate -- its own shrunk per-90 rate carried
+    through this match's minutes, before any opponent adjustment. It falls as k rises, so there is
+    exactly one crossing and we take the integer nearest it.
+
+    Why not the median of its last N games: a count is a small integer, so the empirical median is
+    degenerate (a median of 2 leaves P(>=2)=.65 and P(>=3)=.35, neither near a half) and a handful
+    of appearances moves it by a whole unit. Inverting the fitted distribution has neither problem,
+    and the rate behind it is already shrunk toward the positional mean and already mixed over this
+    match's minutes, so a substitute's cameos do not drag his line down.
+    """
+    best, best_d = 1, abs(float(sf_at(1)) - target)
+    for k in range(2, hi + 1):
+        v = float(sf_at(k))
+        d = abs(v - target)
+        if d < best_d:
+            best, best_d = k, d
+        if v < target * 0.4:            # well past the crossing; it only falls from here
+            break
+    return best
+
+
+def personal_thrs(k: int, spread: int = 1, lo_k: int = 1) -> list[float]:
+    """The headline rung plus a neighbour either side, so the Finder keeps a range to answer from.
+    Returned low to high; the caller marks which one is the personal line."""
+    ks = sorted({max(lo_k, k + d) for d in range(-spread, spread + 1)})
+    return [float(x) - 0.5 for x in ks]
+
+
 @dataclass
 class Forecast:
     scope: str                 # "player" or "team"
@@ -92,6 +123,9 @@ class Forecast:
     p_usual: float | None = None        # the same line from his/the team's own normalised average, before this opponent
     rec_k: int | None = None            # games (of his last rec_n played) in which he beat this line
     rec_n: int | None = None
+    thr_personal: float | None = None   # this entity's OWN 50% line for this stat (docs/52): the count it clears
+                                        # about half the time in its usual game. The headline rung.
+    expected_usual: float | None = None # the count it manages in its usual game, against an average opponent
                                         # and match (docs/25). The feed ranks by p - p_usual.
 
 
@@ -136,7 +170,8 @@ class SoccerEngine:
                  lineup_l2=10.0, seed=0, tactics=False, tactic_interactions=True, shape=False,
                  extra_stats=(), match_features=(), strength_decay=0.02,
                  style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None, cond_play=False,
-                 ratings_blend=0.0, script_v2=False, fit_player_r=False, opp_pos_k=0.0, xg_blend=0.0):
+                 ratings_blend=0.0, script_v2=False, fit_player_r=False, opp_pos_k=0.0, xg_blend=0.0,
+                 personal_lines=False, personal_spread=1):
         self.interactions = interactions
         # Player lines are "if he plays" (docs/27). His chance to play is shown as a lineup badge, not folded into the percentage.
         self.cond_play = bool(cond_play)
@@ -144,6 +179,10 @@ class SoccerEngine:
         # --- docs/37 upgrades. Each is OFF by default and ships only if engine_ab.py passes its gate on real data.
         self.script_v2 = bool(script_v2)        # game state: margin, how lopsided, and the tempo of the fixture
         self.fit_player_r = bool(fit_player_r)  # player dispersion fitted from results instead of a fixed guess
+        # docs/52: every entity gets its own line, at the count it clears about half the time. Off by default,
+        # like every docs/37 upgrade, so engine_ab.py can judge it before it ships.
+        self.personal_lines = bool(personal_lines)
+        self.personal_spread = int(personal_spread)
         self.opp_pos_k = float(opp_pos_k)       # >0: what this opponent allows to each position (prior strength)
         self.xg_blend = float(xg_blend)         # weight of an xG-based Dixon-Coles in expected goals
         self.opp_pos = {}
@@ -850,6 +889,11 @@ class SoccerEngine:
                 if s not in self.stats:
                     continue
                 u = self._draws(self.sigma_team)
+                thr_own = None
+                if self.personal_lines:                   # docs/52: this team's own 50% line, not one line for the league
+                    k_own = personal_k(lambda k: nb_sf(k, mu_usual[s], self.glm[s].r))
+                    thrs = personal_thrs(k_own, self.personal_spread)
+                    thr_own = float(k_own) - 0.5
                 for thr in thrs:
                     k = int(np.floor(thr)) + 1
                     p = float(nb_sf(k, mu_team[s], self.glm[s].r))
@@ -863,7 +907,8 @@ class SoccerEngine:
                                         contrib=grp[s], reasons=self._reasons(grp[s], s, opp_tac),
                                         opp_tactics=opp_tac, own_tactics=own_tac,
                                         opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
-                                        rotation=rot[team][0], rotation_why=rot[team][1], p_usual=p_usual))
+                                        rotation=rot[team][0], rotation_why=rot[team][1], p_usual=p_usual,
+                                        thr_personal=thr_own, expected_usual=float(mu_usual[s])))
 
             # ---- player markets
             squad = self.squads.get(team, {})
@@ -902,7 +947,13 @@ class SoccerEngine:
                                      self.rho90[s][info["pos"]], 4.0, self.hl)
                     mus_b = np.array([pb.mean * m / 90.0 for _, m in sc])
                     reasons = self._player_reasons(contrib, grp[s], s, opp_tac)
-                    for thr in PLAYER_THR[s]:
+                    thrs_p, thr_own = PLAYER_THR[s], None
+                    mu_usual_p = float(np.sum(probs * mus_b))      # his own count in this match's minutes
+                    if self.personal_lines:                        # docs/52: his own 50% line, not one line for every player
+                        k_own = personal_k(lambda k: float(np.sum(probs * nb_sf(k, mus_b, self.r_player[s]))))
+                        thrs_p = personal_thrs(k_own, self.personal_spread)
+                        thr_own = float(k_own) - 0.5
+                    for thr in thrs_p:
                         k = int(np.floor(thr)) + 1
                         pdraw = np.sum(probs[:, None] * nb_sf(k, mus[:, None] * u[None, :], self.r_player[s]), axis=0)
                         p = float(np.sum(probs * nb_sf(k, mus, self.r_player[s])))
@@ -925,7 +976,9 @@ class SoccerEngine:
                                             opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
                                             rotation=rot[team][0], rotation_why=rot[team][1],
                                             p_play_usual=usual_ps.get(pid), p_usual=p_base,
-                                            rec_k=int((last40 > thr).sum()), rec_n=int(len(last40))))
+                                            rec_k=int((last40 > thr).sum()), rec_n=int(len(last40)),
+                                            thr_personal=thr_own,
+                                            expected_usual=(mu_usual_p / max(float(pplay), 1e-3)) if self.cond_play else mu_usual_p))
         mh, ma = (1.0, 1.0)
         if self.match_context and match_ctx:
             mh, ma = context_multipliers(match_ctx.get(home) or {}, match_ctx.get(away) or {})

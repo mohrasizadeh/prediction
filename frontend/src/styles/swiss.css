@@ -190,3 +190,14 @@ h1 { letter-spacing: -0.025em; }
    Wrapping shows all ten. Two rows of 44px cost about 60px of height and the reader can count the
    games the caption is counting. */
 .pgs-row { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }
+
+/* =============================================================== 10. INSIGHTS PICKERS
+   docs/52. The player and club pickers sit in the same two-column row as the other filters and
+   take the same filled field the rest of the app uses. They offer only what the feed holds, so a
+   choice can never empty the list. */
+.ins-pick {
+  width: 100%; min-height: 44px; padding: 0 12px;
+  border-radius: var(--radius-sm, 8px); border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text); font: inherit;
+}
+.ins-pick:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }

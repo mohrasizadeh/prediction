@@ -76,6 +76,9 @@ def assign(db, rec: Record | None, f: dict, strong_needs_lineup: bool = True) ->
     watch = float(S.get(db, "engine.watch_min"))
     if badge == "bench":
         return ("Watch" if w >= watch else None), "On the bench: Watch only"
+    if f.get("is_personal") and f.get("p_usual") is not None:
+        t, note = _departure_tier(db, f, w, lw)
+        return _lineup_caveat(t, note, scope, badge, strong_needs_lineup)
     t = "Strong" if (w >= s_min and lw >= s_lo) else "Solid" if (w >= so_min and lw >= so_lo) else "Watch" if w >= watch else None
     note = None
     if badge == "unsure" and t in ("Strong", "Solid"):
@@ -101,6 +104,46 @@ def assign(db, rec: Record | None, f: dict, strong_needs_lineup: bool = True) ->
                 t, note = ("Solid" if est >= so_min - 0.02 else "Watch"), f"Similar lines happened {round(est * 100)}% of the time"
             if t == "Solid" and est < so_min - 0.02:
                 t, note = "Watch", f"Similar lines happened {round(est * 100)}% of the time"
+    return t, note
+
+
+
+def _departure_tier(db, f: dict, w: float, lw: float) -> tuple[str | None, str | None]:
+    """Tiering for a line that is the entity's OWN half-way count (docs/52).
+
+    The ordinary tiers answer "how likely is this". Once the line is set where the entity lands about
+    half the time, that question has the same answer for everybody and tells the reader nothing: on
+    the measured feed 84 of 90 personal lines fell below even Watch.
+
+    The question worth grading is the one the line was built to ask: **is this fixture unlike their
+    normal game, and how sure are we?** So:
+
+      Strong  the likely range sits wholly on one side of what they usually do, and the gap is big
+      Solid   the gap is big enough to be worth saying, but the range still touches their usual
+      Watch   there is a gap, but a small one
+      none    this fixture looks like any other for them -- which is honest, and not worth a card
+
+    A departure below is as real as one above: "well short of his normal game" is a forecast.
+    """
+    pu = float(f["p_usual"])
+    d = abs(float(f["p"]) - pu)
+    big, some = float(S.get(db, "engine.departure_strong")), float(S.get(db, "engine.departure_solid"))
+    clear = (float(f["lo"]) > pu) or (float(f["hi"]) < pu)       # the range does not straddle the usual
+    if d >= big and clear:
+        return "Strong", None
+    if d >= some:
+        return "Solid", (None if clear else "The likely range still reaches their usual")
+    if d >= some / 2:
+        return "Watch", None
+    return None, None
+
+
+def _lineup_caveat(t, note, scope, badge, strong_needs_lineup):
+    """The lineup rules apply whatever the tier was worked out from."""
+    if badge == "unsure" and t in ("Strong", "Solid"):
+        return "Watch", "Watch until lineups are out"
+    if t == "Strong" and scope == "player" and badge != "confirmed" and strong_needs_lineup:
+        return "Solid", "Strong once the lineup is confirmed"
     return t, note
 
 

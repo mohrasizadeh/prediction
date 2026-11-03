@@ -162,9 +162,15 @@ def lift(f: dict, scale: str = "odds") -> float:
     pu = f.get("p_usual")
     if pu is None:
         return max(0.0, float(f.get("edge") or 0.0))
+    # docs/52: at an entity's own half-way line a fall is as much a forecast as a rise -- "well short of
+    # his normal game against this defence" is worth reading, and a one-sided measure would tier it
+    # Strong and then sort it last. Only a personal line is read both ways; without one, a line below
+    # usual still has nothing to recommend it.
+    both = bool(f.get("is_personal"))
+    keep = (lambda d: abs(d)) if both else (lambda d: max(0.0, d))
     if scale == "points":
-        return max(0.0, float(f.get("p") or 0.0) - float(pu))
-    return max(0.0, _logit(f.get("p") or 0.0) - _logit(pu))
+        return keep(float(f.get("p") or 0.0) - float(pu))
+    return keep(_logit(f.get("p") or 0.0) - _logit(pu))
 
 
 def prominence(f: dict, weights: dict | None = None, scale: str = "odds") -> float:
@@ -183,7 +189,14 @@ def prominence(f: dict, weights: dict | None = None, scale: str = "odds") -> flo
     else has something to say. When nothing in the group has any lift, the caller falls back to likelihood.
     """
     w = ((weights or {}).get(f.get("scope")) or {}).get(f.get("stat"), 1.0)
-    return float(w) * lift(f, scale) * float(f.get("p") or 0.0)
+    p = float(f.get("p") or 0.0)
+    # docs/52: once a line is the entity's OWN half-way count, a high p is not a virtue -- it is the
+    # message. What should carry weight is how much is actually at stake in the sentence, which is
+    # largest where the outcome is open and nil at either end. 4p(1-p) is exactly that, normalised.
+    # Without a personal line the old reading still holds: an unusual line nobody can act on is not
+    # an insight either.
+    stake = 4.0 * p * (1.0 - p) if f.get("is_personal") else p
+    return float(w) * lift(f, scale) * stake
 
 
 def _card_key(f: dict, group: str):
@@ -208,6 +221,17 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
     out = []
     for g in groups.values():
         lead = [f for f in g if f["p"] <= max_p] or g
+        own = [f for f in lead if f.get("is_personal")]
+        if own:
+            # docs/52: when the entity has its own line there is nothing to choose between -- that line
+            # is the question worth asking about it, and the neighbours exist only to answer follow-ups.
+            head = max(own, key=lambda f: (prominence(f, weights, scale), f["p"], f["thr"]))
+            card = dict(head)
+            card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge")}
+                                         for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
+            card["best_p"] = max(f["p"] for f in g)
+            out.append(card)
+            continue
         best = max(prominence(f, weights, scale) for f in lead)
         # nothing in this group is saying anything unusual: fall back to the likeliest, as before
         head = (max(lead, key=lambda f: (prominence(f, weights, scale), f["p"], f["thr"])) if best > 0
@@ -274,13 +298,20 @@ def team_form(db, team_iid: int, n: int = 5) -> list[dict]:
 
 
 # ----------------------------------------------------------- Insights feed
-def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, stat=None, scope=None, now=None, sort=None) -> list[dict]:
-    """`sort`: "edge" (default, settings engine.feed_sort) | "likely" | "kickoff"."""
+def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, stat=None, scope=None, now=None, sort=None,
+                  player_iids=None, team_iids=None) -> list[dict]:
+    """`sort`: "edge" (default, settings engine.feed_sort) | "likely" | "kickoff".
+
+    `player_iids` / `team_iids` narrow the feed to those players or clubs (docs/52). A club filter
+    takes its own team lines and the lines of its players, which is what a reader picking a club
+    off the list means by it."""
     now = now or datetime.now(timezone.utc)
     q = {**NOT_HIDDEN, "tier": {"$in": list(tiers)}, "kickoff": {"$gte": now}}
     if league_iids: q["league_iid"] = {"$in": league_iids}
     if stat: q["stat"] = stat
     if scope: q["scope"] = scope
+    if player_iids: q["player_iid"] = {"$in": list(player_iids)}
+    if team_iids: q["team_iid"] = {"$in": list(team_iids)}
     fc = list(db.forecasts.find(q, {"_id": 0, "contrib": 0}).limit(3000))
     grp = S.get(db, "engine.feed_group")
     if grp in ("player", "player_market"):

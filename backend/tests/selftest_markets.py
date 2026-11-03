@@ -53,6 +53,11 @@ check(all(f["p"] <= cap for f in fc), f"...and none is shown above the cap of {c
 cards = Q.group_cards(fc, fmax)
 lead_high = [c for c in cards if c["p"] >= 0.90]
 check(len(lead_high) >= 5, f"and they lead their card instead of hiding behind 'more lines': {len(lead_high)}")
+# docs/52: that is the docs/44 world, which this fixture is in because engine.personal_lines is off.
+# Switch it on and the opposite is true by design: each entity gets its own half-way line and a
+# near-certainty never leads. Guard the assumption so the next change to the default is caught here.
+check(not S.get(db, "engine.personal_lines"),
+      "...which is the behaviour while each player and team does NOT have its own line (docs/52)")
 
 # ---------------------------------------------------------------- the new markets
 mk = {f"{f['scope']}.{f['stat']}" for f in fc}

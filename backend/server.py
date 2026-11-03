@@ -116,14 +116,18 @@ def fixtures(date: str, tz: int = 0, leagues: str = "", db=Depends(D.get_db)):
 
 @app.get("/api/insights")
 def insights(limit: int = 50, sort: str = "", stat: str = "", scope: str = "", leagues: str = "", tiers: str = "Strong,Solid",
+             players: str = "", teams: str = "",
              user=Depends(D.optional_user), db=Depends(D.get_db)):
-    """sort = edge (default: most different from usual) | likely | kickoff (docs/25)."""
+    """sort = edge (default: most different from usual) | likely | kickoff (docs/25).
+    `players` and `teams` are comma-separated public ids and narrow the feed to them (docs/52)."""
     cap = P.effective_plan(db, user)["entitlements"]["insights_per_day"]
     ids = [i for i in (Q.iid_of(db, "leagues", x) for x in leagues.split(",") if x) if i] or ([-1] if leagues else None)
+    pids = [i for i in (Q.iid_of(db, "players", x) for x in players.split(",") if x) if i] or ([-1] if players else None)
+    tids = [i for i in (Q.iid_of(db, "teams", x) for x in teams.split(",") if x) if i] or ([-1] if teams else None)
     tl = tuple(t for t in tiers.split(",") if t in ("Strong", "Solid", "Watch")) or ("Strong", "Solid")
     return Q.insights_feed(db, limit=min(limit, 200, cap if cap >= 0 else 200), tiers=tl, league_iids=ids,
                            stat=stat or None, scope=scope if scope in ("player", "team") else None,
-                           sort=sort if sort in Q.FEED_SORTS else None)
+                           sort=sort if sort in Q.FEED_SORTS else None, player_iids=pids, team_iids=tids)
 
 
 @app.get("/api/search")

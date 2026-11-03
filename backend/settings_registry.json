@@ -2683,6 +2683,46 @@
   "help": "Works out how much a player's count bounces around its average from your own results, instead of the fixed numbers in 'Player dispersion'. Off until engine_ab.py passes it on your data (docs/37)."
  },
  {
+  "key": "engine.personal_lines",
+  "group": "Engine",
+  "label": "A line for each player and team",
+  "type": "boolean",
+  "default": false,
+  "public": false,
+  "applies_at": "next engine run",
+  "help": "Gives every player and team its own line for each stat: the count it clears about half the time in its usual game, worked out from its own fitted rate rather than one line for the whole league. Stops 'PSG 9+ shots' and '1+ shot' - lines that are true for nearly everyone and so say nothing. With this on, a likelihood above a half means more than that entity usually manages and below a half means less (docs/52). Off until engine_ab.py passes it on your data."
+ },
+ {
+  "key": "engine.personal_spread",
+  "group": "Engine",
+  "label": "Neighbour lines to keep",
+  "type": "int",
+  "default": 1,
+  "public": false,
+  "applies_at": "next engine run",
+  "help": "How many lines either side of each entity's own line to work out as well, so the Finder has a range to answer from. 1 gives three lines in all. Only used when 'A line for each player and team' is on."
+ },
+ {
+  "key": "engine.departure_strong",
+  "group": "Engine",
+  "label": "Strong: gap from usual",
+  "type": "float",
+  "default": 0.12,
+  "public": false,
+  "applies_at": "next engine run",
+  "help": "With 'A line for each player and team' on, a forecast is graded on how far it moves from what that player or team usually does, not on how likely it is - at their own half-way line, likelihood says the same thing about everybody. Strong needs a gap of at least this much AND a likely range that sits wholly on one side of their usual (docs/52)."
+ },
+ {
+  "key": "engine.departure_solid",
+  "group": "Engine",
+  "label": "Solid: gap from usual",
+  "type": "float",
+  "default": 0.06,
+  "public": false,
+  "applies_at": "next engine run",
+  "help": "The gap from usual a forecast needs to reach Solid. Half this value is the floor for Watch; below that the fixture looks like any other for them and the line gets no tier, so it never reaches a feed."
+ },
+ {
   "key": "engine.opp_pos_k",
   "group": "Engine",
   "label": "Opponent by position: prior strength",

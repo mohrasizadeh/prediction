@@ -25,6 +25,10 @@ def build():
     security.save_provider_key(db, "pitchapi", "pk_demo_zzzz")
     S.put(db, "ingest.rps", 1000); S.put(db, "provider.pitchapi.team_keys", TEAM_KEYS); S.put(db, "provider.pitchapi.player_keys", PLAYER_KEYS)
     S.put(db, "provider.position_map", {"0": "GK", "1": "DEF", "2": "MID", "3": "FWD"})
+    # docs/52: off here as it is everywhere else, because selftest_markets and others build their
+    # fixture from this function and must see the documented default. DEMO_PERSONAL_LINES=1 turns it
+    # on for a look at the new behaviour.
+    S.put(db, "engine.personal_lines", os.environ.get("DEMO_PERSONAL_LINES") == "1")
     matches, tg, pg, _ = simulate_league(n_teams=12, seed=7)
     n_final = int(matches["round"].max()) + 1 - 2
     fake = FakePitch(matches, tg, pg, n_final)
