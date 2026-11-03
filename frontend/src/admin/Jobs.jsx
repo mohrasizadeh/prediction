@@ -14,7 +14,7 @@ const JOBS = [
   ["results_sync", "Results", "1 fresh call per league; queues new finished matches."],
   ["backfill", "Backfill", "Fetches the seasons ticked in Leagues."],
   ["engine", "Engine", "Recomputes forecasts for leagues that are on."],
-  ["images", "Images", "API-Football logos, crests and photos."],
+  ["images", "Images", "PitchAPI league logos, club crests and player photos."],
 ];
 const tone = (s) => (s === "ok" ? "up" : s === "error" ? "down" : s === "running" ? "brand" : "warn");
 const RECENT = [

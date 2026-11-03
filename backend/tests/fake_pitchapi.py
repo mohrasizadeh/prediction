@@ -54,8 +54,8 @@ class FakePitch:
         return {"id": self.mid(r.game_id), "date": self.kick(r.round).date().isoformat(),
                 "time_utc": self.kick(r.round).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "status": "finished" if final else "not_started",
-                "home_team": {"id": self.tid(r.home), "name": f"Team {r.home}"},
-                "away_team": {"id": self.tid(r.away), "name": f"Team {r.away}"},
+                "home_team": {"id": self.tid(r.home), "name": f"Team {r.home}", "image_url": f"https://cdn.pitchapi.dev/t/{self.tid(r.home)}.png"},
+                "away_team": {"id": self.tid(r.away), "name": f"Team {r.away}", "image_url": f"https://cdn.pitchapi.dev/t/{self.tid(r.away)}.png"},
                 "score_home": int(r.hg) if final else None, "score_away": int(r.ag) if final else None}
 
     def handle(self, req: httpx.Request) -> httpx.Response:
@@ -70,6 +70,17 @@ class FakePitch:
         if path == "/v1/leagues":
             return httpx.Response(200, json=_env({"leagues": [{"id": "l_000001", "name": "Test League", "country_code": "ENG",
                                                                "image_url": "https://cdn.pitchapi.dev/l.png", "seasons": ["2024/2025", "2025/2026"], "is_free": True}]}))
+        mm = re.fullmatch(r"/v1/leagues/(\w+)$", path)
+        if mm:
+            return httpx.Response(200, json=_env({"id": mm.group(1), "name": "Test League", "country_code": "ENG",
+                                                  "season": "2025/2026", "image_url": "https://cdn.pitchapi.dev/l.png"}))
+        mm = re.fullmatch(r"/v1/teams/(\w+)$", path)
+        if mm:
+            return httpx.Response(200, json=_env({"id": mm.group(1), "name": "Team", "image_url": f"https://cdn.pitchapi.dev/t/{mm.group(1)}.png"}))
+        mm = re.fullmatch(r"/v1/players/(\w+)$", path)
+        if mm:
+            return httpx.Response(200, json=_env({"id": mm.group(1), "name": "Player", "short_name": "P",
+                                                  "image_url": f"https://cdn.pitchapi.dev/p/{mm.group(1)}.png"}))
         mm = re.fullmatch(r"/v1/leagues/(\w+)/matches", path)
         if mm:
             status = req.url.params.get("status", "played")

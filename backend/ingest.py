@@ -295,9 +295,10 @@ def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
                 ok = ingest_match(client, m) if m and not m.get("ingested_at") else True
                 db.ingest_queue.update_one({"_id": t["_id"]}, {"$set": {"status": "done" if ok else "skipped", "finished_at": utcnow()}})
                 done += ok; skipped += (not ok)
-            elif t["task"] == "player_photo":
+            elif t["task"] in ("player_photo", "league_logo", "team_crest"):
                 import pitch_photos as PP
-                res = PP.fetch_photo(client, t["key"])
+                kind = {"player_photo": "player", "league_logo": "league", "team_crest": "team"}[t["task"]]
+                res = PP.fetch_image(client, kind, t["key"])
                 db.ingest_queue.update_one({"_id": t["_id"]}, {"$set": {"status": "done", "result": res, "finished_at": utcnow()}})
                 done += 1
             elif t["task"] == "match_referee":

@@ -62,6 +62,8 @@ def ingest_extras(client: PitchClient, match: dict) -> bool:
     if S.get(db, "ingest.match_extra_detail"):
         d = client.fetch(f"/v1/matches/{ext}", ttl=FOREVER, purpose="match_detail")
         sets.update({"referee": (d.get("referee") or "").strip() or None, "stadium": (d.get("stadium") or "").strip() or None})
+        import pitch_photos as PP                       # the crests ride along with this call, so they cost nothing
+        PP.note_team_images(db, [d.get("home_team"), d.get("away_team")])
     if S.get(db, "ingest.match_extra_events"):
         ev = normalize_events(client.fetch(f"/v1/matches/{ext}/events", ttl=FOREVER, purpose="match_events"), home["ext_id"], away["ext_id"])
         tid = {"home": home["iid"], "away": away["iid"]}

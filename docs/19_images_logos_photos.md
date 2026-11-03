@@ -165,3 +165,67 @@ Routes (doc 06): `GET /images`, `GET /images/review`, `POST /images/sync`, `POST
 | `backend/jobs.py` | `images` is a manual job (never automatic) |
 | `backend/tests/selftest_images.py` | The eleventh test suite (includes retry and rate-header checks) |
 | `backend/check_apifootball.py` | One-off pre-flight: 3 API calls and 3 image downloads, prints `ok` / `CHECK` |
+
+---
+
+# 11. PitchAPI is now the source (2026-11-03)
+
+Everything above still describes `images.py`, which still works. It is no longer the way pictures
+arrive. **League logos, club crests and player photos all come from PitchAPI**, and API-Football is
+not needed for anything.
+
+## 11.1 Why this changed
+
+Section 1 argued against PitchAPI's own `image_url` on two grounds. One of them no longer holds and
+the other never applied to how we use it:
+
+- *"Its hot-linking terms are not stated (doc 08 B2)."* True, and still unanswered — but it is only
+  a hot-linking question if we hot-link. We do not. Each picture is downloaded **once** and the bytes
+  are stored in `media`, exactly as API-Football's were, and the browser is only ever given
+  `/api/media/{kind}/{id}`. `pitch_photos.py` has worked this way for player photos since it was
+  written; this change extends the same treatment to logos and crests.
+- *"It is a second set of images to keep consistent."* It was a second set while two providers were
+  in play. Now there is one.
+
+## 11.2 What it costs
+
+| Picture | Where its address comes from | API calls |
+|---|---|---|
+| League logo | `leagues.image_url`, saved by `ingest.sync_leagues` from `GET /v1/leagues` (docs/08 row 2) | **0** |
+| Club crest | `teams.image_url`, harvested from `GET /v1/matches/{id}` where `match_extras` already fetches it (docs/08 row 7); `GET /v1/teams/{id}` only for clubs no match detail has covered | **0 or 1 per club, once** |
+| Player photo | `GET /v1/players/{id}` (docs/08 row 6) | 1 per player, once |
+
+Downloads from `cdn.pitchapi.dev` are not API calls. Compare with section 3: API-Football wanted
+about 22 calls per league and two days on its free plan, plus a key, plus a league-id map, plus a
+review list for name matching. None of that is needed now, because PitchAPI tells us which picture
+belongs to which entity — there is no matching to get wrong, so there is nothing to review.
+
+## 11.3 How it runs
+
+`pitch_photos.plan(db)` runs once a day from the tick and queues anything without a stored picture:
+`league_logo`, `team_crest`, `player_photo`. Entities with current forecasts are queued first.
+`ingest.process_queue` dispatches all three to `pitch_photos.fetch_image`.
+
+Safety is unchanged from the player-photo path: only `https://cdn.pitchapi.dev` is ever downloaded
+from, the bytes are sniffed (PNG, JPEG or WebP; SVG refused; size capped) by `images.store_media`,
+and the record is marked checked so a missing picture is not asked for twice.
+
+`images.enabled` still gates whether pictures are shown at all, and `images.use_provider_urls` still
+links straight to the provider when you want that. Both behave as section 5 describes.
+
+## 11.4 What happened to API-Football
+
+Nothing was deleted. `images.py`, `check_apifootball.py`, the API-Football key, `images.leagues` and
+the review list are all still there and still work, so an install that already synced from
+API-Football keeps its pictures. They are now optional, and a fresh install never needs them.
+`media.source` records which provider each stored picture came from; `pitch_photos.status(db)`
+reports `from_pitchapi` and `from_apifootball`.
+
+## 11.5 Code
+
+| File | Job |
+|---|---|
+| `backend/pitch_photos.py` | All three kinds: plan, address lookup, download, store, status |
+| `backend/ingest.py` | Dispatches `league_logo`, `team_crest` and `player_photo` |
+| `backend/match_extras.py` | Saves the crests that arrive with the match-detail call |
+| `backend/tests/selftest_pitch_images.py` | Proves all three come from the CDN, that nothing else is ever fetched, and that the browser gets our address |
