@@ -212,3 +212,117 @@ network policy):
   markets — betting-industry sources, consistent on the caveat.
 - StatsBomb, Premier League strikers and repeatability — shot volume most repeatable, shots on
   target second and weaker, scoring percentage random.
+
+---
+
+# 9. The actual test for "this did not need an engine"
+
+Added after the first draft. Section 1 measured *where on the ladder* the shown rung sits. That was
+only half the problem. This is the other half, and it is the one that answers "PSG 9+ shots in a
+match doesn't need an engine".
+
+## 9.1 Spread is the diagnostic
+
+For any market rung, compute the **spread**: the standard deviation, across every entity in the
+league, of that entity's own base rate at that rung.
+
+Spread says whether the question has an answer. If every team in the league reaches 9+ shots about
+83% of the time, no model can tell them apart at that rung — not because the model is weak, but
+because the teams genuinely are not different there. The engine is being asked a question with no
+answer, and it dutifully returns 88%.
+
+Measured on 358 forecast rows across 12 matches (simulated league, so read the ordering rather
+than the absolute values):
+
+| Market rung | League base | **Spread** | |
+|---|---|---|---|
+| team corners 1.5+ | 89.2% | **0.013** | flat |
+| team shots 6.5+ | 88.9% | **0.018** | flat |
+| team sot 1.5+ | 86.5% | **0.030** | flat |
+| team shots 7.5+ | 86.3% | **0.031** | flat |
+| team corners 2.5+ | 83.2% | **0.034** | flat |
+| team shots 8.5+ | 82.6% | **0.047** | flat |
+| team corners 3.5+ | 73.1% | 0.059 | thin |
+| team sot 2.5+ | 77.4% | 0.067 | thin |
+| player tackles 1.5+ | 66.2% | 0.083 | real |
+| team sot 3.5+ | 66.4% | 0.100 | real |
+| player shots 1.5+ | 70.0% | 0.118 | real |
+| player shots 2.5+ | 68.2% | 0.124 | real |
+| player shots 0.5+ | 75.6% | **0.146** | real |
+| team match_goals (any) | — | **0.000** | identical by construction |
+
+**Every flat rung is a team market.** Player rungs run 0.083–0.146; team rungs at the bottom of
+their ladders run 0.013–0.047. That is the whole of the complaint, in one column.
+
+Note what this is *not*. It is not "high likelihood is bad". `player shots 0.5+` has a 75.6% league
+base and a spread of 0.146 — some players sit at 95%, some near 50%. A 95% shots line for a
+specific player can be worth saying, because that player is genuinely unlike the rest. The same
+number for a team at the bottom of its ladder cannot be, because the team is not.
+
+## 9.2 Two kinds of information, and you need one of them
+
+A forecast earns its place if it can answer at least one of these:
+
+- **who** — this entity differs from the league. `|p_usual − league_base|`. "This player shoots more
+  than most in his role."
+- **when** — this fixture differs from the entity's own norm. `|p − p_usual|`. "And this week more
+  than he usually does."
+
+If the rung is flat, neither question has an answer and nothing else matters. If the rung has
+spread but both gaps are small, the statement is a league fact wearing a forecast's clothes.
+
+## 9.3 Scoring the current feed
+
+Every one of the 20 headline cards, against its own rung's league baseline and spread:
+
+| | |
+|---|---|
+| **Trivial** — flat rung, or neither *who* nor *when* | **8 of 20** |
+| *who* only | 9 of 20 |
+| *when* only | 2 of 20 |
+| **both** | **1 of 20** |
+
+Eight of twenty cards say nothing a league table could not. Only one card in twenty manages to say
+both who is unusual and that today is unusual for them — which is the sentence the whole engine
+exists to produce.
+
+## 9.4 What to build
+
+Three things, and the first two are small.
+
+**Store the baseline.** Compute `league_base` and `spread` per `(scope, stat, thr)` per league per
+season, on the same run that writes forecasts. It is one aggregation over
+`player_match_stats` / `team_match_stats` and it is the input every rule below needs. Nothing can
+be filtered on information that is not recorded.
+
+**Gate on spread.** A rung with `spread < 0.05` is not a forecast and should never lead a card or
+appear in a feed. Keep it reachable in the full ladder and the Finder — somebody checking "does
+this team ever fail to reach 2 corners" deserves an answer — but it is not an insight. On the
+measurements above this alone removes the six flattest team rungs.
+
+**Require who or when.** After the spread gate, a headline needs `|p_usual − league_base| ≥ 0.05`
+or `|p − p_usual| ≥ 0.05`. Make both floors settings so they can be tuned without a deploy.
+
+Then say which one it is, in the card's own words. "Shoots more than most in his role" is *who*.
+"More than he usually manages, against this defence" is *when*. A card that can say both should say
+both, and should outrank every card that can only say one.
+
+## 9.5 What this means for the engine itself
+
+The engine is not the thing that is broken. Across 358 rows it calibrated, anchored and banded
+exactly as designed. It is being pointed at questions that have no answer, and it answers them
+correctly.
+
+So the engine work that would pay is not more features. It is:
+
+1. **Per-rung `p_usual`.** Today the baseline is computed only for the rung that happens to be
+   shown. Every rule above needs it for the whole ladder.
+2. **`league_base` and `spread` as first-class stored fields**, per the above.
+3. **Then, and only then, more features** — and aimed at the markets where spread shows there is
+   variance to explain. Chasing accuracy on `team shots 6.5+` is chasing a quantity that does not
+   vary.
+
+And one correction to make while there: `engine.market_weights` puts shots on target (1.40) above
+shots (1.00), while the repeatability evidence in section 5 and the spread column above both point
+the other way — `player shots 0.5+` has the widest spread of any market measured. Worth running
+through the docs/37 gate before trusting either ordering.
