@@ -177,3 +177,16 @@ h1 { letter-spacing: -0.025em; }
 @media (min-width: 768px) {
   .a-setting { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
 }
+
+/* =============================================================== 9. THE GAME STRIP
+   §5 chip-collection-reflow: "wrap the collection before shrinking labels", and never hide values
+   behind a scroll with no affordance.
+
+   Measured on a 390px phone: the strip holds ten games at 44px each, the row is 354px wide and
+   scrolls to 494px, so three games sit off the right edge with no fade, no scrollbar and nothing
+   to say they are there. The caption underneath reads "9 of 10 reached it" while only seven boxes
+   can be seen, so the two do not reconcile.
+
+   Wrapping shows all ten. Two rows of 44px cost about 60px of height and the reader can count the
+   games the caption is counting. */
+.pgs-row { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }

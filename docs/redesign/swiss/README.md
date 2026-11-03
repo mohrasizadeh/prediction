@@ -42,7 +42,7 @@ Two parts of its answer were **not** taken:
 | 3 | Figures | §6 `number-tabular` | Tabular lining figures on every number a reader compares down a column, so digits hold their place and rows do not shimmer when a value ticks over. |
 | 4 | Ornament | style record: *avoid gradients* | Eleven decorative gradients flattened to a surface and a hairline: the two avatars, the admin brand mark, the auth aside, the plan hero, the match hero, the highlighted player and plan cards, the admin meter and bars, and the weekly-e-mail block. Gradients that carry information stay — skeleton shimmer, heat-map legend ramp, goal and substitution icons, media checkerboard, scroll mask fades. The brand mark is untouched: a logo is brand property, not the design system's to restyle. |
 | 5 | Forecast card | §6 `truncation-strategy` | The tier note sat in a 14ch column beside its badge and broke into three or four ragged lines, colliding with the add button. The head is now a small explicit grid and the note takes a full-width row. `.k-fc-tier` carries no paint, only layout, so `display: contents` hands its two children to the head grid and nothing is lost. |
-| 6 | Forecast card | §5 `spacing-scale` (density 8) | Every edge carried the comfortable scale, so one card ran ~290px on a phone and twenty made an 8,000px wall. The dense scale takes about a fifth off without touching a 44px target. |
+| 6 | Forecast card | §5 `spacing-scale` (density 8) | Every edge carried the comfortable scale, so one card ran ~290px on a phone and twenty made an 8,000px wall. The dense scale takes **about 17px off each card, roughly 6%** — see "What the density pass actually bought" below, which corrects a larger figure claimed earlier. |
 | 7 | Data marks | §10 `contrast-data` | **Measured failure.** The draw segment of the win/draw/away bar was `--text3` at 60% opacity over `--surface1`: **2.98:1 in dark, 2.40:1 in light**, against the 3:1 a data mark needs. At full strength it reaches **5.94:1 and 5.23:1**. The segments stay tellable apart without colour because they keep their fixed home-draw-away order. |
 | 8 | Data marks | §10 `data-density` | In a desktop fixture row the bar sat in a `1fr` column and stretched past 900px, so no two rows could be compared by eye. Capped at 340px, which turns the column into a small-multiple that reads down the page. |
 | 9 | Lists | §5 `spacing-scale` | 76px fixture rows showed six matches on a phone screen; 64px rows show nine, and the tap target stays well over 44px. Same treatment for insight rows, event rows and stat cells. |
@@ -74,13 +74,41 @@ These need markup, not CSS, so they are written down rather than done.
 | Admin → Settings | **71,953px tall** on a phone at the default "All groups" — 243 rows, every one rendered | Groups collapsed by default. Search and a group filter already exist; what is missing is that the default view is everything. §3 `virtualize-lists` applies at 50+ items. |
 | Admin → PitchAPI | 9,600px | Same shape. |
 | Match | 9,249px — about 25 forecast cards, all identical in weight | Progressive disclosure: the reason line and the record line belong in the sheet, not on every card in the list. |
-| Insights | 8,036px — 20 cards | Same. The density pass takes a fifth off; the rest is a markup question. |
+| Insights | 8,036px -> 7,693px, 20 cards | Same. The density pass takes 4.3% off; the rest is a markup question. |
 
-### Screens not yet covered
+### What the density pass actually bought
 
-The 62 captured screens are every **route** the router defines. A route is not a screen. These
-states are captured by a second harness (`states.js`) and were still running when this was
-committed:
+Measured, phone at 390px, every route before and after:
+
+| Screen | Before | After | Delta |
+|---|---|---|---|
+| Admin -> Settings | 71,953 | 68,654 | **-3,299 (-4.6%)** |
+| Match | 9,249 | 8,837 | **-412 (-4.5%)** |
+| Insights | 8,036 | 7,693 | **-343 (-4.3%)** |
+| Today | 2,630 | 2,671 | **+41 (+1.6%)** |
+| **All 62 routes** | **193,770** | **190,044** | **-3,726 (-1.9%)** |
+
+**This corrects a larger claim made while the work was in progress.** The density pass was described
+as taking "about a fifth" off the card walls. It takes about 4.5%. The reason is that a forecast
+card's height is governed by its content -- a header, a market line, a bar and three lines of prose --
+not by its padding, so tightening the spacing scale saves roughly 17px on a 290px card and no more.
+
+Today got 41px *taller*, and that is the intended trade: the tier note moved from a 14ch column into
+a full-width row, which reads properly instead of breaking into four ragged lines, and costs a line
+of height on the cards that carry one.
+
+`pub-account-devices` shows +330px and is **not** comparable: it lists sign-in sessions, and the
+capture harness itself signed in four times during each run, so the after page genuinely has more
+rows. The measurement is confounded, not the design.
+
+The real size problem on those screens was never the padding. It is that every card carries its
+reason line and its record line in the list, and that Settings renders all 243 rows at once. Both
+need markup, and both are in the table above.
+
+### Screens beyond the routes
+
+The 62 captured screens are every **route** the router defines. A route is not a screen, so a
+second harness (`states.js`) captures the states a route can be in:
 
 match tabs before kick-off (Forecasts, Lineups, Analysis) and after full time (Recap and the
 rest); the forecast sheet a card opens; the player page and its table toggle; the six team tabs;
@@ -110,17 +138,23 @@ to `WdlBar` in `components/ui/Marks.jsx`.
   **62 screens x 4 contexts**, public and admin, signed in as the owner. The baseline run
   finished with zero page or console errors.
 
-### Not yet checked at the time of this commit
-
-- **The backend self-test suites have not been re-run to completion.** A run was started and
-  was killed by a 30-minute background limit while four Chromium contexts were competing for
-  the CPU; it printed nothing before it died. This pass touches one `.jsx` line and one new
-  stylesheet, so no Python behaviour should be affected, but that is reasoning, not evidence.
-  Run `bash backend/run_tests.sh` before relying on this.
-- The after-capture and the stateful-screen capture were still running when this was
-  committed. See "Screens not yet covered" above.
+- **All 40 backend self-test suites pass**, including the new `selftest_pitch_images.py`.
+  (An earlier run of this was killed by a background time limit while four Chromium contexts
+  were competing for the CPU, and an earlier version of this file recorded it as unverified.
+  It has since been run to completion: 40 pass, 0 fail.)
+- The stateful screens are captured too: **34 states x 4 contexts = 136 screenshots**, listed
+  below.
 
 ## Going back
 
 Delete the `import "./styles/swiss.css";` line from `frontend/src/index.js`. Nothing else
 depends on it.
+
+## Pictures
+
+- `sheet-routes.png` — all 62 routes, phone, dark, after the pass.
+- `sheet-states.png` — all 34 states, phone, dark.
+- `pairs/` — before and after side by side for the ten screens that changed most, phone and desktop.
+
+The full set (248 route pairs and 136 state screenshots across phone/desktop x dark/light) is
+produced by the two harnesses and is not committed; re-run them against a demo server to rebuild it.
