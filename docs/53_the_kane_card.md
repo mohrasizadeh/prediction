@@ -3,8 +3,45 @@
 A real card, reported 2026-11-03: **Harry Kane, 1+ shot, 90%**, with a strip showing his last ten
 games at 3, 6, 6, 5, 8, 5, 5, 4, 2, 6 — fifty shots, five a game, never fewer than two.
 
-The complaint was that 90% for 1+ shot has no value. That is right, and it is the **smaller** of the
-two things wrong with this card.
+---
+
+> ## RETRACTION, written after the sections below
+>
+> **The first version of this document said the model was wrong. That claim does not hold and I am
+> withdrawing it.**
+>
+> I said it twice, with confidence, on the strength of a ratio audit comparing each player's
+> forecast against his own recent mean. **That audit was invalid.** It included players the engine
+> had correctly modelled as substitutes — every badly-wrong row in it turned out to have
+> `ps = 0.00`, meaning a confirmed lineup had them on the bench — and compared their twenty-minute
+> expectation against their starter history. Apples to oranges.
+>
+> Repeating it properly, on **confirmed starters only**, where the comparison is sound:
+>
+> | | median |
+> |---|---|
+> | engine's implied mean ÷ his own starter history | **1.20** |
+> | `p_usual`'s implied mean ÷ his own starter history | **1.30** |
+>
+> Over 105 confirmed starters the engine runs **above** a player's own record, not below. There is
+> no systematic under-call.
+>
+> **So what about Kane?** `p_usual` of 92% at 1+ shot implies a mean of 3.53 shots. At his rate of
+> 5.55 per 90 that is about 57 expected minutes — a reasonable allowance for rotation risk before a
+> lineup is confirmed. On a mean of 3.06, 2+ shots at 72% is arithmetically right. His record of
+> 10 in 10 comes from games he *started and played 67 minutes or more*. The card and the record are
+> not measuring the same thing, and I treated them as if they were.
+>
+> **What survives** is sections 2 and 2.1: the headline is the dullest rung he owns, his median is
+> five shots, and the ladder stops at 3+. That is real, and docs/52 addresses it.
+>
+> **What this exposes instead** is a presentation fault I had not named: the card shows 90% without
+> ever saying it rests on about 57 expected minutes rather than a full match. The number is
+> defensible; its basis is invisible. A reader comparing it with a ten-game strip of 67-minute
+> starts has no way to see why they disagree. That is worth fixing, and it is not an engine fix.
+>
+> Sections 3 to 5 below are kept so the reasoning can be audited, with their errors marked. Do not
+> act on them.
 
 ---
 
@@ -37,7 +74,7 @@ change; it is the only way the right rung comes to exist at all.
 The strip has the same problem. Ten green boxes and "10 of 10 reached it" is a picture of nothing.
 At his own line it would read 7 of 10 and the boxes would differ.
 
-## 3. Problem two, the serious one: the numbers disagree with his record
+## 3. ~~Problem two, the serious one: the numbers disagree with his record~~ (WITHDRAWN - see the retraction)
 
 Fit a negative binomial to the three shot percentages on the card:
 
@@ -111,7 +148,7 @@ minutes mixture (`scen_all`), the opponent adjustment (`opp_pos_f`) and the team
 Finding it needs the engine instrumented against the real database, not a simulated league, and it
 should not be guessed at again.
 
-## 5. Is it only Kane? No, but it is not a global bias either
+## 5. ~~Is it only Kane?~~ (WITHDRAWN - this audit is the invalid one)
 
 Audited every player forecast in a full league run — 109 players with at least six games and a mean
 above one shot — comparing the engine's `expected` against that player's own last-ten mean:
@@ -140,26 +177,18 @@ I did not establish **which** players, beyond that the tail exists. Whether it t
 minutes, position or squad size is the next question, and it needs the real database rather than a
 simulated league.
 
-## 6. What to do, in order
+## 6. What to do, in order (revised)
 
-0. **Nothing here is fixed yet.** The diagnosis is firm; the cause is not. Three guesses at the
-   cause were wrong (§4.1), so the next step is instrumentation, not another change.
-1. **Run the audit in §5 against production.** It is one query over `forecasts` and
-   `player_match_stats` and it tells you whether the tail is real at scale and who is in it. Nothing
-   else should be decided before that.
-1b. **Then instrument one badly-wrong player end to end** — his shrunk share, `opp_pos_f`, `Z`,
-   `mu_team`, and the minutes scenarios — and print each factor. The answer is in one of those four
-   and a single trace will name it.
-2. **Then fix the rate, not the anchor.** If the tail is real, `engine.anchor_max_w` is currently
-   compensating for it at a capped 0.4 and the honest move is to lower the cap *after* the rate is
-   right, not before.
-3. **Turn on `engine.personal_lines` (docs/52)** so the ladder reaches the rung that matters for
-   each player. Note the order: doing this *before* step 2 moves the headline onto 4+ or 5+ shots,
-   where a 39% under-call becomes a 20-point error on the card instead of a 2-point one. The
-   presentation fix **exposes** the number problem; it does not cause it, and it does not fix it.
-4. **Re-read the track record once the lower bins fill.** This is the same warning as
-   `UPDATE_29_PROMPT.md` §6, and this card is the first concrete evidence that the warning was not
-   theoretical.
+1. **Nothing in the engine.** Nothing has been shown to be wrong with it. The one valid measurement
+   says it runs 20% above a confirmed starter's own record, if anything.
+2. **Say what a number rests on.** When expected minutes are well below a full match, the card
+   should say so. "90%, on about 57 minutes" is honest; "90%" beside a strip of 67-minute starts
+   invites exactly the reading that produced this report.
+3. **Turn on `engine.personal_lines` (docs/52)** so the ladder reaches the rung that matters. That
+   is the real answer to the original complaint.
+4. **Keep the audit in the retraction as the standing check** — confirmed starters only, implied
+   mean against own starter history. Run it on production. If it ever drifts below 1.0, that is the
+   signal the first version of this document imagined it had found.
 
 ## 7. What this card got right
 
