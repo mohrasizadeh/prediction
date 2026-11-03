@@ -76,7 +76,7 @@ function Assignments({ id }) {
   return (
     <section className="ref-assign" data-testid="referee-assignments">
       <h3 className="h3">Next round referees</h3>
-      <p className="muted small">Referees are usually named a day or two before kickoff.{avg ? ` League average: ${avg.yellow_pg.toFixed(2)} yellows and ${(avg.pens_pg || 0).toFixed(2)} penalties a game.` : ""}</p>
+      <p className="muted small">Referees are usually named a day or two before kickoff.{avg?.yellow_pg != null ? ` League average: ${avg.yellow_pg.toFixed(2)} yellows and ${(avg.pens_pg || 0).toFixed(2)} penalties a game.` : ""}</p>
       <ul className="ra-list">{d.rows.map((r) => (
         <li key={r.match_id} className="ra-row" data-testid={`assign-${r.match_id}`}>
           <Link to={`/match/${r.match_id}`} className="ra-fix"><span className="team"><Crest team={r.home} size={18} />{r.home?.name}</span><span className="team"><Crest team={r.away} size={18} />{r.away?.name}</span><small className="muted">{kickoff(r.kickoff)}</small></Link>

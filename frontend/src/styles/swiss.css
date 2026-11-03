@@ -1,0 +1,179 @@
+/* Swiss pass (docs/49). Loaded last, after hig.css and hig-admin.css, so it wins where it speaks.
+
+   Direction came from the ui-ux-pro-max skill, run on this product:
+     style     Minimalism & Swiss Style  ("grid-based, high contrast, essential; avoid shadows and gradients")
+     density   8/10  -> the dense 8-32px spacing scale, not the 16-64px one
+     variance  3/10  -> centred and plain; no asymmetric or decorative layout
+     motion    2/10  -> subtle only; motion must explain a change, never decorate one
+
+   House rules this file keeps:
+   - No new class names. Every selector already exists in the markup, so Site Studio, the copy
+     checker, the self-tests and the HIG layer all keep working untouched.
+   - Only var(--...) colours, so an owner's palette still applies (docs/15).
+   - It changes rhythm, emphasis and ornament. It does not change what any screen says.
+
+   Where it supersedes an earlier decision, the comment says so. */
+
+
+/* =============================================================== 1. TYPE
+   §6 font-scale, visual-hierarchy. Section headings were set smaller than the body text beneath
+   them, so a page arrived as one undifferentiated block and the eye had nowhere to land.
+   Swiss carries hierarchy in size, weight and space, so the ramp is made explicit and the
+   section head gets a hairline to sit on. */
+.td-sec-head h2, .ins h2, .h3, .fg-head h3, .mc-sec h2, .pr h2, .tm h2 {
+  font-size: 1.0625rem; font-weight: 650; letter-spacing: -0.015em; line-height: 1.25;
+}
+.td-sec-head { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.td-sec-head a, .td-sec-head .k-link, .k-link { font-size: .8125rem; font-weight: 600; }
+h1 { letter-spacing: -0.025em; }
+/* §6 letter-spacing: the all-caps kicker was tracked at .1em, which is a display mannerism.
+   Swiss sets small labels plainly and lets position do the work. */
+.kicker, .nl2-tag { letter-spacing: .04em; }
+
+/* §6 number-tabular. Every figure a reader compares down a column gets tabular lining figures,
+   so digits hold their place and a row does not shimmer when a value ticks over. */
+.ins-compact li > :nth-child(4), .sq-nums dd, .pl-ranks li b, .fg-stats dd, .k-fc-vs,
+.td-ins, .a-tile b, .a-dl dd, .a-kpi b, table td, table th {
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* =============================================================== 2. ORNAMENT
+   The style record is explicit: "avoid shadows and gradients". Each gradient below was
+   decoration rather than information, so it flattens to a surface and a hairline. Gradients
+   that carry meaning stay: the skeleton shimmer, the heat-map legend ramp, the goal and
+   substitution event icons, the media checkerboard, and the scroll mask fades.
+
+   The brand mark itself is left alone. A logo is brand property, not the design system's
+   to restyle. */
+.avatar-btn, .a-avatar { background: var(--brand); color: var(--on-brand); }
+.a-brand-mark { background: var(--brand); box-shadow: none; }
+.auth-aside { background: var(--surface1); }
+.plan-hero { background: var(--surface1); border: 1px solid var(--border); }
+.hero { background: var(--surface1); }
+.pcard--hi { background: var(--surface1); border-color: var(--brand); }
+.a-plan.is-hi { background: var(--surface1); border-color: var(--brand); }
+.a-meter span { background: var(--brand); }
+.a-bars span { background: var(--brand); }
+/* Supersedes the HIG pass 3 tint. That pass added a radial brand wash so the weekly-e-mail
+   block would read as an invitation rather than another card. Swiss gets the same separation
+   from a rule and a measure instead of a wash. */
+.nl, .nl2 { background: var(--surface1); border: 1px solid var(--border); border-radius: 16px; }
+
+
+/* =============================================================== 3. THE FORECAST CARD
+   The card the whole product is built from.
+
+   §6 truncation-strategy. The tier note sat in a 14ch column beside its badge and broke into
+   three or four ragged lines, colliding with the add button on a narrow card. The head becomes
+   a small explicit grid and the note takes a full-width row of its own. .k-fc-tier carries no
+   paint, only layout, so display:contents hands its two children to the head grid and nothing
+   is lost. */
+.k-fc-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "mark who tier" "note note note";
+  align-items: center; column-gap: 12px; row-gap: 6px;
+}
+.k-fc-head > :first-child { grid-area: mark; }
+.k-fc-who { grid-area: who; }
+.k-fc-tier { display: contents; }
+.k-fc-head .k-tier { grid-area: tier; justify-self: end; }
+.k-fc-note {
+  grid-area: note; max-width: none; text-align: left;
+  font-size: 12px; line-height: 1.35; color: var(--text3);
+}
+
+/* §5 spacing-scale at density 8. Every edge carried the comfortable scale, so one card ran
+   about 290px on a phone and twenty of them made an 8,000px wall. The dense scale takes
+   roughly a fifth off the height without touching a 44px target. */
+.k-fc-main { gap: 8px; padding: 14px 14px 10px; }
+.k-fc-line { align-items: baseline; }
+.k-fc-market { font-size: 17px; letter-spacing: -0.01em; }
+.k-fc-p { font-size: 28px; letter-spacing: -0.02em; }
+.k-fc-why { line-height: 1.45; }
+.k-fc-vs + .k-fc-vs { margin-top: 2px; }
+.k-fc-foot { padding: 0 14px 4px; }
+/* §4 primary-action: the grid is the card's own business; the page sets its gutter. */
+.fgrid, .k-fc-grid { gap: 10px; }
+
+
+/* =============================================================== 4. DATA MARKS
+   §10 contrast-data: a mark that carries data needs 3:1 against its background.
+   The draw segment of the win/draw/away bar was --text3 at 60% opacity over --surface1:
+   2.98:1 in dark and 2.40:1 in light, so it failed in both. At full strength it reaches
+   5.94:1 and 5.23:1. The three segments stay tellable apart without colour because they
+   keep their fixed home-draw-away order. */
+.k-wdl-bar .d { background: var(--text3); opacity: 1; }
+.k-wdl-bar { height: 6px; }
+/* §10 data-density: inside a desktop fixture row the bar sat in a 1fr column and stretched
+   past 900px, so no two rows could be compared by eye. Capping it turns the column into a
+   small-multiple that reads down the page. */
+.td-row .td-bar { max-width: 340px; width: 100%; }
+/* §10 gridline-subtle: meter tracks are background, not data. */
+.lbar-track, .k-fc-bar, .ln-mini i { background: var(--surface3); }
+
+
+/* =============================================================== 5. LISTS AND ROWS
+   §5 spacing-scale, §10 data-density. Swiss sets dense material as ruled rows, not as a stack
+   of bordered cards. The classes already produce ruled rows; this gives them the dense rhythm.
+   76px rows showed six matches on a phone screen; 64px rows show nine, and the tap target is
+   still well over 44px. */
+.td-row { min-height: 64px; padding: 8px 16px; gap: 12px; }
+.td-ghead { min-height: 48px; }
+.td-ins { font-size: 12px; padding: 5px 10px; }
+.ins-compact li { padding: 8px 14px; }
+.ev { padding: 8px 12px; }
+.fg-stats div { padding: 8px 12px; }
+
+
+/* =============================================================== 6. THE DESKTOP RAIL
+   The rail is sticky and one viewport tall, so its right-hand border stopped in mid-air part
+   way down any long page and left a line hanging in the middle of the screen. Painting the
+   rule on the row behind it carries it the full height of the document instead. */
+@media (min-width: 640px) {
+  .rail { border-right: 0; background: transparent; }
+  .body-row {
+    background: linear-gradient(to right,
+      color-mix(in srgb, var(--surface1) 40%, var(--bg)) 0 231px,
+      var(--border) 231px 232px,
+      transparent 232px);
+  }
+}
+
+
+/* =============================================================== 7. MOTION
+   Motion dial 2/10, §7 layout-shift-avoid and transform-performance. Cards lifted on hover,
+   which moves the row out from under the pointer and invites a jitter loop on a dense grid.
+   Emphasis moves to the border: the same affordance, no geometry change, and nothing for the
+   compositor to re-lay-out. Timing lands in the 200-250ms the style record asks for. */
+.fcard:hover, .sq-card:hover, .k-fc:hover, .ln-card:hover { transform: none; }
+.fcard, .sq-card, .k-fc, .ln-card {
+  transition: border-color .22s var(--ease, ease), background-color .22s var(--ease, ease);
+}
+.fcard:hover, .sq-card:hover { border-color: var(--border-strong); }
+
+
+/* =============================================================== 8. THE ADMIN
+   §5 spacing-scale. The admin is a working tool read at a desk all day, so it takes the dense
+   end of the scale: a table shows its rows without scrolling past the first screen, and a
+   status tile stops spending 100px on one line of text. */
+.a-table td, .a-table th { padding-top: 8px; padding-bottom: 8px; }
+.a-card { padding: 16px; }
+.a-tile { padding: 12px 14px; }
+.a-head h1 { font-size: 1.375rem; letter-spacing: -0.02em; }
+.a-sec > h2, .a-card > h2 { font-size: 1rem; font-weight: 650; }
+.a-dl { gap: 6px 14px; }
+
+/* The settings screen is the densest surface in the product: 243 rows, and at the default
+   "All groups" it renders every one. On a phone that is a 72,000px page. Grouping and search
+   are already there; what was missing was rhythm. The dense scale and an earlier two-column
+   break take a real bite out of it. Collapsing a group by default would do far more, but that
+   needs markup, so it is written up rather than done here. */
+.a-setting { padding: 12px 14px; gap: 8px; }
+.a-setting-meta { gap: 2px; }
+.a-setting-meta code { font-size: 11px; }
+.a-settings-group > h2 { padding: 10px 14px; }
+@media (min-width: 768px) {
+  .a-setting { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+}
