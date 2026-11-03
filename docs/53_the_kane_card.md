@@ -96,9 +96,20 @@ mixture, the opponent adjustment and the share renormalisation `Z`. **I could no
 further from a screenshot, and I am not going to guess.** What is certain is that each step is
 individually defensible and together they land 39% below the player's own record.
 
-One thing worth a look while someone is in there: `Z` is summed over the whole squad, while the
-output loop skips anyone under a 15% chance to play. If fringe players carry weight in `Z` that they
-never carry on the pitch, every real player's share is diluted.
+### 4.1 Three hypotheses, all rejected by measurement
+
+I tried to locate the missing 39% and failed three times. Recording them so nobody repeats them:
+
+| Hypothesis | Test | Result |
+|---|---|---|
+| `engine.player_prior` (40 for shots) halves his rate | recompute `shrunk_rate` with the real exposure | **Wrong.** I had read the exposure as games; it is team-shots. The pull is about 14%, not half. |
+| `Z` is summed over the whole squad, so skipped players' shares are divided out and lost | change `Z` to sum over the players the loop keeps, re-measure | **No-op.** Instrumented: `squad=14, kept=14` on every call. Every squad member already clears the 15% threshold. Change reverted. |
+| The players carried sum to only 0.87 of the team total, so shots leak | trace where the other 13% goes | **Not a leak.** Those are players whose forecasts are dropped later by `engine_bridge`'s `min_play` rule, which is documented behaviour (docs/36 H9). |
+
+So the under-call is real and measured, and **its mechanism is still unlocated**. What is left is the
+minutes mixture (`scen_all`), the opponent adjustment (`opp_pos_f`) and the team total (`mu_team`).
+Finding it needs the engine instrumented against the real database, not a simulated league, and it
+should not be guessed at again.
 
 ## 5. Is it only Kane? No, but it is not a global bias either
 
@@ -131,9 +142,14 @@ simulated league.
 
 ## 6. What to do, in order
 
+0. **Nothing here is fixed yet.** The diagnosis is firm; the cause is not. Three guesses at the
+   cause were wrong (§4.1), so the next step is instrumentation, not another change.
 1. **Run the audit in §5 against production.** It is one query over `forecasts` and
    `player_match_stats` and it tells you whether the tail is real at scale and who is in it. Nothing
    else should be decided before that.
+1b. **Then instrument one badly-wrong player end to end** — his shrunk share, `opp_pos_f`, `Z`,
+   `mu_team`, and the minutes scenarios — and print each factor. The answer is in one of those four
+   and a single trace will name it.
 2. **Then fix the rate, not the anchor.** If the tail is real, `engine.anchor_max_w` is currently
    compensating for it at a capped 0.4 and the honest move is to lower the cap *after* the rate is
    right, not before.
