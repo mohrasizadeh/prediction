@@ -59,18 +59,46 @@ COLOR_TOKENS = ("bg", "surface1", "surface2", "surface3", "border", "borderStron
                 "brand", "onBrand", "tierStrong", "tierSolid", "tierWatch", "up", "down", "onDown",
                 "chart1", "chart2", "chart3", "chart4", "chart5", "chart6")
 
-# Default palette: "chalk on slate" (docs/redesign/v2/PLAN.md). The ground is a deliberately hued blue
-# slate rather than a tinted near-black, the ink is chalk, and the semantic colours are the ONLY hues in
-# the interface. There is no brand accent -- `brand` is the ink itself. In a product whose whole job is to
-# signal whether a number is meaningful, spending a colour on identity steals it from meaning; identity
-# comes from the ground, the width axis of the type, and the run graphic instead.
-# Every pair in BLOCK_PAIRS and WARN_PAIRS was measured, in both modes, before this was committed.
-DARK = {"bg": "#0D1620", "surface1": "#13202C", "surface2": "#1A2938", "surface3": "#22344A", "border": "#243546",
+# Default palette: the owner's six -- Carbon #101114, Mist #EEF0F2, Electric #2547E8,
+# Violet #5F31C4, Lime #C6F04A, Steel #55606D.
+#
+# The six are used exactly wherever they are legible, and only where they are. Measured, the set is
+# built for LIGHT: Electric, Violet and Steel all pass as text on Mist (5.84, 6.75, 5.60) and all
+# three FAIL as text on Carbon (2.83, 2.45, 2.95 against the 4.5 a text pair needs). Lime is the
+# mirror image -- 14.35 on Carbon, 1.15 on Mist. So dark mode takes the minimum tint of each toward
+# white that clears 4.5, and light mode takes the six as given. A brand palette needs tints for the
+# mode it was not drawn for; inventing new hues would not be the same palette.
+#
+# Two colours are ADDED, and it is worth being plain about why. The six contain no red, and this
+# product needs one: "below usual" is half of what a forecast card says, and a destructive action
+# has to read as destructive. #F2555F is that red, shaded to #BD424A in light so Mist clears 4.5 on
+# it. Violet carries "conditional" in place of the amber the set does not have.
+#
+# Every pair in BLOCK_PAIRS and WARN_PAIRS was measured in both modes before this was committed.
+DARK = {"bg": "#101114", "surface1": "#18191C", "surface2": "#212224", "surface3": "#2B2C2F",
+        "border": "#313235", "borderStrong": "#494A4C",
+        "text": "#EEF0F2", "text2": "#C6CBD2", "text3": "#8E97A2",
+        "brand": "#6079EE", "onBrand": "#101114",
+        "tierStrong": "#C6F04A", "tierSolid": "#6079EE", "tierWatch": "#8F6FD6",
+        "up": "#C6F04A", "down": "#F2555F", "onDown": "#101114",
+        "chart1": "#6079EE", "chart2": "#C6F04A", "chart3": "#8F6FD6",
+        "chart4": "#F2555F", "chart5": "#7A838D", "chart6": "#EEF0F2"}
+LIGHT = {"bg": "#EEF0F2", "surface1": "#FFFFFF", "surface2": "#E4E7EB", "surface3": "#D7DBE0",
+         "border": "#D2D6DC", "borderStrong": "#AFB6BF",
+         "text": "#101114", "text2": "#2C3238", "text3": "#55606D",
+         "brand": "#2547E8", "onBrand": "#EEF0F2",
+         "tierStrong": "#697F27", "tierSolid": "#2547E8", "tierWatch": "#5F31C4",
+         "up": "#697F27", "down": "#BD424A", "onDown": "#EEF0F2",
+         "chart1": "#2547E8", "chart2": "#697F27", "chart3": "#5F31C4",
+         "chart4": "#BD424A", "chart5": "#55606D", "chart6": "#101114"}
+
+# The "chalk on slate" palette that preceded this one. Kept as a preset, as Apple and Midnight were.
+CHALK_DARK = {"bg": "#0D1620", "surface1": "#13202C", "surface2": "#1A2938", "surface3": "#22344A", "border": "#243546",
         "borderStrong": "#38506A", "text": "#E8EEF2", "text2": "#C4D2DC", "text3": "#9FB0BE", "brand": "#E8EEF2",
         "onBrand": "#0D1620", "tierStrong": "#35C27E", "tierSolid": "#7FD3F2", "tierWatch": "#E8B23A", "up": "#35C27E",
         "down": "#FF6B6B", "onDown": "#0D1620", "chart1": "#7FD3F2", "chart2": "#35C27E", "chart3": "#E8B23A",
         "chart4": "#FF6B6B", "chart5": "#B9A3F0", "chart6": "#9FB0BE"}
-LIGHT = {"bg": "#EEF2F5", "surface1": "#FFFFFF", "surface2": "#E7ECF1", "surface3": "#DBE2E9", "border": "#D3DBE3",
+CHALK_LIGHT = {"bg": "#EEF2F5", "surface1": "#FFFFFF", "surface2": "#E7ECF1", "surface3": "#DBE2E9", "border": "#D3DBE3",
          "borderStrong": "#AEBBC7", "text": "#111A22", "text2": "#2E3C47", "text3": "#55646F", "brand": "#111A22",
          "onBrand": "#FFFFFF", "tierStrong": "#0F7A4A", "tierSolid": "#0B6E92", "tierWatch": "#8A6100", "up": "#0F7A4A",
          "down": "#C0392B", "onDown": "#FFFFFF", "chart1": "#0B6E92", "chart2": "#0F7A4A", "chart3": "#8A6100",
@@ -580,7 +608,9 @@ def _preset(label, desc, mode, dark=None, light=None, radius="default", buttons=
 
 
 PRESETS = {
-    "chalk": _preset("Chalk", "The default. Chalk on slate: a hued blue slate, chalk ink, and colour reserved for meaning.", "system"),
+    "carbon": _preset("Carbon", "The default. Carbon and Mist, with Electric, Violet and Lime.", "system"),
+    "chalk": _preset("Chalk", "Chalk on slate: a hued blue slate, chalk ink, and colour reserved for meaning.", "system",
+                     dark=CHALK_DARK, light=CHALK_LIGHT),
     "apple": _preset("Apple", "The previous default. Apple Human Interface Guidelines system colours, capsule buttons.", "system",
                      dark=APPLE_DARK, light=APPLE_LIGHT),
     "midnight": _preset("Midnight", "The previous default. Calm dark navy, indigo accent.", "system",

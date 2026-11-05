@@ -21,61 +21,14 @@
 
 
 /* =============================================================== 1. GROUND AND INK
-   Chalk on slate. A tactics board has no decorative colour, which is exactly the discipline this
-   product needs: colour is reserved entirely for meaning, so the three semantic hues are the only
-   hues in the interface. There is deliberately NO brand accent -- see PLAN.md section 3 for why
-   spending a colour on identity would steal it from meaning. */
+   The palette is the owner's six -- Carbon, Mist, Electric, Violet, Lime, Steel -- and it lives in
+   Site Studio (backend/site_studio.py), not here, so an owner can still re-theme the product and
+   so every token is measured in one place. This layer only sets what the palette cannot: the two
+   derived marks the run and the claim segment draw with. */
 :root, :root[data-theme="dark"] {
-  --bg: #0D1620;              /* blue slate, deliberately hued: not a tinted near-black */
-  --surface1: #13202C;
-  --surface2: #1A2938;
-  --surface3: #22344A;
-  --border: #243546;
-  --border-strong: #38506A;
-  --text: #E8EEF2;            /* chalk */
-  --text2: #C4D2DC;
-  --text3: #9FB0BE;           /* chalk, worn */
-  --up: #35C27E;
-  --down: #FF6B6B;
-  --warn: #E8B23A;
-  --tier-strong: #35C27E;
-  --tier-solid: #7FD3F2;
-  --brand: #E8EEF2;           /* identity is the ground and the type, not a hue */
-  --on-brand: #0D1620;
-  --v2-rule: color-mix(in srgb, var(--text3) 26%, transparent);
-  --v2-band: color-mix(in srgb, var(--text3) 20%, transparent);
-  --v2-ink: var(--text);
+  --v2-rule: color-mix(in srgb, var(--text3) 30%, transparent);
+  --v2-band: color-mix(in srgb, var(--text3) 22%, transparent);
 }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #EEF2F5;            /* cool paper, not cream */
-    --surface1: #FFFFFF;
-    --surface2: #E7ECF1;
-    --surface3: #DBE2E9;
-    --border: #D3DBE3;
-    --border-strong: #AEBBC7;
-    --text: #111A22;          /* graphite */
-    --text2: #2E3C47;
-    --text3: #55646F;
-    --up: #0F7A4A;
-    --down: #C0392B;
-    --warn: #8A6100;
-    --tier-strong: #0F7A4A;
-    --tier-solid: #0B6E92;
-    --brand: #111A22;
-    --on-brand: #FFFFFF;
-  }
-}
-:root[data-theme="light"] {
-  --bg: #EEF2F5; --surface1: #FFFFFF; --surface2: #E7ECF1; --surface3: #DBE2E9;
-  --border: #D3DBE3; --border-strong: #AEBBC7;
-  --text: #111A22; --text2: #2E3C47; --text3: #55646F;
-  --up: #0F7A4A; --down: #C0392B; --warn: #8A6100;
-  --tier-strong: #0F7A4A; --tier-solid: #0B6E92;
-  --brand: #111A22; --on-brand: #FFFFFF;
-}
-body { background: var(--bg); color: var(--text); }
-
 
 /* =============================================================== 2. TYPE SCALE
    One family; width and weight carry the hierarchy. Rejected: a monospace face for data labels --
@@ -825,3 +778,62 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
    but the minute itself was painted --down, which in this product means "below usual" -- so the
    number was quietly making a claim about the forecast. */
 .td-min { color: var(--text); }
+
+
+/* =============================================================== 23. MOTION
+   One rule, from the design plan: motion answers an action. Nothing moves on scroll, nothing
+   fades in on entry, nothing lifts on hover. Those are decoration, and on a dense grid they are
+   also a jitter loop. What follows all describes a change the reader just caused, which is the
+   only thing motion is better at than stillness.
+
+   Every one of these is inside the reduced-motion guard in section 7, which already zeroes every
+   duration in the product when the reader asks for that. */
+:root {
+  --v2-quick: 140ms;              /* a state flip: pressed, selected, checked */
+  --v2-move: 260ms;               /* something travelling to a new place */
+  --v2-ease: cubic-bezier(.2, .7, .3, 1);
+}
+
+/* The run's line, when you change which line you are asking about. The rule slides from the old
+   count to the new one, so you SEE 2+ become 3+ against the same ten bars instead of the picture
+   simply being different. This is the clearest case in the product: the bars hold still and the
+   question moves. */
+.v2-gs-rule, .v2-run-rule { transition: bottom var(--v2-move) var(--v2-ease); }
+
+/* The claim segment and the band, when the market or the line changes under them. */
+.k-fc-bar > b, .k-fc-bar .k-fc-band, .k-fc-bar .k-fc-usual {
+  transition: left var(--v2-move) var(--v2-ease), width var(--v2-move) var(--v2-ease);
+}
+
+/* A bar that changes height because the reader changed the window (last 5, 10, 20). */
+.v2-gs-bar > b, .v2-run-col > b { transition: height var(--v2-move) var(--v2-ease); }
+
+/* State flips: selected day, segmented control, chips, the add button. Colour and border only --
+   never geometry, so nothing reflows under the pointer. */
+.k-day, .k-chip, .k-seg button, .seg button, .k-fc .cb-add, .ex-more > li > a {
+  transition: background-color var(--v2-quick) var(--v2-ease),
+              border-color var(--v2-quick) var(--v2-ease),
+              color var(--v2-quick) var(--v2-ease),
+              opacity var(--v2-quick) var(--v2-ease);
+}
+
+/* Disclosure: "more lines", "show table", the filter sheet's groups. A panel that appears instantly
+   makes the reader hunt for what changed; 260ms of height is enough to see where it came from. */
+details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
+@keyframes v2-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* The sheet. It comes from the bottom on a phone because that is where the thumb is and where it
+   returns to; the backdrop fades so the page behind is clearly still there. */
+.k-sheet, .bottom-sheet, [class*="sheet"][role="dialog"] {
+  animation: v2-sheet var(--v2-move) var(--v2-ease);
+}
+@keyframes v2-sheet { from { transform: translateY(12px); opacity: .6; } to { transform: none; opacity: 1; } }
+
+/* A figure that is replaced by another figure -- the Quick view percentage when you pick a new
+   market -- crossfades, so a number changing is not mistaken for a number that was always there. */
+.v2-qv-fc b { transition: color var(--v2-quick) var(--v2-ease); }
+
+/* The live dot is the one thing that moves on its own, because the thing it reports is itself
+   ongoing. It is also the only loop in the product. */
+.k-livedot { animation: v2-pulse 2s ease-in-out infinite; }
+@keyframes v2-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
