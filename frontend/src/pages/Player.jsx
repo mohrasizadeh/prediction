@@ -9,7 +9,7 @@ import { FollowButton } from "../components/Actions";
 import { useAuth } from "../lib/auth";
 import { del, put } from "../lib/api";
 import { useToast } from "../components/Ui";
-import { QuickView, RunStrip } from "../components/ui";
+import { QuickView } from "../components/ui";
 
 function Note({ id }) {
   const { user } = useAuth();
@@ -63,29 +63,6 @@ function History({ id }) {
   );
 }
 
-function FormStrips({ id }) {
-  const q = useApi(`/players/${id}/history`, { last: 10 });
-  const games = q.data?.games || [];
-  if (!games.length) return null;
-  const lines = [["shots", 1, "1+ shots"], ["shots", 2, "2+ shots"], ["sot", 1, "1+ on target"], ["tackles", 2, "2+ tackles"]];
-  return (
-    <section className="card pl-form" data-testid="player-form">
-      <h2 className="k-sec">Last {games.length} games</h2>
-      {/* docs/redesign/v2: these were rows of filled-or-empty squares with a count beside them. For a
-          player who clears a line most weeks every square looked the same, so the strip said nothing
-          the count had not already said. The run shows what he actually did each game, with the line
-          drawn across it, so a line he always clears looks different from one he sometimes does. */}
-      <ul className="v2-runs">{lines.map(([s, n, label]) => {
-        const vals = games.filter((g) => g[s] != null).map((g) => g[s]).reverse();
-        return vals.length ? <li key={label}><span className="v2-runs-label">{label}</span><RunStrip values={vals} line={n} label={label} testid={`player-strip-${s}-${n}`} /></li> : null;
-      })}</ul>
-    </section>
-  );
-}
-
-const RANK_LABEL = { shots: "shots", sot: "shots on target", tackles: "tackles", goals: "goals", assists: "assists" };
-const nth = (n) => `${n}${["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`;
-
 function Ranks({ id }) {
   const q = useApi(`/players/${id}/ranks`);
   const r = q.data?.ranks || [];
@@ -126,9 +103,12 @@ export default function Player() {
         {nx && (forecasts.length ? <div className="fgrid">{forecasts.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} homeIid={nx.home_iid} />)}</div>
           : <p className="muted small">No forecasts for this player yet.</p>)}
       </section>
-      <Ranks id={id} />
-      <FormStrips id={id} />
+      {/* Asked for: lead with Quick view and drop the "Last 10 games" box. They were two renderings
+          of the same ten games stacked on one page -- the four-line overview could not be
+          interrogated and the detailed one could not be compared. Quick view now does both jobs,
+          because its strip draws the run graph for whichever market and line you choose. */}
       <History id={id} />
+      <Ranks id={id} />
       <Note id={id} />
     </section>
   );

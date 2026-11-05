@@ -30,11 +30,18 @@ export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, ti
         <>
           <p className="muted small" data-testid={`${testid}-summary`}>{known ? `${line} or more in ${hits} of ${known} games.` : "No data for this stat."}</p>
           <GameStrip games={games} stat={stat} line={line} label={label} testid={`${testid}-strip`} />
-          {open && <div className="filters"><Select label="Stat" value={stat} onChange={setStat} options={STATS} testid={`${testid}-stat`} />
-        <Seg label="Window" value={last} onChange={setLast} options={[5, 10, 20].map((n) => ({ id: n, label: `Last ${n}` }))} testid={`${testid}-window`} />
-        <Seg label="Line" value={line} onChange={(v) => setLine(Number(v))} options={[1, 2, 3, 4, 5].map((n) => ({ id: n, label: `${n}+` }))} testid={`${testid}-line`} />
-        <Seg label="Venue" value={venue} onChange={setVenue} options={[{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid={`${testid}-venue`} />
-        <label className="check-inline"><input type="checkbox" checked={started} onChange={(e) => setStarted(e.target.checked)} data-testid={`${testid}-started`} /> Started only</label></div>}
+          {/* docs/redesign/v2: the market and the line ARE the question this box answers, so they lead
+              it rather than hiding behind "Change the line or filters" and then arriving as five
+              full-width stacked rows. Window, venue and started-only are refinements and sit after. */}
+          {open && (
+            <div className="filters v2-qv">
+              <Select label="Stat" value={stat} onChange={setStat} options={STATS} testid={`${testid}-stat`} />
+              <Seg label="Line" value={line} onChange={(v) => setLine(Number(v))} options={[1, 2, 3, 4, 5].map((n) => ({ id: n, label: `${n}+` }))} testid={`${testid}-line`} />
+              <Seg label="Window" value={last} onChange={setLast} options={[5, 10, 20].map((n) => ({ id: n, label: `Last ${n}` }))} testid={`${testid}-window`} />
+              <Seg label="Venue" value={venue} onChange={setVenue} options={[{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid={`${testid}-venue`} />
+              <label className="check-inline"><input type="checkbox" checked={started} onChange={(e) => setStarted(e.target.checked)} data-testid={`${testid}-started`} /> Started only</label>
+            </div>
+          )}
           {collapsible && <button type="button" className="k-link qv-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid={`${testid}-toggle`}>{open ? "Hide filters" : "Change the line or filters"}</button>}
           {typeof children === "function" ? children(games) : children}
         </>

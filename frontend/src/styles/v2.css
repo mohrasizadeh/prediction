@@ -190,7 +190,7 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .lbar-track, .ln-mini i { background: var(--surface3); }
 
 
-/* =============================================================== 5. THE RUN
+/* =============================================================== 5. THE RUN (see also 18)
    The ten-game strip was ten boxes, filled or quiet, under a caption reading "10 of 10 reached it".
    For a player who clears the line every week that is a picture of nothing: ten identical marks
    that cannot distinguish a quiet game from a busy one.
@@ -521,3 +521,60 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .qv .filters > * { flex: 0 1 auto; width: auto; min-width: 0; }
 .qv .filters .k-seg, .qv .filters .seg { width: auto; }
 .qv select, .ins-pick { width: auto; min-width: 150px; }
+
+
+/* =============================================================== 18. ONE BOX FOR THE TEN GAMES
+   Asked for: lead the player page with Quick view and drop the "Last 10 games" box, with whichever
+   market you choose drawn as the run graph.
+
+   They were two renderings of the same ten games, stacked. The four-line overview could not be
+   interrogated -- you could not change the line, the window or the venue -- and the detailed strip
+   could not be compared across markets. Merging them means the strip has to do both jobs, so the
+   game-by-game columns now carry the run's proportional bars and the line's rule, while keeping the
+   minutes above and the opponent below that made the detailed version worth having. */
+.pgs-row {
+  position: relative; flex-wrap: wrap; overflow-x: visible; row-gap: 10px; align-items: flex-end;
+  --bar-h: 54px; --foot-h: 26px;
+}
+.pgs-g {
+  position: relative; display: grid; justify-items: center; gap: 3px;
+  grid-template-rows: auto auto var(--bar-h) var(--foot-h);
+  border-radius: 0; background: none; padding: 0 2px;
+}
+.pgs-g .pgs-min { font-size: 10px; font-stretch: 85%; color: var(--text3); }
+.pgs-g .pgs-v {
+  background: none; min-height: 0; padding: 0; display: block;
+  font-size: 12px; font-stretch: 92%; font-weight: 600; color: var(--text3);
+  font-variant-numeric: tabular-nums;
+}
+.pgs-g.on .pgs-v { color: var(--text); }
+/* the bar itself */
+.v2-gs-bar { display: flex; align-items: flex-end; width: 100%; height: var(--bar-h); }
+.v2-gs-bar > b {
+  display: block; width: 100%; border-radius: 0;
+  background: color-mix(in srgb, var(--text3) 34%, transparent);
+}
+.pgs-g.on .v2-gs-bar > b { background: var(--up); }
+.pgs-g.nd .v2-gs-bar > b {
+  height: 100% !important;
+  background: repeating-linear-gradient(45deg, var(--surface3) 0 3px, transparent 3px 6px);
+}
+/* the line, across the whole run, sitting above the bars */
+.v2-gs-rule {
+  position: absolute; left: 0; right: 0; z-index: 2; height: 0; list-style: none;
+  bottom: calc(var(--foot-h) + (var(--rule, 0) * var(--bar-h)));
+  border-top: 2px dashed var(--text);
+}
+.v2-gs-rule em {
+  position: absolute; right: 0; top: -8px; padding: 0 4px;
+  background: var(--surface1); color: var(--text);
+  font-style: normal; font-size: 10px; font-stretch: 88%; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The market and the line are the question this box answers, so they lead the controls and the
+   refinements follow. All of it on one wrapped row instead of five full-width stacked ones. */
+.v2-qv { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.v2-qv > * { flex: 0 1 auto; width: auto; min-width: 0; }
+.v2-qv select { width: auto; min-width: 150px; }
+.v2-qv .check-inline { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; color: var(--text2); }

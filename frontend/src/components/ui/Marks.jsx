@@ -87,14 +87,17 @@ export function GameStrip({ games = [], stat, line, label, note = true, testid =
   if (!rows.length) return null;
   const known = rows.filter((g) => g[stat] != null);
   const hits = known.filter((g) => g[stat] >= line).length;
-  // v2: each column stands to its own figure, so the run has a shape and the line can be read
-  // across it. Ten identical boxes could not tell a quiet game from a busy one.
-  const vmax = Math.max(1, ...known.map((g) => g[stat]));
   const word = (label || stat).toLowerCase();
   const anyMins = rows.some((g) => g.minutes != null);
+  // docs/redesign/v2: each column stands to its own figure and the line is drawn across the whole
+  // run, so this is the run graph and the game-by-game detail in one object rather than two
+  // renderings of the same ten games stacked on a page.
+  const vmax = Math.max(1, ...known.map((g) => g[stat]));
+  const rule = Math.min(1, line / vmax);
   return (
     <div className="pgs" data-testid={testid}>
-      <ol className="pgs-row" aria-label={`${label || stat}, game by game, oldest first`}>
+      <ol className="pgs-row" style={{ "--rule": rule }} aria-label={`${label || stat}, game by game, oldest first`}>
+        <li className="v2-gs-rule" aria-hidden="true"><em>{line}+</em></li>
         {rows.map((g, i) => {
           const v = g[stat];
           const hit = v != null && v >= line;
@@ -102,18 +105,18 @@ export function GameStrip({ games = [], stat, line, label, note = true, testid =
           const who = g.opp?.name || "the opponent";
           return (
             <li key={g.match_iid ?? g.kickoff ?? i} className={"pgs-g" + (hit ? " on" : "") + (v == null ? " nd" : "")}
-                style={{ "--v": v == null ? 0 : v, "--vmax": vmax }}
                 data-testid={`${testid}-${g.match_iid ?? i}`}>
-              {anyMins && <span className="pgs-min" title="Minutes played">{mins == null ? "–" : `${Math.round(mins)}'`}</span>}
-              <span className="pgs-v" aria-hidden="true">{v == null ? "–" : v}</span>
+              {anyMins && <span className="pgs-min" title="Minutes played">{mins == null ? "\u2013" : `${Math.round(mins)}'`}</span>}
+              <span className="pgs-v" aria-hidden="true">{v == null ? "\u2013" : v}</span>
+              <span className="v2-gs-bar" aria-hidden="true"><b style={{ height: `${v == null ? 0 : Math.max(2, (v / vmax) * 100)}%` }} /></span>
               <span className="pgs-opp"><Crest team={g.opp} size={22} /></span>
               <span className="sr-only">{`Against ${who}: ${v == null ? "no figure" : `${v} ${word}`}${mins == null ? "" : `, ${Math.round(mins)} minutes`}.`}</span>
             </li>
           );
         })}
       </ol>
-      {/* The columns say most of this themselves; the count is the part worth printing. */}
       {note && <p className="pgs-key k-faint k-small">{known.length ? `${hits} of ${known.length} reached this line. ` : "No figures yet. "}{anyMins ? "Minutes above each column, opponent below." : "Opponent below each column."}</p>}
     </div>
   );
 }
+
