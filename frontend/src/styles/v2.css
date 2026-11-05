@@ -599,3 +599,41 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .pgs-row { padding-right: 34px; }
 .v2-gs-bar { border-bottom: 1px solid var(--border-strong); }
 .v2-gs-rule em { right: -32px; background: transparent; }
+
+
+/* =============================================================== 19. THE SENTENCE
+   CONSOLIDATION section 2. The Finder and Insights answered the same question and returned the same
+   cards through two unrelated control systems, and the Finder's was better: a sentence in plain
+   English where every underlined word is editable. Insights stated its query as a number on a
+   button, so finding out what was filtered meant opening a modal.
+
+   The tokens are native selects, deliberately. A custom popover would need its own keyboard model,
+   its own focus trap and its own mobile behaviour, and a select already has all three, correctly,
+   everywhere. Styling it as a chalk-underlined word is the whole job. */
+.v2-say {
+  font-size: clamp(17px, 2vw, 21px); line-height: 1.6; font-stretch: 102%;
+  color: var(--text2); max-width: 62ch; margin: 2px 0 16px;
+}
+.v2-tok { display: inline-block; }
+.v2-tok select {
+  appearance: none; -webkit-appearance: none;
+  border: 0; background: transparent; padding: 0 2px; margin: 0;
+  font: inherit; font-stretch: 104%; font-weight: 600; color: var(--text);
+  box-shadow: inset 0 -0.11em 0 var(--text3);
+  cursor: pointer; max-width: 22ch; text-overflow: ellipsis;
+}
+.v2-tok select:hover { box-shadow: inset 0 -0.14em 0 var(--text); }
+.v2-tok select:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; border-radius: 2px; }
+.v2-say .k-link { font-size: .8em; }
+.v2-say .k-count { margin-left: 4px; }
+.ex-sub { margin: 2px 0 14px; }
+
+/* The sentence and the view control share a line: the toggle was orphaned on a row of its own with
+   a gap above it, and "More filters" had wrapped onto its own line where it read as a heading
+   rather than as the aside it is. */
+.v2-sayrow {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
+}
+.v2-say { margin: 0; flex: 1 1 32ch; max-width: 78ch; }
+.v2-say .k-link { font-size: .78em; font-weight: 500; white-space: nowrap; }

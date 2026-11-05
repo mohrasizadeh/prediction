@@ -89,30 +89,55 @@ export function Insights() {
   const shownGroups = groups.slice(0, showN);
   const shown = shownGroups.flatMap((g) => g.rows);
   useEffect(() => { setShowN(STEP); }, [day, mk, tier, lg, more, sort, who, club]);
-  const sortWord = { edge: "biggest change first", likely: "most likely first", kickoff: "by kick-off" }[sort];
   const cap = entitlements?.insights_per_day;
   return (
     <section className="ins" data-testid="insights-page">
       <h1>Insights</h1>
       {q.data && <p className="ins-answer" data-testid="ins-answer">
-        <b>{rows.length} line{rows.length === 1 ? "" : "s"} worth reading</b> across {groups.length} match{groups.length === 1 ? "" : "es"}, {sortWord}.
+        <b>{rows.length} line{rows.length === 1 ? "" : "s"} worth reading</b> across {groups.length} match{groups.length === 1 ? "" : "es"}.
       </p>}
       <div className="ins-days"><button type="button" className={`k-chip${!day ? " on" : ""}`} onClick={() => setDay("")} aria-pressed={!day} data-testid="ins-any-day">Any day</button>
         <DateScroller value={day} onChange={setDay} from={0} count={7} gameDays={gameDays} dayLeagues={dayLeagues} testid="ins-dates" /></div>
-      {/* UX_AUDIT section 2, decisions 1 to 3. This was an open panel of five controls followed by a
-          separate sort row: eleven controls above the fold, so on a phone the first forecast began
-          about 900px down. A page that promises to tell you what is worth knowing should not open by
-          asking you to compose a query. The bar now states the current view in words, and every
-          filter lives in the one sheet rather than being split between an open panel and a hidden one. */}
-      <div className="ins-bar v2-bar" data-testid="ins-filters-panel">
-        <Segmented label="Sort" value={sort} onChange={setSort} testid="ins-sort" options={[{ id: "edge", label: "Biggest change" }, { id: "likely", label: "Most likely" }, { id: "kickoff", label: "Kick-off" }]} />
-        <div className="v2-bar-r">
-          <button type="button" className={`k-chip${nAll ? " br" : ""}`} onClick={() => setSheet(true)} data-testid="ins-more-more">
-            <Icon name="settings" size={16} />Filters{nAll ? <span className="k-count">{nAll}</span> : null}
-          </button>
-          {nAll > 0 && <button type="button" className="k-link" onClick={clearAll} data-testid="ins-clear-top">Clear</button>}
-          <Segmented label="View" value={view} onChange={setView} testid="ins-view" options={[{ id: "cards", label: "Cards" }, { id: "list", label: "List" }]} />
-        </div>
+      {/* CONSOLIDATION section 2. The Finder answers the same question as this page -- "find me a
+          forecast" -- and returns the same cards, through a better control: a sentence in plain
+          English where every underlined word is editable. This page stated its query as a number on
+          a button ("Filters 3"), so a reader had to open a modal to find out what those three were.
+          The sentence states the whole query in place, with no hidden state, and replaces the
+          orientation line that used to say how many and in what order but never what they were about. */}
+      <div className="v2-sayrow" data-testid="ins-filters-panel">
+      <p className="v2-say" data-testid="ins-say">
+        Showing{" "}
+        <span className="v2-tok">
+          <select value={mk} onChange={(e) => setMk(e.target.value)} aria-label="Market" data-testid="ins-market-say">
+            <option value="">all markets</option>
+            {MARKETS.map(({ id, label }) => <option key={id} value={id}>{label.toLowerCase()}</option>)}
+          </select>
+        </span>{" "}for{" "}
+        <span className="v2-tok">
+          <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Player" data-testid="ins-player">
+            <option value="">every player</option>
+            {players.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+        </span>{" "}at{" "}
+        <span className="v2-tok">
+          <select value={club} onChange={(e) => setClub(e.target.value)} aria-label="Club" data-testid="ins-team">
+            <option value="">every club</option>
+            {clubs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+        </span>,{" "}
+        <span className="v2-tok">
+          <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Order" data-testid="ins-sort">
+            <option value="edge">biggest change</option>
+            <option value="likely">most likely</option>
+            <option value="kickoff">kick-off</option>
+          </select>
+        </span>{" "}first.{" "}
+        <button type="button" className="k-link" onClick={() => setSheet(true)} data-testid="ins-more-more">
+          More filters{nAll ? <span className="k-count">{nAll}</span> : null}
+        </button>
+        {nAll > 0 && <> <button type="button" className="k-link" onClick={clearAll} data-testid="ins-clear-top">Clear</button></>}
+      </p>
+        <Segmented label="View" value={view} onChange={setView} testid="ins-view" options={[{ id: "cards", label: "Cards" }, { id: "list", label: "List" }]} />
       </div>
       {q.loading && !q.data ? <Skeleton shape="card" count={6} testid="ins-loading" /> : q.error && !q.data ? <ErrorState message="We could not load the insights." onRetry={q.reload} testid="ins-error" />
         : !rows.length ? <EmptyState icon="sparkles" title="No forecasts match" testid="ins-empty" action={<button type="button" className="btn btn--secondary btn--sm" onClick={clearAll} data-testid="ins-clear">Clear all filters</button>}>Try another day, market or tier.</EmptyState>
@@ -137,20 +162,7 @@ export function Insights() {
       )}
       {cap >= 0 && data.length >= cap && <p className="notice small" data-testid="ins-capped">Your plan shows {cap} insights a day. <ProLock label="Unlimited with Pro" testid="ins-capped-pro" /></p>}
       <FilterSheet open={sheet} onClose={() => setSheet(false)} onReset={clearAll} count={rows.length} title="Filters" testid="ins-filters">
-        <FilterGroup label="Market"><ChipsRow value={mk || "all"} onChange={(v) => setMk(v === "all" || v === mk ? "" : v)} label="Market" testid="ins-market" options={[{ id: "all", label: "All" }, ...MARKETS.map(({ id, label }) => ({ id, label }))]} /></FilterGroup>
         <FilterGroup label="Tier"><ChipsRow multi value={tier} onChange={setTier} label="Tier" testid="ins-tier" options={TIERS.map((t) => ({ id: t, label: t }))} /></FilterGroup>
-        <FilterGroup label="Player">
-          <select className="ins-pick" value={who} onChange={(e) => setWho(e.target.value)} aria-label="Player" data-testid="ins-player">
-            <option value="">Every player</option>
-            {players.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select>
-        </FilterGroup>
-        <FilterGroup label="Club">
-          <select className="ins-pick" value={club} onChange={(e) => setClub(e.target.value)} aria-label="Club" data-testid="ins-team">
-            <option value="">Every club</option>
-            {clubs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select>
-        </FilterGroup>
         {leagues.length > 1 && <FilterGroup label="League"><ChipsRow multi value={lg} onChange={setLg} label="League" testid="ins-league" options={leagues.map(([id, name]) => ({ id, label: name }))} /></FilterGroup>}
         <FilterGroup label="Position"><ChipsRow multi value={more.pos} onChange={(v) => setMore({ ...more, pos: v })} label="Position" options={POS} testid="ins-pos" /></FilterGroup>
         <FilterGroup label="Venue"><ChipsRow value={more.venue} onChange={(v) => setMore({ ...more, venue: v })} label="Venue" testid="ins-venue" options={[{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} /></FilterGroup>

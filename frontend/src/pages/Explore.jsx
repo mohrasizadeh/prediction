@@ -10,11 +10,9 @@ import { Crest, LeagueMark } from "../components/Media";
 import { useTitle } from "../components/Football";
 import { EmptyState, ErrorState, Skeleton } from "../components/ui";
 
-const TOOLS = [
-  { to: "/compare", icon: "users", label: "Compare two teams" }, { to: "/track-record", icon: "trending-up", label: "Track record" },
-  { to: "/learn", icon: "book", label: "Learn" }, { to: "/referees", icon: "flag", label: "Referees" },
-  { to: "/live", icon: "clock", label: "Live scores" }, { to: "/pricing", icon: "credit-card", label: "Plans" },
-];
+// CONSOLIDATION section 3: the "Tools" list was six links -- Compare, Track record, Learn,
+// Referees, Live, Plans -- and all six are in the footer of every page. A third navigation surface
+// listing destinations the other two already carry is not a feature, so it is gone.
 const norm = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 function nextLabel(l) {
@@ -52,8 +50,12 @@ export default function Explore() {
   return (
     <section className="ex" data-testid="explore-page">
       <h1>Explore</h1>
-      <label className="ex-search"><Icon name="search" size={18} /><span className="sr-only">Find a league</span>
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a league, team or player" data-testid="explore-search" /></label>
+      <p className="k-faint ex-sub">Every league we cover, and what each one has next.</p>
+      {/* The header carries a global search on every page with this same placeholder, so this box
+          was the second of two. This one filters the league grid below it, which the global search
+          does not do, so it stays -- but it says so. */}
+      <label className="ex-search"><Icon name="search" size={18} /><span className="sr-only">Filter these leagues</span>
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter leagues" data-testid="explore-search" /></label>
       {!q.trim() && <YourTeams />}
       <section className="ex-sec"><h2 className="k-sec">Leagues</h2>
         {r.loading && !r.data ? <Skeleton shape="card" count={4} testid="explore-loading" />
@@ -65,11 +67,6 @@ export default function Explore() {
               <b>{l.name}</b><small className="k-faint">{nextLabel(l)}</small></Link></li>
           ))}</ul>}
         {q.trim().length >= 2 && shown.length > 0 && <Link to={`/search?q=${encodeURIComponent(q.trim())}`} className="k-link" data-testid="explore-search-more">Search players and teams for “{q.trim()}”</Link>}
-      </section>
-      <section className="ex-sec"><h2 className="k-sec">Tools</h2>
-        <ul className="ex-tools card">{TOOLS.map((t) => (
-          <li key={t.to}><Link to={t.to} data-testid={`explore-${t.to.slice(1)}`}><Icon name={t.icon} size={18} /><span>{t.label}</span><Icon name="chevron-right" size={18} /></Link></li>
-        ))}</ul>
       </section>
     </section>
   );
