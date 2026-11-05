@@ -88,18 +88,26 @@ def _best_line(db, match_iids: list[int]) -> dict:
         return {}
     rows = list(db.forecasts.find(
         {"match_iid": {"$in": match_iids}, **NOT_HIDDEN, "tier": {"$in": ["Strong", "Solid"]}},
-        {"_id": 0, "match_iid": 1, "scope": 1, "stat": 1, "market": 1, "p": 1, "p_usual": 1,
+        {"_id": 0, "id": 1, "match_iid": 1, "scope": 1, "stat": 1, "market": 1, "p": 1, "p_usual": 1,
          "is_personal": 1, "span": 1, "player_iid": 1, "team_iid": 1, "edge": 1}))
     if not rows:
         return {}
     pl = _names(db, "players", [r["player_iid"] for r in rows if r.get("player_iid")])
     tm = _names(db, "teams", [r["team_iid"] for r in rows if r.get("team_iid")])
+    # Once a match is over the row was still showing what we EXPECTED, on the one line where the
+    # answer is already known. That throws away the product's own argument at the moment it could
+    # be made, so a finished fixture says whether the line it led with actually happened.
+    done = {o["forecast_id"]: bool(o.get("reached"))
+            for o in db.forecast_outcomes.find({"forecast_id": {"$in": [r.get("id") for r in rows if r.get("id")]}},
+                                               {"_id": 0, "forecast_id": 1, "reached": 1})}
     out: dict = {}
     for r in rows:
         cur = out.get(r["match_iid"])
         if cur is None or prominence(r) > cur[0]:
             who = (pl.get(r["player_iid"]) or {}).get("name") if r.get("player_iid") else (tm.get(r["team_iid"]) or {}).get("name")
-            out[r["match_iid"]] = (prominence(r), {"who": who, "market": r.get("market"), "p": float(r.get("p") or 0)})
+            out[r["match_iid"]] = (prominence(r), {"who": who, "market": r.get("market"),
+                                                    "p": float(r.get("p") or 0),
+                                                    "reached": done.get(r.get("id"))})
     return {k: v[1] for k, v in out.items()}
 
 

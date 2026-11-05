@@ -82,8 +82,14 @@ function Row({ m }) {
             now names the one line most worth reading in that match, which is what the reader is
             actually deciding between. */}
         {m.best_line?.market && !off ? (
-          <span className="td-ins" data-testid={`today-insights-${m.id}`}>
-            <b>{m.best_line.who}</b> {m.best_line.market} <em>{Math.round((m.best_line.p || 0) * 100)}%</em>
+          /* Once the match is over, the chip stops predicting and reports. Showing "82%" beside a
+             final score is the one case where we know the answer and decline to give it. */
+          <span className={"td-ins" + (m.best_line.reached === true ? " is-hit" : m.best_line.reached === false ? " is-miss" : "")}
+                data-testid={`today-insights-${m.id}`}>
+            <b>{m.best_line.who}</b> {m.best_line.market}{" "}
+            {m.best_line.reached == null
+              ? <em>{Math.round((m.best_line.p || 0) * 100)}%</em>
+              : <em>{m.best_line.reached ? "happened" : "did not"}</em>}
           </span>
         ) : m.insight_count > 0 && !off ? (
           <span className="td-ins" data-testid={`today-insights-${m.id}`}>{m.insight_count} line{m.insight_count === 1 ? "" : "s"}</span>
@@ -101,7 +107,7 @@ function Group({ league, rows }) {
     <section className="td-group card" data-testid={`today-league-${league?.id || "other"}`}>
       <button type="button" className="td-ghead" aria-expanded={open} onClick={() => setOpen(!open)} data-testid={`today-league-toggle-${league?.id || "other"}`}>
         <LeagueMark league={league} size={24} /><b>{league?.name || "Other"}</b>{nl > 0 && <span className="td-livebadge"><span className="k-livedot" aria-hidden="true" />{nl} live</span>}
-        <small>{rows.length} match{rows.length === 1 ? "" : "es"}{n ? <span className="td-gins"> · {n} insight{n === 1 ? "" : "s"}</span> : null}</small><Icon name="chevron-down" size={18} />
+        <small>{rows.length} match{rows.length === 1 ? "" : "es"}</small><Icon name="chevron-down" size={18} />
       </button>
       {open && <ul className="td-list">{rows.map((m) => <Row key={m.id} m={m} />)}</ul>}
     </section>

@@ -17,6 +17,13 @@ const MAX_MARKS = 3;                       // more than three crests on a 62 px 
 
 export function DateScroller({ value, onChange, from = -1, count = 7, gameDays, dayLeagues, testid = "ui-dates" }) {
   const ref = useRef(null);
+  const cal = useRef(null);
+  // The strip never said which month it was in. Crossing a boundary it read "31" then "1", and a
+  // reader three taps deep had no way to tell which. The month is printed when it changes.
+  const monthOf = (d) => d.toLocaleDateString(undefined, { month: "short" });
+  // Without bounds a reader could land on 1994 and get an empty page with no explanation. A year
+  // back and two months forward is the range this product has anything to say about.
+  const bound = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return isoDay(d); };
   const days = useMemo(() => [...Array(count)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() + from + i); return { d, off: from + i }; }), [from, count]);
   useEffect(() => {
     const el = ref.current?.querySelector('[aria-selected="true"]');
@@ -34,7 +41,7 @@ export function DateScroller({ value, onChange, from = -1, count = 7, gameDays, 
             <button key={k} type="button" role="tab" aria-selected={k === value} aria-current={k === value ? "date" : undefined} className={`k-day${k === value ? " on" : ""}`} onClick={() => onChange(k)}
               aria-label={`${NAMES[off] || d.toLocaleDateString(undefined, { weekday: "short" })} ${d.getDate()}, ${d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}${lgs.length ? `, ${lgs.map((l) => l.name).join(", ")}` : has ? ", has games" : ""}`} data-testid={`${testid}-${k}`}>
               <span className="w">{NAMES[off] || d.toLocaleDateString(undefined, { weekday: "short" })}</span>
-              <span className="n">{d.getDate()}</span>
+              <span className="n">{d.getDate()}{d.getDate() === 1 || off === from ? <i className="k-day-mon">{monthOf(d)}</i> : null}</span>
               {lgs.length ? (
                 <span className="k-day-lgs" aria-hidden="true">
                   {lgs.slice(0, MAX_MARKS).map((l) => <LeagueMark key={l.id} league={l} size={14} />)}
@@ -45,10 +52,15 @@ export function DateScroller({ value, onChange, from = -1, count = 7, gameDays, 
           );
         })}
       </div>
-      <label className="k-day k-day--cal" title="Pick a date">
+      {/* Clicking the icon used to rely on the label focusing the input, which does not open the
+          picker on a desktop browser -- so on a computer the control often did nothing at all.
+          showPicker opens it directly where the browser supports it. */}
+      <button type="button" className="k-day k-day--cal" title="Pick a date"
+              onClick={() => { const el = cal.current; if (el?.showPicker) { try { el.showPicker(); return; } catch { /* fall through */ } } el?.focus(); el?.click(); }}>
         <Icon name="calendar" size={20} /><span className="sr-only">Pick a date</span>
-        <input type="date" value={value} onChange={pick} data-testid={`${testid}-calendar`} />
-      </label>
+        <input ref={cal} type="date" value={value} min={bound(-365)} max={bound(60)} onChange={pick}
+               onClick={(e) => e.stopPropagation()} data-testid={`${testid}-calendar`} />
+      </button>
     </div>
   );
 }

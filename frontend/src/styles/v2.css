@@ -786,3 +786,42 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .v2-fs-who .v2-club { font-size: 13px; gap: 6px; }
 .k-fs-fx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .k-fs-fx .v2-nextfx-at { font-size: 10px; padding: 1px 6px; }
+
+
+/* =============================================================== 22. THE DAY STRIP
+   Measured on a 390px phone: 486px of days in a 302px window, with `scrollbar-width: none`. Three
+   of seven days were unreachable and nothing said they existed -- the same fault the game strip
+   had in the Swiss pass, in a different component. A collection wraps before it hides anything. */
+.k-days { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; }
+.k-days-wrap { flex-wrap: wrap; }
+
+/* The selected day was a solid block of --brand, which v2 redefined to the chalk ink -- so the
+   control shouted louder than any content on the page. Selection is a state, not an emphasis:
+   it gets the ink as a rule and a weight, not as a slab. */
+.k-day { border: 1px solid transparent; background: var(--surface1); }
+.k-day.on { background: var(--surface2); color: var(--text); border-color: var(--text); }
+.k-day.on .w { color: var(--text2); opacity: 1; }
+.k-day.on .dot:not(.no) { background: var(--text); }
+.k-day .w { font-stretch: 92%; font-weight: 600; font-size: 11px; }
+.k-day .n { font-stretch: 104%; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* The month, printed where it changes rather than never. */
+.k-day-mon {
+  display: block; font-style: normal; font-size: 9px; font-stretch: 88%; font-weight: 600;
+  color: var(--text3); letter-spacing: .02em; margin-top: -2px;
+}
+.k-day.on .k-day-mon { color: var(--text2); }
+.k-day--cal { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+/* A finished row reports instead of predicting. Colour is the same semantic pair used everywhere:
+   it happened, or it did not. */
+.td-ins.is-hit { border-color: color-mix(in srgb, var(--up) 55%, var(--border)); }
+.td-ins.is-hit em { color: var(--up); }
+.td-ins.is-miss em { color: var(--text3); }
+
+/* The weight ladder tops out at 650 in v2; these were at 800, from before the type changed. */
+.td-ft, .td-off, .td-min, .td-sc, .td-livebadge { font-weight: 650; }
+.td-teams > span.is-win .td-name, .td-teams > span.is-win .td-sc { font-weight: 650; }
+/* Live is a STATE, not a comparison. The dot stays red because that reads as "on air" everywhere,
+   but the minute itself was painted --down, which in this product means "below usual" -- so the
+   number was quietly making a claim about the forecast. */
+.td-min { color: var(--text); }
