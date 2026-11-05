@@ -15,18 +15,22 @@ markets have exactly the same shape and do have data, so the principle is testab
 
 Each is scored three ways:
 
-    direct       the count's own shrunk rate, which is what the engine does today
-    decomposed   expected volume x shrunk conversion, both from earlier matches only
-    oracle       the ACTUAL volume x shrunk conversion -- not a forecast, a ceiling. It says how
-                 much of the error is the volume and how much is the rate, which is the whole
-                 claim of section 6.
+    direct             the count's own shrunk rate, which is what the engine does today
+    decomposed         expected volume x shrunk conversion, both from earlier matches only
+    decomposed, league expected volume x the LEAGUE conversion -- no player-specific rate at all
 
-The oracle is scored as a BINOMIAL over the known volume, not as a negative binomial. Once the
-volume is known the count cannot exceed it and the right distribution says so; scoring it with the
-same negative binomial as the other two rows charges it for variance it does not have, and the
-first run of this script did exactly that and made the ceiling look worse than the forecast. The
-three rows are each a proper predictive distribution over the same observed count, so their
-log-likelihoods are comparable, which is all the comparison needs.
+The first two are the comparison that matters and they are like for like: same distribution, same
+dispersion, same rows, paired. The third separates the two halves of the claim. If it scores as
+well as the second, the gain is coming from the VOLUME being better estimated -- more events
+behind it, so a less noisy rate -- and not from recovering a player-specific conversion. That
+distinction decides how the goalkeeper model should be built.
+
+An earlier version of this script also scored an "oracle" row: the ACTUAL volume with a shrunk
+conversion, as a ceiling. It is reported under the diagnostic rather than with the results,
+because it is not a ceiling. Conditioning on the truth cannot make a forecast worse, so when that
+row came out below the direct model it was measuring the change of distribution family -- a
+binomial over a point estimate of p against a negative binomial on the count -- and not the value
+of knowing the volume. The diagnostic at the bottom shows the variants that establish this.
 """
 
 import base64, os, sys, math, collections, statistics as st
@@ -91,7 +95,7 @@ def report(title, rows, vol, cnt, exposure, r, prior_vol, prior_conv_k, min_hist
             conv = (L_conv * prior_conv_k + hc) / (prior_conv_k + hv) if (prior_conv_k + hv) > 0 else L_conv
             out["direct"].append(nb_ll(y, max(mu_direct, 0.02), r))
             out["decomposed"].append(nb_ll(y, max(mu_vol * conv, 0.02), r))
-            out["oracle volume"].append(binom_ll(y, float(nxt.get(vol) or 0), conv))
+            out["decomposed, league"].append(nb_ll(y, max(mu_vol * L_conv, 0.02), r))
 
     print(f"\n=== {title}   ({cnt} = {vol} x conversion)")
     print(f"    league conversion {L_conv:.3f}   n = {len(out['direct'])}   r = {r}")
@@ -99,11 +103,12 @@ def report(title, rows, vol, cnt, exposure, r, prior_vol, prior_conv_k, min_hist
         print(f"    NOT MEASURABLE on this data: {cnt} total = {tot_c:g}, {vol} total = {tot_v:g}.")
         print("    A row of equal numbers would read as a tie; it is an absence. Nothing is reported.")
         return out
-    for k in ("direct", "decomposed", "oracle volume"):
+    for k in ("direct", "decomposed", "decomposed, league"):
         print(f"    {k:<16} {st.mean(out[k]):>8.4f}")
-    print(f"    paired z, decomposed vs direct : {paired_z(out['decomposed'], out['direct']):+.2f}")
-    print(f"    paired z, oracle     vs direct : {paired_z(out['oracle volume'], out['direct']):+.2f}"
-          "   <- ceiling, binomial over the known volume")
+    print(f"    paired z, decomposed    vs direct : {paired_z(out['decomposed'], out['direct']):+.2f}")
+    print(f"    paired z, league-conv   vs direct : {paired_z(out['decomposed, league'], out['direct']):+.2f}")
+    print(f"    paired z, decomposed vs league-conv : {paired_z(out['decomposed'], out['decomposed, league']):+.2f}"
+          "   <- what the player's OWN conversion is worth")
     return out
 
 
@@ -141,7 +146,7 @@ if not n_saves:
 # A ceiling that loses to the thing it bounds is a fault in the model, not a result, so these
 # three checks ask which part is wrong: the spread of the conversion, the shrinkage applied to it,
 # or the binomial's tightness.
-print("\n\n=== Diagnostic: why the oracle loses")
+print("\n\n=== Diagnostic: the oracle row, and why it is not a ceiling")
 
 acc = []
 for h in by_player.values():
