@@ -578,3 +578,24 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .v2-qv > * { flex: 0 1 auto; width: auto; min-width: 0; }
 .v2-qv select { width: auto; min-width: 150px; }
 .v2-qv .check-inline { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; color: var(--text2); }
+
+/* Three faults visible the moment the merged strip rendered:
+   - the columns sat at their natural width and left half the row empty, while the line's rule ran
+     the full width, so the rule extended far past the data it describes;
+   - each column kept an inherited filled background, so a green block competed with the bar inside
+     it and the bar -- the thing carrying the figure -- read as the smaller mark;
+   - with the row half empty the bars were too narrow to compare.
+   The columns now share the row equally, the only fill is the bar, and the rule stops where the
+   data stops. */
+.pgs-row { display: flex; gap: 3px; width: 100%; }
+.pgs-g {
+  flex: 1 1 0; min-width: 0; background: none !important; border: 0;
+}
+.pgs-g.on { background: none !important; }
+.pgs-g .pgs-opp { opacity: .75; }
+
+/* The bars read as floating because nothing grounded them, and the line's label sat on top of the
+   tenth column. The track gets a baseline to stand on, and the row reserves the label's width. */
+.pgs-row { padding-right: 34px; }
+.v2-gs-bar { border-bottom: 1px solid var(--border-strong); }
+.v2-gs-rule em { right: -32px; background: transparent; }

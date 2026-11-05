@@ -63,6 +63,9 @@ function History({ id }) {
   );
 }
 
+const RANK_LABEL = { shots: "shots", sot: "shots on target", tackles: "tackles", goals: "goals", assists: "assists" };
+const nth = (n) => `${n}${["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`;
+
 function Ranks({ id }) {
   const q = useApi(`/players/${id}/ranks`);
   const r = q.data?.ranks || [];
