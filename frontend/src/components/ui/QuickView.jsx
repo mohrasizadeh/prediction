@@ -24,8 +24,14 @@ export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, ti
   const known = games.filter((g) => g[stat] != null).length;
   const hits = games.filter((g) => g[stat] != null && g[stat] >= line).length;
   // Asked for: whichever market and line the reader picks, show what we expect for it next match.
-  // The box was all history and no forecast, so the page made you hold the two apart in your head.
-  const fc = (forecasts || []).find((f) => f.stat === stat && Math.floor(f.thr) + 1 === Number(line));
+  // Matching only the stored line would leave most choices blank, because a player keeps three
+  // lines per stat and the reader can pick five. Every forecast carries the whole ladder, so the
+  // percentage is resolved from that and follows any market and line combination.
+  const fcAny = (forecasts || []).find((f) => f.stat === stat);
+  const fcExact = (forecasts || []).find((f) => f.stat === stat && Math.floor(f.thr) + 1 === Number(line));
+  const fromLadder = fcAny?.ladder?.[String(Number(line) - 0.5)];
+  const fcP = fcExact ? fcExact.p : (typeof fromLadder === "number" ? fromLadder : null);
+  const fc = fcP == null ? null : { p: fcP, tier: fcExact?.tier || null, exact: !!fcExact };
   return (
     <section className="qv" data-testid={testid}>
       {title && <h3 className="k-sec">{title}</h3>}
@@ -33,13 +39,19 @@ export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, ti
         <>
           <div className="v2-qv-head">
             <p className="muted small" data-testid={`${testid}-summary`}>{known ? `${line} or more in ${hits} of ${known} games.` : "No data for this stat."}</p>
-            {fc && (
+            {fc ? (
               <p className="v2-qv-fc" data-testid={`${testid}-forecast`}>
-                <span>Next match</span>
+                <span>{line}+ {label.toLowerCase()} next match</span>
                 <b>{Math.round((fc.p || 0) * 100)}%</b>
-                {fc.tier && <em>{fc.tier}</em>}
+                {fc.tier ? <em>{fc.tier}</em> : null}
               </p>
-            )}
+            ) : forecasts ? (
+              /* Silence here read as a bug: switch to a market this player has no forecast for and
+                 the figure simply vanished, with nothing to say whether it was missing or loading. */
+              <p className="v2-qv-fc v2-qv-fc--none" data-testid={`${testid}-forecast`}>
+                <span>No forecast for {label.toLowerCase()} next match</span>
+              </p>
+            ) : null}
           </div>
           <GameStrip games={games} stat={stat} line={line} label={label} testid={`${testid}-strip`} />
           {/* docs/redesign/v2: the market and the line ARE the question this box answers, so they lead

@@ -95,6 +95,14 @@ export default function Player() {
           before anything else, so they are in the head: the club as its crest, and the fixture with
           both crests and whether he is at home or away. */}
       <header className="phead v2-phead">
+        {/* The club's mark, blurred right down behind the head, so the page is recognisably about
+            this club before a word is read. Decorative only: it carries no information the text
+            does not, so it is hidden from assistive technology and sits under everything. */}
+        {/* With a crest we blur the real thing; without one (crests arrive from PitchAPI and are
+            absent in demo data) the head still gets a quiet tint rather than nothing, so the
+            treatment does not appear and disappear with the image. */}
+        <span className={"v2-phead-wash" + (team?.image_url ? "" : " is-plain")} aria-hidden="true"
+              style={team?.image_url ? { backgroundImage: `url(${team.image_url})` } : undefined} />
         <PlayerAvatar player={p} size={96} decorative={false} />
         <div className="phead-main">
           <h1>{p.name}</h1>
@@ -114,6 +122,7 @@ export default function Player() {
           <div><FollowButton kind="player" refId={p.id} name={p.name} /></div>
         </div>
       </header>
+      <History id={id} forecasts={forecasts} />
       {/* The fixture itself has moved into the head, so this is what it was always for: the lines. */}
       <section className="card" data-testid="player-next">
         <h2 className="k-sec">What we expect next match</h2>
@@ -125,7 +134,6 @@ export default function Player() {
           of the same ten games stacked on one page -- the four-line overview could not be
           interrogated and the detailed one could not be compared. Quick view now does both jobs,
           because its strip draws the run graph for whichever market and line you choose. */}
-      <History id={id} forecasts={forecasts} />
       <Ranks id={id} />
       <Note id={id} />
     </section>

@@ -754,3 +754,26 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
   width: 0 !important; border-right: 2px solid var(--tone, var(--text));
   background: none; height: 18px; top: 2px;
 }
+
+/* The club's mark behind the player head: blurred far past recognition as a picture, so it reads
+   as a tint rather than as a logo sitting on the page, and faded out before it reaches the text.
+   It is decorative, so it never carries contrast the content depends on. */
+.v2-phead { position: relative; isolation: isolate; overflow: hidden; border-radius: 16px; padding: 18px 18px 14px; }
+.v2-phead-wash {
+  position: absolute; inset: -40% -10% auto -10%; height: 220px; z-index: -1;
+  background-repeat: no-repeat; background-position: 12% 40%; background-size: 46% auto;
+  filter: blur(54px) saturate(1.5); opacity: .5; pointer-events: none;
+  mask-image: linear-gradient(to bottom, #000 0 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0 55%, transparent 100%);
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .v2-phead-wash { opacity: .38; } }
+:root[data-theme="light"] .v2-phead-wash { opacity: .38; }
+@media (prefers-reduced-transparency: reduce) { .v2-phead-wash { display: none; } }
+
+/* Without a crest there is no club colour anywhere in the data, and inventing one would put a
+   wrong brand colour behind a real club. The head keeps a neutral tint instead. */
+.v2-phead-wash.is-plain {
+  background: radial-gradient(60% 120% at 14% 0%, var(--surface2) 0%, transparent 70%);
+  filter: none; opacity: 1;
+}
+.v2-qv-fc--none span { color: var(--text3); }
