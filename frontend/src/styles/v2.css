@@ -326,3 +326,90 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .mc-fc-group { margin-bottom: 22px; }
 /* The slider takes the width it needs, not a third of the toolbar. */
 .mc-fc-bar .mc-fc-min { flex: 0 1 240px; }
+
+
+/* =============================================================== 13. THE RUN, DRAWN BOLDLY
+   The signature. It is the one graphic that makes the product's argument without words, so it gets
+   the size and the contrast to be read across a room, and everything near it stays quiet.
+
+   A column per game, standing to its own figure. The line is a rule across the whole run with its
+   own label. Where the rule falls tells the reader, instantly:
+     through the middle of the run  -> a real question, worth a forecast
+     flat along the bottom          -> a truism; every column clears it (docs/56) */
+.v2-run { display: grid; gap: 6px; min-width: 0; }
+.v2-run-plot {
+  position: relative; display: flex; align-items: flex-end; gap: 4px;
+  height: 72px; padding-top: 14px;
+  border-bottom: 1px solid var(--border-strong);
+}
+.v2-run-col { position: relative; flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+.v2-run-col > b {
+  display: block; width: 100%; border-radius: 0;
+  background: color-mix(in srgb, var(--text3) 38%, transparent);
+}
+.v2-run-col.on > b { background: var(--up); }
+.v2-run-col.nd > b {
+  height: 100% !important;
+  background: repeating-linear-gradient(45deg, var(--surface3) 0 3px, transparent 3px 6px);
+}
+/* the figure sits above its own column, small and condensed so ten of them fit on a phone */
+.v2-run-v {
+  position: absolute; left: 0; right: 0; top: -14px; text-align: center;
+  font-style: normal; font-size: 10px; font-stretch: 85%; font-weight: 600;
+  color: var(--text3); font-variant-numeric: tabular-nums;
+}
+.v2-run-col.on .v2-run-v { color: var(--text); }
+/* the line, drawn across everything, labelled at the right so it is never ambiguous */
+.v2-run-rule {
+  position: absolute; left: 0; right: 0; height: 0; z-index: 2;
+  border-top: 2px dashed var(--text);
+}
+.v2-run-rule em {
+  position: absolute; right: 0; top: -8px; padding: 0 4px;
+  background: var(--surface1); color: var(--text);
+  font-style: normal; font-size: 10px; font-stretch: 88%; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.v2-run-cap { margin: 0; }
+.v2-runs { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.v2-runs > li { display: grid; grid-template-columns: 1fr; gap: 6px; }
+@media (min-width: 640px) {
+  .v2-runs > li { grid-template-columns: 130px minmax(0, 1fr) auto; align-items: end; gap: 14px; }
+  .v2-runs .v2-run { grid-column: 2; }
+  .v2-runs .v2-run-cap { grid-column: 3; }
+}
+.v2-runs-label { font-stretch: 96%; font-weight: 600; color: var(--text2); }
+
+
+/* =============================================================== 14. LIGHT MODE HAS TO BE DESIGNED
+   Dark carries the identity for free: a hued slate ground is already unlike anything else. Light
+   inherited white cards on a near-white ground with a shadow under each, which is the same page
+   every product in this category ships, and the concept did not survive the switch.
+
+   "Graphite on paper" earns it the same way a printed results page does: the PAPER is the surface,
+   panels are separated by rules rather than floated on shadows, and the ink is near-black. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --v2-rule: color-mix(in srgb, var(--text3) 38%, transparent);
+    --v2-band: color-mix(in srgb, var(--text3) 24%, transparent);
+  }
+  :root:not([data-theme="dark"]) .card, :root:not([data-theme="dark"]) .k-fc,
+  :root:not([data-theme="dark"]) .a-card {
+    box-shadow: none; border: 1px solid var(--border);
+  }
+  /* a card inside a card is two borders saying the same thing: the inner one becomes a rule */
+  :root:not([data-theme="dark"]) .card .card,
+  :root:not([data-theme="dark"]) .card .k-fc {
+    border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent;
+  }
+  :root:not([data-theme="dark"]) .card .k-fc { border-left: 3px solid var(--tone, var(--v2-rule)); padding-left: 2px; }
+}
+:root[data-theme="light"] {
+  --v2-rule: color-mix(in srgb, var(--text3) 38%, transparent);
+  --v2-band: color-mix(in srgb, var(--text3) 24%, transparent);
+}
+:root[data-theme="light"] .card, :root[data-theme="light"] .k-fc, :root[data-theme="light"] .a-card { box-shadow: none; border: 1px solid var(--border); }
+:root[data-theme="light"] .card .card, :root[data-theme="light"] .card .k-fc {
+  border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent;
+}
+:root[data-theme="light"] .card .k-fc { border-left: 3px solid var(--tone, var(--v2-rule)); padding-left: 2px; }

@@ -30,6 +30,38 @@ export function WdlBar({ home, draw, away, homeName = "Home", awayName = "Away",
   );
 }
 
+// The run (docs/redesign/v2). The signature graphic of the product, and the answer to the thing
+// HitStrip could never show: ten filled-or-empty squares cannot tell a quiet game from a busy one,
+// so a player who clears his line every week draws ten identical marks -- a picture of nothing.
+//
+// Each column stands to its own figure and the line is drawn across the run as a single rule. A
+// rule cutting through the middle of the run is a forecast. A rule lying under every column is a
+// truism, and now that is visible without reading a number, which is the whole argument of docs/56.
+//
+// `values` are oldest -> newest; null means the game has no figure.
+export function RunStrip({ values = [], line, label, caption = true, testid = "ui-run" }) {
+  const known = values.filter((v) => v != null);
+  if (!known.length) return null;
+  const vmax = Math.max(1, ...known);
+  const hits = known.filter((v) => v >= line).length;
+  const rule = Math.min(100, (line / vmax) * 100);
+  return (
+    <div className="v2-run" data-testid={testid}
+         role="img" aria-label={`${label ? `${label}: ` : ""}${known.map((v) => v).join(", ")}; the line is ${line}; reached in ${hits} of ${known.length} games, oldest first`}>
+      <div className="v2-run-plot" aria-hidden="true">
+        <span className="v2-run-rule" style={{ bottom: `${rule}%` }}><em>{line}+</em></span>
+        {values.map((v, i) => (
+          <span key={i} className={"v2-run-col" + (v == null ? " nd" : v >= line ? " on" : "")}>
+            <b style={{ height: `${v == null ? 0 : Math.max(3, (v / vmax) * 100)}%` }} />
+            <i className="v2-run-v">{v == null ? "" : v}</i>
+          </span>
+        ))}
+      </div>
+      {caption && <p className="v2-run-cap k-faint k-small">{hits} of {known.length}</p>}
+    </div>
+  );
+}
+
 // hits: booleans oldest -> newest (true = line reached, null = no data)
 export function HitStrip({ hits = [], label, testid = "ui-hitstrip" }) {
   if (!hits.length) return null;

@@ -9,7 +9,7 @@ import { FollowButton } from "../components/Actions";
 import { useAuth } from "../lib/auth";
 import { del, put } from "../lib/api";
 import { useToast } from "../components/Ui";
-import { HitStrip, QuickView } from "../components/ui";
+import { QuickView, RunStrip } from "../components/ui";
 
 function Note({ id }) {
   const { user } = useAuth();
@@ -71,7 +71,14 @@ function FormStrips({ id }) {
   return (
     <section className="card pl-form" data-testid="player-form">
       <h2 className="k-sec">Last {games.length} games</h2>
-      <ul>{lines.map(([s, n, label]) => { const hits = games.filter((g) => g[s] != null).map((g) => g[s] >= n).reverse(); return hits.length ? <li key={label}><span>{label}</span><HitStrip hits={hits} label={label} testid={`player-strip-${s}-${n}`} /></li> : null; })}</ul>
+      {/* docs/redesign/v2: these were rows of filled-or-empty squares with a count beside them. For a
+          player who clears a line most weeks every square looked the same, so the strip said nothing
+          the count had not already said. The run shows what he actually did each game, with the line
+          drawn across it, so a line he always clears looks different from one he sometimes does. */}
+      <ul className="v2-runs">{lines.map(([s, n, label]) => {
+        const vals = games.filter((g) => g[s] != null).map((g) => g[s]).reverse();
+        return vals.length ? <li key={label}><span className="v2-runs-label">{label}</span><RunStrip values={vals} line={n} label={label} testid={`player-strip-${s}-${n}`} /></li> : null;
+      })}</ul>
     </section>
   );
 }
