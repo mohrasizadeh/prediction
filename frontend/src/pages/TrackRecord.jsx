@@ -71,8 +71,10 @@ export default function TrackRecord() {
   useTitle("Track record");
   return (
     <section className="tr" data-testid="track-record-page">
-      <small className="k-sec">Track record · updated as matches finish</small>
-      <h1 className="sr-only">Track record</h1>
+      {/* The page had no visible title: the h1 was screen-reader only and the page opened with a
+          small caption, so the one screen whose job is to establish trust began by whispering. */}
+      <h1>Track record</h1>
+      <p className="k-faint tr-sub">Updated as matches finish.</p>
       <div className="tr-filters">
         <ChipsRow label="League" value={league} onChange={(v) => set("league", v)} testid="tr-league" options={[{ id: "", label: "All leagues" }, ...leagues.map((l) => ({ id: l.id, label: l.name }))]} />
         <ChipsRow label="Market" value={stat} onChange={(v) => set("stat", v)} testid="tr-market" options={MARKETS} />

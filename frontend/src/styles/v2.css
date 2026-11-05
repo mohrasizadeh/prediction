@@ -483,3 +483,30 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 /* e) Tables are measurements: chalk rules, tabular figures, no zebra fill. */
 .tbl th, .a-table th { font-stretch: 92%; font-weight: 600; color: var(--text3); }
 .tbl td, .tbl th { border-color: var(--border); }
+
+
+/* =============================================================== 17. WHAT THE 96-SHOT SWEEP FOUND
+   Sweeping every route in both schemes at both widths turns up what looking at three pages cannot. */
+
+/* a) Track record opened with a small centred caption and no visible title -- its h1 was
+      screen-reader only -- so the one page whose job is to establish trust began by whispering, and
+      then centred everything, which fights the left-aligned reading of every other screen. */
+.tr, .tr-hero, .tr-wait { text-align: left; }
+.tr-sub { margin: 2px 0 16px; }
+.tr-wait { display: grid; gap: 12px; justify-items: start; max-width: 60ch; }
+
+/* b) Chip rows clipped their last option ("Tackle...") instead of wrapping, so filters existed that
+      a reader could not see or reach. A collection wraps before it hides anything (the same rule
+      the game strip needed in the Swiss pass). */
+.k-chips { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; }
+
+/* c) An empty state left ~700px of dead space before the footer, because the page reserves the
+      chart's grid area whether or not there is a chart. An empty page should be short. */
+.tr-grid2:has(.k-empty) { display: block; }
+.tr .k-empty, .k-empty { padding: 28px 20px; }
+
+/* d) The dead band on every short page. `.main` carried `min-height: 62vh`, which on an 844px phone
+      reserves 523px whatever the content, so Plans and Track record both showed a short card, then
+      a screenful of nothing, then the e-mail block. The intent was to keep the footer off the fold;
+      the effect was to make an empty page look broken. A short page should be short. */
+.main { min-height: 0; padding-bottom: 40px; }
