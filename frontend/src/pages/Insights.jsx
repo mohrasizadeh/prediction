@@ -1,14 +1,15 @@
 // Insights: strongest forecasts across leagues (docs/24 §4).
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { pct } from "../lib/copy";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
-import { useStored, useTitle } from "../components/Football";
+import { useTitle } from "../components/Football";
 import Icon from "../components/Icon";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard, ProLock, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
+import { fixtureOf, timeOf } from "../components/ui/ForecastCard";
 
 const MARKETS = [{ id: "shots", label: "Shots", q: { stat: "shots", scope: "player" } }, { id: "sot", label: "On target", q: { stat: "sot" } },
   { id: "tackles", label: "Tackles", q: { stat: "tackles" } }, { id: "corners", label: "Corners", q: { stat: "corners" } },
@@ -64,73 +65,100 @@ export function Insights() {
   const nMore = more.pos.length + (more.venue !== "all") + more.confirmed + (lg.length > 0);
   const nAll = nMore + (more.min > 0) + tier.length + (mk ? 1 : 0) + (who ? 1 : 0) + (club ? 1 : 0);
   const clearAll = () => { setDay(""); setLg([]); setMk(""); setTier([]); setMore(NOF); setWho(""); setClub(""); };
-  // One card per player per market means more cards than before, so the list is paged rather than endless.
-  const [per, setPer] = useStored("ins-per-page", 25);
-  const [page, setPage] = useState(1);
-  const pages = Math.max(1, Math.ceil(rows.length / per));
-  const shown = rows.slice((Math.min(page, pages) - 1) * per, Math.min(page, pages) * per);
-  useEffect(() => { setPage(1); }, [day, mk, tier, lg, more, sort, per, who, club]);
+  // UX_AUDIT decision 4: a reader thinks in matches and kick-off times, not in a flat list of
+  // twenty tiles. The feed groups by fixture so "everything about the 7pm game" is one block
+  // instead of a scan of the whole page. Within a group the engine's own order is kept, so the
+  // line with the most to say still leads.
+  const groups = useMemo(() => {
+    const by = new Map();
+    for (const f of rows) {
+      const k = f.match_iid;
+      if (!by.has(k)) by.set(k, { key: k, kickoff: f.kickoff, fx: fixtureOf(f), rows: [] });
+      by.get(k).rows.push(f);
+    }
+    const out = [...by.values()];
+    // Kick-off order when that is the sort; otherwise the strongest group first, so the page still
+    // opens with the best thing on it.
+    if (sort === "kickoff") out.sort((a, b) => String(a.kickoff).localeCompare(String(b.kickoff)));
+    return out;
+  }, [rows, sort]);
+  // UX_AUDIT decision 8: a reader scanning for something interesting wants to keep going. "Per page 25"
+  // with page buttons is a table control for administering a result set.
+  const STEP = 6;
+  const [showN, setShowN] = useState(STEP);
+  const shownGroups = groups.slice(0, showN);
+  const shown = shownGroups.flatMap((g) => g.rows);
+  useEffect(() => { setShowN(STEP); }, [day, mk, tier, lg, more, sort, who, club]);
   const sortWord = { edge: "biggest change first", likely: "most likely first", kickoff: "by kick-off" }[sort];
   const cap = entitlements?.insights_per_day;
   return (
     <section className="ins" data-testid="insights-page">
       <h1>Insights</h1>
-      {q.data && <p className="ins-answer" data-testid="ins-answer"><b>{rows.length} forecast{rows.length === 1 ? "" : "s"}</b> · {sortWord}</p>}
+      {q.data && <p className="ins-answer" data-testid="ins-answer">
+        <b>{rows.length} line{rows.length === 1 ? "" : "s"} worth reading</b> across {groups.length} match{groups.length === 1 ? "" : "es"}, {sortWord}.
+      </p>}
       <div className="ins-days"><button type="button" className={`k-chip${!day ? " on" : ""}`} onClick={() => setDay("")} aria-pressed={!day} data-testid="ins-any-day">Any day</button>
         <DateScroller value={day} onChange={setDay} from={0} count={7} gameDays={gameDays} dayLeagues={dayLeagues} testid="ins-dates" /></div>
-      <section className="ins-filters card" aria-label="Filters" data-testid="ins-filters-panel">
-        <div className="ins-f ins-f--min"><span className="ins-f-label">At least <b data-testid="ins-min-value">{more.min}%</b> likely</span>
-          <RangeSlider min={0} max={95} step={5} value={more.min} onChange={(v) => setMore({ ...more, min: v })} label="Minimum likelihood" format={(v) => `${v}%`} testid="ins-min" /></div>
-        <div className="ins-f"><span className="ins-f-label">Tier</span>
-          <ChipsRow multi value={tier} onChange={setTier} label="Tier" testid="ins-tier" options={TIERS.map((t) => ({ id: t, label: t }))} /></div>
-        <div className="ins-f"><span className="ins-f-label">Market</span>
-          <ChipsRow value={mk || "all"} onChange={(v) => setMk(v === "all" || v === mk ? "" : v)} label="Market" testid="ins-market" options={[{ id: "all", label: "All" }, ...MARKETS.map(({ id, label }) => ({ id, label }))]} /></div>
-        <div className="ins-f"><span className="ins-f-label">Player</span>
-          <select className="ins-pick" value={who} onChange={(e) => setWho(e.target.value)} aria-label="Player" data-testid="ins-player">
-            <option value="">Every player</option>
-            {players.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select></div>
-        <div className="ins-f"><span className="ins-f-label">Club</span>
-          <select className="ins-pick" value={club} onChange={(e) => setClub(e.target.value)} aria-label="Club" data-testid="ins-team">
-            <option value="">Every club</option>
-            {clubs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select></div>
-        <div className="ins-f-foot">
-          <button type="button" className={`k-chip${nMore ? " br" : ""}`} onClick={() => setSheet(true)} data-testid="ins-more-more"><Icon name="settings" size={16} />League and more{nMore ? <span className="k-count">{nMore}</span> : null}</button>
-          {nAll > 0 && <button type="button" className="k-link" onClick={clearAll} data-testid="ins-clear-top">Clear filters</button>}
+      {/* UX_AUDIT section 2, decisions 1 to 3. This was an open panel of five controls followed by a
+          separate sort row: eleven controls above the fold, so on a phone the first forecast began
+          about 900px down. A page that promises to tell you what is worth knowing should not open by
+          asking you to compose a query. The bar now states the current view in words, and every
+          filter lives in the one sheet rather than being split between an open panel and a hidden one. */}
+      <div className="ins-bar v2-bar" data-testid="ins-filters-panel">
+        <Segmented label="Sort" value={sort} onChange={setSort} testid="ins-sort" options={[{ id: "edge", label: "Biggest change" }, { id: "likely", label: "Most likely" }, { id: "kickoff", label: "Kick-off" }]} />
+        <div className="v2-bar-r">
+          <button type="button" className={`k-chip${nAll ? " br" : ""}`} onClick={() => setSheet(true)} data-testid="ins-more-more">
+            <Icon name="settings" size={16} />Filters{nAll ? <span className="k-count">{nAll}</span> : null}
+          </button>
+          {nAll > 0 && <button type="button" className="k-link" onClick={clearAll} data-testid="ins-clear-top">Clear</button>}
+          <Segmented label="View" value={view} onChange={setView} testid="ins-view" options={[{ id: "cards", label: "Cards" }, { id: "list", label: "List" }]} />
         </div>
-      </section>
-      <div className="ins-bar">
-        <Segmented label="Sort" value={sort} onChange={setSort} testid="ins-sort" options={[{ id: "edge", label: "Different from usual" }, { id: "likely", label: "Most likely" }, { id: "kickoff", label: "Kick-off" }]} />
-        <Segmented label="View" value={view} onChange={setView} testid="ins-view" options={[{ id: "cards", label: "Cards" }, { id: "list", label: "List" }]} />
       </div>
       {q.loading && !q.data ? <Skeleton shape="card" count={6} testid="ins-loading" /> : q.error && !q.data ? <ErrorState message="We could not load the insights." onRetry={q.reload} testid="ins-error" />
         : !rows.length ? <EmptyState icon="sparkles" title="No forecasts match" testid="ins-empty" action={<button type="button" className="btn btn--secondary btn--sm" onClick={clearAll} data-testid="ins-clear">Clear all filters</button>}>Try another day, market or tier.</EmptyState>
-        : view === "list" ? <Compact rows={shown} /> : <div className="fgrid ins-grid">{shown.map((f) => <ForecastCard key={f.id} f={f} testid={`ins-card-${f.id}`} />)}</div>}
-      {rows.length > 0 && (
-        <nav className="ins-pager" aria-label="Pages" data-testid="ins-pager">
-          <label className="ins-per">Per page
-            <select value={per} onChange={(e) => setPer(Number(e.target.value))} aria-label="Cards per page" data-testid="ins-per-page">
-              {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
-          <span className="k-faint k-small" data-testid="ins-pager-count">
-            {(Math.min(page, pages) - 1) * per + 1}–{Math.min(rows.length, Math.min(page, pages) * per)} of {rows.length}
-          </span>
-          {pages > 1 && (
-            <span className="ins-pager-btns">
-              <button type="button" className="btn btn--secondary btn--sm" disabled={page <= 1} onClick={() => setPage((n) => Math.max(1, n - 1))} data-testid="ins-prev">Previous</button>
-              <span className="k-faint k-small">Page {Math.min(page, pages)} of {pages}</span>
-              <button type="button" className="btn btn--secondary btn--sm" disabled={page >= pages} onClick={() => setPage((n) => Math.min(pages, n + 1))} data-testid="ins-next">Next</button>
-            </span>
-          )}
-        </nav>
+        : view === "list" ? <Compact rows={shown} />
+        : shownGroups.map((g) => (
+            <section key={g.key} className="v2-match" data-testid={`ins-match-${g.key}`}>
+              <header className="v2-match-head">
+                <h2>{g.fx.text || "Match"}</h2>
+                <span className="k-faint k-small">{timeOf(g.kickoff)}</span>
+                <Link className="k-link" to={`/match/${g.rows[0].match_id || g.rows[0].match_iid}`}>Match page</Link>
+              </header>
+              <div className="fgrid ins-grid">{g.rows.map((f) => <ForecastCard key={f.id} f={f} showTime={false} testid={`ins-card-${f.id}`} />)}</div>
+            </section>
+          ))}
+      {groups.length > shownGroups.length && (
+        <div className="v2-more">
+          <button type="button" className="btn btn--secondary" onClick={() => setShowN((n) => n + STEP)} data-testid="ins-show-more">
+            Show more matches
+          </button>
+          <span className="k-faint k-small" data-testid="ins-pager-count">{shownGroups.length} of {groups.length} matches</span>
+        </div>
       )}
       {cap >= 0 && data.length >= cap && <p className="notice small" data-testid="ins-capped">Your plan shows {cap} insights a day. <ProLock label="Unlimited with Pro" testid="ins-capped-pro" /></p>}
-      <FilterSheet open={sheet} onClose={() => setSheet(false)} onReset={() => { setMore({ ...NOF, min: more.min }); setLg([]); }} count={rows.length} title="League and more" testid="ins-filters">
+      <FilterSheet open={sheet} onClose={() => setSheet(false)} onReset={clearAll} count={rows.length} title="Filters" testid="ins-filters">
+        <FilterGroup label="Market"><ChipsRow value={mk || "all"} onChange={(v) => setMk(v === "all" || v === mk ? "" : v)} label="Market" testid="ins-market" options={[{ id: "all", label: "All" }, ...MARKETS.map(({ id, label }) => ({ id, label }))]} /></FilterGroup>
+        <FilterGroup label="Tier"><ChipsRow multi value={tier} onChange={setTier} label="Tier" testid="ins-tier" options={TIERS.map((t) => ({ id: t, label: t }))} /></FilterGroup>
+        <FilterGroup label="Player">
+          <select className="ins-pick" value={who} onChange={(e) => setWho(e.target.value)} aria-label="Player" data-testid="ins-player">
+            <option value="">Every player</option>
+            {players.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+        </FilterGroup>
+        <FilterGroup label="Club">
+          <select className="ins-pick" value={club} onChange={(e) => setClub(e.target.value)} aria-label="Club" data-testid="ins-team">
+            <option value="">Every club</option>
+            {clubs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+        </FilterGroup>
         {leagues.length > 1 && <FilterGroup label="League"><ChipsRow multi value={lg} onChange={setLg} label="League" testid="ins-league" options={leagues.map(([id, name]) => ({ id, label: name }))} /></FilterGroup>}
         <FilterGroup label="Position"><ChipsRow multi value={more.pos} onChange={(v) => setMore({ ...more, pos: v })} label="Position" options={POS} testid="ins-pos" /></FilterGroup>
-        <FilterGroup label="Venue"><Segmented value={more.venue} onChange={(v) => setMore({ ...more, venue: v })} label="Venue" options={[{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid="ins-venue" /></FilterGroup>
+        <FilterGroup label="Venue"><ChipsRow value={more.venue} onChange={(v) => setMore({ ...more, venue: v })} label="Venue" testid="ins-venue" options={[{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} /></FilterGroup>
+        {/* The likelihood floor defaults to 0, so on the main surface it was a control that did nothing
+            while holding a full row. It is a refinement for someone who has already looked. */}
+        <FilterGroup label={<>At least <b data-testid="ins-min-value">{more.min}%</b> likely</>}>
+          <RangeSlider min={0} max={95} step={5} value={more.min} onChange={(v) => setMore({ ...more, min: v })} label="Minimum likelihood" format={(v) => `${v}%`} testid="ins-min" />
+        </FilterGroup>
         <label className="ins-switch"><input type="checkbox" checked={more.confirmed} onChange={(e) => setMore({ ...more, confirmed: e.target.checked })} data-testid="ins-confirmed" /><span>Lineup confirmed only</span></label>
       </FilterSheet>
     </section>

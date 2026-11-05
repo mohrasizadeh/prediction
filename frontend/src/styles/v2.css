@@ -251,3 +251,31 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--text); outline-offset: 2px; border-radius: 3px;
 }
+
+
+/* =============================================================== 11. THE FEED, RESTRUCTURED
+   UX_AUDIT decisions 1 to 8. Measured before: on a 390x844 phone the first forecast sat at 913px,
+   below the fold, behind eleven controls and a 542px filter panel. A page whose promise is "we tell
+   you what is worth knowing" must not open by asking the reader to compose a query. */
+
+/* One compact bar: what the view is, and the way into every filter. Replaces an open five-control
+   panel plus a separate sort row. */
+.v2-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 0; border-bottom: 1px solid var(--border); margin-bottom: 14px;
+}
+.v2-bar-r { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* The feed is grouped by fixture, because that is the unit a reader thinks in. The header is the
+   match, so "everything about the 7pm game" is one block rather than a scan of twenty tiles. */
+.v2-match { margin: 0 0 22px; }
+.v2-match-head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding-bottom: 7px; margin-bottom: 11px; border-bottom: 1px solid var(--border);
+}
+.v2-match-head h2 {
+  margin: 0; font-size: 16px; font-stretch: 104%; font-weight: 600; letter-spacing: -0.012em;
+}
+.v2-match-head .k-link { margin-left: auto; }
+
+.v2-more { display: flex; align-items: center; gap: 14px; padding: 6px 0 24px; }
