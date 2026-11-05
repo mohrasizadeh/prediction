@@ -1,2796 +1,2816 @@
 [
- {
-  "key": "features.insights",
-  "group": "Features",
-  "label": "Insights feed",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.finder",
-  "group": "Features",
-  "label": "Forecast Finder",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.squad_grid",
-  "group": "Features",
-  "label": "Squad grid",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.team_totals",
-  "group": "Features",
-  "label": "Team totals grid",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.against",
-  "group": "Features",
-  "label": "Against stats",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.referees",
-  "group": "Features",
-  "label": "Referees",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.leaderboards",
-  "group": "Features",
-  "label": "Season leaderboards",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.learn",
-  "group": "Features",
-  "label": "Learn pages",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.favourites",
-  "group": "Features",
-  "label": "Favourites and notes",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.alerts",
-  "group": "Features",
-  "label": "Lineup alerts",
-  "type": "boolean",
-  "default": false,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.newsletter",
-  "group": "Features",
-  "label": "Newsletter sign-up",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.track_record",
-  "group": "Features",
-  "label": "Track Record",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.following",
-  "group": "Features",
-  "label": "Following",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.saved",
-  "group": "Features",
-  "label": "Saved",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.search",
-  "group": "Features",
-  "label": "Search",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.beta_tag",
-  "group": "Features",
-  "label": "Beta tag",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.show_xg",
-  "group": "Features",
-  "label": "Show xG",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.show_lineups",
-  "group": "Features",
-  "label": "Show lineups",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.show_tactics",
-  "group": "Features",
-  "label": "Show tactic chips",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.require_signin_to_follow",
-  "group": "Features",
-  "label": "Require sign-in to follow",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.billing",
-  "group": "Features",
-  "label": "Paid plans (Stripe)",
-  "type": "boolean",
-  "default": false,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.maintenance",
-  "group": "Features",
-  "label": "Maintenance mode",
-  "type": "boolean",
-  "default": false,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "features.live",
-  "group": "Features",
-  "label": "Live in-play data (SportAPI)",
-  "type": "boolean",
-  "default": false,
-  "public": true,
-  "applies_at": "immediately",
-  "help": "Live scores, match events and lineups from SportAPI. Turning this on also turns on the SportAPI job. Needs the SportAPI key and the league mapping."
- },
- {
-  "key": "home.sections",
-  "group": "Home",
-  "label": "Home sections, in order",
-  "type": "list",
-  "default": [
-   "top_insights",
-   "matches"
-  ],
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "home.top_insights_count",
-  "group": "Home",
-  "label": "Top insights shown",
-  "type": "number",
-  "default": 10,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "home.date_back_days",
-  "group": "Home",
-  "label": "Date strip days back",
-  "type": "number",
-  "default": 14,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "home.date_forward_days",
-  "group": "Home",
-  "label": "Date strip days forward",
-  "type": "number",
-  "default": 14,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "plans.trial_days",
-  "group": "Plans",
-  "label": "Default free-trial length for paid plans (days)",
-  "type": "number",
-  "default": 5,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "plans.currency",
-  "group": "Plans",
-  "label": "Currency",
-  "type": "string",
-  "default": "CAD",
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "plans.anonymous_finder_searches_per_day",
-  "group": "Plans",
-  "label": "Finder searches per day for signed-out visitors",
-  "type": "number",
-  "default": 3,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "finder.max_leagues",
-  "group": "Finder",
-  "label": "Max leagues per search",
-  "type": "number",
-  "default": 5,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "finder.last_options",
-  "group": "Finder",
-  "label": "Last-N-games choices",
-  "type": "list",
-  "default": [
-   2,
-   3,
-   4,
-   5,
-   6,
-   7,
-   8,
-   9,
-   10,
-   15,
-   20,
-   30
-  ],
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "finder.default_last",
-  "group": "Finder",
-  "label": "Default last N games",
-  "type": "number",
-  "default": 10,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "finder.thresholds",
-  "group": "Finder",
-  "label": "Threshold choices (N or more)",
-  "type": "list",
-  "default": [
-   1,
-   2,
-   3,
-   4,
-   5
-  ],
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "finder.stats",
-  "group": "Finder",
-  "label": "Stats offered",
-  "type": "list",
-  "default": [
-   "shots",
-   "sot",
-   "tackles",
-   "fouls_committed",
-   "fouls_won",
-   "interceptions",
-   "clearances",
-   "saves",
-   "goals",
-   "assists",
-   "yellow_cards"
-  ],
-  "public": true,
-  "applies_at": "immediately",
-  "help": "A stat is shown only if its data coverage passes engine.coverage_min."
- },
- {
-  "key": "grid.max_games",
-  "group": "Grids",
-  "label": "Max games in a grid",
-  "type": "number",
-  "default": 30,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "grid.default_games",
-  "group": "Grids",
-  "label": "Default games in a grid",
-  "type": "number",
-  "default": 10,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "copy.strings",
-  "group": "Copy",
-  "label": "UI string overrides (key to text)",
-  "type": "json",
-  "default": {},
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "copy.disclaimer",
-  "group": "Copy",
-  "label": "Footer disclaimer",
-  "type": "string",
-  "default": "Statistical analysis for information and entertainment. Not betting advice.",
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "copy.data_credit",
-  "group": "Copy",
-  "label": "Data credit line",
-  "type": "string",
-  "default": "",
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "copy.tier_names",
-  "group": "Copy",
-  "label": "Tier names",
-  "type": "json",
-  "default": {
-   "strong": "Strong",
-   "solid": "Solid",
-   "watch": "Watch"
+  {
+    "key": "features.insights",
+    "group": "Features",
+    "label": "Insights feed",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "copy.market_labels",
-  "group": "Copy",
-  "label": "Market labels",
-  "type": "json",
-  "default": {
-   "shots:0.5": "1+ shot",
-   "shots:1.5": "2+ shots",
-   "sot:0.5": "1+ shot on target",
-   "tackles:1.5": "2+ tackles",
-   "tackles:2.5": "3+ tackles",
-   "corners:4.5": "5+ corners",
-   "team_shots:11.5": "12+ shots"
+  {
+    "key": "features.finder",
+    "group": "Features",
+    "label": "Forecast Finder",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "copy.tactic_explanations",
-  "group": "Copy",
-  "label": "Tactic explanations",
-  "type": "json",
-  "default": {
-   "low_block": "Sits deep, gives up the ball and defends close to its own goal.",
-   "high_press": "Wins the ball high up the pitch with intense pressing.",
-   "possession": "Keeps the ball for long spells and builds attacks slowly."
+  {
+    "key": "features.squad_grid",
+    "group": "Features",
+    "label": "Squad grid",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "copy.reason_overrides",
-  "group": "Copy",
-  "label": "Reason sentence overrides (exact sentence to replacement)",
-  "type": "json",
-  "default": {},
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "track_record.min_scored",
-  "group": "Track record",
-  "label": "Minimum scored forecasts before the page shows",
-  "type": "number",
-  "default": 300,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.allow_signup",
-  "group": "Auth",
-  "label": "Allow new sign-ups",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.google_enabled",
-  "group": "Auth",
-  "label": "Google sign-in (specified, NOT coded in the reference)",
-  "type": "boolean",
-  "default": false,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "alerts.telegram_enabled",
-  "group": "Alerts",
-  "label": "Telegram lineup alerts",
-  "type": "boolean",
-  "default": false,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "alerts.telegram_bot_username",
-  "group": "Alerts",
-  "label": "Telegram bot username",
-  "type": "string",
-  "default": "",
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "ingest.daily_call_budget",
-  "group": "Ingest",
-  "label": "Max real API calls per UTC day",
-  "type": "int",
-  "default": 2000,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "ingest.rps",
-  "group": "Ingest",
-  "label": "Requests per second",
-  "type": "int",
-  "default": 3,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "ingest.concurrency",
-  "group": "Ingest",
-  "label": "Requests in flight",
-  "type": "int",
-  "default": 1,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "ingest.breaker_minutes",
-  "group": "Ingest",
-  "label": "Pause after repeated 429s",
-  "type": "int",
-  "default": 15,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "ingest.fixtures_sync_hours",
-  "group": "Ingest",
-  "label": "Upcoming fixtures refresh interval",
-  "type": "int",
-  "default": 6,
-  "public": false,
-  "applies_at": "next_tick",
-  "help": ""
- },
- {
-  "key": "ingest.results_sync_hours",
-  "group": "Ingest",
-  "label": "Check for new results every N hours (new matches only)",
-  "type": "number",
-  "default": 6,
-  "public": false,
-  "applies_at": "next_tick",
-  "help": "Each check costs 1 call per enabled league. Only matches not yet stored cost 3 more calls each. Stored matches are never fetched again."
- },
- {
-  "key": "ingest.lineups_watch_enabled",
-  "group": "Ingest",
-  "label": "Watch lineups before kickoff",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "next_tick",
-  "help": ""
- },
- {
-  "key": "ingest.reference_sync_days",
-  "group": "Ingest",
-  "label": "Leagues and seasons refresh",
-  "type": "int",
-  "default": 7,
-  "public": false,
-  "applies_at": "next_tick",
-  "help": ""
- },
- {
-  "key": "ingest.fixture_window_days",
-  "group": "Ingest",
-  "label": "Days of upcoming fixtures to keep",
-  "type": "int",
-  "default": 7,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "ingest.recheck_final_hours",
-  "group": "Ingest",
-  "label": "One re-check after full time",
-  "type": "int",
-  "default": 24,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "ingest.stale_limit_hours",
-  "group": "Ingest",
-  "label": "Show stale banner after this many hours",
-  "type": "int",
-  "default": 12,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "ingest.match_extra_events",
-  "group": "Ingest",
-  "label": "Also fetch /events per match (cards, goals, subs). Adds 1 call per match.",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "ingest.match_extra_detail",
-  "group": "Ingest",
-  "label": "Also fetch /matches/{id} per match (referee, stadium). Adds 1 call per match.",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "cache.ttl.fixtures_future_hours",
-  "group": "Cache",
-  "label": "Upcoming list TTL (hours)",
-  "type": "number",
-  "default": 6,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "cache.ttl.fixtures_matchday_hours",
-  "group": "Cache",
-  "label": "Upcoming list TTL on match days (hours)",
-  "type": "number",
-  "default": 2,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "cache.ttl.lineups_far_hours",
-  "group": "Cache",
-  "label": "Lineups TTL when kickoff is more than 3 h away (hours)",
-  "type": "number",
-  "default": 6,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "cache.ttl.lineups_near_minutes",
-  "group": "Cache",
-  "label": "Lineups TTL when kickoff is within 3 h (minutes)",
-  "type": "number",
-  "default": 20,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "cache.ttl.lineups_near_max_refresh",
-  "group": "Cache",
-  "label": "Max lineup refreshes per match",
-  "type": "number",
-  "default": 6,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "cache.ttl.reference_days",
-  "group": "Cache",
-  "label": "Leagues, teams, players TTL (days)",
-  "type": "number",
-  "default": 7,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "cache.ttl.error_minutes",
-  "group": "Cache",
-  "label": "Error response TTL (minutes)",
-  "type": "number",
-  "default": 10,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "cache.raw_retention_days",
-  "group": "Cache",
-  "label": "Keep raw responses this many days",
-  "type": "number",
-  "default": 30,
-  "public": false,
-  "applies_at": "next_ingest_run",
-  "help": ""
- },
- {
-  "key": "engine.history_rounds",
-  "group": "Engine",
-  "label": "Rounds of history per fit",
-  "type": "number",
-  "default": 320,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": " About three seasons: with the slower fade, older matches still carry weight (docs/22)."
- },
- {
-  "key": "engine.half_life_rounds",
-  "group": "Engine",
-  "label": "Recency half-life (rounds)",
-  "type": "number",
-  "default": 20,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.strength_decay",
-  "group": "Engine",
-  "label": "How fast old results fade (team strength)",
-  "type": "number",
-  "default": 0.01,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Per match date. 0.01 was best on 46,000 English league matches (docs/22); 0.02, the old value, gave too much weight to recent form."
- },
- {
-  "key": "engine.style_k",
-  "group": "Engine",
-  "label": "Style shrinkage",
-  "type": "number",
-  "default": 6,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.sigma_team",
-  "group": "Engine",
-  "label": "Team uncertainty",
-  "type": "number",
-  "default": 0.07,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.n_draws",
-  "group": "Engine",
-  "label": "Uncertainty draws",
-  "type": "number",
-  "default": 60,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.min_team_games",
-  "group": "Engine",
-  "label": "Min games per team",
-  "type": "number",
-  "default": 5,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.window_days",
-  "group": "Engine",
-  "label": "Forecast fixtures this many days ahead",
-  "type": "number",
-  "default": 3,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.coverage_min",
-  "group": "Engine",
-  "label": "Min data coverage to enable a market",
-  "type": "number",
-  "default": 0.9,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.keep_days",
-  "group": "Engine",
-  "label": "Keep old forecasts (days)",
-  "type": "number",
-  "default": 7,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.interactions",
-  "group": "Engine",
-  "label": "Style matchup terms",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.lineup_effects",
-  "group": "Engine",
-  "label": "Lineup effects (LOCKED off until a real-data backtest passes)",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.player_thresholds",
-  "group": "Engine",
-  "label": "Player thresholds",
-  "type": "json",
-  "default": {
-   "shots": [
-    0.5,
-    1.5
-   ],
-   "sot": [
-    0.5
-   ],
-   "tackles": [
-    1.5,
-    2.5
-   ]
+  {
+    "key": "features.team_totals",
+    "group": "Features",
+    "label": "Team totals grid",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.team_thresholds",
-  "group": "Engine",
-  "label": "Team thresholds",
-  "type": "json",
-  "default": {
-   "corners": [
-    4.5
-   ],
-   "shots": [
-    11.5
-   ]
+  {
+    "key": "features.against",
+    "group": "Features",
+    "label": "Against stats",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.auto_lines",
-  "group": "Engine",
-  "label": "Automatic lines",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "On: every player and team gets the lines that fit its own numbers, picked from the ladders below (docs/25). Off: the fixed thresholds above, the same for everyone."
- },
- {
-  "key": "engine.player_ladder",
-  "group": "Engine",
-  "label": "Player line ladder",
-  "type": "json",
-  "default": {
-   "shots": [
-    0.5,
-    1.5,
-    2.5,
-    3.5,
-    4.5,
-    5.5
-   ],
-   "sot": [
-    0.5,
-    1.5,
-    2.5,
-    3.5
-   ],
-   "tackles": [
-    1.5,
-    2.5,
-    3.5,
-    4.5,
-    5.5
-   ]
+  {
+    "key": "features.referees",
+    "group": "Features",
+    "label": "Referees",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Every line the engine scores for players when automatic lines are on. 2.5 = 3+. Tackles start at 2+: almost every outfield player makes 1 tackle, so it says little."
- },
- {
-  "key": "engine.team_ladder",
-  "group": "Engine",
-  "label": "Team line ladder",
-  "type": "json",
-  "default": {
-   "shots": [
-    6.5,
-    7.5,
-    8.5,
-    9.5,
-    10.5,
-    11.5,
-    12.5,
-    13.5,
-    14.5,
-    15.5,
-    16.5,
-    17.5,
-    18.5,
-    19.5,
-    20.5,
-    22.5
-   ],
-   "sot": [
-    1.5,
-    2.5,
-    3.5,
-    4.5,
-    5.5,
-    6.5,
-    7.5,
-    8.5
-   ],
-   "corners": [
-    1.5,
-    2.5,
-    3.5,
-    4.5,
-    5.5,
-    6.5,
-    7.5,
-    8.5,
-    9.5,
-    10.5
-   ],
-   "goals": [
-    0.5,
-    1.5,
-    2.5,
-    3.5,
-    4.5
-   ]
+  {
+    "key": "features.leaderboards",
+    "group": "Features",
+    "label": "Season leaderboards",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Every line the engine scores for teams when automatic lines are on."
- },
- {
-  "key": "engine.line_band",
-  "group": "Engine",
-  "label": "Lines kept: likelihood band",
-  "type": "list",
-  "default": [
-   0.5,
-   0.985
-  ],
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Lines kept per player or team and stat. The lower end decides how ambitious we are willing to get: raise it to drop long shots, lower it to keep them. Of whatever it leaves, the most likely engine.max_lines_per_stat are kept (docs/39, docs/44)."
- },
- {
-  "key": "engine.max_lines_per_stat",
-  "group": "Engine",
-  "label": "Lines kept per player and stat",
-  "type": "number",
-  "default": 3,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "How many lines each player or team keeps for one stat. The most LIKELY lines inside the band are kept, so a near-certain line is never crowded out by an ambitious one. How far down the ladder we go is engine.line_band's job (docs/44)."
- },
- {
-  "key": "engine.likely_starter_p",
-  "group": "Engine",
-  "label": "Likely starter: chance to play for full tiers",
-  "type": "number",
-  "default": 0.85,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Before lineups, a player with at least this chance to play can be Solid or Strong. On 2015/16 data, pre-lineup Strong for these players came true 83% of the time, Solid 71% (docs/25). 1.0 = only confirmed lineups."
- },
- {
-  "key": "engine.condition_on_play",
-  "group": "Engine",
-  "label": "Player lines: \"if he plays\"",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "On: a player's percentage assumes he plays, and his chance to play shows as a lineup badge instead (docs/27). On 93,000 real forecasts this was calibrated: players rated 80-85% reached the line 84% of the time, where the old number sat 8 points low at the top. Off: the old number that folds the chance to play in."
- },
- {
-  "key": "engine.min_p_play",
-  "group": "Engine",
-  "label": "Hide players unlikely to play",
-  "type": "number",
-  "default": 0.5,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Before lineups, a player whose chance to play is below this gets no card. With 'if he plays' on, a rarely used player could otherwise show a high percentage. Confirmed lineups always show."
- },
- {
-  "key": "combo.max_lines",
-  "group": "Engine",
-  "label": "Combo: most lines",
-  "type": "number",
-  "default": 6,
-  "public": true,
-  "applies_at": "immediately",
-  "help": "The most lines one combo can hold. The screens read it so the add button can say \"combo is full\"."
- },
- {
-  "key": "combo.pre_factors",
-  "group": "Engine",
-  "label": "Combo: correction before lineups",
-  "type": "list",
-  "default": [
-   1.0,
-   1.11,
-   1.19,
-   1.25
-  ],
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Multiply the lines' chances, then multiply by the entry for the number of players or teams (1, 2, 3, 4 or more). Measured on 237,000 real combinations: before lineups the plain product was 11%, 19% and 25% low for 2, 3 and 4. After lineups no correction is needed (docs/28)."
- },
- {
-  "key": "engine.style_half_life",
-  "group": "Engine",
-  "label": "Team averages: half-life in games",
-  "type": "number",
-  "default": 20,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "A team's game this many games ago counts half in its averages. Best on 27,000 matches, five leagues, 15 seasons (docs/25). 0 = old behaviour (all games equal)."
- },
- {
-  "key": "engine.style_opp_adjust",
-  "group": "Engine",
-  "label": "Team averages: judged against the opponent",
-  "type": "list",
-  "default": [
-   "shots",
-   "fouls",
-   "yellow"
-  ],
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "For these stats each game counts relative to what that opponent usually allows (or makes). Helped shots, on target, fouls and cards; not corners (docs/25)."
- },
- {
-  "key": "engine.style_cap_q",
-  "group": "Engine",
-  "label": "Team averages: cap per game (league quantile)",
-  "type": "number",
-  "default": 0.99,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "A single game's count is capped at this league quantile before averaging. A guard against freak games and feed errors; 0 = off."
- },
- {
-  "key": "engine.player_prior",
-  "group": "Engine",
-  "label": "Player averages: prior strength",
-  "type": "json",
-  "default": {
-   "shots": 40,
-   "sot": 40,
-   "tackles": 80
+  {
+    "key": "features.learn",
+    "group": "Features",
+    "label": "Learn pages",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "How many team-stat units of league average each player's share starts from. Higher = one big game moves him less. Tested per stat (docs/25)."
- },
- {
-  "key": "engine.feed_sort",
-  "group": "Engine",
-  "label": "Insights default order",
-  "type": "enum",
-  "default": "edge",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "edge = most different from the player's or team's usual (default); likely = highest percentage; kickoff."
- },
- {
-  "key": "engine.feed_max_p",
-  "group": "Engine",
-  "label": "Headline line: highest likelihood",
-  "type": "number",
-  "default": 0.97,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "A line above this never leads a card while the same player or team has another line; it still shows inside the card. Set it at the display cap to let near-certain lines lead (docs/39)."
- },
- {
-  "key": "referees.prior_cards",
-  "group": "Engine",
-  "label": "Referees: prior (cards)",
-  "type": "number",
-  "default": 80,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "A referee starts at average and needs about this many cards of history (about 20 matches) to move far (docs/25)."
- },
- {
-  "key": "referees.half_life",
-  "group": "Engine",
-  "label": "Referees: half-life in matches",
-  "type": "number",
-  "default": 60,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Older matches fade."
- },
- {
-  "key": "referees.cap_q",
-  "group": "Engine",
-  "label": "Referees: cap per match (league quantile)",
-  "type": "number",
-  "default": 0.99,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "One wild match counts as at most this quantile; 0 = off."
- },
- {
-  "key": "engine.markets_enabled",
-  "group": "Engine",
-  "label": "Markets on or off",
-  "type": "json",
-  "default": {
-   "player.shots": true,
-   "player.sot": true,
-   "player.tackles": true,
-   "team.corners": true,
-   "team.shots": true,
-   "team.sot": true,
-   "team.goals": true
+  {
+    "key": "features.favourites",
+    "group": "Features",
+    "label": "Favourites and notes",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.tier_strong",
-  "group": "Engine",
-  "label": "Strong cutoff [likelihood, lower bound]",
-  "type": "list",
-  "default": [
-   0.8,
-   0.7
-  ],
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.tier_solid",
-  "group": "Engine",
-  "label": "Solid cutoff [likelihood, lower bound]",
-  "type": "list",
-  "default": [
-   0.65,
-   0.55
-  ],
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.r_player",
-  "group": "Engine",
-  "label": "Player dispersion",
-  "type": "json",
-  "default": {
-   "shots": 6.0,
-   "sot": 5.0,
-   "tackles": 10.0
+  {
+    "key": "features.alerts",
+    "group": "Features",
+    "label": "Lineup alerts",
+    "type": "boolean",
+    "default": false,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.absence_model",
-  "group": "Engine",
-  "label": "Availability model (missed recent matches)",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "A player who has not featured in his club's last matches is likely injured, suspended or dropped (docs/22)."
- },
- {
-  "key": "engine.match_context",
-  "group": "Engine",
-  "label": "Results form and stakes in the match forecast",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Points above or below expectation in the last 5, and late-season stakes, move expected goals a little (docs/22)."
- },
- {
-  "key": "context.stakes_places",
-  "group": "Engine",
-  "label": "Places that matter, per league",
-  "type": "json",
-  "default": {},
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "{league iid: {\"upper\": 6, \"relegation\": 3}}. Missing leagues use 6 and 3."
- },
- {
-  "key": "injuries.enabled",
-  "group": "Engine",
-  "label": "Injuries feed from API-Football",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Uses the API-Football key and the player mapping from the image sync. Run check_apifootball.py --injuries first."
- },
- {
-  "key": "injuries.stale_days",
-  "group": "Engine",
-  "label": "Drop feed rows not refreshed for (days)",
-  "type": "int",
-  "default": 3,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "engine.calibration",
-  "group": "Engine",
-  "label": "Calibrate percentages",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Maps the engine's raw likelihoods to tested percentages (docs/21). Off shows raw numbers."
- },
- {
-  "key": "engine.calibration_auto",
-  "group": "Engine",
-  "label": "Refit calibration from our own results",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Weekly. A new map is kept only if it beats the current one on the newest 30% of results."
- },
- {
-  "key": "engine.calib_min_scored",
-  "group": "Engine",
-  "label": "Scored forecasts needed before refitting",
-  "type": "int",
-  "default": 5000,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "engine.exclude_positions",
-  "group": "Engine",
-  "label": "Positions excluded from player markets",
-  "type": "list",
-  "default": [
-   "GK"
-  ],
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": ""
- },
- {
-  "key": "context.enabled",
-  "group": "Engine",
-  "label": "Calendar context (rotation watch)",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Read every competition a club plays in. Shows the rotation chip on forecasts."
- },
- {
-  "key": "context.start_model",
-  "group": "Engine",
-  "label": "Rotation changes who starts",
-  "type": "enum",
-  "default": "auto",
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "off | auto | on. Auto switches on only when the walk-forward check passes (context.gate_z). On forces it."
- },
- {
-  "key": "context.importance",
-  "group": "Engine",
-  "label": "Competition importance (league match = 1.0)",
-  "type": "json",
-  "default": {
-   "league": 1.0,
-   "ucl": 0.95,
-   "ucl_late": 1.15,
-   "uel": 0.75,
-   "uel_late": 0.9,
-   "uecl": 0.6,
-   "uecl_late": 0.75,
-   "fa_cup": 0.55,
-   "fa_cup_late": 0.8,
-   "league_cup": 0.4,
-   "league_cup_late": 0.75,
-   "domestic_cup": 0.55,
-   "domestic_cup_late": 0.8,
-   "super_cup": 0.5,
-   "friendly": 0.2,
-   "other": 0.7
+  {
+    "key": "features.newsletter",
+    "group": "Features",
+    "label": "Newsletter sign-up",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Keys: league, ucl, ucl_late, uel, fa_cup, league_cup, ... A _late key applies from the quarter-finals."
- },
- {
-  "key": "context.gate_z",
-  "group": "Engine",
-  "label": "Gate: required gain in standard errors",
-  "type": "number",
-  "default": 2.0,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "A layer is used only if it beats the plain version on held-out matches by this many standard errors."
- },
- {
-  "key": "context.holdout_share",
-  "group": "Engine",
-  "label": "Gate: share of recent matches held out",
-  "type": "number",
-  "default": 0.3,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "The rest trains the layer, these test it."
- },
- {
-  "key": "context.min_rows",
-  "group": "Engine",
-  "label": "Gate: fewest player-match rows to train",
-  "type": "int",
-  "default": 3000,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "Below this the start model stays off."
- },
- {
-  "key": "context.calendar_days",
-  "group": "Engine",
-  "label": "Calendar look-ahead (days)",
-  "type": "int",
-  "default": 10,
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "How far ahead the fixture list is read for the next bigger match."
- },
- {
-  "key": "engine.tactic_layers",
-  "group": "Engine",
-  "label": "Tactical-style layers (press, build-up, counter)",
-  "type": "enum",
-  "default": "off",
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "off | auto | on. Off by default: free-data tests showed no gain beyond team rates. Auto uses it only if the gate passes. Needs the extra tactical columns."
- },
- {
-  "key": "engine.shape_layer",
-  "group": "Engine",
-  "label": "Lineup shape (defenders and forwards in the confirmed eleven)",
-  "type": "enum",
-  "default": "off",
-  "public": false,
-  "applies_at": "next_engine_run",
-  "help": "off | auto | on. Applies only once a lineup is confirmed. Auto uses it only if the gate passes."
- },
- {
-  "key": "provider.position_map",
-  "group": "Provider",
-  "label": "position_id to GK/DEF/MID/FWD (fill starters after check A6)",
-  "type": "json",
-  "default": {
-   "0": "GK",
-   "1": "DEF",
-   "2": "MID",
-   "3": "FWD",
-   "4": "FWD"
+  {
+    "key": "features.track_record",
+    "group": "Features",
+    "label": "Track Record",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Raw position_id to GK/DEF/MID/FWD. GUESS until check A6 is done. A raw id that is missing here is dropped from player markets and logged."
- },
- {
-  "key": "provider.pitchapi.team_keys",
-  "group": "Provider",
-  "label": "Team stat keys in /stats (null = not yet verified)",
-  "type": "json",
-  "default": {
-   "poss": "BallPossesion",
-   "xg": "expected_goals",
-   "shots": null,
-   "sot": null,
-   "corners": null,
-   "tackles": null,
-   "fouls": null,
-   "yellow_cards": null
+  {
+    "key": "features.following",
+    "group": "Features",
+    "label": "Following",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "provider.pitchapi.player_keys",
-  "group": "Provider",
-  "label": "Player stat keys in /players (null = not yet verified)",
-  "type": "json",
-  "default": {
-   "minutes": {
-    "group": "top_stats",
-    "key": null
-   },
-   "shots": {
-    "group": "top_stats",
-    "key": "total_shots"
-   },
-   "sot": {
-    "group": "top_stats",
-    "key": "shot_accuracy",
-    "use": "value"
-   },
-   "goals": {
-    "group": "top_stats",
-    "key": "goals"
-   },
-   "assists": {
-    "group": "top_stats",
-    "key": "assists"
-   },
-   "xg": {
-    "group": "top_stats",
-    "key": null
-   },
-   "saves": {
-    "group": "top_stats",
-    "key": null
-   },
-   "tackles": {
-    "group": "defense",
-    "key": null
-   },
-   "interceptions": {
-    "group": "defense",
-    "key": null
-   },
-   "clearances": {
-    "group": "defense",
-    "key": null
-   },
-   "fouls_committed": {
-    "group": "duels",
-    "key": null
-   },
-   "fouls_won": {
-    "group": "duels",
-    "key": null
-   },
-   "passes": {
-    "group": "attack",
-    "key": null,
-    "use": "value"
-   }
+  {
+    "key": "features.saved",
+    "group": "Features",
+    "label": "Saved",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Where each player number lives in a PitchAPI stat line: the group and the inner `key` (never the display label, which changes). `use` picks which half of a made/attempted pair: value = completed, total = attempted. Map them from the list on PitchAPI > Quality and mapping, which reads the keys out of a real answer. minutes and the duels group (fouls won, fouls committed) are unmapped by default and are what the fouls markets are waiting on (docs/47)."
- },
- {
-  "key": "features.show_match_probs",
-  "group": "Features",
-  "label": "Show win/draw/loss bars (experimental: did not beat plain frequencies in the simulated test)",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": "Turn off if the real-data backtest shows no gain."
- },
- {
-  "key": "ingest.paused_reason",
-  "group": "Ingest",
-  "label": "Why ingest is paused (set automatically; cleared when a new key is saved)",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Shown as a red banner in Admin when not empty."
- },
- {
-  "key": "auth.require_email_verification",
-  "group": "Auth",
-  "label": "Require a verified e-mail before sign-in",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.password_min_length",
-  "group": "Auth",
-  "label": "Minimum password length",
-  "type": "number",
-  "default": 10,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.session_days",
-  "group": "Auth",
-  "label": "Sign-in lasts (days) for normal users",
-  "type": "number",
-  "default": 14,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.staff_session_minutes",
-  "group": "Auth",
-  "label": "Staff session length (minutes)",
-  "type": "number",
-  "default": 60,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.staff_idle_minutes",
-  "group": "Auth",
-  "label": "Staff session idle timeout (minutes)",
-  "type": "number",
-  "default": 20,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.max_failed_logins",
-  "group": "Auth",
-  "label": "Failed sign-ins before lockout",
-  "type": "number",
-  "default": 5,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.lockout_minutes",
-  "group": "Auth",
-  "label": "Lockout length (minutes)",
-  "type": "number",
-  "default": 15,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.reset_token_minutes",
-  "group": "Auth",
-  "label": "Password-reset link valid (minutes)",
-  "type": "number",
-  "default": 60,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.verify_token_hours",
-  "group": "Auth",
-  "label": "E-mail verification link valid (hours)",
-  "type": "number",
-  "default": 48,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "auth.optional_2fa_for_users",
-  "group": "Auth",
-  "label": "Let normal users turn on two-factor sign-in",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "security.allowed_origins",
-  "group": "Security",
-  "label": "Allowed browser origins (the app's own URLs)",
-  "type": "list",
-  "default": [],
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Empty = same host only. Used for CORS and the CSRF origin check."
- },
- {
-  "key": "security.trusted_proxy_count",
-  "group": "Security",
-  "label": "Proxies in front of the app (for client IP)",
-  "type": "number",
-  "default": 1,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "security.rate_limit_auth_per_minute",
-  "group": "Security",
-  "label": "Auth requests per minute per IP",
-  "type": "number",
-  "default": 10,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "security.rate_limit_write_per_minute",
-  "group": "Security",
-  "label": "Other write requests per minute per IP",
-  "type": "number",
-  "default": 60,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "security.rate_limit_read_per_minute",
-  "group": "Security",
-  "label": "Read requests per minute per IP",
-  "type": "number",
-  "default": 240,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "security.max_body_kb",
-  "group": "Security",
-  "label": "Largest request body (KB)",
-  "type": "number",
-  "default": 256,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "security.require_staff_2fa",
-  "group": "Security",
-  "label": "Staff must use two-factor sign-in",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "security.log_retention_days",
-  "group": "Security",
-  "label": "Keep application logs (days)",
-  "type": "number",
-  "default": 30,
-  "public": false,
-  "applies_at": "next restart",
-  "help": ""
- },
- {
-  "key": "security.auth_log_retention_days",
-  "group": "Security",
-  "label": "Keep sign-in logs (days)",
-  "type": "number",
-  "default": 90,
-  "public": false,
-  "applies_at": "next restart",
-  "help": ""
- },
- {
-  "key": "billing.mode",
-  "group": "Billing",
-  "label": "Stripe mode (test or live)",
-  "type": "enum",
-  "default": "test",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Live needs a live key AND PitchAPI's written OK for paid use (guide check B1)."
- },
- {
-  "key": "billing.stripe_api_version",
-  "group": "Billing",
-  "label": "Stripe API version to pin (blank = account default)",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Pin one version and test webhooks against it."
- },
- {
-  "key": "billing.success_url",
-  "group": "Billing",
-  "label": "After checkout: go to",
-  "type": "string",
-  "default": "/account/billing?status=success",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "billing.cancel_url",
-  "group": "Billing",
-  "label": "If checkout is cancelled: go to",
-  "type": "string",
-  "default": "/pricing?status=cancelled",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "billing.portal_return_url",
-  "group": "Billing",
-  "label": "After the billing portal: go to",
-  "type": "string",
-  "default": "/account/billing",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "billing.allow_promo_codes",
-  "group": "Billing",
-  "label": "Allow promotion codes at checkout",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "billing.past_due_grace_days",
-  "group": "Billing",
-  "label": "Keep paid access this many days after a failed payment",
-  "type": "number",
-  "default": 7,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "billing.automatic_tax",
-  "group": "Billing",
-  "label": "Use Stripe Tax at checkout",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Needs Stripe Tax set up in the Stripe dashboard."
- },
- {
-  "key": "email.enabled",
-  "group": "Email",
-  "label": "Send e-mail (needs a Resend key and a verified domain)",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "email.from_name",
-  "group": "Email",
-  "label": "From name",
-  "type": "string",
-  "default": "Forecast",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "email.from_address",
-  "group": "Email",
-  "label": "From address (on your verified domain)",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "email.reply_to",
-  "group": "Email",
-  "label": "Reply-to address",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "email.footer_address",
-  "group": "Email",
-  "label": "Postal address shown in marketing e-mail (required by law)",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "email.marketing_enabled",
-  "group": "Email",
-  "label": "Allow marketing campaigns",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "email.daily_send_cap",
-  "group": "Email",
-  "label": "Most e-mails sent per day (match your Resend plan)",
-  "type": "number",
-  "default": 100,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "analytics.first_party_enabled",
-  "group": "Analytics",
-  "label": "Count page views and actions in our own database",
-  "type": "boolean",
-  "default": true,
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "analytics.respect_dnt",
-  "group": "Analytics",
-  "label": "Skip counting when the browser sends Do Not Track",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "analytics.retention_days",
-  "group": "Analytics",
-  "label": "Keep event rows (days)",
-  "type": "number",
-  "default": 400,
-  "public": false,
-  "applies_at": "next restart",
-  "help": ""
- },
- {
-  "key": "site.maintenance_message",
-  "group": "Site",
-  "label": "Maintenance message",
-  "type": "string",
-  "default": "We are updating the data. Back shortly.",
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "site.support_email",
-  "group": "Site",
-  "label": "Support e-mail shown in the footer",
-  "type": "string",
-  "default": "",
-  "public": true,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "popups.enabled",
-  "group": "Popups",
-  "label": "Show popups to visitors (master switch)",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "popups.max_per_session",
-  "group": "Popups",
-  "label": "Most popups one visitor sees in a visit",
-  "type": "int",
-  "default": 2,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "0 turns them all off for that visit."
- },
- {
-  "key": "popups.min_gap_seconds",
-  "group": "Popups",
-  "label": "Quiet time between two popups (seconds)",
-  "type": "int",
-  "default": 90,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "newsletter.double_optin",
-  "group": "Newsletter",
-  "label": "Ask people to confirm by e-mail before they join the list",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Keep this on. It is the proof that the address belongs to them."
- },
- {
-  "key": "email.provider",
-  "group": "Email",
-  "label": "E-mail provider",
-  "type": "enum",
-  "default": "resend",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "resend | postmark | sendgrid | brevo | smtp"
- },
- {
-  "key": "email.smtp_host",
-  "group": "Email",
-  "label": "SMTP server host (only for provider smtp)",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "email.smtp_port",
-  "group": "Email",
-  "label": "SMTP port",
-  "type": "int",
-  "default": 587,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "email.smtp_user",
-  "group": "Email",
-  "label": "SMTP user name",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "email.smtp_security",
-  "group": "Email",
-  "label": "SMTP security",
-  "type": "enum",
-  "default": "starttls",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "starttls | ssl"
- },
- {
-  "key": "integrations.audience_provider",
-  "group": "Integrations",
-  "label": "Send new list members to",
-  "type": "enum",
-  "default": "none",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "none | mailchimp | brevo | mailerlite"
- },
- {
-  "key": "integrations.audience_list_id",
-  "group": "Integrations",
-  "label": "Audience, list or group id at that provider",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "integrations.webhooks_enabled",
-  "group": "Integrations",
-  "label": "Send outbound webhooks",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Master switch for all endpoints."
- },
- {
-  "key": "tracking.enabled",
-  "group": "Tracking",
-  "label": "Load ad and analytics tags (needs consent)",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Off by default. Owner only. Visitors must say yes in the cookie banner first."
- },
- {
-  "key": "tracking.ga4_id",
-  "group": "Tracking",
-  "label": "Google Analytics 4 measurement id",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Looks like G-XXXXXXXXXX"
- },
- {
-  "key": "tracking.meta_pixel_id",
-  "group": "Tracking",
-  "label": "Meta pixel id",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Digits only"
- },
- {
-  "key": "tracking.google_ads_id",
-  "group": "Tracking",
-  "label": "Google Ads tag id",
-  "type": "string",
-  "default": "",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Looks like AW-123456789"
- },
- {
-  "key": "tracking.require_consent",
-  "group": "Tracking",
-  "label": "Wait for a yes in the cookie banner before loading tags",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Turning this off may break privacy law in Canada and the EU. Owner only."
- },
- {
-  "key": "admin.digest_enabled",
-  "group": "Admin alerts",
-  "label": "Send the weekly team summary e-mail",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Goes only to staff who switch it on in their account."
- },
- {
-  "key": "admin.alerts_enabled",
-  "group": "Admin alerts",
-  "label": "E-mail the team when something looks wrong",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "admin.alert_signup_drop_pct",
-  "group": "Admin alerts",
-  "label": "Alert when sign-ups fall by this percent against the week before",
-  "type": "int",
-  "default": 50,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "admin.alert_errors_per_hour",
-  "group": "Admin alerts",
-  "label": "Alert when server errors in one hour pass",
-  "type": "int",
-  "default": 20,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "admin.alert_failed_payments",
-  "group": "Admin alerts",
-  "label": "Alert when failed payments in one day pass",
-  "type": "int",
-  "default": 3,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "admin.alert_cooldown_hours",
-  "group": "Admin alerts",
-  "label": "Hours before the same alert can e-mail again",
-  "type": "int",
-  "default": 6,
-  "public": false,
-  "applies_at": "immediately",
-  "help": ""
- },
- {
-  "key": "newsletter.consent_text",
-  "group": "Newsletter",
-  "label": "Sentence people agree to on the footer sign-up form",
-  "type": "string",
-  "default": "Yes, send me the weekly forecast e-mail. I can unsubscribe at any time.",
-  "public": true,
-  "applies_at": "immediately",
-  "help": "Shown next to the tick box. It is saved with each sign-up as proof of consent."
- },
- {
-  "key": "images.enabled",
-  "group": "Images",
-  "label": "Show club, league and player images",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "help": "Off until the owner has read API-Football's terms and checked a few images. When off, the app shows initials and a shield.",
-  "applies_at": "immediately"
- },
- {
-  "key": "images.leagues",
-  "group": "Images",
-  "label": "Our league to API-Football league id",
-  "type": "json",
-  "default": {},
-  "public": false,
-  "help": "{\"<our league iid>\": <API-Football league id>}. Usual ids: 39 Premier League, 140 La Liga, 135 Serie A, 78 Bundesliga, 61 Ligue 1. Check each in your API-Football dashboard.",
-  "applies_at": "immediately"
- },
- {
-  "key": "images.daily_calls",
-  "group": "Images",
-  "label": "API calls the image sync may use per day",
-  "type": "int",
-  "default": 90,
-  "public": false,
-  "help": "The free plan allows 100. The rest is headroom.",
-  "applies_at": "immediately"
- },
- {
-  "key": "images.min_confidence",
-  "group": "Images",
-  "label": "Name match needed to use an image without review",
-  "type": "number",
-  "default": 0.9,
-  "public": false,
-  "help": "Between 0.7 and 1. Below it, a person approves the match. A wrong photo is worse than none.",
-  "applies_at": "immediately"
- },
- {
-  "key": "images.players",
-  "group": "Images",
-  "label": "Fetch player photos",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "help": "Turn off to fetch only league and club logos.",
-  "applies_at": "immediately"
- },
- {
-  "key": "images.max_bytes",
-  "group": "Images",
-  "label": "Largest image we will store (bytes)",
-  "type": "int",
-  "default": 400000,
-  "public": false,
-  "help": "Bigger files are refused.",
-  "applies_at": "immediately"
- },
- {
-  "key": "images.season",
-  "group": "Images",
-  "label": "Season to read clubs from (0 = automatic)",
-  "type": "int",
-  "default": 0,
-  "public": false,
-  "help": "The free plan may not read the newest season. Automatic tries this season, then the two before.",
-  "applies_at": "immediately"
- },
- {
-  "key": "images.team_aliases",
-  "group": "Images",
-  "label": "Club name aliases",
-  "type": "json",
-  "default": {},
-  "public": false,
-  "help": "{\"our name\": \"their name\"} for clubs the matcher misses, for example {\"Man Utd\": \"Manchester United\"}.",
-  "applies_at": "immediately"
- },
- {
-  "key": "images.use_provider_urls",
-  "group": "Images",
-  "label": "Fall back to PitchAPI image links",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "help": "Off: we never link to another site's images. PitchAPI's hot-linking terms are not stated.",
-  "applies_at": "immediately"
- },
- {
-  "key": "images.credit_text",
-  "group": "Images",
-  "label": "Image credit line (footer)",
-  "type": "string",
-  "default": "Club names, crests and player photos belong to their owners. We are not affiliated with any club or league.",
-  "public": true,
-  "help": "Shown in the footer when images are on.",
-  "applies_at": "immediately"
- },
- {
-  "key": "sportapi.enabled",
-  "group": "Live (SportAPI)",
-  "label": "Live data from SportAPI",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Live scores, events, lineups and results from SportAPI (docs/23)."
- },
- {
-  "key": "sportapi.daily_calls",
-  "group": "Live (SportAPI)",
-  "label": "Daily call limit",
-  "type": "int",
-  "default": 1800,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Hard stop per UTC day. The plan allows 2,000; keep some spare."
- },
- {
-  "key": "sportapi.leagues",
-  "group": "Live (SportAPI)",
-  "label": "Followed leagues (our league to SportAPI league)",
-  "type": "json",
-  "default": {},
-  "public": false,
-  "applies_at": "immediately",
-  "help": "{our league iid: SportAPI league id}. Only these leagues are followed. Premier League is 24."
- },
- {
-  "key": "sportapi.live_interval_s",
-  "group": "Live (SportAPI)",
-  "label": "Scoreboard refresh while live (seconds)",
-  "type": "int",
-  "default": 60,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Scoreboard refresh while a followed match is live or about to start."
- },
- {
-  "key": "sportapi.idle_interval_s",
-  "group": "Live (SportAPI)",
-  "label": "Scoreboard refresh before kick-off (seconds)",
-  "type": "int",
-  "default": 900,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Scoreboard refresh when followed matches are later today."
- },
- {
-  "key": "sportapi.quiet_interval_s",
-  "group": "Live (SportAPI)",
-  "label": "Scoreboard refresh on quiet days (seconds)",
-  "type": "int",
-  "default": 10800,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Scoreboard refresh on days with nothing followed."
- },
- {
-  "key": "sportapi.events_refresh_s",
-  "group": "Live (SportAPI)",
-  "label": "Events refresh per live match (seconds)",
-  "type": "int",
-  "default": 600,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Events refresh per live match (also fetched at once on any goal or status change)."
- },
- {
-  "key": "sportapi.window_before_min",
-  "group": "Live (SportAPI)",
-  "label": "Fast polling starts before kick-off (minutes)",
-  "type": "int",
-  "default": 15,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Start fast polling this many minutes before the first kick-off."
- },
- {
-  "key": "sportapi.lineups_minutes",
-  "group": "Live (SportAPI)",
-  "label": "Lineup checks before kick-off (minutes)",
-  "type": "list",
-  "default": [
-   75,
-   40,
-   15
-  ],
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Minutes before kick-off to ask for lineups, until they arrive."
- },
- {
-  "key": "sportapi.lineups_to_engine",
-  "group": "Live (SportAPI)",
-  "label": "Use SportAPI lineups in the engine",
-  "type": "boolean",
-  "default": true,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Use a SportAPI eleven as the confirmed lineup when all 11 match our players and PitchAPI has none."
- },
- {
-  "key": "sportapi.team_aliases",
-  "group": "Live (SportAPI)",
-  "label": "Extra club-name pairs",
-  "type": "json",
-  "default": {},
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Extra club-name pairs for matching SportAPI teams to ours."
- },
- {
-  "key": "sportapi.min_confidence",
-  "group": "Live (SportAPI)",
-  "label": "Name-match score needed",
-  "type": "number",
-  "default": 0.9,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Name-match score needed to link a team or player without review."
- },
- {
-  "key": "sportapi.backfill_max_days",
-  "group": "Live (SportAPI)",
-  "label": "Most dates per backfill",
-  "type": "int",
-  "default": 60,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Most dates per backfill request."
- },
- {
-  "key": "sportapi.reserve_for_live",
-  "group": "Live (SportAPI)",
-  "label": "Calls kept for live scores during a backfill",
-  "type": "int",
-  "default": 600,
-  "public": false,
-  "applies_at": "immediately",
-  "help": "Calls a backfill always leaves for today's live scores."
- },
- {
-  "key": "sportapi.upcoming_days",
-  "label": "Upcoming days to load",
-  "type": "int",
-  "default": 7,
-  "help": "Days ahead we load fixtures for (one call a day). Kick-off times and postponements come from here. 0 turns it off.",
-  "group": "Live (SportAPI)",
-  "public": false,
-  "applies_at": "immediately"
- },
- {
-  "key": "sportapi.upcoming_interval_h",
-  "label": "Upcoming refresh (hours)",
-  "type": "int",
-  "default": 6,
-  "help": "How often we reload each upcoming day.",
-  "group": "Live (SportAPI)",
-  "public": false,
-  "applies_at": "immediately"
- },
- {
-  "key": "sportapi.live_stats",
-  "label": "Live match statistics",
-  "type": "boolean",
-  "default": false,
-  "help": "Loads shots, shots on target, corners and tackles for live matches so those forecasts can tick green. Costs one call per live match every few minutes. Turn on after you confirm the answer shape in Admin > Data > Endpoint explorer (see docs/31).",
-  "group": "Live (SportAPI)",
-  "public": false,
-  "applies_at": "immediately"
- },
- {
-  "key": "sportapi.stats_refresh_s",
-  "label": "Live statistics refresh (seconds)",
-  "type": "int",
-  "default": 180,
-  "help": "How often each live match loads its statistics.",
-  "group": "Live (SportAPI)",
-  "public": false,
-  "applies_at": "immediately"
- },
- {
-  "key": "sportapi.stats_keys",
-  "label": "Live statistics names",
-  "type": "json",
-  "default": {
-   "shots": [
-    "shots",
-    "total_shots",
-    "shots_total",
-    "total shots"
-   ],
-   "sot": [
-    "shots_on_target",
-    "on_target",
-    "sot",
-    "shots on target"
-   ],
-   "corners": [
-    "corners",
-    "corner_kicks",
-    "corner kicks"
-   ],
-   "tackles": [
-    "tackles",
-    "total_tackles"
-   ]
+  {
+    "key": "features.search",
+    "group": "Features",
+    "label": "Search",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "help": "The names SportAPI uses for each statistic, lower case. Add a name if a statistic is missing in the probe.",
-  "group": "Live (SportAPI)",
-  "public": false,
-  "applies_at": "immediately"
- },
- {
-  "key": "engine.tier_mode",
-  "label": "Tier rule",
-  "type": "string",
-  "default": "earned",
-  "help": "earned: tiers come from the whole chance and our track record (docs/31). classic: the old cut-offs.",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.strong_min",
-  "label": "Strong: whole chance at least",
-  "type": "float",
-  "default": 0.9,
-  "help": "Strong means it happens about this often. A player line counts as chance x chance to play.",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.strong_lo_min",
-  "label": "Strong: low end at least",
-  "type": "float",
-  "default": 0.84,
-  "help": "The low end of the range must also clear this.",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.solid_min",
-  "label": "Solid: whole chance at least",
-  "type": "float",
-  "default": 0.8,
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.solid_lo_min",
-  "label": "Solid: low end at least",
-  "type": "float",
-  "default": 0.7,
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.watch_min",
-  "label": "Watch: whole chance at least",
-  "type": "float",
-  "default": 0.6,
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.earned_min_n",
-  "label": "Track record: results needed",
-  "type": "int",
-  "default": 40,
-  "help": "Similar finished lines needed before a tier is trusted. Fewer: Strong drops to Solid.",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.earned_prior_k",
-  "label": "Track record: weight of the stated chance",
-  "type": "float",
-  "default": 20.0,
-  "help": "Higher keeps the tier closer to the stated chance until results pile up.",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.strong_needs_lineup",
-  "label": "Strong needs a confirmed eleven (players)",
-  "type": "boolean",
-  "default": true,
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.player_anchor",
-  "label": "Player record anchor",
-  "type": "boolean",
-  "default": true,
-  "help": "Blend a player's own hit rate over his last games into the line (docs/32). Stars who clear a line almost every game are no longer held down by the average spread.",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.anchor_min_games",
-  "label": "Anchor: games needed",
-  "type": "int",
-  "default": 15,
-  "help": "Games played (of his last 40) before his own record counts.",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.anchor_k",
-  "label": "Anchor: weight of the model",
-  "type": "float",
-  "default": 30.0,
-  "help": "Higher keeps the model's number closer. The record's weight is games / (games + this).",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.anchor_max_w",
-  "label": "Anchor: most weight his record can take",
-  "type": "float",
-  "default": 0.4,
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.p_cap",
-  "label": "Highest chance we show",
-  "type": "float",
-  "default": 0.985,
-  "help": "Anchored lines never show above this. The calibration map still stops at 97%.",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.ratings_blend",
-  "label": "Team ratings weight",
-  "type": "float",
-  "default": 0.7,
-  "help": "How much the team attack-and-defence ratings count in each team total (shots, corners, tackles, ...). 0 = engine regression only (docs/33).",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.cards_ratings_blend",
-  "label": "Cards: team ratings weight",
-  "type": "float",
-  "default": 0.7,
-  "help": "How much the yellow-card team ratings count in the match cards forecast. 0 = old all-time average (docs/33).",
-  "group": "Engine",
-  "public": false,
-  "applies_at": "next engine run"
- },
- {
-  "key": "engine.script_v2",
-  "group": "Engine",
-  "label": "Game state: lopsided and tempo",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "next engine run",
-  "help": "Adds two things the model can see before kick-off: how one-sided the fixture looks, and how many goals the two clubs' matches usually carry. A side expected to lead sits deeper; an open game has more of everything. Off until engine_ab.py passes it on your data (docs/37)."
- },
- {
-  "key": "engine.fit_player_r",
-  "group": "Engine",
-  "label": "Fit player spread from results",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "next engine run",
-  "help": "Works out how much a player's count bounces around its average from your own results, instead of the fixed numbers in 'Player dispersion'. Off until engine_ab.py passes it on your data (docs/37)."
- },
- {
-  "key": "engine.personal_lines",
-  "group": "Engine",
-  "label": "A line for each player and team",
-  "type": "boolean",
-  "default": false,
-  "public": false,
-  "applies_at": "next engine run",
-  "help": "Gives every player and team its own line for each stat: the count it clears about half the time in its usual game, worked out from its own fitted rate rather than one line for the whole league. Stops 'PSG 9+ shots' and '1+ shot' - lines that are true for nearly everyone and so say nothing. With this on, a likelihood above a half means more than that entity usually manages and below a half means less (docs/52). Off until engine_ab.py passes it on your data."
- },
- {
-  "key": "engine.personal_spread",
-  "group": "Engine",
-  "label": "Neighbour lines to keep",
-  "type": "int",
-  "default": 1,
-  "public": false,
-  "applies_at": "next engine run",
-  "help": "How many lines either side of each entity's own line to work out as well, so the Finder has a range to answer from. 1 gives three lines in all. Only used when 'A line for each player and team' is on."
- },
- {
-  "key": "engine.departure_strong",
-  "group": "Engine",
-  "label": "Strong: gap from usual",
-  "type": "float",
-  "default": 0.12,
-  "public": false,
-  "applies_at": "next engine run",
-  "help": "With 'A line for each player and team' on, a forecast is graded on how far it moves from what that player or team usually does, not on how likely it is - at their own half-way line, likelihood says the same thing about everybody. Strong needs a gap of at least this much AND a likely range that sits wholly on one side of their usual (docs/52)."
- },
- {
-  "key": "engine.departure_solid",
-  "group": "Engine",
-  "label": "Solid: gap from usual",
-  "type": "float",
-  "default": 0.06,
-  "public": false,
-  "applies_at": "next engine run",
-  "help": "The gap from usual a forecast needs to reach Solid. Half this value is the floor for Watch; below that the fixture looks like any other for them and the line gets no tier, so it never reaches a feed."
- },
- {
-  "key": "engine.opp_pos_k",
-  "group": "Engine",
-  "label": "Opponent by position: prior strength",
-  "type": "float",
-  "default": 0,
-  "public": false,
-  "applies_at": "next engine run",
-  "help": "0 = off. Above 0, each forecast also uses what this opponent lets players in that position do (what a full-back allows a winger). Higher numbers trust the opponent's record less. 20 is the tested starting point. The team total never changes, only how it is split between players (docs/37)."
- },
- {
-  "key": "engine.xg_blend",
-  "group": "Engine",
-  "label": "Expected goals in team strength",
-  "type": "float",
-  "default": 0,
-  "public": false,
-  "applies_at": "next engine run",
-  "help": "0 = off. Above 0, match chances use a second strength model fitted on expected goals as well as the one fitted on goals. Expected goals are steadier than goals, which are few and swingy. 0.5 counts them equally. Needs expected goals in the feed (docs/37)."
- },
- {
-  "key": "engine.market_weights",
-  "group": "Engine",
-  "label": "How important each market is",
-  "type": "json",
-  "default": {
-   "player": {
-    "sot": 1.4,
-    "tackles": 1.3,
-    "passes": 1.25,
-    "fouls_won": 1.2,
-    "fouls": 1.15,
-    "goals": 1.2,
-    "assists": 1.1,
-    "yellow_cards": 1.05,
-    "shots": 1.0
-   },
-   "team": {
-    "goals": 1.4,
-    "match_goals": 1.4,
-    "yellow_cards": 1.3,
-    "match_yellow_cards": 1.3,
-    "corners": 1.25,
-    "shots": 1.1,
-    "sot": 1.2
-   }
+  {
+    "key": "features.beta_tag",
+    "group": "Features",
+    "label": "Beta tag",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
   },
-  "public": false,
-  "applies_at": "immediately",
-  "help": "What each market is worth when choosing the one line a card leads with. A line's score is this weight x its lift over usual x its likelihood, so an important market still has to be saying something. Anything not listed counts as 1.0. Order from docs/39 (docs/46)."
- },
- {
-  "key": "engine.feed_group",
-  "group": "Engine",
-  "label": "How feed cards are grouped",
-  "type": "enum",
-  "default": "player_market",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "player_market (default) = one card per player or team per market, so a good shots line and a good on-target line both surface; player = one card for everything that player has; line = no grouping, every line its own card (docs/46)."
- },
- {
-  "key": "engine.lift_scale",
-  "group": "Engine",
-  "label": "How 'different from usual' is measured",
-  "type": "enum",
-  "default": "odds",
-  "public": false,
-  "applies_at": "immediately",
-  "help": "odds (default) compares the change in log-odds, so 'twice as likely as usual' counts the same whether a line is usually 20% or usually 90%. points compares plain percentage points, which favours markets whose base rate sits mid-table because they have more room to move (docs/48). Only affects ranking; the 'usually X%' a card shows is unchanged."
- }
+  {
+    "key": "features.show_xg",
+    "group": "Features",
+    "label": "Show xG",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "features.show_lineups",
+    "group": "Features",
+    "label": "Show lineups",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "features.show_tactics",
+    "group": "Features",
+    "label": "Show tactic chips",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "features.require_signin_to_follow",
+    "group": "Features",
+    "label": "Require sign-in to follow",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "features.billing",
+    "group": "Features",
+    "label": "Paid plans (Stripe)",
+    "type": "boolean",
+    "default": false,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "features.maintenance",
+    "group": "Features",
+    "label": "Maintenance mode",
+    "type": "boolean",
+    "default": false,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "features.live",
+    "group": "Features",
+    "label": "Live in-play data (SportAPI)",
+    "type": "boolean",
+    "default": false,
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Live scores, match events and lineups from SportAPI. Turning this on also turns on the SportAPI job. Needs the SportAPI key and the league mapping."
+  },
+  {
+    "key": "home.sections",
+    "group": "Home",
+    "label": "Home sections, in order",
+    "type": "list",
+    "default": [
+      "top_insights",
+      "matches"
+    ],
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "home.top_insights_count",
+    "group": "Home",
+    "label": "Top insights shown",
+    "type": "number",
+    "default": 10,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "home.date_back_days",
+    "group": "Home",
+    "label": "Date strip days back",
+    "type": "number",
+    "default": 14,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "home.date_forward_days",
+    "group": "Home",
+    "label": "Date strip days forward",
+    "type": "number",
+    "default": 14,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "plans.trial_days",
+    "group": "Plans",
+    "label": "Default free-trial length for paid plans (days)",
+    "type": "number",
+    "default": 5,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "plans.currency",
+    "group": "Plans",
+    "label": "Currency",
+    "type": "string",
+    "default": "CAD",
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "plans.anonymous_finder_searches_per_day",
+    "group": "Plans",
+    "label": "Finder searches per day for signed-out visitors",
+    "type": "number",
+    "default": 3,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "finder.max_leagues",
+    "group": "Finder",
+    "label": "Max leagues per search",
+    "type": "number",
+    "default": 5,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "finder.last_options",
+    "group": "Finder",
+    "label": "Last-N-games choices",
+    "type": "list",
+    "default": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      15,
+      20,
+      30
+    ],
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "finder.default_last",
+    "group": "Finder",
+    "label": "Default last N games",
+    "type": "number",
+    "default": 10,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "finder.thresholds",
+    "group": "Finder",
+    "label": "Threshold choices (N or more)",
+    "type": "list",
+    "default": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "finder.stats",
+    "group": "Finder",
+    "label": "Stats offered",
+    "type": "list",
+    "default": [
+      "shots",
+      "sot",
+      "tackles",
+      "fouls_committed",
+      "fouls_won",
+      "interceptions",
+      "clearances",
+      "saves",
+      "goals",
+      "assists",
+      "yellow_cards"
+    ],
+    "public": true,
+    "applies_at": "immediately",
+    "help": "A stat is shown only if its data coverage passes engine.coverage_min."
+  },
+  {
+    "key": "grid.max_games",
+    "group": "Grids",
+    "label": "Max games in a grid",
+    "type": "number",
+    "default": 30,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "grid.default_games",
+    "group": "Grids",
+    "label": "Default games in a grid",
+    "type": "number",
+    "default": 10,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "copy.strings",
+    "group": "Copy",
+    "label": "UI string overrides (key to text)",
+    "type": "json",
+    "default": {},
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "copy.disclaimer",
+    "group": "Copy",
+    "label": "Footer disclaimer",
+    "type": "string",
+    "default": "Statistical analysis for information and entertainment. Not betting advice.",
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "copy.data_credit",
+    "group": "Copy",
+    "label": "Data credit line",
+    "type": "string",
+    "default": "",
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "copy.tier_names",
+    "group": "Copy",
+    "label": "Tier names",
+    "type": "json",
+    "default": {
+      "strong": "Strong",
+      "solid": "Solid",
+      "watch": "Watch"
+    },
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "copy.market_labels",
+    "group": "Copy",
+    "label": "Market labels",
+    "type": "json",
+    "default": {
+      "shots:0.5": "1+ shot",
+      "shots:1.5": "2+ shots",
+      "sot:0.5": "1+ shot on target",
+      "tackles:1.5": "2+ tackles",
+      "tackles:2.5": "3+ tackles",
+      "corners:4.5": "5+ corners",
+      "team_shots:11.5": "12+ shots"
+    },
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "copy.tactic_explanations",
+    "group": "Copy",
+    "label": "Tactic explanations",
+    "type": "json",
+    "default": {
+      "low_block": "Sits deep, gives up the ball and defends close to its own goal.",
+      "high_press": "Wins the ball high up the pitch with intense pressing.",
+      "possession": "Keeps the ball for long spells and builds attacks slowly."
+    },
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "copy.reason_overrides",
+    "group": "Copy",
+    "label": "Reason sentence overrides (exact sentence to replacement)",
+    "type": "json",
+    "default": {},
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "track_record.min_scored",
+    "group": "Track record",
+    "label": "Minimum scored forecasts before the page shows",
+    "type": "number",
+    "default": 300,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.allow_signup",
+    "group": "Auth",
+    "label": "Allow new sign-ups",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.google_enabled",
+    "group": "Auth",
+    "label": "Google sign-in (specified, NOT coded in the reference)",
+    "type": "boolean",
+    "default": false,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "alerts.telegram_enabled",
+    "group": "Alerts",
+    "label": "Telegram lineup alerts",
+    "type": "boolean",
+    "default": false,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "alerts.telegram_bot_username",
+    "group": "Alerts",
+    "label": "Telegram bot username",
+    "type": "string",
+    "default": "",
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "ingest.daily_call_budget",
+    "group": "Ingest",
+    "label": "Max real API calls per UTC day",
+    "type": "int",
+    "default": 2000,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "ingest.rps",
+    "group": "Ingest",
+    "label": "Requests per second",
+    "type": "int",
+    "default": 3,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "ingest.concurrency",
+    "group": "Ingest",
+    "label": "Requests in flight",
+    "type": "int",
+    "default": 1,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "ingest.breaker_minutes",
+    "group": "Ingest",
+    "label": "Pause after repeated 429s",
+    "type": "int",
+    "default": 15,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "ingest.fixtures_sync_hours",
+    "group": "Ingest",
+    "label": "Upcoming fixtures refresh interval",
+    "type": "int",
+    "default": 6,
+    "public": false,
+    "applies_at": "next_tick",
+    "help": ""
+  },
+  {
+    "key": "ingest.results_sync_hours",
+    "group": "Ingest",
+    "label": "Check for new results every N hours (new matches only)",
+    "type": "number",
+    "default": 6,
+    "public": false,
+    "applies_at": "next_tick",
+    "help": "Each check costs 1 call per enabled league. Only matches not yet stored cost 3 more calls each. Stored matches are never fetched again."
+  },
+  {
+    "key": "ingest.lineups_watch_enabled",
+    "group": "Ingest",
+    "label": "Watch lineups before kickoff",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_tick",
+    "help": ""
+  },
+  {
+    "key": "ingest.reference_sync_days",
+    "group": "Ingest",
+    "label": "Leagues and seasons refresh",
+    "type": "int",
+    "default": 7,
+    "public": false,
+    "applies_at": "next_tick",
+    "help": ""
+  },
+  {
+    "key": "ingest.fixture_window_days",
+    "group": "Ingest",
+    "label": "Days of upcoming fixtures to keep",
+    "type": "int",
+    "default": 7,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "ingest.recheck_final_hours",
+    "group": "Ingest",
+    "label": "One re-check after full time",
+    "type": "int",
+    "default": 24,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "ingest.stale_limit_hours",
+    "group": "Ingest",
+    "label": "Show stale banner after this many hours",
+    "type": "int",
+    "default": 12,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "ingest.match_extra_events",
+    "group": "Ingest",
+    "label": "Also fetch /events per match (cards, goals, subs). Adds 1 call per match.",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "ingest.match_extra_detail",
+    "group": "Ingest",
+    "label": "Also fetch /matches/{id} per match (referee, stadium). Adds 1 call per match.",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "cache.ttl.fixtures_future_hours",
+    "group": "Cache",
+    "label": "Upcoming list TTL (hours)",
+    "type": "number",
+    "default": 6,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "cache.ttl.fixtures_matchday_hours",
+    "group": "Cache",
+    "label": "Upcoming list TTL on match days (hours)",
+    "type": "number",
+    "default": 2,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "cache.ttl.lineups_far_hours",
+    "group": "Cache",
+    "label": "Lineups TTL when kickoff is more than 3 h away (hours)",
+    "type": "number",
+    "default": 6,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "cache.ttl.lineups_near_minutes",
+    "group": "Cache",
+    "label": "Lineups TTL when kickoff is within 3 h (minutes)",
+    "type": "number",
+    "default": 20,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "cache.ttl.lineups_near_max_refresh",
+    "group": "Cache",
+    "label": "Max lineup refreshes per match",
+    "type": "number",
+    "default": 6,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "cache.ttl.reference_days",
+    "group": "Cache",
+    "label": "Leagues, teams, players TTL (days)",
+    "type": "number",
+    "default": 7,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "cache.ttl.error_minutes",
+    "group": "Cache",
+    "label": "Error response TTL (minutes)",
+    "type": "number",
+    "default": 10,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "cache.raw_retention_days",
+    "group": "Cache",
+    "label": "Keep raw responses this many days",
+    "type": "number",
+    "default": 30,
+    "public": false,
+    "applies_at": "next_ingest_run",
+    "help": ""
+  },
+  {
+    "key": "engine.history_rounds",
+    "group": "Engine",
+    "label": "Rounds of history per fit",
+    "type": "number",
+    "default": 320,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": " About three seasons: with the slower fade, older matches still carry weight (docs/22)."
+  },
+  {
+    "key": "engine.half_life_rounds",
+    "group": "Engine",
+    "label": "Recency half-life (rounds)",
+    "type": "number",
+    "default": 20,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.strength_decay",
+    "group": "Engine",
+    "label": "How fast old results fade (team strength)",
+    "type": "number",
+    "default": 0.01,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Per match date. 0.01 was best on 46,000 English league matches (docs/22); 0.02, the old value, gave too much weight to recent form."
+  },
+  {
+    "key": "engine.style_k",
+    "group": "Engine",
+    "label": "Style shrinkage",
+    "type": "number",
+    "default": 6,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.sigma_team",
+    "group": "Engine",
+    "label": "Team uncertainty",
+    "type": "number",
+    "default": 0.07,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.n_draws",
+    "group": "Engine",
+    "label": "Uncertainty draws",
+    "type": "number",
+    "default": 60,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.min_team_games",
+    "group": "Engine",
+    "label": "Min games per team",
+    "type": "number",
+    "default": 5,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.window_days",
+    "group": "Engine",
+    "label": "Forecast fixtures this many days ahead",
+    "type": "number",
+    "default": 3,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.coverage_min",
+    "group": "Engine",
+    "label": "Min data coverage to enable a market",
+    "type": "number",
+    "default": 0.9,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.keep_days",
+    "group": "Engine",
+    "label": "Keep old forecasts (days)",
+    "type": "number",
+    "default": 7,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.interactions",
+    "group": "Engine",
+    "label": "Style matchup terms",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.lineup_effects",
+    "group": "Engine",
+    "label": "Lineup effects (LOCKED off until a real-data backtest passes)",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.player_thresholds",
+    "group": "Engine",
+    "label": "Player thresholds",
+    "type": "json",
+    "default": {
+      "shots": [
+        0.5,
+        1.5
+      ],
+      "sot": [
+        0.5
+      ],
+      "tackles": [
+        1.5,
+        2.5
+      ]
+    },
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.team_thresholds",
+    "group": "Engine",
+    "label": "Team thresholds",
+    "type": "json",
+    "default": {
+      "corners": [
+        4.5
+      ],
+      "shots": [
+        11.5
+      ]
+    },
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.auto_lines",
+    "group": "Engine",
+    "label": "Automatic lines",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "On: every player and team gets the lines that fit its own numbers, picked from the ladders below (docs/25). Off: the fixed thresholds above, the same for everyone."
+  },
+  {
+    "key": "engine.player_ladder",
+    "group": "Engine",
+    "label": "Player line ladder",
+    "type": "json",
+    "default": {
+      "shots": [
+        0.5,
+        1.5,
+        2.5,
+        3.5,
+        4.5,
+        5.5
+      ],
+      "sot": [
+        0.5,
+        1.5,
+        2.5,
+        3.5
+      ],
+      "tackles": [
+        1.5,
+        2.5,
+        3.5,
+        4.5,
+        5.5
+      ]
+    },
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Every line the engine scores for players when automatic lines are on. 2.5 = 3+. Tackles start at 2+: almost every outfield player makes 1 tackle, so it says little."
+  },
+  {
+    "key": "engine.team_ladder",
+    "group": "Engine",
+    "label": "Team line ladder",
+    "type": "json",
+    "default": {
+      "shots": [
+        6.5,
+        7.5,
+        8.5,
+        9.5,
+        10.5,
+        11.5,
+        12.5,
+        13.5,
+        14.5,
+        15.5,
+        16.5,
+        17.5,
+        18.5,
+        19.5,
+        20.5,
+        22.5
+      ],
+      "sot": [
+        1.5,
+        2.5,
+        3.5,
+        4.5,
+        5.5,
+        6.5,
+        7.5,
+        8.5
+      ],
+      "corners": [
+        1.5,
+        2.5,
+        3.5,
+        4.5,
+        5.5,
+        6.5,
+        7.5,
+        8.5,
+        9.5,
+        10.5
+      ],
+      "goals": [
+        0.5,
+        1.5,
+        2.5,
+        3.5,
+        4.5
+      ]
+    },
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Every line the engine scores for teams when automatic lines are on."
+  },
+  {
+    "key": "engine.line_band",
+    "group": "Engine",
+    "label": "Lines kept: likelihood band",
+    "type": "list",
+    "default": [
+      0.5,
+      0.985
+    ],
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Lines kept per player or team and stat. The lower end decides how ambitious we are willing to get: raise it to drop long shots, lower it to keep them. Of whatever it leaves, the most likely engine.max_lines_per_stat are kept (docs/39, docs/44)."
+  },
+  {
+    "key": "engine.max_lines_per_stat",
+    "group": "Engine",
+    "label": "Lines kept per player and stat",
+    "type": "number",
+    "default": 3,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "How many lines each player or team keeps for one stat. The most LIKELY lines inside the band are kept, so a near-certain line is never crowded out by an ambitious one. How far down the ladder we go is engine.line_band's job (docs/44)."
+  },
+  {
+    "key": "engine.likely_starter_p",
+    "group": "Engine",
+    "label": "Likely starter: chance to play for full tiers",
+    "type": "number",
+    "default": 0.85,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Before lineups, a player with at least this chance to play can be Solid or Strong. On 2015/16 data, pre-lineup Strong for these players came true 83% of the time, Solid 71% (docs/25). 1.0 = only confirmed lineups."
+  },
+  {
+    "key": "engine.condition_on_play",
+    "group": "Engine",
+    "label": "Player lines: \"if he plays\"",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "On: a player's percentage assumes he plays, and his chance to play shows as a lineup badge instead (docs/27). On 93,000 real forecasts this was calibrated: players rated 80-85% reached the line 84% of the time, where the old number sat 8 points low at the top. Off: the old number that folds the chance to play in."
+  },
+  {
+    "key": "engine.min_p_play",
+    "group": "Engine",
+    "label": "Hide players unlikely to play",
+    "type": "number",
+    "default": 0.5,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Before lineups, a player whose chance to play is below this gets no card. With 'if he plays' on, a rarely used player could otherwise show a high percentage. Confirmed lineups always show."
+  },
+  {
+    "key": "engine.min_span",
+    "group": "Engine",
+    "label": "Hide lines that cannot move",
+    "type": "number",
+    "default": 0.0,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "A line only leads a card if its likelihood would move at least this much (in likelihood, so 0.08 is 8 points) between the league's leakiest and meanest opponent for that stat. It stops cards like \"9+ shots, 88%\" or \"1+ shot, 90%\", which read the same whoever the opponent is, so they say nothing about this match. The line is only demoted, never deleted: it stays under \"more lines\", in the ladder, in the Finder and available to a combo. 0 switches it off. A line whose movement is unknown is never hidden. docs/56."
+  },
+  {
+    "key": "engine.min_p_start",
+    "group": "Engine",
+    "label": "Hide players unlikely to start",
+    "type": "number",
+    "default": 0.0,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Before lineups, a player whose chance to START is below this gets no card. This is not the same as \"Hide players unlikely to play\": a substitute who always gets twenty minutes plays in nearly every match, so his chance to play is around 0.93 while his chance to start is around 0.41, and the other setting lets him through. His number is then built from a mixture of starting and coming on, and shown beside a strip of his starts. 0 switches it off. Confirmed lineups always show. docs/55."
+  },
+  {
+    "key": "combo.max_lines",
+    "group": "Engine",
+    "label": "Combo: most lines",
+    "type": "number",
+    "default": 6,
+    "public": true,
+    "applies_at": "immediately",
+    "help": "The most lines one combo can hold. The screens read it so the add button can say \"combo is full\"."
+  },
+  {
+    "key": "combo.pre_factors",
+    "group": "Engine",
+    "label": "Combo: correction before lineups",
+    "type": "list",
+    "default": [
+      1.0,
+      1.11,
+      1.19,
+      1.25
+    ],
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Multiply the lines' chances, then multiply by the entry for the number of players or teams (1, 2, 3, 4 or more). Measured on 237,000 real combinations: before lineups the plain product was 11%, 19% and 25% low for 2, 3 and 4. After lineups no correction is needed (docs/28)."
+  },
+  {
+    "key": "engine.style_half_life",
+    "group": "Engine",
+    "label": "Team averages: half-life in games",
+    "type": "number",
+    "default": 20,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "A team's game this many games ago counts half in its averages. Best on 27,000 matches, five leagues, 15 seasons (docs/25). 0 = old behaviour (all games equal)."
+  },
+  {
+    "key": "engine.style_opp_adjust",
+    "group": "Engine",
+    "label": "Team averages: judged against the opponent",
+    "type": "list",
+    "default": [
+      "shots",
+      "fouls",
+      "yellow"
+    ],
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "For these stats each game counts relative to what that opponent usually allows (or makes). Helped shots, on target, fouls and cards; not corners (docs/25)."
+  },
+  {
+    "key": "engine.style_cap_q",
+    "group": "Engine",
+    "label": "Team averages: cap per game (league quantile)",
+    "type": "number",
+    "default": 0.99,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "A single game's count is capped at this league quantile before averaging. A guard against freak games and feed errors; 0 = off."
+  },
+  {
+    "key": "engine.player_prior",
+    "group": "Engine",
+    "label": "Player averages: prior strength",
+    "type": "json",
+    "default": {
+      "shots": 40,
+      "sot": 40,
+      "tackles": 80
+    },
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "How many team-stat units of league average each player's share starts from. Higher = one big game moves him less. Tested per stat (docs/25)."
+  },
+  {
+    "key": "engine.feed_sort",
+    "group": "Engine",
+    "label": "Insights default order",
+    "type": "enum",
+    "default": "edge",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "edge = most different from the player's or team's usual (default); likely = highest percentage; kickoff."
+  },
+  {
+    "key": "engine.feed_max_p",
+    "group": "Engine",
+    "label": "Headline line: highest likelihood",
+    "type": "number",
+    "default": 0.97,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "A line above this never leads a card while the same player or team has another line; it still shows inside the card. Set it at the display cap to let near-certain lines lead (docs/39)."
+  },
+  {
+    "key": "referees.prior_cards",
+    "group": "Engine",
+    "label": "Referees: prior (cards)",
+    "type": "number",
+    "default": 80,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "A referee starts at average and needs about this many cards of history (about 20 matches) to move far (docs/25)."
+  },
+  {
+    "key": "referees.half_life",
+    "group": "Engine",
+    "label": "Referees: half-life in matches",
+    "type": "number",
+    "default": 60,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Older matches fade."
+  },
+  {
+    "key": "referees.cap_q",
+    "group": "Engine",
+    "label": "Referees: cap per match (league quantile)",
+    "type": "number",
+    "default": 0.99,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "One wild match counts as at most this quantile; 0 = off."
+  },
+  {
+    "key": "engine.markets_enabled",
+    "group": "Engine",
+    "label": "Markets on or off",
+    "type": "json",
+    "default": {
+      "player.shots": true,
+      "player.sot": true,
+      "player.tackles": true,
+      "team.corners": true,
+      "team.shots": true,
+      "team.sot": true,
+      "team.goals": true
+    },
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.tier_strong",
+    "group": "Engine",
+    "label": "Strong cutoff [likelihood, lower bound]",
+    "type": "list",
+    "default": [
+      0.8,
+      0.7
+    ],
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.tier_solid",
+    "group": "Engine",
+    "label": "Solid cutoff [likelihood, lower bound]",
+    "type": "list",
+    "default": [
+      0.65,
+      0.55
+    ],
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.r_player",
+    "group": "Engine",
+    "label": "Player dispersion",
+    "type": "json",
+    "default": {
+      "shots": 6.0,
+      "sot": 5.0,
+      "tackles": 10.0
+    },
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.absence_model",
+    "group": "Engine",
+    "label": "Availability model (missed recent matches)",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "A player who has not featured in his club's last matches is likely injured, suspended or dropped (docs/22)."
+  },
+  {
+    "key": "engine.match_context",
+    "group": "Engine",
+    "label": "Results form and stakes in the match forecast",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Points above or below expectation in the last 5, and late-season stakes, move expected goals a little (docs/22)."
+  },
+  {
+    "key": "context.stakes_places",
+    "group": "Engine",
+    "label": "Places that matter, per league",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "{league iid: {\"upper\": 6, \"relegation\": 3}}. Missing leagues use 6 and 3."
+  },
+  {
+    "key": "injuries.enabled",
+    "group": "Engine",
+    "label": "Injuries feed from API-Football",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Uses the API-Football key and the player mapping from the image sync. Run check_apifootball.py --injuries first."
+  },
+  {
+    "key": "injuries.stale_days",
+    "group": "Engine",
+    "label": "Drop feed rows not refreshed for (days)",
+    "type": "int",
+    "default": 3,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "engine.calibration",
+    "group": "Engine",
+    "label": "Calibrate percentages",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Maps the engine's raw likelihoods to tested percentages (docs/21). Off shows raw numbers."
+  },
+  {
+    "key": "engine.calibration_auto",
+    "group": "Engine",
+    "label": "Refit calibration from our own results",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Weekly. A new map is kept only if it beats the current one on the newest 30% of results."
+  },
+  {
+    "key": "engine.calib_min_scored",
+    "group": "Engine",
+    "label": "Scored forecasts needed before refitting",
+    "type": "int",
+    "default": 5000,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "engine.exclude_positions",
+    "group": "Engine",
+    "label": "Positions excluded from player markets",
+    "type": "list",
+    "default": [
+      "GK"
+    ],
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": ""
+  },
+  {
+    "key": "context.enabled",
+    "group": "Engine",
+    "label": "Calendar context (rotation watch)",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Read every competition a club plays in. Shows the rotation chip on forecasts."
+  },
+  {
+    "key": "context.start_model",
+    "group": "Engine",
+    "label": "Rotation changes who starts",
+    "type": "enum",
+    "default": "auto",
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "off | auto | on. Auto switches on only when the walk-forward check passes (context.gate_z). On forces it."
+  },
+  {
+    "key": "context.importance",
+    "group": "Engine",
+    "label": "Competition importance (league match = 1.0)",
+    "type": "json",
+    "default": {
+      "league": 1.0,
+      "ucl": 0.95,
+      "ucl_late": 1.15,
+      "uel": 0.75,
+      "uel_late": 0.9,
+      "uecl": 0.6,
+      "uecl_late": 0.75,
+      "fa_cup": 0.55,
+      "fa_cup_late": 0.8,
+      "league_cup": 0.4,
+      "league_cup_late": 0.75,
+      "domestic_cup": 0.55,
+      "domestic_cup_late": 0.8,
+      "super_cup": 0.5,
+      "friendly": 0.2,
+      "other": 0.7
+    },
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Keys: league, ucl, ucl_late, uel, fa_cup, league_cup, ... A _late key applies from the quarter-finals."
+  },
+  {
+    "key": "context.gate_z",
+    "group": "Engine",
+    "label": "Gate: required gain in standard errors",
+    "type": "number",
+    "default": 2.0,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "A layer is used only if it beats the plain version on held-out matches by this many standard errors."
+  },
+  {
+    "key": "context.holdout_share",
+    "group": "Engine",
+    "label": "Gate: share of recent matches held out",
+    "type": "number",
+    "default": 0.3,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "The rest trains the layer, these test it."
+  },
+  {
+    "key": "context.min_rows",
+    "group": "Engine",
+    "label": "Gate: fewest player-match rows to train",
+    "type": "int",
+    "default": 3000,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Below this the start model stays off."
+  },
+  {
+    "key": "context.calendar_days",
+    "group": "Engine",
+    "label": "Calendar look-ahead (days)",
+    "type": "int",
+    "default": 10,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "How far ahead the fixture list is read for the next bigger match."
+  },
+  {
+    "key": "engine.tactic_layers",
+    "group": "Engine",
+    "label": "Tactical-style layers (press, build-up, counter)",
+    "type": "enum",
+    "default": "off",
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "off | auto | on. Off by default: free-data tests showed no gain beyond team rates. Auto uses it only if the gate passes. Needs the extra tactical columns."
+  },
+  {
+    "key": "engine.shape_layer",
+    "group": "Engine",
+    "label": "Lineup shape (defenders and forwards in the confirmed eleven)",
+    "type": "enum",
+    "default": "off",
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "off | auto | on. Applies only once a lineup is confirmed. Auto uses it only if the gate passes."
+  },
+  {
+    "key": "provider.position_map",
+    "group": "Provider",
+    "label": "position_id to GK/DEF/MID/FWD (fill starters after check A6)",
+    "type": "json",
+    "default": {
+      "0": "GK",
+      "1": "DEF",
+      "2": "MID",
+      "3": "FWD",
+      "4": "FWD"
+    },
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Raw position_id to GK/DEF/MID/FWD. GUESS until check A6 is done. A raw id that is missing here is dropped from player markets and logged."
+  },
+  {
+    "key": "provider.pitchapi.team_keys",
+    "group": "Provider",
+    "label": "Team stat keys in /stats (null = not yet verified)",
+    "type": "json",
+    "default": {
+      "poss": "BallPossesion",
+      "xg": "expected_goals",
+      "shots": null,
+      "sot": null,
+      "corners": null,
+      "tackles": null,
+      "fouls": null,
+      "yellow_cards": null
+    },
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "provider.pitchapi.player_keys",
+    "group": "Provider",
+    "label": "Player stat keys in /players (null = not yet verified)",
+    "type": "json",
+    "default": {
+      "minutes": {
+        "group": "top_stats",
+        "key": null
+      },
+      "shots": {
+        "group": "top_stats",
+        "key": "total_shots"
+      },
+      "sot": {
+        "group": "top_stats",
+        "key": "shot_accuracy",
+        "use": "value"
+      },
+      "goals": {
+        "group": "top_stats",
+        "key": "goals"
+      },
+      "assists": {
+        "group": "top_stats",
+        "key": "assists"
+      },
+      "xg": {
+        "group": "top_stats",
+        "key": null
+      },
+      "saves": {
+        "group": "top_stats",
+        "key": null
+      },
+      "tackles": {
+        "group": "defense",
+        "key": null
+      },
+      "interceptions": {
+        "group": "defense",
+        "key": null
+      },
+      "clearances": {
+        "group": "defense",
+        "key": null
+      },
+      "fouls_committed": {
+        "group": "duels",
+        "key": null
+      },
+      "fouls_won": {
+        "group": "duels",
+        "key": null
+      },
+      "passes": {
+        "group": "attack",
+        "key": null,
+        "use": "value"
+      }
+    },
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Where each player number lives in a PitchAPI stat line: the group and the inner `key` (never the display label, which changes). `use` picks which half of a made/attempted pair: value = completed, total = attempted. Map them from the list on PitchAPI > Quality and mapping, which reads the keys out of a real answer. minutes and the duels group (fouls won, fouls committed) are unmapped by default and are what the fouls markets are waiting on (docs/47)."
+  },
+  {
+    "key": "features.show_match_probs",
+    "group": "Features",
+    "label": "Show win/draw/loss bars (experimental: did not beat plain frequencies in the simulated test)",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Turn off if the real-data backtest shows no gain."
+  },
+  {
+    "key": "ingest.paused_reason",
+    "group": "Ingest",
+    "label": "Why ingest is paused (set automatically; cleared when a new key is saved)",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Shown as a red banner in Admin when not empty."
+  },
+  {
+    "key": "auth.require_email_verification",
+    "group": "Auth",
+    "label": "Require a verified e-mail before sign-in",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.password_min_length",
+    "group": "Auth",
+    "label": "Minimum password length",
+    "type": "number",
+    "default": 10,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.session_days",
+    "group": "Auth",
+    "label": "Sign-in lasts (days) for normal users",
+    "type": "number",
+    "default": 14,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.staff_session_minutes",
+    "group": "Auth",
+    "label": "Staff session length (minutes)",
+    "type": "number",
+    "default": 60,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.staff_idle_minutes",
+    "group": "Auth",
+    "label": "Staff session idle timeout (minutes)",
+    "type": "number",
+    "default": 20,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.max_failed_logins",
+    "group": "Auth",
+    "label": "Failed sign-ins before lockout",
+    "type": "number",
+    "default": 5,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.lockout_minutes",
+    "group": "Auth",
+    "label": "Lockout length (minutes)",
+    "type": "number",
+    "default": 15,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.reset_token_minutes",
+    "group": "Auth",
+    "label": "Password-reset link valid (minutes)",
+    "type": "number",
+    "default": 60,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.verify_token_hours",
+    "group": "Auth",
+    "label": "E-mail verification link valid (hours)",
+    "type": "number",
+    "default": 48,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "auth.optional_2fa_for_users",
+    "group": "Auth",
+    "label": "Let normal users turn on two-factor sign-in",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "security.allowed_origins",
+    "group": "Security",
+    "label": "Allowed browser origins (the app's own URLs)",
+    "type": "list",
+    "default": [],
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Empty = same host only. Used for CORS and the CSRF origin check."
+  },
+  {
+    "key": "security.trusted_proxy_count",
+    "group": "Security",
+    "label": "Proxies in front of the app (for client IP)",
+    "type": "number",
+    "default": 1,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "security.rate_limit_auth_per_minute",
+    "group": "Security",
+    "label": "Auth requests per minute per IP",
+    "type": "number",
+    "default": 10,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "security.rate_limit_write_per_minute",
+    "group": "Security",
+    "label": "Other write requests per minute per IP",
+    "type": "number",
+    "default": 60,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "security.rate_limit_read_per_minute",
+    "group": "Security",
+    "label": "Read requests per minute per IP",
+    "type": "number",
+    "default": 240,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "security.max_body_kb",
+    "group": "Security",
+    "label": "Largest request body (KB)",
+    "type": "number",
+    "default": 256,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "security.require_staff_2fa",
+    "group": "Security",
+    "label": "Staff must use two-factor sign-in",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "security.log_retention_days",
+    "group": "Security",
+    "label": "Keep application logs (days)",
+    "type": "number",
+    "default": 30,
+    "public": false,
+    "applies_at": "next restart",
+    "help": ""
+  },
+  {
+    "key": "security.auth_log_retention_days",
+    "group": "Security",
+    "label": "Keep sign-in logs (days)",
+    "type": "number",
+    "default": 90,
+    "public": false,
+    "applies_at": "next restart",
+    "help": ""
+  },
+  {
+    "key": "billing.mode",
+    "group": "Billing",
+    "label": "Stripe mode (test or live)",
+    "type": "enum",
+    "default": "test",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Live needs a live key AND PitchAPI's written OK for paid use (guide check B1)."
+  },
+  {
+    "key": "billing.stripe_api_version",
+    "group": "Billing",
+    "label": "Stripe API version to pin (blank = account default)",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Pin one version and test webhooks against it."
+  },
+  {
+    "key": "billing.success_url",
+    "group": "Billing",
+    "label": "After checkout: go to",
+    "type": "string",
+    "default": "/account/billing?status=success",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "billing.cancel_url",
+    "group": "Billing",
+    "label": "If checkout is cancelled: go to",
+    "type": "string",
+    "default": "/pricing?status=cancelled",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "billing.portal_return_url",
+    "group": "Billing",
+    "label": "After the billing portal: go to",
+    "type": "string",
+    "default": "/account/billing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "billing.allow_promo_codes",
+    "group": "Billing",
+    "label": "Allow promotion codes at checkout",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "billing.past_due_grace_days",
+    "group": "Billing",
+    "label": "Keep paid access this many days after a failed payment",
+    "type": "number",
+    "default": 7,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "billing.automatic_tax",
+    "group": "Billing",
+    "label": "Use Stripe Tax at checkout",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Needs Stripe Tax set up in the Stripe dashboard."
+  },
+  {
+    "key": "email.enabled",
+    "group": "Email",
+    "label": "Send e-mail (needs a Resend key and a verified domain)",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "email.from_name",
+    "group": "Email",
+    "label": "From name",
+    "type": "string",
+    "default": "Forecast",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "email.from_address",
+    "group": "Email",
+    "label": "From address (on your verified domain)",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "email.reply_to",
+    "group": "Email",
+    "label": "Reply-to address",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "email.footer_address",
+    "group": "Email",
+    "label": "Postal address shown in marketing e-mail (required by law)",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "email.marketing_enabled",
+    "group": "Email",
+    "label": "Allow marketing campaigns",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "email.daily_send_cap",
+    "group": "Email",
+    "label": "Most e-mails sent per day (match your Resend plan)",
+    "type": "number",
+    "default": 100,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "analytics.first_party_enabled",
+    "group": "Analytics",
+    "label": "Count page views and actions in our own database",
+    "type": "boolean",
+    "default": true,
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "analytics.respect_dnt",
+    "group": "Analytics",
+    "label": "Skip counting when the browser sends Do Not Track",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "analytics.retention_days",
+    "group": "Analytics",
+    "label": "Keep event rows (days)",
+    "type": "number",
+    "default": 400,
+    "public": false,
+    "applies_at": "next restart",
+    "help": ""
+  },
+  {
+    "key": "site.maintenance_message",
+    "group": "Site",
+    "label": "Maintenance message",
+    "type": "string",
+    "default": "We are updating the data. Back shortly.",
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "site.support_email",
+    "group": "Site",
+    "label": "Support e-mail shown in the footer",
+    "type": "string",
+    "default": "",
+    "public": true,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "popups.enabled",
+    "group": "Popups",
+    "label": "Show popups to visitors (master switch)",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "popups.max_per_session",
+    "group": "Popups",
+    "label": "Most popups one visitor sees in a visit",
+    "type": "int",
+    "default": 2,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "0 turns them all off for that visit."
+  },
+  {
+    "key": "popups.min_gap_seconds",
+    "group": "Popups",
+    "label": "Quiet time between two popups (seconds)",
+    "type": "int",
+    "default": 90,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "newsletter.double_optin",
+    "group": "Newsletter",
+    "label": "Ask people to confirm by e-mail before they join the list",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Keep this on. It is the proof that the address belongs to them."
+  },
+  {
+    "key": "email.provider",
+    "group": "Email",
+    "label": "E-mail provider",
+    "type": "enum",
+    "default": "resend",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "resend | postmark | sendgrid | brevo | smtp"
+  },
+  {
+    "key": "email.smtp_host",
+    "group": "Email",
+    "label": "SMTP server host (only for provider smtp)",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "email.smtp_port",
+    "group": "Email",
+    "label": "SMTP port",
+    "type": "int",
+    "default": 587,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "email.smtp_user",
+    "group": "Email",
+    "label": "SMTP user name",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "email.smtp_security",
+    "group": "Email",
+    "label": "SMTP security",
+    "type": "enum",
+    "default": "starttls",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "starttls | ssl"
+  },
+  {
+    "key": "integrations.audience_provider",
+    "group": "Integrations",
+    "label": "Send new list members to",
+    "type": "enum",
+    "default": "none",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "none | mailchimp | brevo | mailerlite"
+  },
+  {
+    "key": "integrations.audience_list_id",
+    "group": "Integrations",
+    "label": "Audience, list or group id at that provider",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "integrations.webhooks_enabled",
+    "group": "Integrations",
+    "label": "Send outbound webhooks",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Master switch for all endpoints."
+  },
+  {
+    "key": "tracking.enabled",
+    "group": "Tracking",
+    "label": "Load ad and analytics tags (needs consent)",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Off by default. Owner only. Visitors must say yes in the cookie banner first."
+  },
+  {
+    "key": "tracking.ga4_id",
+    "group": "Tracking",
+    "label": "Google Analytics 4 measurement id",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Looks like G-XXXXXXXXXX"
+  },
+  {
+    "key": "tracking.meta_pixel_id",
+    "group": "Tracking",
+    "label": "Meta pixel id",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Digits only"
+  },
+  {
+    "key": "tracking.google_ads_id",
+    "group": "Tracking",
+    "label": "Google Ads tag id",
+    "type": "string",
+    "default": "",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Looks like AW-123456789"
+  },
+  {
+    "key": "tracking.require_consent",
+    "group": "Tracking",
+    "label": "Wait for a yes in the cookie banner before loading tags",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Turning this off may break privacy law in Canada and the EU. Owner only."
+  },
+  {
+    "key": "admin.digest_enabled",
+    "group": "Admin alerts",
+    "label": "Send the weekly team summary e-mail",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Goes only to staff who switch it on in their account."
+  },
+  {
+    "key": "admin.alerts_enabled",
+    "group": "Admin alerts",
+    "label": "E-mail the team when something looks wrong",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "admin.alert_signup_drop_pct",
+    "group": "Admin alerts",
+    "label": "Alert when sign-ups fall by this percent against the week before",
+    "type": "int",
+    "default": 50,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "admin.alert_errors_per_hour",
+    "group": "Admin alerts",
+    "label": "Alert when server errors in one hour pass",
+    "type": "int",
+    "default": 20,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "admin.alert_failed_payments",
+    "group": "Admin alerts",
+    "label": "Alert when failed payments in one day pass",
+    "type": "int",
+    "default": 3,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "admin.alert_cooldown_hours",
+    "group": "Admin alerts",
+    "label": "Hours before the same alert can e-mail again",
+    "type": "int",
+    "default": 6,
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "newsletter.consent_text",
+    "group": "Newsletter",
+    "label": "Sentence people agree to on the footer sign-up form",
+    "type": "string",
+    "default": "Yes, send me the weekly forecast e-mail. I can unsubscribe at any time.",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Shown next to the tick box. It is saved with each sign-up as proof of consent."
+  },
+  {
+    "key": "images.enabled",
+    "group": "Images",
+    "label": "Show club, league and player images",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "help": "Off until the owner has read API-Football's terms and checked a few images. When off, the app shows initials and a shield.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "images.leagues",
+    "group": "Images",
+    "label": "Our league to API-Football league id",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "help": "{\"<our league iid>\": <API-Football league id>}. Usual ids: 39 Premier League, 140 La Liga, 135 Serie A, 78 Bundesliga, 61 Ligue 1. Check each in your API-Football dashboard.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "images.daily_calls",
+    "group": "Images",
+    "label": "API calls the image sync may use per day",
+    "type": "int",
+    "default": 90,
+    "public": false,
+    "help": "The free plan allows 100. The rest is headroom.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "images.min_confidence",
+    "group": "Images",
+    "label": "Name match needed to use an image without review",
+    "type": "number",
+    "default": 0.9,
+    "public": false,
+    "help": "Between 0.7 and 1. Below it, a person approves the match. A wrong photo is worse than none.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "images.players",
+    "group": "Images",
+    "label": "Fetch player photos",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "help": "Turn off to fetch only league and club logos.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "images.max_bytes",
+    "group": "Images",
+    "label": "Largest image we will store (bytes)",
+    "type": "int",
+    "default": 400000,
+    "public": false,
+    "help": "Bigger files are refused.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "images.season",
+    "group": "Images",
+    "label": "Season to read clubs from (0 = automatic)",
+    "type": "int",
+    "default": 0,
+    "public": false,
+    "help": "The free plan may not read the newest season. Automatic tries this season, then the two before.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "images.team_aliases",
+    "group": "Images",
+    "label": "Club name aliases",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "help": "{\"our name\": \"their name\"} for clubs the matcher misses, for example {\"Man Utd\": \"Manchester United\"}.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "images.use_provider_urls",
+    "group": "Images",
+    "label": "Fall back to PitchAPI image links",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "help": "Off: we never link to another site's images. PitchAPI's hot-linking terms are not stated.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "images.credit_text",
+    "group": "Images",
+    "label": "Image credit line (footer)",
+    "type": "string",
+    "default": "Club names, crests and player photos belong to their owners. We are not affiliated with any club or league.",
+    "public": true,
+    "help": "Shown in the footer when images are on.",
+    "applies_at": "immediately"
+  },
+  {
+    "key": "sportapi.enabled",
+    "group": "Live (SportAPI)",
+    "label": "Live data from SportAPI",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Live scores, events, lineups and results from SportAPI (docs/23)."
+  },
+  {
+    "key": "sportapi.daily_calls",
+    "group": "Live (SportAPI)",
+    "label": "Daily call limit",
+    "type": "int",
+    "default": 1800,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Hard stop per UTC day. The plan allows 2,000; keep some spare."
+  },
+  {
+    "key": "sportapi.leagues",
+    "group": "Live (SportAPI)",
+    "label": "Followed leagues (our league to SportAPI league)",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "applies_at": "immediately",
+    "help": "{our league iid: SportAPI league id}. Only these leagues are followed. Premier League is 24."
+  },
+  {
+    "key": "sportapi.live_interval_s",
+    "group": "Live (SportAPI)",
+    "label": "Scoreboard refresh while live (seconds)",
+    "type": "int",
+    "default": 60,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Scoreboard refresh while a followed match is live or about to start."
+  },
+  {
+    "key": "sportapi.idle_interval_s",
+    "group": "Live (SportAPI)",
+    "label": "Scoreboard refresh before kick-off (seconds)",
+    "type": "int",
+    "default": 900,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Scoreboard refresh when followed matches are later today."
+  },
+  {
+    "key": "sportapi.quiet_interval_s",
+    "group": "Live (SportAPI)",
+    "label": "Scoreboard refresh on quiet days (seconds)",
+    "type": "int",
+    "default": 10800,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Scoreboard refresh on days with nothing followed."
+  },
+  {
+    "key": "sportapi.events_refresh_s",
+    "group": "Live (SportAPI)",
+    "label": "Events refresh per live match (seconds)",
+    "type": "int",
+    "default": 600,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Events refresh per live match (also fetched at once on any goal or status change)."
+  },
+  {
+    "key": "sportapi.window_before_min",
+    "group": "Live (SportAPI)",
+    "label": "Fast polling starts before kick-off (minutes)",
+    "type": "int",
+    "default": 15,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Start fast polling this many minutes before the first kick-off."
+  },
+  {
+    "key": "sportapi.lineups_minutes",
+    "group": "Live (SportAPI)",
+    "label": "Lineup checks before kick-off (minutes)",
+    "type": "list",
+    "default": [
+      75,
+      40,
+      15
+    ],
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Minutes before kick-off to ask for lineups, until they arrive."
+  },
+  {
+    "key": "sportapi.lineups_to_engine",
+    "group": "Live (SportAPI)",
+    "label": "Use SportAPI lineups in the engine",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Use a SportAPI eleven as the confirmed lineup when all 11 match our players and PitchAPI has none."
+  },
+  {
+    "key": "sportapi.team_aliases",
+    "group": "Live (SportAPI)",
+    "label": "Extra club-name pairs",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Extra club-name pairs for matching SportAPI teams to ours."
+  },
+  {
+    "key": "sportapi.min_confidence",
+    "group": "Live (SportAPI)",
+    "label": "Name-match score needed",
+    "type": "number",
+    "default": 0.9,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Name-match score needed to link a team or player without review."
+  },
+  {
+    "key": "sportapi.backfill_max_days",
+    "group": "Live (SportAPI)",
+    "label": "Most dates per backfill",
+    "type": "int",
+    "default": 60,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Most dates per backfill request."
+  },
+  {
+    "key": "sportapi.reserve_for_live",
+    "group": "Live (SportAPI)",
+    "label": "Calls kept for live scores during a backfill",
+    "type": "int",
+    "default": 600,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Calls a backfill always leaves for today's live scores."
+  },
+  {
+    "key": "sportapi.upcoming_days",
+    "label": "Upcoming days to load",
+    "type": "int",
+    "default": 7,
+    "help": "Days ahead we load fixtures for (one call a day). Kick-off times and postponements come from here. 0 turns it off.",
+    "group": "Live (SportAPI)",
+    "public": false,
+    "applies_at": "immediately"
+  },
+  {
+    "key": "sportapi.upcoming_interval_h",
+    "label": "Upcoming refresh (hours)",
+    "type": "int",
+    "default": 6,
+    "help": "How often we reload each upcoming day.",
+    "group": "Live (SportAPI)",
+    "public": false,
+    "applies_at": "immediately"
+  },
+  {
+    "key": "sportapi.live_stats",
+    "label": "Live match statistics",
+    "type": "boolean",
+    "default": false,
+    "help": "Loads shots, shots on target, corners and tackles for live matches so those forecasts can tick green. Costs one call per live match every few minutes. Turn on after you confirm the answer shape in Admin > Data > Endpoint explorer (see docs/31).",
+    "group": "Live (SportAPI)",
+    "public": false,
+    "applies_at": "immediately"
+  },
+  {
+    "key": "sportapi.stats_refresh_s",
+    "label": "Live statistics refresh (seconds)",
+    "type": "int",
+    "default": 180,
+    "help": "How often each live match loads its statistics.",
+    "group": "Live (SportAPI)",
+    "public": false,
+    "applies_at": "immediately"
+  },
+  {
+    "key": "sportapi.stats_keys",
+    "label": "Live statistics names",
+    "type": "json",
+    "default": {
+      "shots": [
+        "shots",
+        "total_shots",
+        "shots_total",
+        "total shots"
+      ],
+      "sot": [
+        "shots_on_target",
+        "on_target",
+        "sot",
+        "shots on target"
+      ],
+      "corners": [
+        "corners",
+        "corner_kicks",
+        "corner kicks"
+      ],
+      "tackles": [
+        "tackles",
+        "total_tackles"
+      ]
+    },
+    "help": "The names SportAPI uses for each statistic, lower case. Add a name if a statistic is missing in the probe.",
+    "group": "Live (SportAPI)",
+    "public": false,
+    "applies_at": "immediately"
+  },
+  {
+    "key": "engine.tier_mode",
+    "label": "Tier rule",
+    "type": "string",
+    "default": "earned",
+    "help": "earned: tiers come from the whole chance and our track record (docs/31). classic: the old cut-offs.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.strong_min",
+    "label": "Strong: whole chance at least",
+    "type": "float",
+    "default": 0.9,
+    "help": "Strong means it happens about this often. A player line counts as chance x chance to play.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.strong_lo_min",
+    "label": "Strong: low end at least",
+    "type": "float",
+    "default": 0.84,
+    "help": "The low end of the range must also clear this.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.solid_min",
+    "label": "Solid: whole chance at least",
+    "type": "float",
+    "default": 0.8,
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.solid_lo_min",
+    "label": "Solid: low end at least",
+    "type": "float",
+    "default": 0.7,
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.watch_min",
+    "label": "Watch: whole chance at least",
+    "type": "float",
+    "default": 0.6,
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.earned_min_n",
+    "label": "Track record: results needed",
+    "type": "int",
+    "default": 40,
+    "help": "Similar finished lines needed before a tier is trusted. Fewer: Strong drops to Solid.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.earned_prior_k",
+    "label": "Track record: weight of the stated chance",
+    "type": "float",
+    "default": 20.0,
+    "help": "Higher keeps the tier closer to the stated chance until results pile up.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.strong_needs_lineup",
+    "label": "Strong needs a confirmed eleven (players)",
+    "type": "boolean",
+    "default": true,
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.player_anchor",
+    "label": "Player record anchor",
+    "type": "boolean",
+    "default": true,
+    "help": "Blend a player's own hit rate over his last games into the line (docs/32). Stars who clear a line almost every game are no longer held down by the average spread.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.anchor_min_games",
+    "label": "Anchor: games needed",
+    "type": "int",
+    "default": 15,
+    "help": "Games played (of his last 40) before his own record counts.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.anchor_k",
+    "label": "Anchor: weight of the model",
+    "type": "float",
+    "default": 30.0,
+    "help": "Higher keeps the model's number closer. The record's weight is games / (games + this).",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.anchor_max_w",
+    "label": "Anchor: most weight his record can take",
+    "type": "float",
+    "default": 0.4,
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.p_cap",
+    "label": "Highest chance we show",
+    "type": "float",
+    "default": 0.985,
+    "help": "Anchored lines never show above this. The calibration map still stops at 97%.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.ratings_blend",
+    "label": "Team ratings weight",
+    "type": "float",
+    "default": 0.7,
+    "help": "How much the team attack-and-defence ratings count in each team total (shots, corners, tackles, ...). 0 = engine regression only (docs/33).",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.cards_ratings_blend",
+    "label": "Cards: team ratings weight",
+    "type": "float",
+    "default": 0.7,
+    "help": "How much the yellow-card team ratings count in the match cards forecast. 0 = old all-time average (docs/33).",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.script_v2",
+    "group": "Engine",
+    "label": "Game state: lopsided and tempo",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "Adds two things the model can see before kick-off: how one-sided the fixture looks, and how many goals the two clubs' matches usually carry. A side expected to lead sits deeper; an open game has more of everything. Off until engine_ab.py passes it on your data (docs/37)."
+  },
+  {
+    "key": "engine.fit_player_r",
+    "group": "Engine",
+    "label": "Fit player spread from results",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "Works out how much a player's count bounces around its average from your own results, instead of the fixed numbers in 'Player dispersion'. Off until engine_ab.py passes it on your data (docs/37)."
+  },
+  {
+    "key": "engine.personal_lines",
+    "group": "Engine",
+    "label": "A line for each player and team",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "Gives every player and team its own line for each stat: the count it clears about half the time in its usual game, worked out from its own fitted rate rather than one line for the whole league. Stops 'PSG 9+ shots' and '1+ shot' - lines that are true for nearly everyone and so say nothing. With this on, a likelihood above a half means more than that entity usually manages and below a half means less (docs/52). Off until engine_ab.py passes it on your data."
+  },
+  {
+    "key": "engine.personal_spread",
+    "group": "Engine",
+    "label": "Neighbour lines to keep",
+    "type": "int",
+    "default": 1,
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "How many lines either side of each entity's own line to work out as well, so the Finder has a range to answer from. 1 gives three lines in all. Only used when 'A line for each player and team' is on."
+  },
+  {
+    "key": "engine.departure_strong",
+    "group": "Engine",
+    "label": "Strong: gap from usual",
+    "type": "float",
+    "default": 0.12,
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "With 'A line for each player and team' on, a forecast is graded on how far it moves from what that player or team usually does, not on how likely it is - at their own half-way line, likelihood says the same thing about everybody. Strong needs a gap of at least this much AND a likely range that sits wholly on one side of their usual (docs/52)."
+  },
+  {
+    "key": "engine.departure_solid",
+    "group": "Engine",
+    "label": "Solid: gap from usual",
+    "type": "float",
+    "default": 0.06,
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "The gap from usual a forecast needs to reach Solid. Half this value is the floor for Watch; below that the fixture looks like any other for them and the line gets no tier, so it never reaches a feed."
+  },
+  {
+    "key": "engine.opp_pos_k",
+    "group": "Engine",
+    "label": "Opponent by position: prior strength",
+    "type": "float",
+    "default": 0,
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "0 = off. Above 0, each forecast also uses what this opponent lets players in that position do (what a full-back allows a winger). Higher numbers trust the opponent's record less. 20 is the tested starting point. The team total never changes, only how it is split between players (docs/37)."
+  },
+  {
+    "key": "engine.xg_blend",
+    "group": "Engine",
+    "label": "Expected goals in team strength",
+    "type": "float",
+    "default": 0,
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "0 = off. Above 0, match chances use a second strength model fitted on expected goals as well as the one fitted on goals. Expected goals are steadier than goals, which are few and swingy. 0.5 counts them equally. Needs expected goals in the feed (docs/37)."
+  },
+  {
+    "key": "engine.market_weights",
+    "group": "Engine",
+    "label": "How important each market is",
+    "type": "json",
+    "default": {
+      "player": {
+        "sot": 1.4,
+        "tackles": 1.3,
+        "passes": 1.25,
+        "fouls_won": 1.2,
+        "fouls": 1.15,
+        "goals": 1.2,
+        "assists": 1.1,
+        "yellow_cards": 1.05,
+        "shots": 1.0
+      },
+      "team": {
+        "goals": 1.4,
+        "match_goals": 1.4,
+        "yellow_cards": 1.3,
+        "match_yellow_cards": 1.3,
+        "corners": 1.25,
+        "shots": 1.1,
+        "sot": 1.2
+      }
+    },
+    "public": false,
+    "applies_at": "immediately",
+    "help": "What each market is worth when choosing the one line a card leads with. A line's score is this weight x its lift over usual x its likelihood, so an important market still has to be saying something. Anything not listed counts as 1.0. Order from docs/39 (docs/46)."
+  },
+  {
+    "key": "engine.feed_group",
+    "group": "Engine",
+    "label": "How feed cards are grouped",
+    "type": "enum",
+    "default": "player_market",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "player_market (default) = one card per player or team per market, so a good shots line and a good on-target line both surface; player = one card for everything that player has; line = no grouping, every line its own card (docs/46)."
+  },
+  {
+    "key": "engine.lift_scale",
+    "group": "Engine",
+    "label": "How 'different from usual' is measured",
+    "type": "enum",
+    "default": "odds",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "odds (default) compares the change in log-odds, so 'twice as likely as usual' counts the same whether a line is usually 20% or usually 90%. points compares plain percentage points, which favours markets whose base rate sits mid-table because they have more room to move (docs/48). Only affects ranking; the 'usually X%' a card shows is unchanged."
+  }
 ]

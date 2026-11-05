@@ -79,6 +79,14 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
             </small>
           : f.p_usual != null && <small className="k-fc-vs" data-testid={`${id}-usual`}>Usually {pct(f.p_usual)}</small>}
         {f.scope === "player" && f.rec_n >= 8 && <small className="k-fc-vs" data-testid={`${id}-record`}>Hit in {f.rec_k} of his last {f.rec_n} games</small>}
+        {/* docs/55: the number assumes he plays, and the ten-game strip beside it is made of starts. Saying so
+            stops a reader reading a careful number as a wrong one. Nothing to say once the lineup is out. */}
+        {f.scope === "player" && f.p_basis === "played" && !sure && (
+          <small className="k-fc-vs" data-testid={`${id}-basis`}>
+            Assumes he plays
+            {f.p_start != null && f.p_start < 0.8 && <> · he starts {pct(f.p_start)} of the time</>}
+          </small>
+        )}
         {f.reasons?.[0] && <p className="k-fc-why">{f.reasons[0]}</p>}
       </button>
       {(more.length > 0 || lineup || (showTime && f.kickoff)) && (

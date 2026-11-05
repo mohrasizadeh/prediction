@@ -127,6 +127,13 @@ class Forecast:
                                         # about half the time in its usual game. The headline rung.
     expected_usual: float | None = None # the count it manages in its usual game, against an average opponent
                                         # and match (docs/25). The feed ranks by p - p_usual.
+    span: float | None = None           # docs/56: how much this rung's likelihood moves across the league's range of
+                                        # opponents, in likelihood points. Small means the rung cannot carry news
+                                        # about THIS fixture -- every opponent gives nearly the same answer -- so it
+                                        # should not lead a card. None means unknown; unknown is never treated as
+                                        # trivial.
+    p_start: float | None = None        # his chance to START (docs/55). p_play is the chance to feature, which is
+                                        # near 1 for a regular substitute, so a gate on p_play does not catch him.
 
 
 # Availability (docs/22). A player who has not featured in his club's last matches is often injured, suspended or
@@ -738,6 +745,22 @@ class SoccerEngine:
         Em = sum(p * mm for p, mm in scen)
         return scen, Em, sum(p for p, _ in scen), float(ps)
 
+    def _opp_log_spread(self, s, snap):
+        """How much the league's opponents differ in what they allow for stat `s`, in log space.
+
+        Half the 10-to-90 range of the concession strengths the engine already keeps in its snapshot, so it is the
+        league's own spread and not a chosen constant. Used only to measure how sensitive a rung is (docs/56):
+        a rung whose likelihood barely moves over this range cannot tell the reader anything about this fixture.
+
+        Returns 0.0 when the snapshot is too thin to say, and the caller then records the span as unknown rather
+        than as small -- the difference matters, because unknown must never be read as trivial.
+        """
+        _, dag = self.team_dims.get(s, (0, 1))
+        col = np.asarray(snap[0][:, dag], float)
+        if col.size < 4 or not np.all(np.isfinite(col)):
+            return 0.0
+        return 1.2816 * float(np.std(col))
+
     def usual_start_rate(self, info):
         g = info["g"]
         st = g["started"].values.astype(float)
@@ -894,9 +917,14 @@ class SoccerEngine:
                     k_own = personal_k(lambda k: nb_sf(k, mu_usual[s], self.glm[s].r))
                     thrs = personal_thrs(k_own, self.personal_spread)
                     thr_own = float(k_own) - 0.5
+                dlog = self._opp_log_spread(s, snap)
                 for thr in thrs:
                     k = int(np.floor(thr)) + 1
                     p = float(nb_sf(k, mu_team[s], self.glm[s].r))
+                    # docs/56: the same rung against the leakiest and the meanest defence in the league
+                    span = (abs(float(nb_sf(k, mu_team[s] * np.exp(dlog), self.glm[s].r))
+                                - float(nb_sf(k, mu_team[s] * np.exp(-dlog), self.glm[s].r)))
+                            if dlog > 1e-6 else None)
                     pd_ = nb_sf(k, mu_team[s] * u, self.glm[s].r)
                     lo, hi = np.percentile(pd_, [10, 90])
                     hist = self.tg_hist.get(team)
@@ -908,7 +936,7 @@ class SoccerEngine:
                                         opp_tactics=opp_tac, own_tactics=own_tac,
                                         opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
                                         rotation=rot[team][0], rotation_why=rot[team][1], p_usual=p_usual,
-                                        thr_personal=thr_own, expected_usual=float(mu_usual[s])))
+                                        thr_personal=thr_own, expected_usual=float(mu_usual[s]), span=span))
 
             # ---- player markets
             squad = self.squads.get(team, {})
@@ -927,8 +955,9 @@ class SoccerEngine:
                 Z = sum(rate[pid] * scen_all[pid][1] / 90.0 for pid in squad)
                 if Z <= 0:
                     continue
+                dlog = self._opp_log_spread(s, snap)
                 for pid, info in squad.items():
-                    sc, Em, pplay, _ = scen_all[pid]
+                    sc, Em, pplay, ps_start = scen_all[pid]
                     if pplay < 0.15:
                         continue
                     sigma = float(np.sqrt(self.sigma_team ** 2 + post[pid].cv ** 2))
@@ -963,9 +992,16 @@ class SoccerEngine:
                         p_raw = float((last > thr).mean()) if len(last) else 0.5
                         p_base = float(np.sum(probs * nb_sf(k, mus_b, self.r_player[s])))
                         lo, hi = float(lo), float(hi)
+                        # docs/56: the opponent reaches a player through mu_team, so the span is measured by moving
+                        # the whole expectation over the league's range of defences, mixture and all.
+                        span = (abs(float(np.sum(probs * nb_sf(k, mus * np.exp(dlog), self.r_player[s])))
+                                    - float(np.sum(probs * nb_sf(k, mus * np.exp(-dlog), self.r_player[s]))))
+                                if dlog > 1e-6 else None)
                         if self.cond_play:                  # divide out the chance to play: "if he plays" (docs/27)
                             d = max(float(pplay), 1e-3)
                             p, lo, hi, p_base = (min(v / d, 0.999) for v in (p, lo, hi, p_base))
+                            if span is not None:            # the span is in the same units as p, so it scales with it
+                                span = min(span / d, 1.0)
                             expected_c = expected / d
                         else:
                             expected_c = expected
@@ -977,7 +1013,7 @@ class SoccerEngine:
                                             rotation=rot[team][0], rotation_why=rot[team][1],
                                             p_play_usual=usual_ps.get(pid), p_usual=p_base,
                                             rec_k=int((last40 > thr).sum()), rec_n=int(len(last40)),
-                                            thr_personal=thr_own,
+                                            thr_personal=thr_own, span=span, p_start=float(ps_start),
                                             expected_usual=(mu_usual_p / max(float(pplay), 1e-3)) if self.cond_play else mu_usual_p))
         mh, ma = (1.0, 1.0)
         if self.match_context and match_ctx:

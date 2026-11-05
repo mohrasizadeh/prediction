@@ -26,7 +26,7 @@ you look at it; section 6 is what has to happen before it goes on in public.
 | E. Two bug fixes | The League page no longer crashes; the player insight sheet no longer hides three of its ten games | — | `pages/League.jsx`, `styles/swiss.css` | docs/redesign/swiss |
 | F. Research | What to show, and what to sell | — | — | docs/50, docs/51 |
 
-Tests: **41 self-test suites, all passing** (`cd backend && bash run_tests.sh`).
+Tests: **42 self-test suites, all passing** (`cd backend && bash run_tests.sh`).
 No class name was added, renamed or removed in part D, so Site Studio and the copy checker are
 untouched.
 
@@ -48,7 +48,7 @@ untouched.
 >   `frontend/src/pages/League.jsx` (the crash fix).
 > - Tests: `backend/tests/selftest_personal_lines.py`, `backend/tests/selftest_pitch_images.py`.
 >
-> **Step 1.** Run `cd backend && bash run_tests.sh`. It must print **41 PASS lines**.
+> **Step 1.** Run `cd backend && bash run_tests.sh`. It must print **42 PASS lines**.
 > Run `cd frontend && node scripts/check-copy.js`. It must pass. Show me both logs.
 >
 > **Step 2.** Admin → Football data → PitchAPI: map `minutes`, `tackles`, `fouls_committed`,

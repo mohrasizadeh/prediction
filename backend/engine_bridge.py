@@ -215,6 +215,9 @@ def _goal_lines(db, m, probs, run_id, now, labels, usual=None) -> list[dict]:
                     # docs/52: a match total belongs to the fixture, not to one team, so "the count this entity
                     # usually manages" has no meaning here. The keys exist so every line has the same shape.
                     "thr_personal": None, "is_personal": False, "expected_usual": None,
+                    # docs/56: a match total has no single opponent to be sensitive to, so its span is unknown
+                    # rather than small. Unknown is never treated as trivial.
+                    "span": None, "p_start": None,
                     "ladder": ladder, "model": "strength", "is_current": True, "hidden": False, "created_at": now})
     return out
 
@@ -276,6 +279,8 @@ def run_league(db, league_iid: int, now=None) -> dict:
     labels = S.get(db, "copy.market_labels")
     likely_gate = float(S.get(db, "engine.likely_starter_p"))
     min_play = float(S.get(db, "engine.min_p_play")); cond = bool(S.get(db, "engine.condition_on_play"))
+    min_start = float(S.get(db, "engine.min_p_start"))   # docs/55: a regular substitute features in nearly every
+                                                         # match, so a gate on the chance to FEATURE never catches him
     auto_lines = bool(S.get(db, "engine.auto_lines"))
     line_band = S.get(db, "engine.line_band"); max_lines = int(S.get(db, "engine.max_lines_per_stat"))
     earned = S.get(db, "engine.tier_mode") == "earned"
@@ -350,6 +355,11 @@ def run_league(db, league_iid: int, now=None) -> dict:
                 p, lo, hi = TI.anchor(p, lo, hi, f.rec_k, f.rec_n, anchor_k, anchor_w, p_cap)
             if cond and badge == "unsure" and float(f.p_play) < min_play:
                 continue                                         # rarely plays: no card, however high the "if he plays" number
+            # docs/55: measured over 165 players, the median chance to feature is 0.93 in every class, including
+            # fringe players whose chance to start is 0.41 -- so min_p_play lets them through and their card is then
+            # built from a 46-minute blend and shown beside a strip of starts. This gate asks the right question.
+            if min_start > 0 and badge == "unsure" and f.p_start is not None and float(f.p_start) < min_start:
+                continue
             # docs/52: is this the entity's own half-way line, or one of the neighbours kept for the Finder?
             is_own = f.thr_personal is not None and abs(float(f.thr) - float(f.thr_personal)) < 1e-9
             p_usual_raw = CAL.apply(pmap, f.p_usual, state, f.scope) if f.p_usual is not None else None
@@ -388,6 +398,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "rotation": f.rotation, "rotation_why": f.rotation_why, "p_play_usual": f.p_play_usual,
                          "p_raw": f.p_raw, "p_base": f.p_base, "is_current": True, "hidden": False, "created_at": now,
                          # docs/52: the entity's own 50% line, and the count it manages in its usual game
+                         # docs/56: how far this rung's likelihood moves across the league's range of opponents
+                         "span": (float(f.span) if f.span is not None else None),
+                         "p_start": (float(f.p_start) if f.p_start is not None else None),
                          "thr_personal": (float(f.thr_personal) if f.thr_personal is not None else None),
                          "is_personal": (f.thr_personal is not None and abs(float(f.thr) - float(f.thr_personal)) < 1e-9),
                          "expected_usual": (float(f.expected_usual) if f.expected_usual is not None else None)})

@@ -95,7 +95,8 @@ def match_detail(db, match_iid: int) -> dict | None:
         e["player"], e["player_in"] = ep.get(e.get("player_iid")), ep.get(e.get("in_iid"))
     return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]], "events": ev,
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
-            "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights")),
+            "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"),
+                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span"))),
             "styles": styles, "starters": lu,
             "referee": RF.for_match(db, m),
             "predicted": [] if lu else predicted_xi(db, fc, (m["home_iid"], m["away_iid"])),
@@ -173,6 +174,29 @@ def lift(f: dict, scale: str = "odds") -> float:
     return keep(_logit(f.get("p") or 0.0) - _logit(pu))
 
 
+def is_trivial(f: dict, min_span: float) -> bool:
+    """Would this rung give nearly the same answer against every opponent in the league? (docs/56)
+
+    Reported, repeatedly and correctly: "PSG 9+ shots 88%" and "Kane 1+ shot 90%" are true statements nobody
+    needs, and nobody pays for a statement they can read off the fixture list. What makes them useless is not that
+    they are likely -- it is that they are **insensitive**. Measured on the engine's own numbers, Kane's 1+ shot
+    rung moves about 4 likelihood points between the leakiest and the meanest defence in the league, while his
+    5+ rung moves about 32. A rung that cannot move with the opponent carries no information about THIS fixture,
+    whatever its percentage, so it must not lead a card.
+
+    `span` is that movement, in likelihood points, computed in the engine from the league's own spread of
+    concession strengths (`_opp_log_spread`). A line whose span is **unknown** (None) is never trivial: that is
+    an absence of information, not evidence of insensitivity, and a missing field must never silently hide a card.
+    Setting `min_span` to 0 switches the whole gate off.
+    """
+    if min_span <= 0:
+        return False
+    sp = f.get("span")
+    if sp is None:
+        return False
+    return abs(float(sp)) < float(min_span)
+
+
 def prominence(f: dict, weights: dict | None = None, scale: str = "odds") -> float:
     """How much this line is worth saying out loud.
 
@@ -208,12 +232,19 @@ def _card_key(f: dict, group: str):
     return (*base, f.get("stat"))                      # player_market: shots and on-target are separate cards
 
 
-def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weights: dict | None = None, scale: str = "odds") -> list[dict]:
+def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weights: dict | None = None, scale: str = "odds",
+                min_span: float = 0.0) -> list[dict]:
     """One card per player (or team) per match, per market when `group` is "player_market" (docs/46).
 
     The line that leads is the one with the most to say -- `prominence` above -- not the highest percentage.
     The rest go into `more_lines`, most likely first, so what is near-certain is still one glance away and still
     available to a combo. Lines above `max_p` never lead while another line can (docs/25).
+
+    `min_span` adds the triviality gate (docs/56): a rung that would give nearly the same answer against every
+    opponent in the league cannot lead while any other line in the group can. It is a **demotion, not a deletion**
+    -- the line keeps its place in `more_lines`, stays in the ladder and stays available to the Finder and to a
+    combo. If every line in a group is trivial, the group still produces a card: hiding the group would be worse
+    than leading it with a dull line, and an empty feed is not an improvement on a boring one.
     """
     groups: dict = {}
     for f in fc:
@@ -221,6 +252,9 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
     out = []
     for g in groups.values():
         lead = [f for f in g if f["p"] <= max_p] or g
+        # docs/56: prefer rungs that could have come out differently against a different opponent. "or lead"
+        # is the floor that keeps a card from vanishing when every rung in it is insensitive.
+        lead = [f for f in lead if not is_trivial(f, min_span)] or lead
         own = [f for f in lead if f.get("is_personal")]
         if own:
             # docs/52: when the entity has its own line there is nothing to choose between -- that line
@@ -316,7 +350,7 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     grp = S.get(db, "engine.feed_group")
     if grp in ("player", "player_market"):
         fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")), grp, S.get(db, "engine.market_weights"),
-                         S.get(db, "engine.lift_scale"))
+                         S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")))
     fc.sort(key=FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"]))
     fc = fc[:limit]
     _usual(db, fc)
@@ -881,7 +915,8 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
     if nxt:
         _with_teams(db, [nxt])
     return {"player": p, "team": team, "next_match": nxt,
-            "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"))}
+            "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"),
+                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")))}
 
 
 # -------------------------------------------------------------- Team page

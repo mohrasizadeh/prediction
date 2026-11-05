@@ -10,7 +10,7 @@ Stack: React (frontend), FastAPI with synchronous pymongo (backend), MongoDB. Bu
 |---|---|---|
 | `backend/` | FastAPI app (`server.py`) and every module: accounts, 2FA, security layer, plans, Stripe, e-mail, admin (123 routes), Site Studio, popups, integrations, ingest, jobs, images, queries | Built and tested |
 | `backend/soccer_brain/` | The forecast engine (Dixon-Coles, negative-binomial GLM, tactics, rotation) | Built and tested |
-| `backend/tests/` | 41 self-test suites, a fake PitchAPI, and `demo_server.py` | All pass |
+| `backend/tests/` | 42 self-test suites, a fake PitchAPI, and `demo_server.py` | All pass |
 | `frontend/` | React app: routing for every screen, API client, auth, design tokens, crest and avatar components. **Today**, sign-in, sign-up, verify and the Markdown pages work. Every other screen is a labelled placeholder that names its spec and shows the live API answer | Scaffold for Emergent to finish |
 | `docs/` | The full hand-off: product plan, design system, database, every route, ingest, engine, admin, billing, security, images, checklist, clickable admin prototype | Complete |
 | `EMERGENT.md` | The prompts to give Emergent, one phase at a time | Start here |
