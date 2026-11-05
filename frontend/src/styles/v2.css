@@ -637,3 +637,11 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 }
 .v2-say { margin: 0; flex: 1 1 32ch; max-width: 78ch; }
 .v2-say .k-link { font-size: .78em; font-weight: 500; white-space: nowrap; }
+
+/* CONSOLIDATION: a tab that holds several related blocks reads as one answer, so the blocks are
+   spaced and ruled rather than floated apart. */
+.v2-stack { display: grid; gap: 26px; }
+.v2-stack > section > .k-sec {
+  padding-bottom: 7px; margin-bottom: 11px; border-bottom: 1px solid var(--border);
+  font-size: 16px; font-stretch: 104%; font-weight: 600;
+}

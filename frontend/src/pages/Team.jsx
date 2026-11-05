@@ -116,6 +116,7 @@ export default function Team() {
   const { id } = useParams();
   const q = useApi(`/teams/${id}`);
   const [tab, setTab] = useState("squad");
+  const [squadView, setSquadView] = useState("cards");
   useTitle(q.data?.team?.name || "Team");
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
@@ -130,12 +131,28 @@ export default function Team() {
           <div className="phead-row"><FormPills form={d.form} /><div className="chips">{(d.style?.tactics || []).map((t) => <TacticChip key={t} t={t} />)}</div><FollowButton kind="team" refId={d.team.id} name={d.team.name} /><Link to={`/compare?a=${d.team.id}`} className="btn btn--secondary btn--sm" data-testid="team-compare">Compare with…</Link></div>
         </div>
       </header>
-      <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "squad", label: "Squad" }, { id: "grid", label: "Squad grid" }, { id: "totals", label: "Team totals" }, { id: "against", label: "Against" }, { id: "first", label: "First goal" }, { id: "fixtures", label: "Fixtures" }]} />
-      {tab === "squad" && <SquadCards id={id} />}
-      {tab === "grid" && <Grid id={id} />}
-      {tab === "totals" && <Totals id={id} />}
-      {tab === "against" && <Against id={id} />}
-      {tab === "first" && <FirstGoal team={d.team} />}
+      {/* CONSOLIDATION: six tabs became three. "Squad" and "Squad grid" were two renderings of one
+          thing -- a view toggle wearing two tabs -- so they are one tab with a toggle. "Team totals",
+          "Against" and "First goal" are all the same question, what this club's numbers look like,
+          so they are one tab read top to bottom: per match, then by the position it concedes to,
+          then who tends to score first. Six tabs scrolled sideways on a phone; three do not. */}
+      <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "squad", label: "Squad" }, { id: "totals", label: "Numbers" }, { id: "fixtures", label: "Fixtures" }]} />
+      {tab === "squad" && (
+        <>
+          <div className="v2-bar">
+            <Seg label="View" value={squadView} onChange={setSquadView} testid="team-squad-view"
+                       options={[{ id: "cards", label: "Cards" }, { id: "grid", label: "Grid" }]} />
+          </div>
+          {squadView === "cards" ? <SquadCards id={id} /> : <Grid id={id} />}
+        </>
+      )}
+      {tab === "totals" && (
+        <div className="v2-stack">
+          <section><h2 className="k-sec">Match by match</h2><Totals id={id} /></section>
+          <section><h2 className="k-sec">What opponents manage, by position</h2><Against id={id} /></section>
+          <section><h2 className="k-sec">Who scores first</h2><FirstGoal team={d.team} /></section>
+        </div>
+      )}
       {tab === "fixtures" && (d.next.length ? <ul className="mlist card">{d.next.map((m) => <MatchRow key={m.id} m={m} />)}</ul> : <Empty icon="calendar">No upcoming fixtures loaded.</Empty>)}
     </section>
   );
