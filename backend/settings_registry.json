@@ -1052,6 +1052,16 @@
     "help": "On: a player's percentage assumes he plays, and his chance to play shows as a lineup badge instead (docs/27). On 93,000 real forecasts this was calibrated: players rated 80-85% reached the line 84% of the time, where the old number sat 8 points low at the top. Off: the old number that folds the chance to play in."
   },
   {
+    "key": "engine.minutes_floor",
+    "group": "Engine",
+    "label": "Credit for being on the pitch",
+    "type": "number",
+    "default": 0.0,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "How much of a full match's expectation a player gets just for appearing, before minutes are counted. At 0, the default, a player's expected count scales straight with minutes: twenty minutes is two ninths of a full match. That is right for how MANY he records and arguably wrong for whether he manages one at all, since a substitute comes on to attack and a starter can have a quiet ninety. At 0.3, twenty minutes is worth about 0.45 of a full match instead of 0.22, so short appearances are credited more. Applied everywhere minutes scale a rate, so the players on the pitch still share the team's expected total exactly. Leave at 0 until it has been judged on real results: it cannot be tested on the simulated league, which allocates player stats strictly in proportion to minutes by construction. docs/58."
+  },
+  {
     "key": "engine.min_p_play",
     "group": "Engine",
     "label": "Hide players unlikely to play",

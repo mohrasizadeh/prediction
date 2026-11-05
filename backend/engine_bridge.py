@@ -95,6 +95,8 @@ def configure_engine(db) -> E.SoccerEngine:
                          style_cap_q=(float(S.get(db, "engine.style_cap_q")) or None),
                          player_prior=dict(S.get(db, "engine.player_prior")),
                          cond_play=bool(S.get(db, "engine.condition_on_play")),     # "if he plays" (docs/27)
+                         minutes_floor=float(S.get(db, "engine.minutes_floor")),     # docs/58
+
                          # docs/37 upgrades. Each default is off; switch one on only after engine_ab.py passes it.
                          script_v2=bool(S.get(db, "engine.script_v2")),
                          fit_player_r=bool(S.get(db, "engine.fit_player_r")),

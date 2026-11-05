@@ -177,11 +177,13 @@ class SoccerEngine:
                  lineup_l2=10.0, seed=0, tactics=False, tactic_interactions=True, shape=False,
                  extra_stats=(), match_features=(), strength_decay=0.02,
                  style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None, cond_play=False,
+                 minutes_floor=0.0,
                  ratings_blend=0.0, script_v2=False, fit_player_r=False, opp_pos_k=0.0, xg_blend=0.0,
                  personal_lines=False, personal_spread=1):
         self.interactions = interactions
         # Player lines are "if he plays" (docs/27). His chance to play is shown as a lineup badge, not folded into the percentage.
         self.cond_play = bool(cond_play)
+        self.minutes_floor = max(0.0, min(0.6, float(minutes_floor or 0.0)))
         self.ratings_blend = float(ratings_blend)   # weight of the attack/defence ratings model in each team count (docs/33)
         # --- docs/37 upgrades. Each is OFF by default and ships only if engine_ab.py passes its gate on real data.
         self.script_v2 = bool(script_v2)        # game state: margin, how lopsided, and the tempo of the fixture
@@ -745,6 +747,25 @@ class SoccerEngine:
         Em = sum(p * mm for p, mm in scen)
         return scen, Em, sum(p for p, _ in scen), float(ps)
 
+    def _minutes_share(self, m):
+        """How much of a full match's expectation a player of `m` minutes gets.
+
+        The engine has always used m/90: twice the time, twice the shots. That is right for the
+        expected COUNT and it is the wrong shape for "did he manage one at all", which is what a
+        1+ line asks. A substitute comes on to attack, and a starter can have a quiet ninety -- so
+        simply being on the pitch is worth something before the clock starts mattering.
+
+        `engine.minutes_floor` is that fixed part. At 0, which is the default, this returns m/90
+        and nothing changes. At a, a player gets a + (1-a)*m/90, so a twenty-minute appearance is
+        worth more than two ninths of a full one.
+
+        It is deliberately applied in every place minutes scale a rate, Z included, so the players
+        on the pitch still share exactly the team's expected total between them.
+        """
+        f = m / 90.0
+        a = self.minutes_floor
+        return f if a <= 0 else a + (1.0 - a) * f
+
     def _opp_log_spread(self, s, snap):
         """How much the league's opponents differ in what they allow for stat `s`, in log space.
 
@@ -952,7 +973,7 @@ class SoccerEngine:
                     # team total does not change: this only moves the count between the players on the pitch.
                     opp_pos_f[pid] = self._opp_pos_factor(s, Y, info["pos"]) if self.opp_pos_k > 0 else 1.0
                     rate[pid] = post[pid].mean * opp_pos_f[pid]
-                Z = sum(rate[pid] * scen_all[pid][1] / 90.0 for pid in squad)
+                Z = sum(rate[pid] * self._minutes_share(scen_all[pid][1]) for pid in squad)
                 if Z <= 0:
                     continue
                 dlog = self._opp_log_spread(s, snap)
@@ -962,7 +983,7 @@ class SoccerEngine:
                         continue
                     sigma = float(np.sqrt(self.sigma_team ** 2 + post[pid].cv ** 2))
                     u = self._draws(sigma)
-                    mus = np.array([mu_team[s] * rate[pid] * m / 90.0 / Z for _, m in sc])
+                    mus = np.array([mu_team[s] * rate[pid] * self._minutes_share(m) / Z for _, m in sc])
                     probs = np.array([pr for pr, _ in sc])
                     expected = float(np.sum(probs * mus))
                     contrib = dict(grp[s])
@@ -974,7 +995,7 @@ class SoccerEngine:
                     g = info["g"]; ap = g[g["minutes"] > 0]
                     pb = shrunk_rate(ap[s].values, (ap["minutes"] / 90.0).values,
                                      self.rho90[s][info["pos"]], 4.0, self.hl)
-                    mus_b = np.array([pb.mean * m / 90.0 for _, m in sc])
+                    mus_b = np.array([pb.mean * self._minutes_share(m) for _, m in sc])
                     reasons = self._player_reasons(contrib, grp[s], s, opp_tac)
                     thrs_p, thr_own = PLAYER_THR[s], None
                     mu_usual_p = float(np.sum(probs * mus_b))      # his own count in this match's minutes
