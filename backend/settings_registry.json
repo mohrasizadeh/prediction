@@ -1066,10 +1066,10 @@
     "group": "Engine",
     "label": "Hide lines that cannot move",
     "type": "number",
-    "default": 0.0,
+    "default": 0.06,
     "public": false,
     "applies_at": "immediately",
-    "help": "A line only leads a card if its likelihood would move at least this much (in likelihood, so 0.08 is 8 points) between the league's leakiest and meanest opponent for that stat. It stops cards like \"9+ shots, 88%\" or \"1+ shot, 90%\", which read the same whoever the opponent is, so they say nothing about this match. The line is only demoted, never deleted: it stays under \"more lines\", in the ladder, in the Finder and available to a combo. 0 switches it off. A line whose movement is unknown is never hidden. docs/56."
+    "help": "A line only leads a card if its likelihood would move at least this much (in likelihood, so 0.06 is 6 points) between the league's leakiest and meanest opponent for that stat. It stops cards like \"9+ shots, 88%\" or \"1+ shot, 90%\", which read the same whoever the opponent is, so they say nothing about this match. Measured on a full run, the lines this catches are exactly those: 7+ shots at 92% moves 0.4 of a point, 1+ shot at 96% moves 1.2. The line is only demoted, never deleted: it stays under \"more lines\", in the ladder, in the Finder and available to a combo. A line whose movement is unknown is never hidden, and a card whose every line is insensitive still shows, because an empty feed is no better than a dull one. 0 switches it off. Raising it too far switches it off again in effect: once almost every line is below the threshold that last rule takes over and leads go back to what they were. On the measured run, 0.06 changed 10 leads of 134, 0.08 changed 28, and 0.20 changed only 3 for that reason. docs/56."
   },
   {
     "key": "engine.min_p_start",
