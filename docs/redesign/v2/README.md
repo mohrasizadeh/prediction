@@ -120,3 +120,11 @@ Sweeping all 24 routes × 2 widths × 2 schemes turns up what three pages cannot
 | Copy checker | passes |
 | Class names | none renamed or removed; new ones prefixed `v2-` |
 | Colour | only `var(--…)`, so an owner's palette still applies |
+
+## Shots
+
+| Folder | What it holds |
+|---|---|
+| `before/` | the screens as they were before the v2 pass |
+| `after/` | the v2 pass, on the Chalk palette it was designed against |
+| `carbon/` | the Carbon palette (commit `329342e`): Today, Match, Insights and Track record, phone and desk, dark and light |
