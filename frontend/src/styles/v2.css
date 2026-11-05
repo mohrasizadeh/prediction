@@ -413,3 +413,73 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
   border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent;
 }
 :root[data-theme="light"] .card .k-fc { border-left: 3px solid var(--tone, var(--v2-rule)); padding-left: 2px; }
+
+
+/* =============================================================== 15. TRACK RECORD
+   The one page whose job is to answer "can I trust you", and it already held the right sentence --
+   "When we say 78%, it happens 81% of the time" -- set as a paragraph, at body size, above a chart.
+   This is the claim the whole subscription rests on. It gets the size.
+
+   The two figures are marked by a chalk underline rather than by colour, because colour means
+   something specific everywhere else in this product (above usual, below usual, conditional) and
+   spending it here would make the page's most important sentence say something it does not mean. */
+.tr-hero { padding: 6px 0 22px; }
+.tr-head {
+  font-size: clamp(26px, 4.6vw, 44px); line-height: 1.12;
+  font-stretch: 108%; font-weight: 600; letter-spacing: -0.028em;
+  max-width: 20ch; margin: 0 0 10px; color: var(--text);
+}
+.tr-head em {
+  font-style: normal; font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 -0.12em 0 var(--text);
+}
+/* The chart is a measurement, so it is drawn in chalk: the diagonal is the honest line and the
+   dots are where we actually landed. No fill, no gradient, nothing decorative. */
+.tr-chart .tr-grid { stroke: var(--border); }
+.tr-chart .tr-diag { stroke: var(--text3); stroke-dasharray: 4 4; }
+.tr-chart .tr-line { fill: none; stroke: var(--text3); stroke-width: 1.5; }
+.tr-chart .tr-dot { fill: var(--text); }
+.tr-chart text { fill: var(--text3); font-size: 10px; font-stretch: 90%; }
+/* "84 of 100 came true" is the clearest thing on the page after the headline. */
+.tr-of b { font-size: 22px; font-stretch: 106%; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tr-tier { border-left: 3px solid var(--tone, var(--border)); }
+
+
+/* =============================================================== 16. ACROSS EVERY PAGE
+   Found by sweeping all 24 routes in both schemes rather than by looking at three.
+
+   a) The weekly-e-mail block is ~400px tall and appears on every single page, identical each time.
+      It is a conversion surface and keeping it is a business decision, not a design one, so it
+      stays -- but it stops competing with the content it sits under. A reader who has scrolled past
+      it on five pages does not need it shouting on the sixth. */
+.nl, .nl2 { background: transparent; border: 1px solid var(--border); border-radius: 12px; }
+.nl h2, .nl2 h2, .nl h3, .nl2 h3 { font-size: 19px; font-stretch: 104%; letter-spacing: -0.015em; }
+.nl, .nl2 { padding: 20px; }
+
+/* b) A disabled primary action was grey on grey. It is still the primary action, and a reader has
+      to be able to read why they cannot use it yet. */
+.btn:disabled, .btn[aria-disabled="true"] {
+  opacity: 1; background: var(--surface2); color: var(--text3);
+  border: 1px solid var(--border); box-shadow: none;
+}
+
+/* c) Segmented controls were heavy filled blocks running the full width of the page, so a control
+      outweighed the content it filtered. They become a quiet row that takes the width it needs. */
+.k-seg, .seg { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+.k-seg button, .seg button { border-radius: 6px; font-stretch: 96%; font-weight: 500; }
+.k-seg button[aria-pressed="true"], .seg button[aria-pressed="true"],
+.k-seg button.on, .seg button.on { background: var(--surface2); color: var(--text); font-weight: 600; }
+
+/* d) The Finder's query sentence is the strongest interaction in the product: a line of plain
+      English where every underlined word is editable. It deserves the chalk treatment rather than a
+      default text-decoration, and the sentence deserves to be set like a headline. */
+.fq, .fq-line { font-size: clamp(20px, 2.4vw, 30px); line-height: 1.35; font-stretch: 104%; letter-spacing: -0.015em; }
+.fq button, .fq-tok {
+  text-decoration: none; box-shadow: inset 0 -0.11em 0 var(--text3);
+  font-weight: 600; color: var(--text);
+}
+.fq button:hover, .fq-tok:hover { box-shadow: inset 0 -0.14em 0 var(--text); }
+
+/* e) Tables are measurements: chalk rules, tabular figures, no zebra fill. */
+.tbl th, .a-table th { font-stretch: 92%; font-weight: 600; color: var(--text3); }
+.tbl td, .tbl th { border-color: var(--border); }
