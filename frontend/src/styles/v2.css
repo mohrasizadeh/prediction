@@ -669,3 +669,26 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
   .mrow-bar { flex-basis: 100%; max-width: none; order: 5; }
   .mrow-best { order: 6; }
 }
+
+/* The enriched league row wrapped badly: the bar landed under the time column and the best line
+   floated mid-row, so the second line read as debris rather than as a row of its own. The row is a
+   two-line grid -- the fixture on top, its forecast underneath -- at every width. */
+.mrow {
+  display: grid; align-items: center; gap: 4px 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "time home v away" "bar bar best best";
+}
+.mrow-time { grid-area: time; }
+.mrow .team:not(.team--end) { grid-area: home; }
+.mrow-score { grid-area: v; }
+.mrow .team--end { grid-area: away; }
+.mrow-bar { grid-area: bar; max-width: 320px; min-width: 0; }
+.mrow-best { grid-area: best; justify-self: end; }
+@media (max-width: 640px) {
+  .mrow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "time time" "home v" "away away" "bar bar" "best best";
+  }
+  .mrow-best { justify-self: start; }
+  .mrow-bar { max-width: none; }
+}
