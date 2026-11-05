@@ -43,7 +43,10 @@ function Top3({ day }) {
     <section className="td-top" aria-label="Top 3 for this day" data-testid="today-top3">
       <div className="td-sec-head"><h2 className="k-sec">Top 3 for {day === isoDay(new Date()) ? "today" : utc(`${day}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "long" })}</h2>
         <Link to={`/insights?day=${day}`} className="k-link" data-testid="today-see-all">See all {rows.length}</Link></div>
-      <div className="td-carousel">{best.map((f) => <ForecastCard key={f.id} f={f} testid={`today-top-${f.id}`} />)}</div>
+      {/* UX_AUDIT decision 9: this was a horizontal carousel inside a page that scrolls down, with the
+          second card visibly clipped and nothing else to say more existed. Three items do not need a
+          carousel; they need three rows, and then none of them is hidden. */}
+      <div className="fgrid td-top-grid">{best.map((f) => <ForecastCard key={f.id} f={f} testid={`today-top-${f.id}`} />)}</div>
     </section>
   );
 }

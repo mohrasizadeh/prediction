@@ -121,7 +121,10 @@ export function Forecasts({ d, matchId }) {
     <div className="mc-fc" data-testid="match-forecasts">
       {matchId && d.match.status === "scheduled" && cardsOf(d).length > 0 && <div className="cb-buildrow"><BuildForMe matchId={matchId} /><small className="muted">Tap + on a line to start a combo.</small></div>}
       {track && <p className="lv-sum" data-testid="match-live-sum"><span className="k-livedot" aria-hidden="true" />{tracked ? <span><b>{hits} of {tracked}</b> lines we can follow have happened{lt.data.final ? "." : ". Updates every 30 seconds."}</span> : <span>Lines tick green here as cards and match numbers come in.</span>}</p>}
-      <div className="mc-fc-bar">
+      {/* UX_AUDIT section 4: the grouping control and the likelihood floor sat as a wide toolbar above
+          the forecasts, the second copy of a slider whose Insights twin was also holding a full row.
+          One quiet line, with the slider given only the width it needs. */}
+      <div className="mc-fc-bar v2-bar">
         <Segmented options={[{ id: "team", label: "By team" }, { id: "market", label: "By market" }]} value={by} onChange={setBy} label="Group" testid="fc-group" />
         <div className="mc-fc-min"><RangeSlider min={50} max={95} step={5} value={min} onChange={setMin} label="Minimum likelihood" format={(v) => `${v}%+`} testid="fc-min" /></div>
       </div>

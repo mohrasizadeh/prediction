@@ -93,8 +93,11 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
               <b>{f.expected_usual.toFixed(1)}</b>
               {f.p_usual != null && <> · this line lands {pct(f.p_usual)} of the time for {f.scope === "player" ? "him" : "them"}</>}
             </small>
-          : f.p_usual != null && <small className="k-fc-vs" data-testid={`${id}-usual`}>Usually {pct(f.p_usual)}</small>}
-        {f.scope === "player" && f.rec_n >= 8 && <small className="k-fc-vs" data-testid={`${id}-record`}>Hit in {f.rec_k} of his last {f.rec_n} games</small>}
+          : null}
+        {/* UX_AUDIT decision 6. "Usually 79%" and "Hit in 19 of his last 20 games" both restate what
+            the bar now draws: the tick is their usual and the segment is the distance from it. Three
+            sayings of one thing, stacked, on every card in a grid of twenty. The record keeps its place
+            in the detail sheet, where the whole run is shown game by game and can actually be read. */}
         {/* docs/55: the number assumes he plays, and the ten-game strip beside it is made of starts. Saying so
             stops a reader reading a careful number as a wrong one. Nothing to say once the lineup is out. */}
         {f.scope === "player" && f.p_basis === "played" && !sure && (

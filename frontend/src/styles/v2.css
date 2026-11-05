@@ -279,3 +279,50 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .v2-match-head .k-link { margin-left: auto; }
 
 .v2-more { display: flex; align-items: center; gap: 14px; padding: 6px 0 24px; }
+
+/* UX_AUDIT decision 7: the add-to-combo control was a circled "+" in the top-right of every card --
+   the highest-priority corner after the name, competing with the tier badge -- for a secondary
+   action used by a minority of readers. It keeps its 44px target and loses its shout. */
+.k-fc .cb-add {
+  opacity: .55; border-color: var(--border); background: transparent; box-shadow: none;
+  transition: opacity .15s ease, border-color .15s ease;
+}
+.k-fc:hover .cb-add, .k-fc .cb-add:focus-visible, .k-fc .cb-add.on { opacity: 1; }
+.k-fc .cb-add.on { border-color: var(--text); }
+
+/* UX_AUDIT decision 9: "Top 3 for today" was a horizontal carousel inside a vertically scrolling
+   page. On a phone the second card was clipped at the right edge, and that clipping was the only
+   signal that more existed. Three items become three rows on a phone and three columns on a desk,
+   so nothing is hidden and nothing scrolls sideways. */
+.td-top-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 900px) { .td-top-grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* UX_AUDIT decision 10: the fixture row is the main navigation of the product and it led with
+   kick-off time, the least differentiating thing on it. The clubs take the lead; the time keeps its
+   column but stops shouting. */
+.td-row .td-time { color: var(--text3); font-stretch: 92%; font-weight: 500; }
+.td-row .td-name { font-stretch: 100%; font-weight: 600; letter-spacing: -0.008em; }
+/* A count is not a value: every match has a similar number of lines, so the number alone never told
+   a reader whether this one was worth opening. It reads as a quiet way in, not as a score. */
+.td-ins { font-size: 12px; padding: 4px 9px; color: var(--text3); border: 1px solid var(--border); background: transparent; }
+
+/* =============================================================== 12. THE MATCH PAGE
+   UX_AUDIT section 4. On a page about one fixture, the fixture was the smallest thing on it: a thin
+   strip of two crests and a kick-off time above twenty-three forecast tiles. And the group headers
+   ("Team 0 - 9") were set smaller than the card titles inside them, so the structure of the page
+   read as less important than its contents. */
+.mc-hero { padding: 26px 22px 20px; }
+.mc-team b { font-size: 19px; font-stretch: 104%; font-weight: 600; letter-spacing: -0.012em; }
+.mc-score { font-stretch: 112%; font-weight: 600; letter-spacing: -0.03em; }
+.mc-v { font-stretch: 108%; font-weight: 500; color: var(--text3); }
+.mc-ko { color: var(--text2); }
+
+/* The group heading now outranks the cards under it, and sits on a rule so the page has structure
+   you can skim: three sections, not twenty-three tiles. */
+.mc-fc-group > h2.k-sec {
+  font-size: 16px; font-stretch: 104%; font-weight: 600; letter-spacing: -0.012em;
+  padding-bottom: 7px; margin-bottom: 11px; border-bottom: 1px solid var(--border);
+}
+.mc-fc-group { margin-bottom: 22px; }
+/* The slider takes the width it needs, not a third of the toolbar. */
+.mc-fc-bar .mc-fc-min { flex: 0 1 240px; }
