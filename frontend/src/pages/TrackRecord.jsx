@@ -32,15 +32,42 @@ function Chart({ bins }) {
   );
 }
 
+// How much of a said-vs-happened gap is real, and how much is the sample being small.
+function Reliability({ b }) {
+  const se = Math.sqrt(Math.max(b.stated * (1 - b.stated), 1e-6) / Math.max(b.n, 1));
+  const margin = 1.96 * se;                       // the band chance alone would produce
+  const gap = b.actual - b.stated;
+  const real = Math.abs(gap) > margin;
+  const dir = gap > 0 ? "more often than we said" : "less often than we said";
+  return (
+    <p className="tr-rel" data-testid="tr-reliability">
+      From <b>{b.n.toLocaleString()}</b> forecast{b.n === 1 ? "" : "s"} in that band, so the margin is
+      about <b>±{Math.round(margin * 100)} points</b>.{" "}
+      {real
+        ? <>The gap is wider than that: these happen {dir}{gap > 0 ? ", so we are promising less than we deliver" : ", which is the gap to watch"}.</>
+        : <>The gap is inside that margin, so it is what a sample this size produces on its own.</>}
+    </p>
+  );
+}
+
 function Body({ d }) {
-  const head = d.bins.find((b) => b.from === 0.7) || [...d.bins].sort((a, b) => b.n - a.n)[0];
+  // The headline rests on ONE band, not on every scored forecast, so it should rest on the band
+  // with the most evidence behind it. This preferred the 0.7 band even when a bigger one existed.
+  const head = [...d.bins].sort((a, b) => b.n - a.n)[0];
   const since = d.since ? utc(d.since).toLocaleDateString(undefined, { month: "long", year: "numeric" }) : null;
   return (
     <>
       <div className="tr-hero">
         {head ? <p className="tr-head" data-testid="tr-headline">When we say {pct(head.stated)}, it happens <em>{pct(head.actual)}</em> of the time.</p>
           : <p className="tr-head" data-testid="tr-headline">{d.scored} forecasts scored so far.</p>}
-        <p className="k-faint">Based on {d.scored.toLocaleString()} scored forecasts{since ? ` since ${since}` : ""}.</p>
+        {/* A gap between what we said and what happened means nothing without the count behind it.
+            At 30 forecasts a 14-point gap is what chance alone produces; at 100 it is real. The
+            page held `n` and printed only the total, so a reader could not tell the two apart and
+            had to assume the worst. It now says the count, the margin, and which of the two this
+            is -- and names the direction, because promising less than we deliver is the safe
+            side of a miss and reads as a fault when it is not. */}
+        {head && <Reliability b={head} />}
+        <p className="k-faint">Across all bands: {d.scored.toLocaleString()} scored forecast{d.scored === 1 ? "" : "s"}{since ? ` since ${since}` : ""}.</p>
       </div>
       <div className="tr-grid2">
         {d.bins.length ? <Chart bins={d.bins} /> : <EmptyState icon="bar-chart" title="Not enough in each band yet" testid="tr-no-bins">We draw the chart once each band holds 30 forecasts.</EmptyState>}

@@ -692,3 +692,8 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
   .mrow-best { justify-self: start; }
   .mrow-bar { max-width: none; }
 }
+
+/* The reliability line under the track-record headline. A said-versus-happened gap is meaningless
+   without the count behind it, so it sits with the headline rather than in a footnote. */
+.tr-rel { margin: 0 0 8px; max-width: 58ch; color: var(--text2); line-height: 1.5; }
+.tr-rel b { color: var(--text); font-variant-numeric: tabular-nums; }
