@@ -510,3 +510,14 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
       a screenful of nothing, then the e-mail block. The intent was to keep the footer off the fold;
       the effect was to make an empty page look broken. A short page should be short. */
 .main { min-height: 0; padding-bottom: 40px; }
+
+/* e) The player page's "Quick view" stacked five full-width control rows -- a market menu, a window,
+      a line, a venue and a checkbox -- so the controls were taller than the chart they controlled.
+      It is the same fault the Insights filter panel had, in a different component. They become a
+      wrapped row of controls that each take the width they need. */
+.qv .filters {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px;
+}
+.qv .filters > * { flex: 0 1 auto; width: auto; min-width: 0; }
+.qv .filters .k-seg, .qv .filters .seg { width: auto; }
+.qv select, .ins-pick { width: auto; min-width: 150px; }
