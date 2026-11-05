@@ -35,7 +35,7 @@ function Note({ id }) {
   );
 }
 
-function History({ id }) {
+function History({ id, forecasts }) {
   const [table, setTable] = useState(false);
   const [cols, setCols] = useStored("cols:history", ["minutes", "shots", "sot", "tackles", "goals"]);
   const shown = STATS.filter((s) => cols.includes(s.id));
@@ -43,7 +43,7 @@ function History({ id }) {
   return (
     <section className="card" data-testid="quick-view-card">
       <h2 className="h3">Quick view</h2>
-      <QuickView playerId={id} testid="quick-view">{(games) => (
+      <QuickView playerId={id} forecasts={forecasts} testid="quick-view">{(games) => (
         <>
           <button type="button" className="linkish" onClick={() => setTable(!table)} data-testid="qv-table-toggle">{table ? "Hide table" : "Show table"}</button>
           {table && <ColumnPicker options={STATS} value={cols} onChange={setCols} testid="history-cols" />}
@@ -90,27 +90,42 @@ export default function Player() {
   const teams = nx ? { [nx.home_iid]: nx.home, [nx.away_iid]: nx.away } : {};
   return (
     <section data-testid="player-page">
-      <header className="phead">
+      {/* The head opened with a name and a grey word, then made you scroll past a card to find out
+          who he plays next. Position, club and the next fixture are the three things you want
+          before anything else, so they are in the head: the club as its crest, and the fixture with
+          both crests and whether he is at home or away. */}
+      <header className="phead v2-phead">
         <PlayerAvatar player={p} size={96} decorative={false} />
         <div className="phead-main">
           <h1>{p.name}</h1>
-          <p className="muted">{posLabel(p.pos)}</p>
-          {team && <Link to={`/team/${team.id}`} className="inline"><Crest team={team} size={20} /> {team.name}</Link>}
+          <p className="v2-phead-sub">
+            <span className="v2-pos">{posLabel(p.pos)}</span>
+            {team && <Link to={`/team/${team.id}`} className="v2-club"><Crest team={team} size={22} /> {team.name}</Link>}
+          </p>
+          {nx && (
+            <Link to={`/match/${nx.id}`} className="v2-nextfx" data-testid="player-next-fixture">
+              <span className="v2-nextfx-at">{nx.home_iid === team?.iid ? "Home" : "Away"}</span>
+              <span className="v2-nextfx-t"><Crest team={nx.home} size={24} />{nx.home?.name}</span>
+              <span className="v2-nextfx-v">v</span>
+              <span className="v2-nextfx-t"><Crest team={nx.away} size={24} />{nx.away?.name}</span>
+              <time>{kickoff(nx.kickoff)}</time>
+            </Link>
+          )}
           <div><FollowButton kind="player" refId={p.id} name={p.name} /></div>
         </div>
       </header>
+      {/* The fixture itself has moved into the head, so this is what it was always for: the lines. */}
       <section className="card" data-testid="player-next">
-        <h2 className="h3">Next match</h2>
-        {nx ? <Link to={`/match/${nx.id}`} className="next-link"><span className="team"><Crest team={nx.home} size={20} />{nx.home?.name}</span><span className="muted">v</span><span className="team"><Crest team={nx.away} size={20} />{nx.away?.name}</span><time className="muted small">{kickoff(nx.kickoff)}</time></Link>
-          : <p className="muted">No upcoming match loaded.</p>}
-        {nx && (forecasts.length ? <div className="fgrid">{forecasts.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} homeIid={nx.home_iid} />)}</div>
-          : <p className="muted small">No forecasts for this player yet.</p>)}
+        <h2 className="k-sec">What we expect next match</h2>
+        {!nx ? <p className="muted">No upcoming match loaded.</p>
+          : forecasts.length ? <div className="fgrid">{forecasts.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} homeIid={nx.home_iid} />)}</div>
+          : <p className="muted small">No forecasts for this player yet.</p>}
       </section>
       {/* Asked for: lead with Quick view and drop the "Last 10 games" box. They were two renderings
           of the same ten games stacked on one page -- the four-line overview could not be
           interrogated and the detailed one could not be compared. Quick view now does both jobs,
           because its strip draws the run graph for whichever market and line you choose. */}
-      <History id={id} />
+      <History id={id} forecasts={forecasts} />
       <Ranks id={id} />
       <Note id={id} />
     </section>

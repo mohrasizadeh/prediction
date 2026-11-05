@@ -1,6 +1,6 @@
 // Insights: strongest forecasts across leagues (docs/24 §4).
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { pct } from "../lib/copy";
 import { useAuth } from "../lib/auth";
@@ -33,7 +33,18 @@ function Compact({ rows }) {
 export function Insights() {
   const { entitlements } = useAuth();
   const [sp] = useSearchParams();
-  const nav = useNavigate();
+  // The history clause. Empty means "do not ask about past games", which is the default so the
+  // page still answers before it asks anything.
+  const [hThr, setHThr] = useState("2");
+  const [hWhen, setHWhen] = useState("");
+  const hStat = MARKETS.find((m) => m.id === mk)?.q?.stat || "shots";
+  const hq = useApi(hWhen ? "/finder" : null, {
+    mode: hWhen === "run" ? "run" : "form", stat: hStat, threshold: Number(hThr) - 0.5,
+    scope: "player", last_n: 10, limit: 300,
+    ...(hWhen === "run" ? {} : { min_reached: Number(hWhen) / 10 }),
+  });
+  // The Finder returns internal ids; the feed carries the same ones, so the clause is a filter.
+  const hIds = useMemo(() => (hWhen && Array.isArray(hq.data) ? new Set(hq.data.map((r) => r.id)) : null), [hWhen, hq.data]);
   const [lg, setLg] = useState([]);
   const [mk, setMk] = useState("");
   const [tier, setTier] = useState([]);
@@ -62,10 +73,11 @@ export function Insights() {
   const rows = data.filter((f) => (!day || isoDay(utc(f.kickoff)) === day) && Math.max(f.p, f.best_p ?? 0) * 100 >= more.min
     && (!more.pos.length || more.pos.includes(pos(f))) && (more.venue === "all" || (f.team_iid === f.home_iid) === (more.venue === "home"))
     && (!more.confirmed || f.lineup_confirmed)
-    && (!who || f.player?.id === who) && (!club || f.team?.id === club));
+    && (!who || f.player?.id === who) && (!club || f.team?.id === club)
+    && (!hIds || (f.player_iid != null && hIds.has(f.player_iid))));
   const nMore = more.pos.length + (more.venue !== "all") + more.confirmed + (lg.length > 0);
-  const nAll = nMore + (more.min > 0) + tier.length + (mk ? 1 : 0) + (who ? 1 : 0) + (club ? 1 : 0);
-  const clearAll = () => { setDay(""); setLg([]); setMk(""); setTier([]); setMore(NOF); setWho(""); setClub(""); };
+  const nAll = nMore + (more.min > 0) + tier.length + (mk ? 1 : 0) + (who ? 1 : 0) + (club ? 1 : 0) + (hWhen ? 1 : 0);
+  const clearAll = () => { setDay(""); setLg([]); setMk(""); setTier([]); setMore(NOF); setWho(""); setClub(""); setHWhen(""); };
   // UX_AUDIT decision 4: a reader thinks in matches and kick-off times, not in a flat list of
   // twenty tiles. The feed groups by fixture so "everything about the 7pm game" is one block
   // instead of a scan of the whole page. Within a group the engine's own order is kept, so the
@@ -89,7 +101,7 @@ export function Insights() {
   const [showN, setShowN] = useState(STEP);
   const shownGroups = groups.slice(0, showN);
   const shown = shownGroups.flatMap((g) => g.rows);
-  useEffect(() => { setShowN(STEP); }, [day, mk, tier, lg, more, sort, who, club]);
+  useEffect(() => { setShowN(STEP); }, [day, mk, tier, lg, more, sort, who, club, hThr, hWhen]);
   const cap = entitlements?.insights_per_day;
   return (
     <section className="ins" data-testid="insights-page">
@@ -133,23 +145,28 @@ export function Insights() {
             <option value="kickoff">kick-off</option>
           </select>
         </span>{" "}first,{" "}
-        {/* CONSOLIDATION section 2: the one clause this page cannot answer. Everything else in the
-            sentence filters forecasts that are already computed; "how often did this happen before"
-            is a different query over past games, which is what the Finder exists to run. Setting it
-            hands off to the Finder with the sentence carried across, so a reader never has to know
-            the Finder is a separate thing -- and the quota stays honest without inventing a rule,
-            because filtering the feed is free and the historical search is charged exactly as it is
-            today. */}
+        {/* The Finder's clause, now filtering this page in place rather than sending the reader to
+            another one. Its third mode, "Our forecast", was dropped: it ranked upcoming forecasts
+            by likelihood, which is what this page already is. The two that remain look at PAST
+            games, which this page cannot do from stored forecasts, so they run the Finder's query
+            and narrow the feed to whoever comes back. The old labels named the mechanism ("How
+            often", "Streak"); these say the thing in English. */}
+        {" "}and have had{" "}
         <span className="v2-tok">
-          <select value="" aria-label="Past games" data-testid="ins-history"
-                  onChange={(e) => { if (e.target.value) nav(`/finder?${e.target.value}`); }}>
-            <option value="">any past form</option>
-            <option value={`mode=form&stat=${MARKETS.find((m) => m.id === mk)?.q?.stat || "shots"}&min_reached=0.6`}>reached in 6 of the last 10</option>
-            <option value={`mode=form&stat=${MARKETS.find((m) => m.id === mk)?.q?.stat || "shots"}&min_reached=0.8`}>reached in 8 of the last 10</option>
-            <option value={`mode=run&stat=${MARKETS.find((m) => m.id === mk)?.q?.stat || "shots"}`}>on a run right now</option>
+          <select value={hThr} onChange={(e) => setHThr(e.target.value)} aria-label="How many" data-testid="ins-h-thr">
+            {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}+</option>)}
+          </select>
+        </span>{" "}
+        <span className="v2-tok">
+          <select value={hWhen} onChange={(e) => setHWhen(e.target.value)} aria-label="In past games" data-testid="ins-history">
+            <option value="">in any run of games</option>
+            <option value="6">in 6 of their last 10</option>
+            <option value="8">in 8 of their last 10</option>
+            <option value="10">in all of their last 10</option>
+            <option value="run">in every game of a run right now</option>
           </select>
         </span>.{" "}
-        <button type="button" className="k-link" onClick={() => setSheet(true)} data-testid="ins-more-more">
+                <button type="button" className="k-link" onClick={() => setSheet(true)} data-testid="ins-more-more">
           More filters{nAll ? <span className="k-count">{nAll}</span> : null}
         </button>
         {nAll > 0 && <> <button type="button" className="k-link" onClick={clearAll} data-testid="ins-clear-top">Clear</button></>}

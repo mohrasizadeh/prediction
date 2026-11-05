@@ -11,7 +11,7 @@ import { STATS, Seg, Select } from "../Football";
 import { Empty, ErrorBox, Loading } from "../States";
 import { GameStrip } from "./Marks";
 
-export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, title, collapsible = false, children, testid = "quick-view" }) {
+export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, title, collapsible = false, forecasts, children, testid = "quick-view" }) {
   const [open, setOpen] = useState(!collapsible);
   const [stat, setStat] = useState(STATS.some((s) => s.id === stat0) ? stat0 : "shots");
   const [last, setLast] = useState(10);
@@ -23,12 +23,24 @@ export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, ti
   const games = q.data?.games || [];
   const known = games.filter((g) => g[stat] != null).length;
   const hits = games.filter((g) => g[stat] != null && g[stat] >= line).length;
+  // Asked for: whichever market and line the reader picks, show what we expect for it next match.
+  // The box was all history and no forecast, so the page made you hold the two apart in your head.
+  const fc = (forecasts || []).find((f) => f.stat === stat && Math.floor(f.thr) + 1 === Number(line));
   return (
     <section className="qv" data-testid={testid}>
       {title && <h3 className="k-sec">{title}</h3>}
       {q.loading && !q.data ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !games.length ? <Empty icon="activity">No games match these filters.</Empty> : (
         <>
-          <p className="muted small" data-testid={`${testid}-summary`}>{known ? `${line} or more in ${hits} of ${known} games.` : "No data for this stat."}</p>
+          <div className="v2-qv-head">
+            <p className="muted small" data-testid={`${testid}-summary`}>{known ? `${line} or more in ${hits} of ${known} games.` : "No data for this stat."}</p>
+            {fc && (
+              <p className="v2-qv-fc" data-testid={`${testid}-forecast`}>
+                <span>Next match</span>
+                <b>{Math.round((fc.p || 0) * 100)}%</b>
+                {fc.tier && <em>{fc.tier}</em>}
+              </p>
+            )}
+          </div>
           <GameStrip games={games} stat={stat} line={line} label={label} testid={`${testid}-strip`} />
           {/* docs/redesign/v2: the market and the line ARE the question this box answers, so they lead
               it rather than hiding behind "Change the line or filters" and then arriving as five

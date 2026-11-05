@@ -10,9 +10,19 @@ import { Crest, LeagueMark } from "../components/Media";
 import { useTitle } from "../components/Football";
 import { EmptyState, ErrorState, Skeleton } from "../components/ui";
 
-// CONSOLIDATION section 3: the "Tools" list was six links -- Compare, Track record, Learn,
-// Referees, Live, Plans -- and all six are in the footer of every page. A third navigation surface
-// listing destinations the other two already carry is not a feature, so it is gone.
+// These were removed as "a third navigation surface", on the grounds that all six sit in the
+// footer. That was half right and half wrong. The generic "Tools" list WAS noise -- six icons and
+// six nouns, saying nothing about what any of them answers. But a footer is where links go to be
+// unfindable, and Explore is the browse surface, so this is the right home for them. They come
+// back with the thing that was actually missing: what each one is for.
+const MORE = [
+  { to: "/track-record", icon: "trending-up", label: "Track record", blurb: "How often our numbers have been right" },
+  { to: "/compare", icon: "users", label: "Compare clubs", blurb: "Two clubs side by side, across every stat" },
+  { to: "/referees", icon: "flag", label: "Referees", blurb: "Who is in charge, and how many cards they give" },
+  { to: "/live", icon: "clock", label: "Live scores", blurb: "What is happening right now" },
+  { to: "/learn", icon: "book", label: "Learn", blurb: "How the forecasts are made" },
+  { to: "/pricing", icon: "credit-card", label: "Plans", blurb: "What a subscription includes" },
+];
 const norm = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 function nextLabel(l) {
@@ -68,6 +78,17 @@ export default function Explore() {
           ))}</ul>}
         {q.trim().length >= 2 && shown.length > 0 && <Link to={`/search?q=${encodeURIComponent(q.trim())}`} className="k-link" data-testid="explore-search-more">Search players and teams for “{q.trim()}”</Link>}
       </section>
+      {!q.trim() && (
+        <section className="ex-sec"><h2 className="k-sec">The rest of the app</h2>
+          <ul className="ex-more">{MORE.map((t) => (
+            <li key={t.to}><Link to={t.to} data-testid={`explore-${t.to.slice(1)}`}>
+              <Icon name={t.icon} size={18} />
+              <span><b>{t.label}</b><small>{t.blurb}</small></span>
+              <Icon name="chevron-right" size={18} />
+            </Link></li>
+          ))}</ul>
+        </section>
+      )}
     </section>
   );
 }
