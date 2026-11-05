@@ -23,6 +23,7 @@ import "./styles/combo.css";
 import "./styles/hig.css";
 import "./styles/hig-admin.css";
 import "./styles/swiss.css";
+import "./styles/v2.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

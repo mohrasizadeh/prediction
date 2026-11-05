@@ -52,7 +52,7 @@ function Panel({ theme }) {
         <div className="kit-row">
           <button type="button" className="btn btn--primary" onClick={() => setFilters(true)} data-testid={`kit-${theme}-open-filters`}>Primary</button>
           <button type="button" className="btn btn--secondary">Secondary</button>
-          <button type="button" className="k-link">Text link →</button>
+          <button type="button" className="k-link">Text link</button>
           <button type="button" className="btn btn--danger">Delete</button>
         </div>
       </div>

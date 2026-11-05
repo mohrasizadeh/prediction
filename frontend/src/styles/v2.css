@@ -1,0 +1,247 @@
+/* v2 — "chalk on slate". The design plan is docs/redesign/v2/PLAN.md; read that first, it carries
+   the reasoning and the rejected alternatives. Loaded last, after swiss.css, so it wins where it speaks.
+
+   House rules kept from the Swiss pass:
+   - Existing class names are never renamed or removed. Site Studio themes by class (docs/15, 16), the
+     copy checker and the 42 self-tests run against this markup, and data-testid is the test contract.
+     New classes may be added; this file adds four, all prefixed v2-.
+   - Only var(--...) colours, so an owner's palette still applies.
+
+   The concept in one line: a forecast is only worth showing if it could have come out differently,
+   so the design's job is to make "could have come out differently" visible without words. */
+
+
+/* =============================================================== 0. TYPE RESOURCE
+   Archivo variable, self-hosted. The CSP is default-src 'self' with no font-src, so a web-font CDN
+   is blocked outright -- self-hosting is a requirement here, not a preference.
+   One family. The personality comes from the WIDTH axis, which is native to sports setting (the
+   condensed scoreline, the extended headline) and which almost nothing else in this category uses. */
+@font-face {
+  font-family: 'Archivo v2';
+  src: url('/fonts/archivo-latin-var.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+
+
+/* =============================================================== 1. GROUND AND INK
+   Chalk on slate. A tactics board has no decorative colour, which is exactly the discipline this
+   product needs: colour is reserved entirely for meaning, so the three semantic hues are the only
+   hues in the interface. There is deliberately NO brand accent -- see PLAN.md section 3 for why
+   spending a colour on identity would steal it from meaning. */
+:root, :root[data-theme="dark"] {
+  --bg: #0D1620;              /* blue slate, deliberately hued: not a tinted near-black */
+  --surface1: #13202C;
+  --surface2: #1A2938;
+  --surface3: #22344A;
+  --border: #243546;
+  --border-strong: #38506A;
+  --text: #E8EEF2;            /* chalk */
+  --text2: #C4D2DC;
+  --text3: #9FB0BE;           /* chalk, worn */
+  --up: #35C27E;
+  --down: #FF6B6B;
+  --warn: #E8B23A;
+  --tier-strong: #35C27E;
+  --tier-solid: #7FD3F2;
+  --brand: #E8EEF2;           /* identity is the ground and the type, not a hue */
+  --on-brand: #0D1620;
+  --v2-rule: color-mix(in srgb, var(--text3) 26%, transparent);
+  --v2-band: color-mix(in srgb, var(--text3) 20%, transparent);
+  --v2-ink: var(--text);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #EEF2F5;            /* cool paper, not cream */
+    --surface1: #FFFFFF;
+    --surface2: #E7ECF1;
+    --surface3: #DBE2E9;
+    --border: #D3DBE3;
+    --border-strong: #AEBBC7;
+    --text: #111A22;          /* graphite */
+    --text2: #2E3C47;
+    --text3: #55646F;
+    --up: #0F7A4A;
+    --down: #C0392B;
+    --warn: #8A6100;
+    --tier-strong: #0F7A4A;
+    --tier-solid: #0B6E92;
+    --brand: #111A22;
+    --on-brand: #FFFFFF;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #EEF2F5; --surface1: #FFFFFF; --surface2: #E7ECF1; --surface3: #DBE2E9;
+  --border: #D3DBE3; --border-strong: #AEBBC7;
+  --text: #111A22; --text2: #2E3C47; --text3: #55646F;
+  --up: #0F7A4A; --down: #C0392B; --warn: #8A6100;
+  --tier-strong: #0F7A4A; --tier-solid: #0B6E92;
+  --brand: #111A22; --on-brand: #FFFFFF;
+}
+body { background: var(--bg); color: var(--text); }
+
+
+/* =============================================================== 2. TYPE SCALE
+   One family; width and weight carry the hierarchy. Rejected: a monospace face for data labels --
+   it is one of the commonest tells of a generated page, and a condensed grotesque with tabular
+   figures does the same job with more character. */
+:root {
+  --font-body: 'Archivo v2', system-ui, sans-serif;
+  --font-heading: 'Archivo v2', system-ui, sans-serif;
+  --font-num: 'Archivo v2', system-ui, sans-serif;
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 12px;
+}
+body, button, input, select, textarea { font-family: var(--font-body); }
+body { font-size: 15px; line-height: 1.5; font-stretch: 100%; }
+
+h1 { font-stretch: 108%; font-weight: 600; letter-spacing: -0.022em; line-height: 1.12; }
+h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .h3 {
+  font-stretch: 100%; font-weight: 600; letter-spacing: -0.012em;
+}
+/* Small labels and figures run condensed, so a column of them is narrow and scannable. */
+.k-small, .k-faint, small, .pgs-min, .td-ins, .a-setting-meta code, figcaption, .k-fc-vs, .k-fc-note {
+  font-stretch: 92%; font-weight: 500;
+}
+/* Every figure a reader compares down a column holds its place. */
+.k-fc-p, .pgs-v, .sq-nums dd, .pl-ranks li b, .fg-stats dd, .k-fc-vs, .td-ins, .a-tile b, .a-dl dd,
+.a-kpi b, table td, table th, .k-fc-range, .lbar b, .v2-run-v {
+  font-variant-numeric: tabular-nums;
+}
+/* The all-caps label is a template tell. Sentence case, and position does the signalling. */
+.kicker, .nl2-tag { letter-spacing: 0; text-transform: none; font-stretch: 92%; font-weight: 600; }
+
+
+/* =============================================================== 3. THE FORECAST CARD
+   The product, in one object. Three changes, in order of how much they matter.
+
+   a) The number is the subject. It was 28px, sitting in a row beside the market name at 17px --
+      sized like a label rather than like the thing the page is about. It is now set like a
+      scoreline and the market name annotates it.
+   b) The card stops being a rounded box with a shadow. Tell #4 of generated design is content
+      chopped into identical cards with one radius and one soft grey shadow. This is a ruled
+      entry with a measured foot, and the rule carries the tier colour, so the card's state is
+      legible before any text is read.
+   c) The bar underneath becomes the evidence, not decoration -- see section 4. */
+.k-fc {
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--v2-rule);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.k-fc[style*="--tone"] { border-left-color: var(--tone, var(--v2-rule)); }
+.k-fc-main { gap: 10px; padding: 14px 16px 12px; }
+.k-fc-line { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.k-fc-market {
+  font-size: 15px; font-stretch: 96%; font-weight: 500; color: var(--text2);
+  letter-spacing: 0; line-height: 1.3; max-width: 22ch;
+}
+.k-fc-pwrap { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.k-fc-p {
+  font-size: 44px; font-stretch: 112%; font-weight: 600;
+  letter-spacing: -0.035em; line-height: 0.92; color: var(--text);
+}
+.k-fc-range { font-size: 11px; font-stretch: 92%; color: var(--text3); }
+.k-fc-who b { font-stretch: 104%; font-weight: 600; letter-spacing: -0.01em; }
+.k-fc-why { color: var(--text2); line-height: 1.45; max-width: 62ch; }
+.k-fc-vs { color: var(--text3); }
+.fgrid, .k-fc-grid { gap: 10px; }
+
+
+/* =============================================================== 4. THE EVIDENCE MARK
+   This is where the design spends its boldness, and it is the only place it does.
+
+   `.k-fc-bar` was a likelihood meter: a filled bar on a track. A filled bar says "this number is
+   big", which is the one thing a reader must NOT conclude, because a big number is exactly what a
+   truism looks like. It now reads as a measurement on an axis:
+
+       band  = the 10-90 range, so how sure we are has width
+       rule  = where this fixture's number sits
+       tick  = what this entity usually does
+
+   A line far from its own usual tick is a claim. A line sitting on top of it is a description.
+   That comparison is the product's whole thesis (docs/50, docs/56) and it was previously only
+   available as a sentence in small grey text. */
+.k-fc-bar {
+  position: relative; height: 22px; background: transparent;
+  border-radius: 0; border-top: 1px solid var(--v2-rule);
+  margin-top: 2px; overflow: visible;
+}
+.k-fc-bar .k-fc-band {
+  top: 6px; height: 10px; border-radius: 0;
+  background: var(--v2-band);
+  border-left: 1px solid var(--border-strong); border-right: 1px solid var(--border-strong);
+}
+.k-fc-bar > b {
+  position: absolute; top: 2px; height: 18px; width: 0 !important;
+  border-right: 2px solid var(--tone, var(--text)); background: none; border-radius: 0;
+}
+/* What they usually do: a full-height chalk tick, so the gap between it and the rule IS the claim. */
+.k-fc-bar .k-fc-usual {
+  top: 0; height: 22px; width: 1px; background: var(--text3); opacity: .9;
+}
+.lbar-track, .ln-mini i { background: var(--surface3); }
+
+
+/* =============================================================== 5. THE RUN
+   The ten-game strip was ten boxes, filled or quiet, under a caption reading "10 of 10 reached it".
+   For a player who clears the line every week that is a picture of nothing: ten identical marks
+   that cannot distinguish a quiet game from a busy one.
+
+   Each column now stands to its own figure, so the run has a shape. The line is drawn across it as
+   a single rule. A rule cutting through the middle of the run is a forecast; a rule lying under
+   every column is a truism, and now you can see which you are being shown.
+
+   --v and --vmax are set per column in Marks.jsx; the fallback keeps the old look if they are absent. */
+.pgs-row { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; align-items: flex-end; }
+.pgs-g {
+  position: relative; display: flex; flex-direction: column; justify-content: flex-end;
+  border-radius: 0;
+}
+.pgs-g .pgs-v {
+  position: relative; display: block; border-radius: 0;
+  background: linear-gradient(to top, var(--v2-band) 0 calc(var(--v, 0) / max(var(--vmax, 1), 1) * 100%),
+                                      transparent calc(var(--v, 0) / max(var(--vmax, 1), 1) * 100%));
+  min-height: 34px; padding-top: 4px;
+  display: flex; align-items: flex-end; justify-content: center;
+  font-stretch: 96%; font-weight: 600;
+}
+.pgs-g.on .pgs-v { background: linear-gradient(to top, color-mix(in srgb, var(--up) 42%, transparent) 0 calc(var(--v, 0) / max(var(--vmax, 1), 1) * 100%), transparent calc(var(--v, 0) / max(var(--vmax, 1), 1) * 100%)); }
+.pgs-g.nd .pgs-v { background: repeating-linear-gradient(45deg, var(--surface3) 0 3px, transparent 3px 6px); }
+.pgs-key { color: var(--text3); }
+
+
+/* =============================================================== 6. CHROME
+   Removing the template tells the current build carries. Each of these appears in generated pages
+   regardless of subject, so each is a default rather than a decision:
+     - the soft grey shadow under every raised thing;
+     - the gradient wash used as decoration;
+     - the uniform radius on everything whatever its hierarchy.
+   Radius now varies with what a thing IS: 0 on a measurement, 10px on a surface, a pill only on a
+   control that is genuinely pill-shaped. */
+.fcard, .sq-card, .ln-card, .a-card, .nl, .nl2, .plan-hero, .hero, .pcard--hi {
+  box-shadow: none;
+}
+.k-wdl-bar { height: 6px; border-radius: 0; }
+.k-wdl-bar .d { background: var(--text3); opacity: 1; }
+.td-row .td-bar { max-width: 340px; width: 100%; }
+.td-row { min-height: 62px; padding: 8px 16px; gap: 12px; border-radius: 0; }
+.td-ghead { min-height: 44px; }
+.td-sec-head { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.ins-compact li { padding: 9px 14px; }
+
+
+/* =============================================================== 7. MOTION
+   One rule: motion answers an action. Nothing moves on scroll, nothing lifts on hover. A dense grid
+   that lifts under the pointer moves the row out from under it and invites a jitter loop. */
+.fcard:hover, .sq-card:hover, .k-fc:hover, .ln-card:hover { transform: none; }
+.fcard, .sq-card, .k-fc, .ln-card { transition: border-color .18s ease, background-color .18s ease; }
+.k-fc:hover { border-color: var(--border-strong); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+/* Keyboard focus must be visible against both grounds. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--text); outline-offset: 2px; border-radius: 3px;
+}

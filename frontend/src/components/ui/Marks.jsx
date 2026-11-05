@@ -55,6 +55,9 @@ export function GameStrip({ games = [], stat, line, label, note = true, testid =
   if (!rows.length) return null;
   const known = rows.filter((g) => g[stat] != null);
   const hits = known.filter((g) => g[stat] >= line).length;
+  // v2: each column stands to its own figure, so the run has a shape and the line can be read
+  // across it. Ten identical boxes could not tell a quiet game from a busy one.
+  const vmax = Math.max(1, ...known.map((g) => g[stat]));
   const word = (label || stat).toLowerCase();
   const anyMins = rows.some((g) => g.minutes != null);
   return (
@@ -67,6 +70,7 @@ export function GameStrip({ games = [], stat, line, label, note = true, testid =
           const who = g.opp?.name || "the opponent";
           return (
             <li key={g.match_iid ?? g.kickoff ?? i} className={"pgs-g" + (hit ? " on" : "") + (v == null ? " nd" : "")}
+                style={{ "--v": v == null ? 0 : v, "--vmax": vmax }}
                 data-testid={`${testid}-${g.match_iid ?? i}`}>
               {anyMins && <span className="pgs-min" title="Minutes played">{mins == null ? "–" : `${Math.round(mins)}'`}</span>}
               <span className="pgs-v" aria-hidden="true">{v == null ? "–" : v}</span>
@@ -77,7 +81,7 @@ export function GameStrip({ games = [], stat, line, label, note = true, testid =
         })}
       </ol>
       {/* The columns say most of this themselves; the count is the part worth printing. */}
-      {note && <p className="pgs-key k-faint k-small">{known.length ? `${hits} of ${known.length} reached it` : "No figures yet"}{anyMins ? " · minutes above, opponent below" : " · opponent below"}</p>}
+      {note && <p className="pgs-key k-faint k-small">{known.length ? `${hits} of ${known.length} reached this line. ` : "No figures yet. "}{anyMins ? "Minutes above each column, opponent below." : "Opponent below each column."}</p>}
     </div>
   );
 }
