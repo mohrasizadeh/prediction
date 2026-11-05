@@ -134,3 +134,71 @@ print(f"\n=== Goalkeeper saves\n    rows with saves > 0 in this data: {n_saves}"
 if not n_saves:
     print("    Not measurable here: the simulator has no goalkeeper and records no saves.")
     print("    The two tests above are the same decomposition on the data that does exist.")
+
+
+# ---------------------------------------------------------------- diagnostic
+# The first corrected run put the oracle BELOW the forecast it is supposed to bound (z -4.44).
+# A ceiling that loses to the thing it bounds is a fault in the model, not a result, so these
+# three checks ask which part is wrong: the spread of the conversion, the shrinkage applied to it,
+# or the binomial's tightness.
+print("\n\n=== Diagnostic: why the oracle loses")
+
+acc = []
+for h in by_player.values():
+    sh = sum(float(x.get("shots") or 0) for x in h)
+    so = sum(float(x.get("sot") or 0) for x in h)
+    if sh >= 20:
+        acc.append(so / sh)
+if acc:
+    print(f"    per-player accuracy over >=20 shots: n={len(acc)}  mean {st.mean(acc):.3f} "
+          f"sd {st.stdev(acc) if len(acc) > 1 else 0:.3f}  min {min(acc):.3f}  max {max(acc):.3f}")
+    print("    If the sd is near zero, every player converts at the league rate and there is no")
+    print("    player-specific rate to recover: the decomposition has nothing to add and the")
+    print("    binomial is merely a tighter distribution than the truth.")
+
+tot_s = sum(float(x.get("shots") or 0) for h in by_player.values() for x in h)
+tot_t = sum(float(x.get("sot") or 0) for h in by_player.values() for x in h)
+L = tot_t / tot_s
+
+
+def oracle_variants(min_hist=10):
+    out = collections.defaultdict(list)
+    for h in by_player.values():
+        for i in range(min_hist, len(h)):
+            hist, nxt = h[:i], h[i]
+            n = float(nxt.get("shots") or 0)
+            y = float(nxt.get("sot") or 0)
+            if nxt["minutes"] <= 0:
+                continue
+            hs = sum(float(x.get("shots") or 0) for x in hist)
+            ht = sum(float(x.get("sot") or 0) for x in hist)
+            p_shrunk = (L * 10.0 + ht) / (10.0 + hs) if (10.0 + hs) > 0 else L
+            p_raw = (ht / hs) if hs > 0 else L
+            out["binomial, shrunk p"].append(binom_ll(y, n, p_shrunk))
+            out["binomial, unshrunk p"].append(binom_ll(y, n, p_raw))
+            out["binomial, league p"].append(binom_ll(y, n, L))
+            # beta-binomial: the same mean, with the conversion itself uncertain
+            for conc in (4.0, 12.0):
+                a = p_shrunk * conc; b = (1 - p_shrunk) * conc
+                yy = int(min(round(y), max(round(n), 0))); nn = int(round(n))
+                if nn <= 0:
+                    out[f"beta-binomial, conc {conc:g}"].append(nb_ll(y, 0.02, 5.0)); continue
+                v = (gammaln(nn + 1) - gammaln(yy + 1) - gammaln(nn - yy + 1)
+                     + gammaln(yy + a) + gammaln(nn - yy + b) - gammaln(nn + a + b)
+                     + gammaln(a + b) - gammaln(a) - gammaln(b))
+                out[f"beta-binomial, conc {conc:g}"].append(float(v))
+    return out
+
+
+ov = oracle_variants()
+print(f"\n    Scored on the SAME rows, all with the actual shots known (n={len(ov['binomial, shrunk p'])}):")
+for k in ("binomial, league p", "binomial, shrunk p", "binomial, unshrunk p",
+          "beta-binomial, conc 4", "beta-binomial, conc 12"):
+    if ov[k]:
+        print(f"      {k:<26} {st.mean(ov[k]):>8.4f}")
+print("\n    Read it this way: if the league-p binomial scores about the same as the shrunk-p one,")
+print("    the data carries no per-player conversion worth estimating. If a beta-binomial beats")
+print("    every plain binomial, the volume is known but the conversion is not, and a binomial")
+print("    over a point estimate of p is overconfident -- which would make the 'ceiling' a worse")
+print("    distribution than the negative binomial, and the earlier row a modelling artefact")
+print("    rather than evidence against the decomposition.")
