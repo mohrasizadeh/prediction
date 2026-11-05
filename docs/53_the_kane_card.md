@@ -26,11 +26,21 @@ games at 3, 6, 6, 5, 8, 5, 5, 4, 2, 6 — fifty shots, five a game, never fewer 
 > Over 105 confirmed starters the engine runs **above** a player's own record, not below. There is
 > no systematic under-call.
 >
-> **So what about Kane?** `p_usual` of 92% at 1+ shot implies a mean of 3.53 shots. At his rate of
-> 5.55 per 90 that is about 57 expected minutes — a reasonable allowance for rotation risk before a
-> lineup is confirmed. On a mean of 3.06, 2+ shots at 72% is arithmetically right. His record of
-> 10 in 10 comes from games he *started and played 67 minutes or more*. The card and the record are
-> not measuring the same thing, and I treated them as if they were.
+> **So what about Kane?** ~~`p_usual` of 92% at 1+ shot implies a mean of 3.53 shots. At his rate
+> of 5.55 per 90 that is about 57 expected minutes — a reasonable allowance for rotation risk
+> before a lineup is confirmed.~~ **WITHDRAWN 2026-11-05, and see docs/55 §2 for the measurement
+> that kills it.** The minutes explanation does not hold for a player like Kane. With
+> `engine.condition_on_play` on, which is the default, a settled starter's conditional expected
+> minutes are already his *starting* minutes: measured across 116 players with a start rate of 0.80
+> or better, the median "if he features" figure is 76.1 minutes against 77.3 for "if he starts" — a
+> gap of **0.0%**. There is no 57-minute rotation allowance in his card to find. On a mean of 3.06,
+> 2+ shots at 72% is still arithmetically right, so the fitted mean stands; what does not stand is
+> my account of where it came from.
+>
+> This makes the gap identified in §4.1 **worse, not better**: it is real, it is about 36%, and it
+> is still unlocated. The minutes story then filled that hole in this document and in the answers I
+> gave on top of it. It should not have. What is left is the opponent adjustment, `Z` and the
+> shrinkage, and locating it needs the engine instrumented against production.
 >
 > **What survives** is sections 2 and 2.1: the headline is the dullest rung he owns, his median is
 > five shots, and the ladder stops at 3+. That is real, and docs/52 addresses it.
@@ -182,8 +192,9 @@ simulated league.
 1. **Nothing in the engine.** Nothing has been shown to be wrong with it. The one valid measurement
    says it runs 20% above a confirmed starter's own record, if anything.
 2. **Say what a number rests on.** When expected minutes are well below a full match, the card
-   should say so. "90%, on about 57 minutes" is honest; "90%" beside a strip of 67-minute starts
-   invites exactly the reading that produced this report.
+   should say so. This still holds, but it is **not** what is happening on Kane's card — see the
+   withdrawal in the retraction above and docs/55. It applies to rotated and fringe players, where
+   the conditional minutes really do sit 15% and 39% below a start, and not to settled starters.
 3. **Turn on `engine.personal_lines` (docs/52)** so the ladder reaches the rung that matters. That
    is the real answer to the original complaint.
 4. **Keep the audit in the retraction as the standing check** — confirmed starters only, implied
