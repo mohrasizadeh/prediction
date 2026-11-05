@@ -145,36 +145,47 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 
 
 /* =============================================================== 4. THE EVIDENCE MARK
-   This is where the design spends its boldness, and it is the only place it does.
+   Where the design spends its boldness, and the only place it does.
 
-   `.k-fc-bar` was a likelihood meter: a filled bar on a track. A filled bar says "this number is
-   big", which is the one thing a reader must NOT conclude, because a big number is exactly what a
-   truism looks like. It now reads as a measurement on an axis:
+   `.k-fc-bar` was a filled likelihood meter. A filled bar says "this number is big", which is the
+   one conclusion a reader must not draw: a big number is exactly what a truism looks like. Both a
+   near-certainty and a real claim drew an almost-full bar, so the mark that should separate them
+   was the mark that hid the difference.
 
-       band  = the 10-90 range, so how sure we are has width
-       rule  = where this fixture's number sits
-       tick  = what this entity usually does
+   It now reads as a measurement on a fixed 0-100 axis, so cards stay comparable:
+     - the band is the likely range, so being unsure has width;
+     - the SEGMENT runs from what this entity usually does to what it does in this fixture. Its
+       length is the size of the claim and its colour is the direction;
+     - the tick is the usual, so the segment visibly starts somewhere.
 
-   A line far from its own usual tick is a claim. A line sitting on top of it is a description.
-   That comparison is the product's whole thesis (docs/50, docs/56) and it was previously only
-   available as a sentence in small grey text. */
+   A card whose segment is a stub is describing a normal game, and now you can see that from across
+   the room without reading the percentage. */
 .k-fc-bar {
-  position: relative; height: 22px; background: transparent;
-  border-radius: 0; border-top: 1px solid var(--v2-rule);
-  margin-top: 2px; overflow: visible;
+  position: relative; height: 26px; background: transparent; border-radius: 0; overflow: visible;
+  margin-top: 4px;
+  /* the axis itself: a chalk baseline, with the ends ticked so 0 and 100 are locatable */
+  border-bottom: 1px solid var(--v2-rule);
 }
+.k-fc-bar::before, .k-fc-bar::after {
+  content: ""; position: absolute; bottom: 0; width: 1px; height: 5px; background: var(--v2-rule);
+}
+.k-fc-bar::before { left: 0; }
+.k-fc-bar::after { right: 0; }
 .k-fc-bar .k-fc-band {
-  top: 6px; height: 10px; border-radius: 0;
-  background: var(--v2-band);
-  border-left: 1px solid var(--border-strong); border-right: 1px solid var(--border-strong);
+  position: absolute; top: 7px; height: 11px; border-radius: 0;
+  background: var(--v2-band); border: 0;
 }
+/* the claim */
 .k-fc-bar > b {
-  position: absolute; top: 2px; height: 18px; width: 0 !important;
-  border-right: 2px solid var(--tone, var(--text)); background: none; border-radius: 0;
+  position: absolute; top: 9px; height: 7px; border-radius: 0; background: var(--text3);
+  min-width: 2px;
 }
-/* What they usually do: a full-height chalk tick, so the gap between it and the rule IS the claim. */
+.k-fc-bar[data-dir="up"] > b { background: var(--up); }
+.k-fc-bar[data-dir="down"] > b { background: var(--down); }
+/* their usual: a full-height chalk tick, so the gap to the end of the segment IS the claim */
 .k-fc-bar .k-fc-usual {
-  top: 0; height: 22px; width: 1px; background: var(--text3); opacity: .9;
+  position: absolute; top: 2px; height: 22px; width: 1px; background: var(--text);
+  opacity: .75; border-radius: 0;
 }
 .lbar-track, .ln-mini i { background: var(--surface3); }
 

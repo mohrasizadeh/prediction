@@ -70,7 +70,23 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
         </header>
         <div className="k-fc-line"><span className="k-fc-market">{f.market}</span><span className="k-fc-pwrap"><b className="k-fc-p" data-testid={`${id}-p`}>{shown}</b>{rng && <small className="k-fc-range" data-testid={`${id}-range`}>{rng}</small>}</span></div>
         {tk && tk.state !== "unknown" && <div className="lv-row"><Track t={tk} id={id} /></div>}
-        <span className="k-fc-bar" aria-hidden="true">{rng && <i className="k-fc-band" style={{ left: `${Math.round(f.lo * 100)}%`, width: `${Math.max(0, Math.round((f.hi - f.lo) * 100))}%` }} />}<b style={{ width: `${Math.round((f.p || 0) * 100)}%` }} />{f.p_usual != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.p_usual * 100)}%` }} />}</span>
+        {/* v2 (docs/redesign/v2/PLAN.md): this was a filled meter, and a filled meter says "this number
+            is big" -- the one thing a reader must not conclude, because a big number is exactly what a
+            truism looks like. It now reads as a measurement on a 0-100 axis:
+              band     the likely range, so uncertainty has width;
+              segment  from what they USUALLY do to what they do in this fixture -- the length of that
+                       segment is the size of the claim, and its colour is the direction;
+              tick     their usual, kept visible so the segment has somewhere to start.
+            A card with almost no segment is describing a normal game. That is the product's whole
+            thesis (docs/50, docs/56) and it was previously only a sentence in small grey text. */}
+        <span className="k-fc-bar" aria-hidden="true"
+              data-dir={f.p_usual == null ? undefined : (f.p >= f.p_usual ? "up" : "down")}>
+          {rng && <i className="k-fc-band" style={{ left: `${Math.round(f.lo * 100)}%`, width: `${Math.max(0, Math.round((f.hi - f.lo) * 100))}%` }} />}
+          <b style={f.p_usual == null
+              ? { left: 0, width: `${Math.round((f.p || 0) * 100)}%` }
+              : { left: `${Math.round(Math.min(f.p, f.p_usual) * 100)}%`, width: `${Math.max(0.6, Math.abs((f.p - f.p_usual)) * 100)}%` }} />
+          {f.p_usual != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.p_usual * 100)}%` }} />}
+        </span>
         {f.is_personal && f.expected_usual != null
           ? <small className="k-fc-vs" data-testid={`${id}-usual`}>
               {f.scope === "player" ? "His usual game is " : "They usually manage "}
