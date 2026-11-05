@@ -73,6 +73,16 @@ function Assignments({ id }) {
   const d = q.data;
   if (!d.rows.length) return null;
   const avg = d.league_avg;
+  // CRITIQUE: before the round is named, every row said "Referee not named yet" -- six cards and
+  // about 600px of page to say one thing six times. Until there is a name, this is one sentence.
+  if (!d.rows.some((r) => r.referee)) {
+    return (
+      <section className="ref-assign" data-testid="referee-assignments">
+        <h3 className="h3">Next round referees</h3>
+        <p className="muted small" data-testid="assign-tbc">Not named yet. Referees are usually announced a day or two before kick-off.</p>
+      </section>
+    );
+  }
   return (
     <section className="ref-assign" data-testid="referee-assignments">
       <h3 className="h3">Next round referees</h3>
@@ -135,15 +145,6 @@ function Teams({ id }) {
   return <TeamMatrix leagueId={id} />;
 }
 
-function Overview({ id, d }) {
-  return (
-    <div className="lg-ov" data-testid="league-overview">
-      <section><h2 className="k-sec">Next up</h2><List rows={(d.next || []).slice(0, 6)} empty="No upcoming fixtures loaded." /></section>
-      <Assignments id={id} />
-    </div>
-  );
-}
-
 function FixturesTab({ id, d }) {
   const [v, setV] = useState("next");
   return <><Segmented options={[{ id: "next", label: "Upcoming" }, { id: "results", label: "Results" }]} value={v} onChange={setV} label="Fixtures" testid="league-fixtures-view" />
@@ -159,7 +160,7 @@ function LeadersTab({ id }) {
 export default function League() {
   const { id } = useParams();
   const q = useApi(`/leagues/${id}`);
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState("fixtures");
   useTitle(q.data?.name || "League");
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
@@ -167,12 +168,14 @@ export default function League() {
   return (
     <section data-testid="league-page">
       <header className="phead"><LeagueMark league={d} size={40} decorative={false} /><div><h1>{d.name}</h1><p className="muted">{[d.country, d.current_season].filter(Boolean).join(" · ")}</p></div></header>
-      <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "overview", label: "Overview" }, { id: "table", label: "Table" }, { id: "teams", label: "Teams" }, { id: "fixtures", label: "Fixtures" }, { id: "leaders", label: "Leaders" }]} />
+      {/* CRITIQUE: "Overview" was next-up fixtures plus referees, and "Fixtures" was the same
+          fixtures with a next/past switch. Two tabs for one thing. Fixtures absorbs the referees,
+          which belong to a round, and Overview goes. */}
+      <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "fixtures", label: "Fixtures" }, { id: "table", label: "Table" }, { id: "teams", label: "Teams" }, { id: "leaders", label: "Leaders" }]} />
       <div className="lg-tab">
-        {tab === "overview" && <Overview id={id} d={d} />}
         {tab === "table" && <Standings id={id} season={d.current_season} zones={d.zones || []} />}
         {tab === "teams" && <Teams id={id} />}
-        {tab === "fixtures" && <FixturesTab id={id} d={d} />}
+        {tab === "fixtures" && <><FixturesTab id={id} d={d} /><Assignments id={id} /></>}
         {tab === "leaders" && <LeadersTab id={id} />}
       </div>
     </section>

@@ -55,6 +55,20 @@ export default function Compare() {
   const q = useApi(ready ? "/teams/compare" : null, { a, b, window, as_fixture: fixture });
   const d = ready ? q.data : null;
   const one = useApi(a && !ready ? `/teams/${a}` : null);
+  // CRITIQUE: landing cold, this page showed two empty search boxes and an empty state whose advice
+  // was to go to a different page. A tool that asks for two decisions before it shows anything is
+  // the "answer first, ask second" rule broken harder than anywhere else in the product. When a
+  // reader arrives with nothing chosen we fill both sides from the next fixture, so the page opens
+  // with a real comparison they can change rather than a form they must complete.
+  const seed = useApi(!a && !b ? "/fixtures" : null, { date: new Date().toISOString().slice(0, 10) });
+  useEffect(() => {
+    if (a || b) return;
+    const first = Array.isArray(seed.data) ? seed.data.find((m) => m.home?.id && m.away?.id) : null;
+    if (!first) return;
+    const n = new URLSearchParams(sp);
+    n.set("a", first.home.id); n.set("b", first.away.id);
+    setSp(n, { replace: true });
+  }, [seed.data, a, b, sp, setSp]);
   const soloA = one.data?.team;
   useTitle(d ? `${d.a.team.name} v ${d.b.team.name}` : "Compare");
   const swap = () => { const n = new URLSearchParams(sp); n.set("a", b); n.set("b", a); setSp(n, { replace: true }); };
