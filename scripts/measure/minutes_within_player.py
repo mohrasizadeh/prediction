@@ -46,7 +46,14 @@ print(f"Per-90 rate in short appearances (<{SHORT_MAX} min) against long ones (>
 print(f"within the same player, for players with at least {MIN_EACH} of each.\n")
 print(f"{'stat':<9}{'players':>9}{'short/90':>11}{'long/90':>10}{'ratio':>8}{'margin':>9}   verdict")
 for stat in STATS:
-    ratios = []
+    # Pool within the set of players who have enough of BOTH, rather than taking the median of
+    # per-player ratios. A ratio is useless for a low-rate market: shots on target run about half
+    # a game, so most players record zero across three short appearances, every one of those gives
+    # a ratio of nought, and the median collapses to nought -- which the first version of this
+    # script duly reported as "less per minute when short". It was measuring the rate, not the
+    # minutes. Pooling counts, and pairing the difference per player, both handle the zeros.
+    s_tot = s_90 = l_tot = l_90 = 0.0
+    diffs = []
     for hs in by.values():
         sh = [h for h in hs if h["minutes"] < SHORT_MAX and h.get(stat) is not None]
         lo = [h for h in hs if h["minutes"] >= LONG_MIN and h.get(stat) is not None]
@@ -56,17 +63,18 @@ for stat in STATS:
         lm = sum(h["minutes"] for h in lo) / 90.0
         if sm <= 0 or lm <= 0:
             continue
-        rs, rl = sum(h[stat] for h in sh) / sm, sum(h[stat] for h in lo) / lm
-        if rl > 0:
-            ratios.append(rs / rl)
-    if len(ratios) < 8:
-        print(f"{stat:<9}{len(ratios):>9}   too few players with enough of both to say anything")
+        st_, lt_ = sum(h[stat] for h in sh), sum(h[stat] for h in lo)
+        s_tot += st_; s_90 += sm; l_tot += lt_; l_90 += lm
+        diffs.append(st_ / sm - lt_ / lm)          # a difference, so a zero short spell is just a low number
+    if len(diffs) < 8 or s_90 <= 0 or l_90 <= 0 or l_tot <= 0:
+        print(f"{stat:<9}{len(diffs):>9}   too few players with enough of both to say anything")
         continue
-    med = st.median(ratios)
-    se = st.stdev(ratios) / math.sqrt(len(ratios))
-    print(f"{stat:<9}{len(ratios):>9}{'':>11}{'':>10}{med:>8.2f}{1.96 * se:>9.2f}   "
-          + ("flat (no effect)" if abs(med - 1) < 1.96 * se
-             else ("MORE per minute when short" if med > 1 else "LESS per minute when short")))
-print("\nratio = his short-appearance rate divided by his long-appearance rate. 1.00 means minutes")
-print("scale cleanly, which is what the engine assumes today. Above 1 means short appearances are")
-print("worth proportionally more, and engine.minutes_floor is the setting that credits that.")
+    rs, rl = s_tot / s_90, l_tot / l_90
+    md = st.mean(diffs)
+    se = st.stdev(diffs) / math.sqrt(len(diffs)) if len(diffs) > 1 else 0.0
+    print(f"{stat:<9}{len(diffs):>9}{rs:>11.2f}{rl:>10.2f}{rs / rl:>8.2f}{1.96 * se:>9.2f}   "
+          + ("flat (no effect)" if abs(md) < 1.96 * se
+             else ("MORE per minute when short" if md > 0 else "LESS per minute when short")))
+print("\nratio = the pooled short-appearance rate over the pooled long-appearance rate, across the")
+print("same players. The verdict comes from the paired per-player difference, which is what the")
+print("margin describes. 1.00 means minutes scale cleanly, which is what the engine assumes today.")
