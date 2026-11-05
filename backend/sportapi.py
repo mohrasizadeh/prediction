@@ -761,7 +761,31 @@ def stats_coverage(db) -> dict:
     could not place. Written on every fetch, so Admin can show it without spending a call."""
     st = (db.sportapi_state.find_one({"_id": "live"}) or {}).get("stats_coverage") or {}
     return {"found": st.get("found") or {}, "unmatched": st.get("unmatched") or [], "at": st.get("at"),
-            "fixtures": st.get("fixtures", 0), "players": st.get("players", 0)}
+            "fixtures": st.get("fixtures", 0), "players": st.get("players", 0),
+            "seen": st.get("seen") or [], "readable": st.get("readable")}
+
+
+def note_stats_answer(db, sid: int, parsed: dict, now) -> None:
+    """Record what an answer contained even when nothing could be placed.
+
+    This used to be written only on success, inside store_stats, so an answer we could not read
+    left no trace at all and Admin reported "No statistics answer has been read yet" -- the same
+    words it uses when no call was ever made. The one case the panel exists to diagnose was the one
+    case it could not see, and the provider's own names, which are what a fix needs, were discarded.
+
+    `seen` separates the two failures that matter:
+      * names seen but none placed -> the provider's wording differs from the key map, which the
+        owner can fix in Admin without a deploy;
+      * nothing seen at all -> the answer's SHAPE is not one parse_stats understands, which needs code.
+    """
+    seen = parsed.get("seen") or {}
+    db.sportapi_state.update_one({"_id": "live"}, {"$set": {
+        "stats_coverage.at": now,
+        "stats_coverage.fixtures": sid,
+        "stats_coverage.unmatched": (parsed.get("unmatched") or [])[:40],
+        "stats_coverage.seen": sorted(seen)[:40],
+        "stats_coverage.readable": bool(seen),
+    }}, upsert=True)
 
 
 def store_stats(db, sid: int, parsed: dict, now) -> dict:
@@ -773,6 +797,8 @@ def store_stats(db, sid: int, parsed: dict, now) -> dict:
     db.sportapi_state.update_one({"_id": "live"}, {"$set": {
         "stats_coverage.found": {k: (k in found) for k in BUILTIN_STAT_NAMES},
         "stats_coverage.unmatched": (parsed.get("unmatched") or [])[:40],
+        "stats_coverage.seen": sorted(parsed.get("seen") or {})[:40],
+        "stats_coverage.readable": True,
         "stats_coverage.at": now, "stats_coverage.fixtures": sid, "stats_coverage.players": len(parsed["players"])}}, upsert=True)
     return {"teams": {k: sorted(v) for k, v in parsed["teams"].items()}, "players": len(parsed["players"]),
             "found": found, "unmatched": parsed.get("unmatched") or []}
@@ -782,5 +808,8 @@ def fetch_stats(client, sid: int, now) -> dict | None:
     data = client.get(f"/api/fixtures/{sid}/stats", "stats")
     parsed = parse_stats(data, S.get(client.db, "sportapi.stats_keys"))
     if not parsed["players"] and not any(parsed["teams"].values()):
+        # An answer came back and we could not place any of it. Record that, with the names the
+        # provider used, instead of leaving the panel to claim nothing was ever read.
+        note_stats_answer(client.db, sid, parsed, now)
         return None
     return store_stats(client.db, sid, parsed, now)

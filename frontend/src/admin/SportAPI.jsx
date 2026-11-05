@@ -184,10 +184,24 @@ function LiveStats() {
               sub={found[k] ? "ticks green" : "no tick yet"} testid={`livestats-found-${k}`} />
           ))}
         </div>
+        {/* "No answer has been read yet" used to cover two very different situations: no call was
+            ever made, and a call came back that we could not place. The second is the one this
+            panel exists to diagnose, and it was indistinguishable from the first. */}
         <p className="muted small" data-testid="livestats-when">
-          {d.coverage?.at ? `Last answer read ${when(d.coverage.at)}.` : "No statistics answer has been read yet."}
+          {!d.coverage?.at ? "No statistics answer has been read yet, so either no match has been live since this was switched on, or the live job is not being called."
+            : d.coverage.readable === false
+              ? `An answer was read ${when(d.coverage.at)} but none of it could be placed: the shape is not one we recognise, which needs a code change rather than a setting.`
+              : `Last answer read ${when(d.coverage.at)}.`}
           {" "}Refresh every {d.refresh_s}s while a match is on. Events refresh every {d.events_refresh_s}s.
         </p>
+        {d.coverage?.at && d.coverage.readable !== false && (d.coverage.seen || []).length > 0
+          && !Object.values(d.coverage.found || {}).some(Boolean) && (
+          <p className="notice small" data-testid="livestats-names">
+            An answer was read and none of our four counts were in it. The provider used these names:{" "}
+            <b>{(d.coverage.seen || []).join(", ")}</b>. Map the ones that match a count below and the
+            cards start ticking without another call.
+          </p>
+        )}
 
         <div className="a-form-row">
           <Field label="Check one fixture" as="select" value={sid} onChange={(e) => setSid(e.target.value)} testid="livestats-fixture">
