@@ -777,3 +777,12 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
   filter: none; opacity: 1;
 }
 .v2-qv-fc--none span { color: var(--text3); }
+
+/* The forecast sheet is the player page for most readers: it is what opens when they tap a card.
+   It now leads with the same facts in the same order as the page -- position, club, and whether
+   the next match is home or away -- so the two do not look like different products. */
+.v2-fs-who { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 3px; }
+.v2-fs-who .v2-pos { font-size: 11px; padding: 2px 8px; }
+.v2-fs-who .v2-club { font-size: 13px; gap: 6px; }
+.k-fs-fx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.k-fs-fx .v2-nextfx-at { font-size: 10px; padding: 1px 6px; }

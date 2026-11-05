@@ -11,6 +11,7 @@ import { BottomSheet } from "./BottomSheet";
 import { GameStrip } from "./Marks";
 import { QuickView } from "./QuickView";
 import { timeOf } from "./ForecastCard";
+import { posLabel } from "../Football";
 
 function useSheetData(open, f) {
   const [d, setD] = useState({ games: null, record: null });
@@ -65,10 +66,20 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
   return (
     <BottomSheet open={open} onClose={onClose} title={title} testid={testid}
       footer={<>{f.fkey && <SaveButton fkey={f.fkey} />}{f.scope === "player" && f.player?.id && <NoteBox player={f.player} testid={testid} />}<button type="button" className="btn btn--secondary" onClick={share} data-testid={`${testid}-share`}>Share</button></>}>
+      {/* The sheet is the player page for most readers -- it is what opens when they tap a card --
+          so it leads with the same facts in the same order: who he is, which club, and whether the
+          next match is home or away. It used to show only the fixture as plain text. */}
       <div className="k-fs-head" style={{ "--tone": f.tier ? `var(--tier-${f.tier.toLowerCase()})` : "var(--text3)" }}>
         {f.player ? <PlayerAvatar player={f.player} size={52} /> : <Crest team={fx.team} size={52} />}
         <span className="k-fc-who">
+          {f.player && (
+            <span className="v2-fs-who">
+              {f.pos && <span className="v2-pos">{posLabel(f.pos)}</span>}
+              {fx.team && <Link to={`/team/${fx.team.id}`} className="v2-club" onClick={(e) => e.stopPropagation()}><Crest team={fx.team} size={18} /> {fx.team.name}</Link>}
+            </span>
+          )}
           <small className="k-fs-fx" data-testid={`${testid}-fixture`}>
+            {f.team_iid != null && f.home_iid != null && <span className="v2-nextfx-at">{f.team_iid === f.home_iid ? "Home" : "Away"}</span>}
             <span className="k-fs-fx-m">{fx.text}</span>{f.kickoff ? <span className="k-fs-fx-t">{timeOf(f.kickoff)}</span> : null}
           </small>
         </span>
@@ -86,7 +97,8 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       {/* For a player, the full Quick view, opened on the line being looked at: the reader's next question is
           almost always "what about 2+, or only at home", and that used to mean leaving the sheet (docs/48). */}
       {f.scope === "player" && f.player?.id && (
-        <QuickView playerId={f.player.id} stat={f.stat} line={Math.floor(f.thr) + 1} title="Quick view" collapsible testid={`${testid}-qv`} />
+        <QuickView playerId={f.player.id} stat={f.stat} line={Math.floor(f.thr) + 1} title="Quick view"
+                   forecasts={[f, ...(f.more_lines || [])]} testid={`${testid}-qv`} />
       )}
       {/* A team line has no Quick view, so it keeps the plain strip. Only when the feed carries the stat: a strip
           of dashes says nothing. */}
