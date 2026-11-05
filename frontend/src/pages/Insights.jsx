@@ -33,18 +33,6 @@ function Compact({ rows }) {
 export function Insights() {
   const { entitlements } = useAuth();
   const [sp] = useSearchParams();
-  // The history clause. Empty means "do not ask about past games", which is the default so the
-  // page still answers before it asks anything.
-  const [hThr, setHThr] = useState("2");
-  const [hWhen, setHWhen] = useState("");
-  const hStat = MARKETS.find((m) => m.id === mk)?.q?.stat || "shots";
-  const hq = useApi(hWhen ? "/finder" : null, {
-    mode: hWhen === "run" ? "run" : "form", stat: hStat, threshold: Number(hThr) - 0.5,
-    scope: "player", last_n: 10, limit: 300,
-    ...(hWhen === "run" ? {} : { min_reached: Number(hWhen) / 10 }),
-  });
-  // The Finder returns internal ids; the feed carries the same ones, so the clause is a filter.
-  const hIds = useMemo(() => (hWhen && Array.isArray(hq.data) ? new Set(hq.data.map((r) => r.id)) : null), [hWhen, hq.data]);
   const [lg, setLg] = useState([]);
   const [mk, setMk] = useState("");
   const [tier, setTier] = useState([]);
@@ -68,6 +56,19 @@ export function Insights() {
   const byId = (list) => [...new Map(list).entries()].sort((a, b) => a[1].localeCompare(b[1]));
   const players = useMemo(() => byId(data.filter((f) => f.player?.id).map((f) => [f.player.id, f.player.name])), [data]);
   const clubs = useMemo(() => byId(data.filter((f) => f.team?.id).map((f) => [f.team.id, f.team.name])), [data]);
+
+  // The history clause. Empty means "do not ask about past games", which is the default so the
+  // page still answers before it asks anything.
+  const [hThr, setHThr] = useState("2");
+  const [hWhen, setHWhen] = useState("");
+  const hStat = MARKETS.find((m) => m.id === mk)?.q?.stat || "shots";
+  const hq = useApi(hWhen ? "/finder" : null, {
+    mode: hWhen === "run" ? "run" : "form", stat: hStat, threshold: Number(hThr) - 0.5,
+    scope: "player", last_n: 10, limit: 300,
+    ...(hWhen === "run" ? {} : { min_reached: Number(hWhen) / 10 }),
+  });
+  // The Finder returns internal ids; the feed carries the same ones, so the clause is a filter.
+  const hIds = useMemo(() => (hWhen && Array.isArray(hq.data) ? new Set(hq.data.map((r) => r.id)) : null), [hWhen, hq.data]);
   // A card leads with its most telling line, which is rarely its most likely one. "At least N% likely" therefore
   // asks about the best line the card holds (best_p), or nothing a player owns above N% would ever match (docs/46).
   const rows = data.filter((f) => (!day || isoDay(utc(f.kickoff)) === day) && Math.max(f.p, f.best_p ?? 0) * 100 >= more.min

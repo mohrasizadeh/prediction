@@ -598,7 +598,11 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
    tenth column. The track gets a baseline to stand on, and the row reserves the label's width. */
 .pgs-row { padding-right: 34px; }
 .v2-gs-bar { border-bottom: 1px solid var(--border-strong); }
-.v2-gs-rule em { right: -32px; background: transparent; }
+/* The line's label sits in the gutter the row already reserves. It was at right:-32px, which put
+   it 32px outside the container and gave the whole forecast sheet a horizontal scrollbar -- the
+   reader had to drag sideways to read a panel that otherwise fitted. An absolutely positioned
+   child is placed against the padding box, so right:0 lands it inside that reserved gutter. */
+.v2-gs-rule em { right: 0; background: transparent; }
 
 
 /* =============================================================== 19. THE SENTENCE
@@ -742,3 +746,11 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .v2-qv-fc span { color: var(--text3); font-stretch: 92%; font-size: 12px; }
 .v2-qv-fc b { font-size: 24px; font-stretch: 108%; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .v2-qv-fc em { font-style: normal; font-size: 12px; font-stretch: 92%; color: var(--text3); }
+
+/* A card without a "usual" to compare against fell back to the old filled meter, so the one place
+   the system says "this is a measurement, not a score" quietly reverted to a score. With nothing
+   to measure the distance from, it draws the single mark and the band, and no fill. */
+.k-fc-bar:not([data-dir]) > b {
+  width: 0 !important; border-right: 2px solid var(--tone, var(--text));
+  background: none; height: 18px; top: 2px;
+}

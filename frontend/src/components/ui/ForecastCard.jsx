@@ -83,7 +83,7 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
               data-dir={f.p_usual == null ? undefined : (f.p >= f.p_usual ? "up" : "down")}>
           {rng && <i className="k-fc-band" style={{ left: `${Math.round(f.lo * 100)}%`, width: `${Math.max(0, Math.round((f.hi - f.lo) * 100))}%` }} />}
           <b style={f.p_usual == null
-              ? { left: 0, width: `${Math.round((f.p || 0) * 100)}%` }
+              ? { left: `${Math.round((f.p || 0) * 100)}%` }
               : { left: `${Math.round(Math.min(f.p, f.p_usual) * 100)}%`, width: `${Math.max(0.6, Math.abs((f.p - f.p_usual)) * 100)}%` }} />
           {f.p_usual != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.p_usual * 100)}%` }} />}
         </span>
