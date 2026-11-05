@@ -10,7 +10,7 @@ import { pct } from "../lib/copy";
 import { lineWhen } from "../components/ComboHost";
 import Icon from "../components/Icon";
 import { Crest, PlayerAvatar } from "../components/Media";
-import { EmptyState, ErrorState, Segmented, Skeleton } from "../components/ui";
+import { EmptyState, ErrorState, ForecastCard, Segmented, Skeleton } from "../components/ui";
 import { useTitle } from "../components/Football";
 
 const Face = ({ l }) => (l.player ? <PlayerAvatar player={l.player} size={28} /> : <Crest team={l.team} size={28} />);
@@ -81,6 +81,24 @@ function Summary({ done }) {
   );
 }
 
+// Signed out: show what the feature does with real lines, rather than only asking for an account.
+function SignedOut() {
+  const q = useApi("/insights", { limit: 3 });
+  const rows = (q.data || []).slice(0, 3);
+  return (
+    <div data-testid="combos-signed-out">
+      <p className="v2-say">
+        Add lines from any card to build a combo, and we work out the combined chance.
+        Keeping one for later needs an account.
+      </p>
+      {q.loading && !q.data ? <Skeleton shape="card" count={3} />
+        : rows.length ? <div className="fgrid">{rows.map((f) => <ForecastCard key={f.id} f={f} testid={`combos-sample-${f.id}`} />)}</div>
+        : null}
+      <p className="v2-more"><Link className="btn btn--secondary" to="/sign-up">Create a free account</Link> <Link className="k-link" to="/insights">See all lines</Link></p>
+    </div>
+  );
+}
+
 export default function Combos() {
   useTitle("My combos");
   const { user } = useAuth();
@@ -102,7 +120,12 @@ export default function Combos() {
           <span><b>Your open combo</b><small>{count} line{count === 1 ? "" : "s"}{combo?.label ? ` · ${combo.label}` : ""}</small></span><span className="k-link">Review</span>
         </button>
       )}
-      {!user ? <EmptyState icon="layers" title="Sign in to keep your combos" testid="combos-signed-out">Saved combos show the chance before the match and which lines were reached after it. <Link to="/sign-in">Sign in</Link></EmptyState>
+      {/* CRITIQUE section 1: signed out, this page was a sign-up wall and nothing else, which made
+          one of six primary destinations a dead end for most first-time readers. It was also not
+          quite true: a combo is built locally, so a signed-out reader can use the feature now and
+          only needs an account to KEEP one. So the page shows the feature working -- real lines
+          from today, with the same add button -- and asks for the account second. */}
+      {!user ? <SignedOut />
         : q.loading && !q.data ? <Skeleton shape="card" count={2} />
         : q.error ? <ErrorState message={q.error.message} onRetry={q.reload} />
         : !items.length ? <EmptyState icon="layers" title="No saved combos yet" testid="combos-empty">Open any match and tap + on the lines you like. <Link to="/">Find a match</Link></EmptyState>

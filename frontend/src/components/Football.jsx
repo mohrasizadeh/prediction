@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { pct, TIER } from "../lib/copy";
 import { utc } from "../lib/time";
 import { Crest, PlayerAvatar } from "./Media";
+import { WdlBar } from "./ui/Marks";
 import { SaveButton } from "./Actions";
 
 export const kickoff = (s, opts = { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) => (s ? utc(s).toLocaleString(undefined, opts) : "No date");
@@ -134,8 +135,16 @@ export function ProbBar({ probs }) {
   );
 }
 
+// One fixture row, used by the league page and anywhere else a list of fixtures appears.
+//
+// CRITIQUE section 1: the same fixture was drawn two ways. On Today it carried a win/draw/away bar
+// and what the forecasts say; here it was time, two club names and a "v". A reader who opened a
+// league to decide which match to watch got strictly less than one who stayed on the front page.
+// The row now shows the same things, from the same fields, so the two cannot drift apart.
 export function MatchRow({ m }) {
   const final = m.status === "final" && m.hg != null;
+  const p = m.probs;
+  const best = m.best_line;
   return (
     <li>
       <Link to={`/match/${m.id}`} className="mrow" data-testid={`match-row-${m.id}`}>
@@ -143,6 +152,12 @@ export function MatchRow({ m }) {
         <span className="team"><Crest team={m.home} size={20} /> {m.home?.name || "Home"}</span>
         <span className="mrow-score">{final ? `${m.hg} – ${m.ag}` : "v"}</span>
         <span className="team team--end">{m.away?.name || "Away"} <Crest team={m.away} size={20} /></span>
+        {!final && p && <span className="mrow-bar"><WdlBar home={p.p_home} draw={p.p_draw} away={p.p_away} homeName={m.home?.name} awayName={m.away?.name} testid={`mrow-wdl-${m.id}`} /></span>}
+        {/* A count is not a value: every fixture has a similar number of lines, so "14 insights"
+            never helped anyone choose. The row says the one line most worth reading instead. */}
+        {best?.market && <span className="mrow-best" data-testid={`mrow-best-${m.id}`}>
+          <b>{best.who}</b> {best.market} <em>{Math.round((best.p || 0) * 100)}%</em>
+        </span>}
       </Link>
     </li>
   );

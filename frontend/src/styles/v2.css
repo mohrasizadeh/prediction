@@ -645,3 +645,27 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
   padding-bottom: 7px; margin-bottom: 11px; border-bottom: 1px solid var(--border);
   font-size: 16px; font-stretch: 104%; font-weight: 600;
 }
+
+
+/* =============================================================== 20. THE FIXTURE ROW SAYS SOMETHING
+   CRITIQUE section 1. The row carried "14 insights", a count that is similar on every fixture and
+   therefore never helped a reader choose which match to open. It now names the single line most
+   worth reading in that match -- the same line the feed would lead with, computed by the same
+   `prominence`, so the row and the page it links to cannot disagree. */
+.td-ins, .mrow-best {
+  display: inline-flex; align-items: baseline; gap: 5px; min-width: 0;
+  font-size: 12px; font-stretch: 92%; color: var(--text3);
+  padding: 4px 9px; border: 1px solid var(--border); border-radius: 999px;
+  background: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.td-ins b, .mrow-best b { color: var(--text2); font-weight: 600; }
+.td-ins em, .mrow-best em {
+  font-style: normal; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums;
+}
+/* The league row gains the same result bar Today's has, so the two read alike. */
+.mrow { flex-wrap: wrap; row-gap: 6px; }
+.mrow-bar { flex: 1 1 160px; max-width: 280px; min-width: 120px; }
+@media (max-width: 640px) {
+  .mrow-bar { flex-basis: 100%; max-width: none; order: 5; }
+  .mrow-best { order: 6; }
+}

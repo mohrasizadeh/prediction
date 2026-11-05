@@ -178,6 +178,38 @@ function Follows({ q }) {
   );
 }
 
+// Signed out: real clubs to follow, rather than a description of following.
+// CRITIQUE section 1: this page was a sign-up wall and nothing else, so one of six primary
+// destinations was a dead end for most first-time readers, with the e-mail block underneath making
+// it two asks stacked. It now shows what the feature is for, with real leagues to browse.
+function SignedOut() {
+  const q = useApi("/leagues");
+  const leagues = (q.data?.countries || []).flatMap((c) => c.leagues).slice(0, 8);
+  return (
+    <div data-testid="following-signin">
+      <p className="v2-say">
+        Follow clubs and players and this becomes one feed: their next fixtures, the lines worth
+        reading, and how those turned out. Keeping what you follow needs an account.
+      </p>
+      {q.loading && !q.data ? <Skeleton shape="row" count={4} />
+        : leagues.length ? (
+          <ul className="ex-grid" data-testid="following-suggest">
+            {leagues.map((l) => (
+              <li key={l.id}><Link to={`/league/${l.id}`} className="ex-lg" data-testid={`following-league-${l.id}`}>
+                <span className="ex-lg-top"><LeagueMark league={l} size={36} /></span>
+                <b>{l.name}</b><small className="k-faint">Browse clubs to follow</small>
+              </Link></li>
+            ))}
+          </ul>
+        ) : null}
+      <p className="v2-more">
+        <Link to="/sign-up" className="btn btn--primary" data-testid="following-signup">Create a free account</Link>
+        <Link to="/sign-in?next=/following" className="k-link" data-testid="following-signin-link">Sign in</Link>
+      </p>
+    </div>
+  );
+}
+
 function You() {
   const [tab, setTab] = useState("feed");
   const follows = useApi("/me/follows");
@@ -201,9 +233,12 @@ export function Following() {
     <section className="y" data-testid="following-page">
       <div className="y-head"><h1>You</h1>{user && <Link to="/account" className="k-link" data-testid="following-account">Account</Link>}</div>
       {loading ? <Skeleton shape="row" count={4} testid="following-loading" /> : !user ? (
-        <EmptyState icon="star" title="Your teams and players in one feed" testid="following-signin" action={<div className="btn-row"><Link to="/sign-up" className="btn btn--primary" data-testid="following-signup">Create a free account</Link><Link to="/sign-in?next=/following" className="btn btn--secondary" data-testid="following-signin-link">Sign in</Link></div>}>
-          Follow clubs and players, keep forecasts and see how they turned out.
-        </EmptyState>
+        /* CRITIQUE section 1: signed out, this was a sign-up wall and nothing else, so one of six
+           primary destinations was a dead end for most first-time readers, with the e-mail block
+           underneath making the page two asks stacked. It now shows the clubs a reader could
+           follow -- real clubs, with the real follow control -- so the page demonstrates the
+           feature instead of only describing it. */
+        <SignedOut />
       ) : <You />}
     </section>
   );

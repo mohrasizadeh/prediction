@@ -77,7 +77,17 @@ function Row({ m }) {
         </span>
         {started ? <span className="td-scores" aria-label={`${hs} to ${as}`}><b className="td-sc" data-testid={`today-live-${m.id}`}>{hs}</b><b className="td-sc" data-testid={`today-away-score-${m.id}`}>{as}</b></span> : <span className="td-scores" aria-hidden="true" />}
         <span className="td-bar">{p && !fin && !off ? <WdlBar home={p.p_home} draw={p.p_draw} away={p.p_away} homeName={m.home?.name} awayName={m.away?.name} testid={`today-wdl-${m.id}`} /> : !p && !fin && !off ? <small className="k-faint">No forecast yet</small> : null}</span>
-        {m.insight_count > 0 && !off ? <span className="td-ins" data-testid={`today-insights-${m.id}`}>{m.insight_count} insight{m.insight_count === 1 ? "" : "s"} ›</span> : <span className="td-ins td-ins--none" aria-hidden="true" />}
+        {/* CRITIQUE section 1: this said "14 insights", and a count is not a value -- every fixture
+            has a similar number, so the chip never helped a reader choose which match to open. It
+            now names the one line most worth reading in that match, which is what the reader is
+            actually deciding between. */}
+        {m.best_line?.market && !off ? (
+          <span className="td-ins" data-testid={`today-insights-${m.id}`}>
+            <b>{m.best_line.who}</b> {m.best_line.market} <em>{Math.round((m.best_line.p || 0) * 100)}%</em>
+          </span>
+        ) : m.insight_count > 0 && !off ? (
+          <span className="td-ins" data-testid={`today-insights-${m.id}`}>{m.insight_count} line{m.insight_count === 1 ? "" : "s"}</span>
+        ) : <span className="td-ins td-ins--none" aria-hidden="true" />}
       </Link>
     </li>
   );

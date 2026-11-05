@@ -1,6 +1,6 @@
 // Insights: strongest forecasts across leagues (docs/24 §4).
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { pct } from "../lib/copy";
 import { useAuth } from "../lib/auth";
@@ -33,6 +33,7 @@ function Compact({ rows }) {
 export function Insights() {
   const { entitlements } = useAuth();
   const [sp] = useSearchParams();
+  const nav = useNavigate();
   const [lg, setLg] = useState([]);
   const [mk, setMk] = useState("");
   const [tier, setTier] = useState([]);
@@ -131,7 +132,23 @@ export function Insights() {
             <option value="likely">most likely</option>
             <option value="kickoff">kick-off</option>
           </select>
-        </span>{" "}first.{" "}
+        </span>{" "}first,{" "}
+        {/* CONSOLIDATION section 2: the one clause this page cannot answer. Everything else in the
+            sentence filters forecasts that are already computed; "how often did this happen before"
+            is a different query over past games, which is what the Finder exists to run. Setting it
+            hands off to the Finder with the sentence carried across, so a reader never has to know
+            the Finder is a separate thing -- and the quota stays honest without inventing a rule,
+            because filtering the feed is free and the historical search is charged exactly as it is
+            today. */}
+        <span className="v2-tok">
+          <select value="" aria-label="Past games" data-testid="ins-history"
+                  onChange={(e) => { if (e.target.value) nav(`/finder?${e.target.value}`); }}>
+            <option value="">any past form</option>
+            <option value={`mode=form&stat=${MARKETS.find((m) => m.id === mk)?.q?.stat || "shots"}&min_reached=0.6`}>reached in 6 of the last 10</option>
+            <option value={`mode=form&stat=${MARKETS.find((m) => m.id === mk)?.q?.stat || "shots"}&min_reached=0.8`}>reached in 8 of the last 10</option>
+            <option value={`mode=run&stat=${MARKETS.find((m) => m.id === mk)?.q?.stat || "shots"}`}>on a run right now</option>
+          </select>
+        </span>.{" "}
         <button type="button" className="k-link" onClick={() => setSheet(true)} data-testid="ins-more-more">
           More filters{nAll ? <span className="k-count">{nAll}</span> : null}
         </button>

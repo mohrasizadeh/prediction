@@ -64,11 +64,43 @@ def fixtures_for_date(db, day: str, tz_offset_min: int = 0, league_iids=None) ->
         {"$match": {"match_iid": {"$in": [m["iid"] for m in ms]}, **NOT_HIDDEN, "tier": {"$in": ["Strong", "Solid"]}}},
         {"$group": {"_id": "$match_iid", "n": {"$sum": 1}}}])}
     lgs = _names(db, "leagues", [m["league_iid"] for m in ms])
+    best = _best_line(db, [m["iid"] for m in ms])
     for m in ms:
         m["home"], m["away"] = teams.get(m["home_iid"]), teams.get(m["away_iid"])
         m["league"] = lgs.get(m["league_iid"])
         m["probs"] = probs.get(m["iid"]); m["insight_count"] = counts.get(m["iid"], 0)
+        m["best_line"] = best.get(m["iid"])
     return ms
+
+
+def _best_line(db, match_iids: list[int]) -> dict:
+    """The single line most worth saying out loud in each match (docs/redesign/v2 CRITIQUE section 1).
+
+    The fixture row carried `insight_count`, and a count is not a value: every match has a similar
+    number of lines, so "14 insights" never helped a reader choose which fixture to open. This gives
+    the row the same thing the feed leads a card with -- the most prominent line -- so the row can
+    say what is interesting rather than how much there is.
+
+    Uses `prominence`, so the fixture row and the feed agree about what "best" means. A row that
+    disagreed with the page it links to would be worse than no row at all.
+    """
+    if not match_iids:
+        return {}
+    rows = list(db.forecasts.find(
+        {"match_iid": {"$in": match_iids}, **NOT_HIDDEN, "tier": {"$in": ["Strong", "Solid"]}},
+        {"_id": 0, "match_iid": 1, "scope": 1, "stat": 1, "market": 1, "p": 1, "p_usual": 1,
+         "is_personal": 1, "span": 1, "player_iid": 1, "team_iid": 1, "edge": 1}))
+    if not rows:
+        return {}
+    pl = _names(db, "players", [r["player_iid"] for r in rows if r.get("player_iid")])
+    tm = _names(db, "teams", [r["team_iid"] for r in rows if r.get("team_iid")])
+    out: dict = {}
+    for r in rows:
+        cur = out.get(r["match_iid"])
+        if cur is None or prominence(r) > cur[0]:
+            who = (pl.get(r["player_iid"]) or {}).get("name") if r.get("player_iid") else (tm.get(r["team_iid"]) or {}).get("name")
+            out[r["match_iid"]] = (prominence(r), {"who": who, "market": r.get("market"), "p": float(r.get("p") or 0)})
+    return {k: v[1] for k, v in out.items()}
 
 
 # ------------------------------------------------------------------ Match
@@ -938,4 +970,19 @@ def league_matches(db, league_iid: int, status: str = "scheduled", limit: int = 
     q = {"league_iid": league_iid, "status": status}
     q["kickoff"] = {"$gte": now} if status == "scheduled" else {"$lt": now}
     ms = list(db.matches.find(q, {"_id": 0}).sort("kickoff", 1 if status == "scheduled" else -1).limit(limit))
-    return _with_teams(db, ms)
+    ms = _with_teams(db, ms)
+    # CRITIQUE section 1: the same fixture was rendered two ways in two places -- a result bar and
+    # the best line on Today, a bare row of two club names on the league page -- and the weaker one
+    # was on the page a reader reaches when they want to know about a league. The league's rows now
+    # carry the same fields, so one component can render both and they cannot drift apart again.
+    iids = [m["iid"] for m in ms]
+    probs = {p["match_iid"]: p for p in db.match_probs.find({"match_iid": {"$in": iids}, "is_current": True}, {"_id": 0})}
+    counts = {r["_id"]: r["n"] for r in db.forecasts.aggregate([
+        {"$match": {"match_iid": {"$in": iids}, **NOT_HIDDEN, "tier": {"$in": ["Strong", "Solid"]}}},
+        {"$group": {"_id": "$match_iid", "n": {"$sum": 1}}}])}
+    best = _best_line(db, iids)
+    for m in ms:
+        m["probs"] = probs.get(m["iid"])
+        m["insight_count"] = counts.get(m["iid"], 0)
+        m["best_line"] = best.get(m["iid"])
+    return ms
