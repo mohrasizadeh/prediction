@@ -59,15 +59,31 @@ COLOR_TOKENS = ("bg", "surface1", "surface2", "surface3", "border", "borderStron
                 "brand", "onBrand", "tierStrong", "tierSolid", "tierWatch", "up", "down", "onDown",
                 "chart1", "chart2", "chart3", "chart4", "chart5", "chart6")
 
-# Default palette: Apple Human Interface Guidelines semantic system colours (grouped backgrounds, label
-# colours, separators, system tints). Where the standard tint is under 4.5:1 as text, the HIG
-# "increased contrast" variant is used instead, so every text pair passes WCAG 2.2 AA.
-DARK = {"bg": "#000000", "surface1": "#1C1C1E", "surface2": "#2C2C2E", "surface3": "#3A3A3C", "border": "#38383A",
+# Default palette: "chalk on slate" (docs/redesign/v2/PLAN.md). The ground is a deliberately hued blue
+# slate rather than a tinted near-black, the ink is chalk, and the semantic colours are the ONLY hues in
+# the interface. There is no brand accent -- `brand` is the ink itself. In a product whose whole job is to
+# signal whether a number is meaningful, spending a colour on identity steals it from meaning; identity
+# comes from the ground, the width axis of the type, and the run graphic instead.
+# Every pair in BLOCK_PAIRS and WARN_PAIRS was measured, in both modes, before this was committed.
+DARK = {"bg": "#0D1620", "surface1": "#13202C", "surface2": "#1A2938", "surface3": "#22344A", "border": "#243546",
+        "borderStrong": "#38506A", "text": "#E8EEF2", "text2": "#C4D2DC", "text3": "#9FB0BE", "brand": "#E8EEF2",
+        "onBrand": "#0D1620", "tierStrong": "#35C27E", "tierSolid": "#7FD3F2", "tierWatch": "#E8B23A", "up": "#35C27E",
+        "down": "#FF6B6B", "onDown": "#0D1620", "chart1": "#7FD3F2", "chart2": "#35C27E", "chart3": "#E8B23A",
+        "chart4": "#FF6B6B", "chart5": "#B9A3F0", "chart6": "#9FB0BE"}
+LIGHT = {"bg": "#EEF2F5", "surface1": "#FFFFFF", "surface2": "#E7ECF1", "surface3": "#DBE2E9", "border": "#D3DBE3",
+         "borderStrong": "#AEBBC7", "text": "#111A22", "text2": "#2E3C47", "text3": "#55646F", "brand": "#111A22",
+         "onBrand": "#FFFFFF", "tierStrong": "#0F7A4A", "tierSolid": "#0B6E92", "tierWatch": "#8A6100", "up": "#0F7A4A",
+         "down": "#C0392B", "onDown": "#FFFFFF", "chart1": "#0B6E92", "chart2": "#0F7A4A", "chart3": "#8A6100",
+         "chart4": "#C0392B", "chart5": "#5B4AA8", "chart6": "#55646F"}
+
+# The palette that was the default until the v2 pass: Apple Human Interface Guidelines semantic system
+# colours. Kept as a preset, the way Midnight was when it was replaced.
+APPLE_DARK = {"bg": "#000000", "surface1": "#1C1C1E", "surface2": "#2C2C2E", "surface3": "#3A3A3C", "border": "#38383A",
         "borderStrong": "#545458", "text": "#FFFFFF", "text2": "#EBEBF5", "text3": "#98989F", "brand": "#409CFF",
         "onBrand": "#000000", "tierStrong": "#30D158", "tierSolid": "#64D2FF", "tierWatch": "#FF9F0A", "up": "#30D158",
         "down": "#FF6961", "onDown": "#000000", "chart1": "#409CFF", "chart2": "#30D158", "chart3": "#FF9F0A",
         "chart4": "#FF375F", "chart5": "#5E5CE6", "chart6": "#BF5AF2"}
-LIGHT = {"bg": "#F2F2F7", "surface1": "#FFFFFF", "surface2": "#F2F2F7", "surface3": "#E5E5EA", "border": "#E5E5EA",
+APPLE_LIGHT = {"bg": "#F2F2F7", "surface1": "#FFFFFF", "surface2": "#F2F2F7", "surface3": "#E5E5EA", "border": "#E5E5EA",
          "borderStrong": "#C7C7CC", "text": "#000000", "text2": "#3C3C43", "text3": "#6C6C70", "brand": "#0066CC",
          "onBrand": "#FFFFFF", "tierStrong": "#1D7A32", "tierSolid": "#0071A4", "tierWatch": "#B25000", "up": "#1D7A32",
          "down": "#D70015", "onDown": "#FFFFFF", "chart1": "#0066CC", "chart2": "#1D7A32", "chart3": "#B25000",
@@ -89,6 +105,9 @@ MIDNIGHT_LIGHT = {"bg": "#F5F7FB", "surface1": "#FFFFFF", "surface2": "#F0F3F9",
 # (npm package @fontsource-variable/<slug>, latin subset). Nothing is loaded from Google at runtime.
 FONTS = {
     "system": {"label": "System default (San Francisco on Apple devices)", "stack": "-apple-system,BlinkMacSystemFont,system-ui,'Segoe UI',Roboto,sans-serif", "file": None, "kind": "sans"},
+    # The only face here with a WIDTH axis, which is what the v2 type scale uses to carry hierarchy
+    # from a condensed data label to an extended headline without a second family (docs/redesign/v2).
+    "archivo": {"label": "Archivo", "stack": "'Archivo v2',system-ui,sans-serif", "file": "archivo-latin-var.woff2", "kind": "sans"},
     "inter": {"label": "Inter", "stack": "'Inter',system-ui,sans-serif", "file": "inter-latin-wght-normal.woff2", "kind": "sans"},
     "manrope": {"label": "Manrope", "stack": "'Manrope',system-ui,sans-serif", "file": "manrope-latin-wght-normal.woff2", "kind": "sans"},
     "dm-sans": {"label": "DM Sans", "stack": "'DM Sans',system-ui,sans-serif", "file": "dm-sans-latin-wght-normal.woff2", "kind": "sans"},
@@ -121,7 +140,7 @@ def defaults() -> dict:
                   "favicon": "", "og_image": ""},
         "theme": {"default_mode": "system", "allow_toggle": True,
                   "colors": {"dark": DARK, "light": LIGHT},
-                  "font_body": "system", "font_heading": "system", "base_px": 16, "heading_weight": 700,
+                  "font_body": "archivo", "font_heading": "archivo", "base_px": 16, "heading_weight": 600,
                   "radius": "default", "density": "comfortable", "shadows": "none", "motion": "full", "max_width_px": 1200},
         "buttons": {"radius_px": 999, "height_px": {"sm": 36, "md": 44, "lg": 52}, "font_weight": 600, "uppercase": False,
                     "shadow": "none", "hover": "darken", "press": True, "focus_ring_px": 3,
@@ -561,7 +580,9 @@ def _preset(label, desc, mode, dark=None, light=None, radius="default", buttons=
 
 
 PRESETS = {
-    "apple": _preset("Apple", "The default. Apple Human Interface Guidelines system colours, capsule buttons.", "system"),
+    "chalk": _preset("Chalk", "The default. Chalk on slate: a hued blue slate, chalk ink, and colour reserved for meaning.", "system"),
+    "apple": _preset("Apple", "The previous default. Apple Human Interface Guidelines system colours, capsule buttons.", "system",
+                     dark=APPLE_DARK, light=APPLE_LIGHT),
     "midnight": _preset("Midnight", "The previous default. Calm dark navy, indigo accent.", "system",
                         dark=MIDNIGHT_DARK, light=MIDNIGHT_LIGHT, buttons={"radius_px": 12, "hover": "lift"}),
     "daylight": _preset("Daylight", "Opens in light mode. Same indigo accent.", "light"),

@@ -16,7 +16,8 @@ with TestClient(srv.app) as owner:
     check(r.status_code == 200 and j["dirty"] is False and j["live_v"] == 0 and j["can_edit_css"] is False, "admin opens the studio; nothing is unsaved; css is owner only")
     check(owner.get("/api/admin/site/draft").json()["can_edit_css"] is True, "owner can edit custom CSS")
     m = j["meta"]
-    check(len(m["fonts"]) >= 12 and "calendar" in m["icons"] and len(m["presets"]) == 7 and len(m["color_tokens"]) == 23, "editor options: fonts, icons, presets, 23 colour tokens")
+    # 8 presets since the v2 pass: Chalk is the new default and Apple is kept, the way Midnight was.
+    check(len(m["fonts"]) >= 12 and "calendar" in m["icons"] and len(m["presets"]) == 8 and len(m["color_tokens"]) == 23, "editor options: fonts, icons, presets, 23 colour tokens")
 
     # ---------------- public config before anything is published
     r = anon.get("/api/site/config"); cfg = r.json()

@@ -16,13 +16,8 @@
    is blocked outright -- self-hosting is a requirement here, not a preference.
    One family. The personality comes from the WIDTH axis, which is native to sports setting (the
    condensed scoreline, the extended headline) and which almost nothing else in this category uses. */
-@font-face {
-  font-family: 'Archivo v2';
-  src: url('/fonts/archivo-latin-var.woff2') format('woff2-variations');
-  font-weight: 100 900;
-  font-stretch: 62% 125%;
-  font-display: swap;
-}
+/* The @font-face itself lives in public/index.html: webpack cannot resolve a root-relative url()
+   from inside src/styles, and Site Studio already declares its font library the same way. */
 
 
 /* =============================================================== 1. GROUND AND INK

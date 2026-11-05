@@ -5,7 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
     <title>Prediciotn</title>
-  </head>
+  <!-- v2 (docs/redesign/v2/PLAN.md): the app's own typeface, self-hosted beside the Site Studio font
+       library. It is declared here rather than in a bundled stylesheet for two reasons: the CSP is
+       default-src 'self' with no font-src, so a font CDN is blocked outright, and webpack cannot
+       resolve a root-relative url() from inside src/styles. Site Studio injects its own @font-face
+       the same way at runtime, so this matches how every other font in the product is loaded.
+       One family; the wdth axis carries the hierarchy. -->
+  <link rel="preload" href="/fonts/archivo-latin-var.woff2" as="font" type="font/woff2" crossorigin>
+  <style>
+    @font-face {
+      font-family: 'Archivo v2';
+      src: url('/fonts/archivo-latin-var.woff2') format('woff2-variations');
+      font-weight: 100 900;
+      font-stretch: 62% 125%;
+      font-display: swap;
+    }
+  </style>
+</head>
   <body>
     <noscript>This app needs JavaScript.</noscript>
     <div id="root"></div>

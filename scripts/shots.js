@@ -62,6 +62,13 @@ const VIEWPORTS = [
       const page = await ctx.newPage();
       try {
         await page.goto(BASE + spec[0], { waitUntil: 'networkidle', timeout: 45000 });
+        // The consent banner is fixed, so in a full-page shot it lands in the middle of the image
+        // and hides the content underneath. Answer it once, as a reader would.
+        for (const label of ['No thanks', 'Allow optional']) {
+          const b = page.getByRole('button', { name: label });
+          if (await b.count()) { await b.first().click().catch(() => {}); break; }
+        }
+        await page.waitForTimeout(250);
         if (spec[1]) await page.getByTestId(spec[1]).first().waitFor({ timeout: 20000 });
         await page.waitForTimeout(900);
         const file = `${OUT}/${key}-${vp.name}.png`;
