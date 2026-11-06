@@ -837,3 +837,167 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
    ongoing. It is also the only loop in the product. */
 .k-livedot { animation: v2-pulse 2s ease-in-out infinite; }
 @keyframes v2-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* ============================================================ 24. The claim and the run
+   The card used to lead with p in 28pt. p is not comparable between cards -- "3+ shots 34%" and
+   "1+ shot 93%" answer different questions -- so the biggest thing on the card was inviting a
+   comparison that means nothing, and it made a real finding look weak while a truism looked strong.
+   The hero is now the claim, said as a frequency, and the evidence under it is the player's own
+   last ten games. The percentage keeps its place, small, beside its band.
+   The meter (.k-fc-bar) is not drawn when the run is: both encode usual against tonight, and the
+   v2 audit already called out three sayings of one thing stacked on every card in a grid. */
+.v2-claim {
+  margin: 8px 0 0;
+  font-size: 1.0625rem; line-height: 1.3; letter-spacing: -.014em;
+  font-variation-settings: "wdth" 106, "wght" 400;
+  color: var(--text2);
+}
+.v2-claim b { font-variation-settings: "wdth" 106, "wght" 700; color: var(--text); }
+.v2-claim b.is-up { color: var(--up); }
+.v2-claim b.is-down { color: var(--down); }
+
+.v2-cr { margin-top: 11px; }
+.v2-cr-row {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px;
+  list-style: none; margin: 0; padding: 0;
+}
+.v2-cr-g { display: grid; grid-template-rows: 30px auto auto auto; gap: 2px; min-width: 0; align-items: end; }
+.v2-cr-g > b {
+  display: block; width: 72%; max-width: 15px; justify-self: center;
+  background: var(--surface3); border-radius: 2px 2px 0 0; min-height: 2px;
+  transition: height var(--v2-move) var(--v2-ease), background-color var(--v2-quick) var(--v2-ease);
+}
+.v2-cr-g.on > b { background: var(--up); }
+.v2-cr.is-down .v2-cr-g.on > b { background: var(--up); }   /* a game he cleared is cleared, whichever way tonight points */
+.v2-cr-g.nd > b { background: var(--border-strong); }
+.v2-cr-v, .v2-cr-m, .v2-cr-o {
+  display: block; text-align: center; font-style: normal;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.v2-cr-v {
+  font-size: .75rem; font-variation-settings: "wdth" 84, "wght" 700;
+  font-variant-numeric: tabular-nums; color: var(--text2);
+  border-top: 2px solid var(--border-strong); padding-top: 3px;
+}
+.v2-cr-g.on .v2-cr-v { color: var(--up); border-top-color: var(--up); }
+.v2-cr-m { font-size: .5rem; letter-spacing: .02em; color: var(--text3); font-variation-settings: "wdth" 70, "wght" 600; }
+.v2-cr-m.low { color: var(--tier-watch); }      /* a short appearance is context, not a bad game */
+.v2-cr-o { font-size: .5rem; color: var(--text3); font-variation-settings: "wdth" 68, "wght" 700; }
+
+/* Tonight is the line itself, not a count: it has not happened, so it is drawn as the target. */
+.v2-cr-now > b { background: none !important; border: 1.5px dashed var(--up); border-bottom: 0; border-radius: 3px 3px 0 0; }
+.v2-cr.is-down .v2-cr-now > b { border-color: var(--down); }
+.v2-cr-now .v2-cr-v { color: var(--up); border-top-style: dotted; border-top-color: var(--up); }
+.v2-cr.is-down .v2-cr-now .v2-cr-v { color: var(--down); border-top-color: var(--down); }
+.v2-cr-now .v2-cr-m { color: var(--text); font-variation-settings: "wdth" 70, "wght" 700; }
+.v2-cr-now .v2-cr-o { color: var(--text2); }
+.v2-cr-cap { margin: 8px 0 0; color: var(--text3); }
+.v2-cr-cap b { color: var(--text2); font-variation-settings: "wdth" 88, "wght" 700; }
+
+.v2-ev { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
+.v2-ev-p { font-size: .9375rem !important; font-variation-settings: "wdth" 90, "wght" 700; }
+.v2-ev-d { margin-left: auto; font-size: .75rem; font-variation-settings: "wdth" 88, "wght" 700;
+  font-variant-numeric: tabular-nums; }
+.v2-ev-d.is-up { color: var(--up); }
+.v2-ev-d.is-down { color: var(--down); }
+
+@media (prefers-reduced-motion: reduce) { .v2-cr-g > b { transition: none; } }
+
+/* ============================================================ 25. The player head
+   The head read as four equal parts -- avatar, name, position, club -- because the name was set at
+   body weight. The page is about one person, so the name takes the display end of the variable
+   face and everything else becomes metadata under it. The club's mark is blurred across the whole
+   band rather than tucked behind the avatar, so the band is recognisably this club's before a word
+   is read. Decorative only: it is hidden from assistive technology and carries nothing the text
+   does not. */
+.v2-ph2 { position: relative; padding: 22px 16px 18px; border-radius: 16px; overflow: hidden; }
+.v2-ph2 .v2-phead-wash {
+  position: absolute; inset: 0; z-index: 0;
+  background-size: cover; background-position: 50% 32%;
+  filter: blur(42px) saturate(135%); opacity: .5; transform: scale(1.4);
+}
+.v2-ph2 .v2-phead-wash.is-plain {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 42%, transparent), transparent 68%);
+  filter: none; opacity: 1; transform: none;
+}
+/* The band has to stay a legible surface whatever the crest's colours are. */
+.v2-ph2::after {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface1) 42%, transparent),
+                                      color-mix(in srgb, var(--surface1) 86%, transparent));
+}
+.v2-ph2 > * { position: relative; z-index: 1; }
+.v2-ph2-name {
+  font-size: clamp(1.85rem, 7.2vw, 3.1rem);
+  font-variation-settings: "wdth" 112, "wght" 800;
+  letter-spacing: -.032em; line-height: .96; text-transform: uppercase;
+  margin: 0 0 9px; color: var(--text); text-wrap: balance;
+}
+.v2-ph2-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 11px; }
+.v2-ph2-meta .v2-club {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 5px 12px 5px 6px; color: var(--text); text-decoration: none;
+  font-size: .8125rem; font-variation-settings: "wdth" 92, "wght" 600;
+}
+.v2-ph2-meta .v2-club:hover { border-color: var(--border-strong); }
+.v2-ph2-meta .v2-pos {
+  font-size: .6875rem; letter-spacing: .09em; text-transform: uppercase;
+  font-variation-settings: "wdth" 78, "wght" 700; color: var(--text3);
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
+}
+
+/* ============================================================ 26. Quick view, in the palette
+   The controls were the browser's: a system select arrow and a blue checkbox, neither of which
+   follows an owner's palette. Everything here is drawn from tokens so a theme change carries. */
+.v2-qv .sel select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 34px; border-radius: 10px;
+  border: 1px solid var(--border); background-color: var(--surface2); color: var(--text);
+  font-variation-settings: "wdth" 92, "wght" 600;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 17px) calc(50% + 1px), calc(100% - 12px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+.v2-qv .sel select:hover { border-color: var(--border-strong); }
+.v2-qv .seg2 { background: var(--surface2); border-color: var(--border); }
+.v2-qv .seg2 button { font-variation-settings: "wdth" 92, "wght" 600; }
+.v2-qv .seg2 button.on { background: var(--brand); color: var(--on-brand); }
+.v2-qv .check-inline { display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+  color: var(--text2); font-variation-settings: "wdth" 92, "wght" 600; font-size: .8125rem; }
+.v2-qv .check-inline input { width: 18px; height: 18px; accent-color: var(--brand); }
+.qv .v2-qv-fc b { color: var(--up); }
+.qv .v2-qv-fc--none { color: var(--text3); }
+
+/* The way out of the sheet. The sheet answers one line; the player page answers the rest. */
+.v2-fs-name {
+  display: block; width: 100%;
+  font-size: 1.0625rem; font-variation-settings: "wdth" 104, "wght" 700;
+  letter-spacing: -.012em; color: var(--text); text-decoration: none;
+}
+.v2-fs-name:hover { text-decoration: underline; }
+.v2-fs-open {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
+  color: var(--brand); text-decoration: none;
+  font-size: .875rem; font-variation-settings: "wdth" 92, "wght" 600;
+}
+.v2-fs-open::after { content: "\2192"; }
+.v2-fs-open:hover { text-decoration: underline; }
+
+/* The fallback avatar is a rounded square at 8px everywhere else, which read as a tile sitting in
+   the band rather than as a person. In the head it is a portrait. */
+.v2-ph2 > .media, .v2-ph2 > .media-fallback, .v2-ph2 > img {
+  border-radius: 50%; flex: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--surface1) 72%, transparent);
+}
+.v2-ph2 .phead-main { min-width: 0; gap: 0; }
+@media (max-width: 520px) {
+  .v2-ph2 { padding: 18px 14px 15px; gap: 12px; }
+  .v2-ph2 > .media, .v2-ph2 > .media-fallback, .v2-ph2 > img { width: 64px !important; height: 64px !important; }
+  .v2-ph2-name { font-size: clamp(1.6rem, 8vw, 2.2rem); }
+}
+/* .phead centres the avatar against a column that now runs name, chips, fixture and Follow, which
+   pushed the portrait halfway down the band. It belongs beside the name. */
+.v2-ph2 { align-items: flex-start; }
+.v2-ph2 > .media, .v2-ph2 > .media-fallback, .v2-ph2 > img { margin-top: 2px; }

@@ -301,7 +301,7 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
             # is the question worth asking about it, and the neighbours exist only to answer follow-ups.
             head = max(own, key=lambda f: (prominence(f, weights, scale), f["p"], f["thr"]))
             card = dict(head)
-            card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge")}
+            card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder")}
                                          for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
             card["best_p"] = max(f["p"] for f in g)
             out.append(card)
@@ -311,7 +311,7 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
         head = (max(lead, key=lambda f: (prominence(f, weights, scale), f["p"], f["thr"])) if best > 0
                 else max(lead, key=lambda f: (f["p"], f["thr"])))
         card = dict(head)
-        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge")}
+        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder")}
                                      for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
         # the best percentage anywhere in the card, so a "show me 90%+" filter can see past the lead line
         card["best_p"] = max(f["p"] for f in g)
@@ -529,11 +529,22 @@ USUAL_N = 10
 
 
 def _usual(db, fc):
-    """usual_p = share of the last 10 games (before this match) where the player or team got past this line."""
+    """usual_p = share of the last 10 games (before this match) where the player or team got past this line.
+
+    The same walk also builds `run`: those ten games as the card draws them -- opponent, minutes and
+    what they actually did, oldest first. Reported repeatedly, and in the competitive read of the
+    counting tools: a percentage with nothing behind it asks to be taken on trust, and the evidence
+    for it is already in the rows this function reads. Taking it here costs one extra projected field
+    per row and no extra query.
+
+    `minutes` is the half of it a count alone throws away. A shot in 28 minutes is evidence FOR a
+    player, and the raw strip reads it as evidence against; carrying minutes lets the card show the
+    same ten games per 90 without asking anyone to do the arithmetic.
+    """
     stats = {f["stat"] for f in fc}
     if not stats:
         return fc
-    proj = {"_id": 0, "kickoff": 1, **{s: 1 for s in stats}}
+    proj = {"_id": 0, "kickoff": 1, "minutes": 1, "opp_iid": 1, "home": 1, **{s: 1 for s in stats}}
     hist = {}
     pids = list({f["player_iid"] for f in fc if f.get("scope") == "player" and f.get("player_iid")})
     tids = list({f["team_iid"] for f in fc if f.get("scope") == "team"})
@@ -547,10 +558,26 @@ def _usual(db, fc):
         key = ("player", f.get("player_iid")) if f.get("scope") == "player" else ("team", f["team_iid"])
         ko = f.get("kickoff")
         ko = ko.replace(tzinfo=None) if ko is not None and getattr(ko, "tzinfo", None) else ko
-        vals = [r[f["stat"]] for r in hist.get(key, []) if r.get(f["stat"]) is not None and (ko is None or r["kickoff"].replace(tzinfo=None) < ko)][:USUAL_N]
+        past = [r for r in hist.get(key, []) if r.get(f["stat"]) is not None and (ko is None or r["kickoff"].replace(tzinfo=None) < ko)][:USUAL_N]
+        vals = [r[f["stat"]] for r in past]
         f["usual_n"] = len(vals)
         f["usual_p"] = round(sum(1 for v in vals if v > f["thr"]) / len(vals), 4) if len(vals) >= 5 else None
+        # oldest first, because the strip is read left to right and ends at tonight
+        f["run"] = [{"opp_iid": r.get("opp_iid"), "m": r.get("minutes"), "v": r[f["stat"]], "home": r.get("home")}
+                    for r in reversed(past)]
+    _run_opponents(db, fc)
     return fc
+
+
+def _run_opponents(db, fc):
+    """Put a name on each game in every `run`, in one lookup for the whole page."""
+    ids = {g["opp_iid"] for f in fc for g in f.get("run") or [] if g.get("opp_iid")}
+    if not ids:
+        return
+    names = _names(db, "teams", list(ids))
+    for f in fc:
+        for g in f.get("run") or []:
+            g["opp"] = names.get(g.get("opp_iid"))
 
 
 def _from_ladder(db, match_iid, scope, stat, thr, ent):
@@ -950,6 +977,10 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
                                "$or": [{"home_iid": p["team_iid"]}, {"away_iid": p["team_iid"]}]}, {"_id": 0}, sort=[("kickoff", 1)])
     # only the lines for the match the page calls "next": finished matches keep is_current rows for a while (docs/36 H8)
     fc = list(db.forecasts.find({"player_iid": player_iid, "match_iid": nxt["iid"], **NOT_HIDDEN}, {"_id": 0, "contrib": 0}).sort("p", -1)) if nxt else []
+    # Without this the page's own cards had no p_usual and no run, so the one card a reader sees
+    # after tapping through from anywhere else was drawn in the old style. The card has to be the
+    # same object on every screen that shows it.
+    _usual(db, fc)
     p = attach_images(db, "players", [p])[0]
     team = attach_images(db, "teams", [team])[0] if team else None
     if nxt:

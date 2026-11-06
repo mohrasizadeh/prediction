@@ -4,12 +4,15 @@ import { Link, useParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { Crest, PlayerAvatar } from "../components/Media";
 import { ErrorBox, Loading } from "../components/States";
-import { ColumnPicker, ForecastCard, STATS, kickoff, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
+import { ColumnPicker, STATS, kickoff, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
 import { useAuth } from "../lib/auth";
 import { del, put } from "../lib/api";
 import { useToast } from "../components/Ui";
-import { QuickView } from "../components/ui";
+// The page used Football.jsx's ForecastCard while every other screen used the one in ui/. Tapping
+// a card anywhere landed on a player page whose own cards were a different component with a
+// different layout, which is exactly the inconsistency reported. One card, everywhere.
+import { ForecastCard, QuickView } from "../components/ui";
 
 function Note({ id }) {
   const { user } = useAuth();
@@ -86,7 +89,11 @@ export default function Player() {
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const { player: p, team, next_match: nx } = q.data;
-  const forecasts = q.data.cards || q.data.forecasts;
+  const cards = q.data.cards || q.data.forecasts || [];
+  // The Quick view resolves ANY market and line from the ladder, so it needs every stored line.
+  // It was handed `cards`, which is one grouped card per player -- a single stat -- so picking any
+  // other market said "No forecast" however many the engine had actually produced.
+  const forecasts = q.data.forecasts || cards;
   const teams = nx ? { [nx.home_iid]: nx.home, [nx.away_iid]: nx.away } : {};
   return (
     <section data-testid="player-page">
@@ -94,7 +101,7 @@ export default function Player() {
           who he plays next. Position, club and the next fixture are the three things you want
           before anything else, so they are in the head: the club as its crest, and the fixture with
           both crests and whether he is at home or away. */}
-      <header className="phead v2-phead">
+      <header className="phead v2-phead v2-ph2">
         {/* The club's mark, blurred right down behind the head, so the page is recognisably about
             this club before a word is read. Decorative only: it carries no information the text
             does not, so it is hidden from assistive technology and sits under everything. */}
@@ -103,12 +110,15 @@ export default function Player() {
             treatment does not appear and disappear with the image. */}
         <span className={"v2-phead-wash" + (team?.image_url ? "" : " is-plain")} aria-hidden="true"
               style={team?.image_url ? { backgroundImage: `url(${team.image_url})` } : undefined} />
-        <PlayerAvatar player={p} size={96} decorative={false} />
+        <PlayerAvatar player={p} size={84} decorative={false} />
         <div className="phead-main">
-          <h1>{p.name}</h1>
-          <p className="v2-phead-sub">
+          {/* The name is the page. It was set at the same weight as the body, so the head read as a
+              row of equal parts; it now carries the width and weight axes of the variable face and
+              everything else sits under it as metadata. */}
+          <h1 className="v2-ph2-name">{p.name}</h1>
+          <p className="v2-phead-sub v2-ph2-meta">
+            {team && <Link to={`/team/${team.id}`} className="v2-club"><Crest team={team} size={20} /> {team.name}</Link>}
             <span className="v2-pos">{posLabel(p.pos)}</span>
-            {team && <Link to={`/team/${team.id}`} className="v2-club"><Crest team={team} size={22} /> {team.name}</Link>}
           </p>
           {nx && (
             <Link to={`/match/${nx.id}`} className="v2-nextfx" data-testid="player-next-fixture">
@@ -127,7 +137,7 @@ export default function Player() {
       <section className="card" data-testid="player-next">
         <h2 className="k-sec">What we expect next match</h2>
         {!nx ? <p className="muted">No upcoming match loaded.</p>
-          : forecasts.length ? <div className="fgrid">{forecasts.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} homeIid={nx.home_iid} />)}</div>
+          : cards.length ? <div className="fgrid">{cards.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} homeIid={nx.home_iid} />)}</div>
           : <p className="muted small">No forecasts for this player yet.</p>}
       </section>
       {/* Asked for: lead with Quick view and drop the "Last 10 games" box. They were two renderings

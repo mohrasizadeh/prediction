@@ -74,6 +74,10 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
         <span className="k-fc-who">
           {f.player && (
             <span className="v2-fs-who">
+              {/* The sheet answers one line. Everything else a reader wants next -- another market,
+                  the season, the notes -- lives on the player page, and there was no way to it from
+                  here but the browser's back button. The name is that way. */}
+              {f.player?.id && <Link to={`/player/${f.player.id}`} className="v2-fs-name" data-testid={`${testid}-player-link`}>{f.player.name}</Link>}
               {f.pos && <span className="v2-pos">{posLabel(f.pos)}</span>}
               {fx.team && <Link to={`/team/${fx.team.id}`} className="v2-club" onClick={(e) => e.stopPropagation()}><Crest team={fx.team} size={18} /> {fx.team.name}</Link>}
             </span>
@@ -97,8 +101,13 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       {/* For a player, the full Quick view, opened on the line being looked at: the reader's next question is
           almost always "what about 2+, or only at home", and that used to mean leaving the sheet (docs/48). */}
       {f.scope === "player" && f.player?.id && (
-        <QuickView playerId={f.player.id} stat={f.stat} line={Math.floor(f.thr) + 1} title="Quick view"
-                   forecasts={[f, ...(f.more_lines || [])]} testid={`${testid}-qv`} />
+        <>
+          <QuickView playerId={f.player.id} stat={f.stat} line={Math.floor(f.thr) + 1} title="Quick view"
+                     forecasts={[f, ...(f.more_lines || [])]} testid={`${testid}-qv`} />
+          <Link to={`/player/${f.player.id}`} className="v2-fs-open" data-testid={`${testid}-open-player`}>
+            Open {f.player.name}&rsquo;s page
+          </Link>
+        </>
       )}
       {/* A team line has no Quick view, so it keeps the plain strip. Only when the feed carries the stat: a strip
           of dashes says nothing. */}

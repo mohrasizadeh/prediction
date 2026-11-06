@@ -5,7 +5,7 @@
 // tapped, so the one question a reader actually has next -- "what about 2+, or only at home, or only when he
 // started?" -- meant leaving the sheet. Both screens now use this, and the sheet opens it already set to the
 // line being looked at.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApi } from "../../lib/useApi";
 import { STATS, Seg, Select } from "../Football";
 import { Empty, ErrorBox, Loading } from "../States";
@@ -28,6 +28,18 @@ export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, ti
   // lines per stat and the reader can pick five. Every forecast carries the whole ladder, so the
   // percentage is resolved from that and follows any market and line combination.
   const fcAny = (forecasts || []).find((f) => f.stat === stat);
+  // Offer the lines we can actually answer. engine.player_ladder is per stat -- tackles starts at
+  // 2+, on-target stops at 4+ -- so a fixed 1+..5+ row promised five answers and delivered as few
+  // as three, which read as the forecast being broken rather than the line never being modelled.
+  // With no ladder at all (a stat we hold history but no forecast for) the plain row is still the
+  // right tool for reading the run.
+  const rungs = fcAny?.ladder ? Object.keys(fcAny.ladder).map((k) => Math.floor(Number(k)) + 1).filter((v) => v > 0).sort((a, b) => a - b) : null;
+  const lineOpts = rungs && rungs.length ? rungs : [1, 2, 3, 4, 5];
+  useEffect(() => {
+    // Switching market can strip the line out from under the reader; land on the nearest we have.
+    if (lineOpts.includes(line)) return;
+    setLine(lineOpts.reduce((best, v) => (Math.abs(v - line) < Math.abs(best - line) ? v : best), lineOpts[0]));
+  }, [stat, line, lineOpts]);
   const fcExact = (forecasts || []).find((f) => f.stat === stat && Math.floor(f.thr) + 1 === Number(line));
   const fromLadder = fcAny?.ladder?.[String(Number(line) - 0.5)];
   const fcP = fcExact ? fcExact.p : (typeof fromLadder === "number" ? fromLadder : null);
@@ -60,7 +72,7 @@ export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, ti
           {open && (
             <div className="filters v2-qv">
               <Select label="Stat" value={stat} onChange={setStat} options={STATS} testid={`${testid}-stat`} />
-              <Seg label="Line" value={line} onChange={(v) => setLine(Number(v))} options={[1, 2, 3, 4, 5].map((n) => ({ id: n, label: `${n}+` }))} testid={`${testid}-line`} />
+              <Seg label="Line" value={line} onChange={(v) => setLine(Number(v))} options={lineOpts.map((n) => ({ id: n, label: `${n}+` }))} testid={`${testid}-line`} />
               <Seg label="Window" value={last} onChange={setLast} options={[5, 10, 20].map((n) => ({ id: n, label: `Last ${n}` }))} testid={`${testid}-window`} />
               <Seg label="Venue" value={venue} onChange={setVenue} options={[{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid={`${testid}-venue`} />
               <label className="check-inline"><input type="checkbox" checked={started} onChange={(e) => setStarted(e.target.checked)} data-testid={`${testid}-started`} /> Started only</label>

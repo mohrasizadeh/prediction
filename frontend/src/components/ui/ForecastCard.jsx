@@ -5,13 +5,26 @@ import { Link } from "react-router-dom";
 import { pct, range } from "../../lib/copy";
 import { utc } from "../../lib/time";
 import { Crest, PlayerAvatar } from "../Media";
-import { TierBadge } from "./Marks";
+import { TierBadge, CardRun } from "./Marks";
 import { ForecastSheet } from "./ForecastSheet";
 import { useCombo } from "../../lib/combo";
 import Icon from "../Icon";
 
 // Lineup badge (docs/27): a player's percentage is "if he plays"; whether he plays is this badge.
 const BADGE = { confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" };
+
+// A likelihood said as a frequency. "1 game in 3" is read as information; "34%" is read as a
+// failure, and they are the same fact. The percentage keeps its place on the card as evidence --
+// this is only the claim, and a claim is what the hero slot is for.
+// Above a half the denominator stays at ten, because "1 game in 1" is not a sentence and it
+// flattened 79% and 92% into the same words -- the exact failure the claim exists to avoid.
+const oneIn = (p) => {
+  if (p == null) return null;
+  if (p >= 0.95) return "almost every game";
+  if (p <= 0.04) return "almost never";
+  if (p > 0.5) return `${Math.round(p * 10)} games in 10`;
+  return `1 game in ${Math.round(1 / p)}`;
+};
 
 export const fixtureOf = (f, teams = {}, homeIid) => {
   const team = f.team || teams[f.team_iid];
@@ -57,6 +70,13 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
   const { has, toggle } = useCombo();
   const canAdd = !!f.fkey && f.match_iid != null && f.addable !== false && !f.from_ladder && !(f.kickoff && utc(f.kickoff).getTime() < Date.now());
   const on = canAdd && has(f.fkey);
+  // The run only earns its place when there is enough of it AND the card has a baseline to compare
+  // against; without p_usual the claim sentence has nothing to say and the strip would be decoration.
+  const run = !f.p_display && f.p_usual != null && (f.run || []).filter((g) => g && g.v != null).length >= 3 ? f.run : null;
+  const usualWord = run ? oneIn(f.p_usual) : null;
+  const nowWord = run ? oneIn(f.p) : null;
+  const dir = f.p_usual == null ? "" : f.p >= f.p_usual ? "is-up" : "is-down";
+  const dep = f.p_usual == null ? null : Math.round((f.p - f.p_usual) * 100);
   const shown = f.p_display || pct(f.p);
   const rng = f.p_display ? null : range(f.lo, f.hi);          // docs/03 §4.4: show the band with the number
   const tk = track?.[f.fkey];
@@ -68,7 +88,17 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
           <span className="k-fc-who"><b>{name}</b><small data-testid={`${id}-fixture`}>{sub}</small></span>
           <span className="k-fc-tier"><TierBadge tier={f.tier} testid={`${id}-tier`} />{f.tier_note && <small className="k-fc-note" data-testid={`${id}-tier-note`}>{f.tier_note}</small>}</span>
         </header>
-        <div className="k-fc-line"><span className="k-fc-market">{f.market}</span><span className="k-fc-pwrap"><b className="k-fc-p" data-testid={`${id}-p`}>{shown}</b>{rng && <small className="k-fc-range" data-testid={`${id}-range`}>{rng}</small>}</span></div>
+        <div className="k-fc-line"><span className="k-fc-market">{f.market}</span>
+          {!run && <span className="k-fc-pwrap"><b className="k-fc-p" data-testid={`${id}-p`}>{shown}</b>{rng && <small className="k-fc-range" data-testid={`${id}-range`}>{rng}</small>}</span>}</div>
+        {/* The claim, in the words a person would use. docs/redesign/v2 CRITIQUE: the hero slot ranks
+            cards, and p cannot rank them -- "3+ shots 34%" and "1+ shot 93%" answer different
+            questions, so the same big number means something different on every card. The departure
+            from the player's own usual game is the one quantity that is comparable down a feed, and
+            as a frequency it reads as a finding instead of as a weak number. */}
+        {run && usualWord && (usualWord === nowWord
+          ? <p className="v2-claim" data-testid={`${id}-claim`}><b>{nowWord}</b>, same as usual.</p>
+          : <p className="v2-claim" data-testid={`${id}-claim`}>
+              Usually <b>{usualWord}</b>. Here, <b className={dir}>{nowWord}</b>.</p>)}
         {tk && tk.state !== "unknown" && <div className="lv-row"><Track t={tk} id={id} /></div>}
         {/* v2 (docs/redesign/v2/PLAN.md): this was a filled meter, and a filled meter says "this number
             is big" -- the one thing a reader must not conclude, because a big number is exactly what a
@@ -79,14 +109,19 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
               tick     their usual, kept visible so the segment has somewhere to start.
             A card with almost no segment is describing a normal game. That is the product's whole
             thesis (docs/50, docs/56) and it was previously only a sentence in small grey text. */}
-        <span className="k-fc-bar" aria-hidden="true"
+        {run && <CardRun games={run} line={f.thr} pct={shown} opp={f.opp} down={dir === "is-down"}
+                         who={f.scope === "team" ? "their" : "his"} testid={`${id}-run`} />}
+        {run && <div className="v2-ev"><b className="k-fc-p v2-ev-p" data-testid={`${id}-p`}>{shown}</b>
+          {rng && <small className="k-fc-range" data-testid={`${id}-range`}>{rng}</small>}
+          {dep != null && <b className={"v2-ev-d " + dir} data-testid={`${id}-dep`}>{dep > 0 ? "+" : ""}{dep} {Math.abs(dep) === 1 ? "pt" : "pts"} vs usual</b>}</div>}
+        {!run && <span className="k-fc-bar" aria-hidden="true"
               data-dir={f.p_usual == null ? undefined : (f.p >= f.p_usual ? "up" : "down")}>
           {rng && <i className="k-fc-band" style={{ left: `${Math.round(f.lo * 100)}%`, width: `${Math.max(0, Math.round((f.hi - f.lo) * 100))}%` }} />}
           <b style={f.p_usual == null
               ? { left: `${Math.round((f.p || 0) * 100)}%` }
               : { left: `${Math.round(Math.min(f.p, f.p_usual) * 100)}%`, width: `${Math.max(0.6, Math.abs((f.p - f.p_usual)) * 100)}%` }} />
           {f.p_usual != null && <i className="k-fc-usual" style={{ left: `${Math.round(f.p_usual * 100)}%` }} />}
-        </span>
+        </span>}
         {f.is_personal && f.expected_usual != null
           ? <small className="k-fc-vs" data-testid={`${id}-usual`}>
               {f.scope === "player" ? "His usual game is " : "They usually manage "}

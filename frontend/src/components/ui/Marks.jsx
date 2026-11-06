@@ -62,6 +62,59 @@ export function RunStrip({ values = [], line, label, caption = true, testid = "u
   );
 }
 
+// A club in three characters. Slicing the name gave "TEA" for every side in a league of "Team 1",
+// "Team 2"; a digit in the name is the part that identifies it, so it is the part to keep.
+const abbr = (name) => {
+  const t = String(name || "").replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/).filter(Boolean);
+  if (!t.length) return "";
+  const num = t.find((x) => /^\d+$/.test(x));
+  if (num) return ((t.find((x) => !/^\d+$/.test(x)) || "")[0] || "" ).toUpperCase() + num;
+  if (t[0].length >= 4) return t[0].slice(0, 3).toUpperCase();
+  return t.join("").slice(0, 3).toUpperCase();
+};
+
+// The card's own run: the ten games behind a forecast, compact enough to sit in a feed card, ending
+// in TONIGHT. GameStrip (below) is the same object at reading size on the player page; this is the
+// glanceable one, and the two must agree, because a reader who taps a card expects the thing that
+// grows to be the thing they tapped.
+//
+// Why the eleventh column: ten past bars leave the reader to join the history to the forecast
+// themselves. Tonight is drawn as the line itself, dashed, with the likelihood underneath, so the
+// strip ends at the question instead of stopping just before it.
+//
+// `games` are {v, m, opp} oldest -> newest, as queries._usual builds them.
+export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", testid = "ui-cardrun" }) {
+  const known = games.filter((g) => g && g.v != null);
+  if (known.length < 3) return null;                       // too few games to be evidence of anything
+  const cleared = known.filter((g) => g.v > line).length;
+  const vmax = Math.max(1, line + 1, ...known.map((g) => g.v));
+  const need = Math.floor(line) + 1;                       // thr 2.5 -> the card is talking about 3+
+  return (
+    <div className={"v2-cr" + (down ? " is-down" : "")} data-testid={testid}
+         role="img" aria-label={`Last ${known.length} games: ${known.map((g) => g.v).join(", ")}. Reached ${need} or more in ${cleared} of them. Tonight ${shown}.`}>
+      <ol className="v2-cr-row" aria-hidden="true">
+        {games.map((g, i) => (
+          <li key={i} className={"v2-cr-g" + (g.v == null ? " nd" : g.v > line ? " on" : "")}>
+            <b style={{ height: `${g.v == null ? 2 : Math.max(6, (g.v / vmax) * 100)}%` }} />
+            <i className="v2-cr-v">{g.v == null ? "\u2013" : g.v}</i>
+            <i className={"v2-cr-m" + (g.m != null && g.m < 70 ? " low" : "")}>{g.m == null ? "" : `${Math.round(g.m)}'`}</i>
+            <i className="v2-cr-o">{g.opp?.image ? <Crest team={g.opp} size={13} /> : abbr(g.opp?.name || g.opp)}</i>
+          </li>
+        ))}
+        <li className="v2-cr-g v2-cr-now">
+          <b style={{ height: `${Math.max(6, (need / vmax) * 100)}%` }} />
+          <i className="v2-cr-v">{need}+</i>
+          <i className="v2-cr-m">{shown}</i>
+          <i className="v2-cr-o">{opp?.image ? <Crest team={opp} size={13} /> : abbr(opp?.name || opp)}</i>
+        </li>
+      </ol>
+      <p className="v2-cr-cap k-small">
+        <b>{cleared} of {who} last {known.length}</b> reached {need}+ · tonight <b>{shown}</b>
+      </p>
+    </div>
+  );
+}
+
 // hits: booleans oldest -> newest (true = line reached, null = no data)
 export function HitStrip({ hits = [], label, testid = "ui-hitstrip" }) {
   if (!hits.length) return null;
