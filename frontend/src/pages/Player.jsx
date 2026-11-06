@@ -108,8 +108,11 @@ export default function Player() {
         {/* With a crest we blur the real thing; without one (crests arrive from PitchAPI and are
             absent in demo data) the head still gets a quiet tint rather than nothing, so the
             treatment does not appear and disappear with the image. */}
-        <span className={"v2-phead-wash" + (team?.image_url ? "" : " is-plain")} aria-hidden="true"
-              style={team?.image_url ? { backgroundImage: `url(${team.image_url})` } : undefined} />
+        {/* queries.attach_images pops image_url and emits `image`, so this read a field that is
+            never present: the wash has taken the plain fallback on every build since it was
+            written, and the crest treatment has never once been seen. */}
+        <span className={"v2-phead-wash" + (team?.image ? "" : " is-plain")} aria-hidden="true"
+              style={team?.image ? { backgroundImage: `url(${team.image})` } : undefined} />
         <PlayerAvatar player={p} size={84} decorative={false} />
         <div className="phead-main">
           {/* The name is the page. It was set at the same weight as the body, so the head read as a

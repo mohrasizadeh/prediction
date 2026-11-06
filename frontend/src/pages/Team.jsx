@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { FormPills, MatchRow, STATS, Seg, Select, TEAM_STATS, TacticChip, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
+import { ForecastCard } from "../components/ui";
 import FirstGoal from "../components/FirstGoal";
 
 const WINDOWS = [{ id: 5, label: "Last 5" }, { id: 10, label: "Last 10" }, { id: 20, label: "Last 20" }];
@@ -121,6 +122,8 @@ export default function Team() {
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const d = q.data;
+  const cards = d.cards || [];
+  const nextTeams = d.next?.[0] ? { [d.next[0].home_iid]: d.next[0].home, [d.next[0].away_iid]: d.next[0].away } : {};
   return (
     <section data-testid="team-page">
       <header className="phead">
@@ -136,6 +139,16 @@ export default function Team() {
           "Against" and "First goal" are all the same question, what this club's numbers look like,
           so they are one tab read top to bottom: per match, then by the position it concedes to,
           then who tends to score first. Six tabs scrolled sideways on a phone; three do not. */}
+      {/* The club page answered every question except the one a reader arrives with. Following a
+          club's card landed on a squad list and fourteen season totals, with no forecast anywhere
+          on the page -- while the player page has led with its next match since it was written.
+          Same block, same component, same position: the answer first, the season behind it. */}
+      <section className="card" data-testid="team-next">
+        <h2 className="k-sec">What we expect next match</h2>
+        {!d.next.length ? <p className="muted">No upcoming match loaded.</p>
+          : cards.length ? <div className="fgrid">{cards.map((f) => <ForecastCard key={f.id} f={f} teams={nextTeams} homeIid={d.next[0].home_iid} showTime={false} testid={`team-fc-${f.id}`} />)}</div>
+          : <p className="muted small">No forecasts for this club yet.</p>}
+      </section>
       <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "squad", label: "Squad" }, { id: "totals", label: "Numbers" }, { id: "fixtures", label: "Fixtures" }]} />
       {tab === "squad" && (
         <>

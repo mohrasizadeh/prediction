@@ -111,7 +111,9 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
       <p className="v2-cr-cap k-small">
         <span className="v2-cr-tag">Last {known.length}</span>
         <b>{cleared} cleared {need}+</b>
-        <span className="v2-cr-hint">minutes above, opponent below</span>
+        {/* A club has no minutes, so that row is empty and the hint described a line that is not
+            drawn. Say only what is there. */}
+        <span className="v2-cr-hint">{known.some((g) => g.m != null) ? "minutes above, opponent below" : "opponent below"}</span>
       </p>
     </div>
   );

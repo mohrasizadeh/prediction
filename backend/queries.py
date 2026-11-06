@@ -1012,7 +1012,29 @@ def team_detail(db, team_iid: int, now=None) -> dict | None:
                                 "$or": [{"home_iid": team_iid}, {"away_iid": team_iid}]}, {"_id": 0}).sort("kickoff", 1).limit(5))
     t = attach_images(db, "teams", [t])[0]
     lg = _names(db, "leagues", [t["league_iid"]]).get(t.get("league_iid")) if t.get("league_iid") is not None else None
-    return {"team": t, "league": lg, "style": style, "next": _with_teams(db, nxt), "form": team_form(db, team_iid, 5)}
+    # The club page could not answer the question a reader arrives with. player_detail has returned
+    # the next match's lines since it was written; team_detail returned the squad, the season totals
+    # and the style, and no forecast anywhere -- so following a club card led to a page that could
+    # not say what we expect of that club. Same shape as player_detail, so one card component and
+    # one set of fields serve both.
+    fc = list(db.forecasts.find({"team_iid": team_iid, "scope": "team", "match_iid": nxt[0]["iid"], **NOT_HIDDEN},
+                                {"_id": 0, "contrib": 0}).sort("p", -1)) if nxt else []
+    # _decorate runs _usual and also attaches team, opp and home_iid -- without those the shared
+    # card cannot name the club or the opponent and renders a blank subtitle, the same fault the
+    # match page's Forecasts tab had.
+    _decorate(db, fc)
+    cards = group_cards(fc, float(S.get(db, "engine.feed_max_p")), "team", S.get(db, "engine.market_weights"),
+                        S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")))
+    nxt = _with_teams(db, nxt)
+    # The same MatchRow draws a win/draw/loss bar and a named line on the league page and two bare
+    # club names here, because those two fields were never attached to this fixture list.
+    probs = {x["match_iid"]: x for x in db.match_probs.find({"match_iid": {"$in": [m["iid"] for m in nxt]}, "is_current": True}, {"_id": 0})}
+    best = _best_line(db, [m["iid"] for m in nxt])
+    for m in nxt:
+        m["probs"] = probs.get(m["iid"])
+        m["best_line"] = best.get(m["iid"])
+    return {"team": t, "league": lg, "style": style, "next": nxt, "form": team_form(db, team_iid, 5),
+            "forecasts": fc, "cards": cards}
 
 
 # ------------------------------------------------------------ League page
