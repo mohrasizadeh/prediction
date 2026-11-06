@@ -97,6 +97,14 @@ with TestClient(srv.app) as owner:
     a = db.audit_log.find_one({"action": "user.disable"})
     check(a and a["actor"] == "support@example.com" and a["target"] == fan_id and a["detail"]["reason"] == "chargeback abuse", "audit log: who, what, whom, why")
     check(support.post(f"/api/admin/users/{fan_id}/send-reset").json()["email_status"] == "sent" and "link" not in support.post(f"/api/admin/users/{fan_id}/send-reset").text, "support sends a reset e-mail; the link is never shown to staff")
+    # Sign-out-everywhere used to fire on the first click with nothing recorded but a count. The
+    # screen now asks why, so the route takes a reason and the audit row keeps it -- and an older
+    # caller that sends no body must still work.
+    check(support.post(f"/api/admin/users/{fan_id}/logout").status_code == 200, "sign-out-everywhere still works with no body")
+    check(support.post(f"/api/admin/users/{fan_id}/logout", json={"reason": "shared device"}).status_code == 200, "and with a reason")
+    lo = db.audit_log.find_one({"action": "user.force_logout", "detail.reason": "shared device"})
+    check(lo and lo["actor"] == "support@example.com" and lo["target"] == fan_id, "the reason for cutting someone's sessions is kept with the row")
+    fan.post("/api/auth/login", json={"email": "fan@example.com", "password": "fan-user-pass-1"})
     check(support.post(f"/api/admin/users/{fan_id}/comp", json={"plan": "pro", "days": 30, "reason": "partner"}).status_code == 403, "support cannot grant plans")
     check(admin.post(f"/api/admin/users/{fan_id}/comp", json={"plan": "pro", "days": 30, "reason": ""}).status_code == 400, "comp needs a reason")
     check(admin.post(f"/api/admin/users/{fan_id}/comp", json={"plan": "pro", "days": 30, "reason": "launch partner"}).status_code == 200, "admin grants a comp plan")

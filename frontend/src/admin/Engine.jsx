@@ -11,21 +11,30 @@ import { useApi } from "../lib/useApi";
 import { Confirm, Field, FormError, Switch, Tabs, useToast } from "../components/Ui";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import Icon from "../components/Icon";
-import { Card, Chip, DataState, KV, PageHead, Pager, StatTile, num, when } from "./parts";
+import { Card, Chip, Cost, DataState, Guard, KV, PageHead, Pager, StatTile, num, when } from "./parts";
 
 function Calibration({ d, reload }) {
   const toast = useToast();
   const [ask, setAsk] = useState(false);
   const c = d.calibration || {};
   const e = d.engine || {};
+  const [sw, setSw] = useState(null);
   const set = async (key, value) => { try { await put(`/admin/settings/${key}`, { value }); toast("Saved. It applies from the next engine run."); reload(); } catch (x) { toast(x.message, "err"); } };
+  // These three change every percentage on the public site at the next engine run, and they saved
+  // the instant the switch moved. A switch is the lightest control in the system driving the
+  // heaviest consequence in the product (docs/redesign/v3/audit §3).
+  const askSwitch = (key, value, what) => setSw({ key, value, what });
   return (
     <Card title="Percentages and factors" testid="brain-calibration" actions={<Chip tone={c.enabled ? "up" : "warn"} testid="brain-calibration-source">{c.source === "own" ? "Own map" : c.source === "default" ? "Default map" : "Off"}</Chip>}>
       <p className="a-muted small">The map turns the engine's raw likelihood into the percentage people see. Version in use: <b data-testid="brain-calibration-version">{c.version || "none"}</b>. A weekly refit from our own results is kept only if it beats the current map ({num(c.scored)} of {num(c.needed)} scored forecasts so far).</p>
       {c.test_logloss && <p className="a-muted small">Last refit test: new {c.test_logloss.new} vs previous {c.test_logloss.previous} ({when(c.created_at)})</p>}
-      <Switch label="Show calibrated percentages" checked={!!c.enabled} onChange={(v) => set("engine.calibration", v)} testid="brain-sw-calibration" />
-      <Switch label="Absences count" hint="Players who missed recent matches are less likely to play" checked={!!e["engine.absence_model"]} onChange={(v) => set("engine.absence_model", v)} testid="brain-sw-absence" />
-      <Switch label="Results form and late-season context" hint="Applied to expected goals" checked={!!e["engine.match_context"]} onChange={(v) => set("engine.match_context", v)} testid="brain-sw-context" />
+      <Switch label="Show calibrated percentages" checked={!!c.enabled} onChange={(v) => askSwitch("engine.calibration", v, "the calibration map")} testid="brain-sw-calibration" />
+      <Switch label="Absences count" hint="Players who missed recent matches are less likely to play" checked={!!e["engine.absence_model"]} onChange={(v) => askSwitch("engine.absence_model", v, "the availability model")} testid="brain-sw-absence" />
+      <Switch label="Results form and late-season context" hint="Applied to expected goals" checked={!!e["engine.match_context"]} onChange={(v) => askSwitch("engine.match_context", v, "form and late-season context")} testid="brain-sw-context" />
+      <Confirm open={!!sw} danger={!!sw && !sw.value} title={sw ? `${sw.value ? "Switch on" : "Switch off"} ${sw.what}?` : ""}
+               confirmLabel={sw?.value ? "Switch it on" : "Switch it off"} onClose={() => setSw(null)} testid="brain-sw-confirm"
+               body={<p>Every percentage on the public site is recomputed with {sw?.value ? "this layer in" : "this layer out"} at the next engine run, so numbers readers have already seen will move. Our published record is measured against what we showed, so switching this is a change to the product, not a display option.</p>}
+               onConfirm={async () => { await set(sw.key, sw.value); setSw(null); }} />
       <Field as="select" label="How fast old results fade" value={String(e["engine.strength_decay"] ?? 0.01)} onChange={(x) => set("engine.strength_decay", Number(x.target.value))} testid="brain-decay">
         {[0.005, 0.01, 0.02, 0.03].map((v) => <option key={v} value={String(v)}>{v === 0.01 ? "0.01 (recommended)" : String(v)}</option>)}
       </Field>
@@ -97,7 +106,7 @@ function ReviewRow({ r, onDone }) {
         {(r.candidates || []).map((c) => <button key={c.af_id} className="btn btn--secondary btn--sm" onClick={() => act(() => post(`/admin/images/${r.kind}/${r.our_iid}/approve`, { af_id: c.af_id }), "Approved")} data-testid={`approve-${r.our_iid}-${c.af_id}`}><Icon name="check" size={16} />{c.name} ({Math.round(c.score * 100)}%)</button>)}
         <button className="btn btn--ghost btn--sm" onClick={() => act(() => post(`/admin/images/${r.kind}/${r.our_iid}/reject`), "Rejected")} data-testid={`reject-${r.our_iid}`}>None of these</button>
         <label className="btn btn--ghost btn--sm">Upload<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload} /></label>
-        <button className="btn btn--ghost btn--sm" onClick={() => setRm(true)} data-testid={`takedown-${r.our_iid}`}>Take down</button>
+        <button className="btn btn--danger btn--sm" onClick={() => setRm(true)} data-testid={`takedown-${r.our_iid}`}>Take down</button>
       </div>
       <Confirm open={rm} danger title="Take this image down?" body="The initials badge shows instead." confirmLabel="Take down" onClose={() => setRm(false)} onConfirm={async () => { await del(`/admin/images/${r.kind}/${r.our_iid}`); setRm(false); toast("Taken down"); onDone(); }} testid="takedown-confirm" />
     </li>
@@ -110,14 +119,21 @@ function Images() {
   const [kind, setKind] = useState("");
   const [page, setPage] = useState(1);
   const rv = useApi("/admin/images/review", { kind, page });
-  const sync = async (refresh) => { try { await post(`/admin/images/sync?refresh=${refresh}`); toast("Image sync queued for the next tick"); } catch (x) { toast(x.message || "Could not queue it", "err"); } };
+  const sync = async (refresh) => { await post(`/admin/images/sync?refresh=${refresh}`); toast("Image sync queued for the next tick"); };
   if (s.loading && !s.data) return <Loading />;
   if (s.error) return <ErrorBox error={s.error} onRetry={s.reload} />;
   return (
     <div className="a-stack">
       <div className="a-btns">
-        <button className="btn btn--primary btn--sm" onClick={() => sync(false)} data-testid="images-sync"><Icon name="refresh" size={16} />Sync images</button>
-        <button className="btn btn--secondary btn--sm" onClick={() => sync(true)} data-testid="images-sync-refresh">Sync and re-read squads</button>
+        {/* Both spend PitchAPI quota. The second re-reads every squad as well, which is the larger
+            of the two by a long way, so it says so and is marked. */}
+        <Guard className="btn btn--primary btn--sm" confirmLabel="Queue the sync" title="Sync the missing pictures?"
+               body={<Cost lead="This asks PitchAPI for league logos, club crests and player photos we do not hold yet, at one call each. Pictures we already have cost nothing. It runs at the next tick." />}
+               onRun={() => sync(false)} testid="images-sync"><Icon name="refresh" size={16} />Sync images</Guard>
+        <Guard className="btn btn--danger btn--sm" label="Sync and re-read squads" danger confirmLabel="Re-read every squad"
+               title="Re-read every squad and sync pictures?"
+               body={<Cost lead="On top of the picture sync, this re-reads the full squad of every club in every league that is on -- one call per club -- whether or not anything has changed. It is the heaviest press on this screen. Use the plain sync unless squads are actually wrong." />}
+               onRun={() => sync(true)} testid="images-sync-refresh" />
       </div>
       <div className="a-tiles-grid">
         {Object.entries(s.data.kinds || {}).map(([k, v]) => <StatTile key={k} label={k === "team" ? "Crests" : k === "player" ? "Player photos" : "League logos"} value={`${num(v.stored)} / ${num(v.ours)}`} sub={`${num(v.review)} to review · ${num(v.none)} not found`} testid={`images-${k}`} />)}

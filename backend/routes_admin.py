@@ -155,9 +155,13 @@ def enable(user_id: str, body: Reason, user=Depends(perm("users.write")), db=Dep
     return {"ok": True}
 
 
+class OptionalReason(BaseModel):
+    reason: str = Field("", max_length=200)
+
+
 @router.post("/users/{user_id}/logout")
-def force_logout(user_id: str, user=Depends(perm("users.write")), db=Depends(D.get_db)):
-    return {"signed_out": AQ.force_logout(db, user, user_id)}
+def force_logout(user_id: str, body: OptionalReason = OptionalReason(), user=Depends(perm("users.write")), db=Depends(D.get_db)):
+    return {"signed_out": AQ.force_logout(db, user, user_id, body.reason)}
 
 
 @router.post("/users/{user_id}/resend-verification")

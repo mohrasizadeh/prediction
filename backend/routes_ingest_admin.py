@@ -18,6 +18,10 @@ import ingest as I
 import normalize as N
 import settings_store as S
 from cached_fetch import _unpack
+# The same two numbers AD-07 Leagues costs its backfill estimate with. Imported rather than copied:
+# two definitions of "a season costs about this much" would drift, and then two screens would quote
+# different prices for the same press.
+from routes_data_admin import CALLS_PER_MATCH, DEFAULT_SEASON_MATCHES
 
 router = APIRouter(prefix="/api/admin")
 perm = D.require_perm
@@ -51,7 +55,34 @@ def jobs_status(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     return {"last": last, "queue": queue, "tick": {"running": bool(lock), "since": _iso(lock["at"]) if lock else None},
             "requests": pending, "recent": recent, "paused_reason": S.get(db, "ingest.paused_reason"),
             "seasons_queued": db.seasons.count_documents({"backfilled": False, "queued": True}),
-            "enabled_leagues": db.leagues.count_documents({"enabled": True})}
+            "enabled_leagues": db.leagues.count_documents({"enabled": True}),
+            # The six Run-now buttons shared one dialog that said the same sentence for a 1-call
+            # league-list refresh and a season backfill of a thousand or more. These are what each
+            # press actually costs, so the dialog can say it (docs/redesign/v3/audit §3).
+            "costs": _job_costs(db),
+            "budget": {"cap": S.get(db, "ingest.daily_call_budget"), "left": _calls_left(db)}}
+
+
+def _calls_left(db) -> int:
+    # Same source as AD-05a's "Calls today": one row per provider call in api_call_log.
+    cap = int(S.get(db, "ingest.daily_call_budget") or 0)
+    midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    used = db.api_call_log.count_documents({"at": {"$gte": midnight}})
+    return max(0, cap - used)
+
+
+def _job_costs(db) -> dict:
+    """About how many provider calls one press of each Run-now button spends."""
+    n_lg = db.leagues.count_documents({"enabled": True})
+    backfill = 0
+    for lg in db.leagues.find({"enabled": True}, {"iid": 1, "backfill_seasons": 1}):
+        for label in lg.get("backfill_seasons", []):
+            s = db.seasons.find_one({"league_iid": lg["iid"], "label": label})
+            if s and not s.get("backfilled"):
+                n = db.matches.count_documents({"league_iid": lg["iid"], "season": label}) or DEFAULT_SEASON_MATCHES
+                backfill += 1 + n * CALLS_PER_MATCH
+    return {"reference_sync": 1, "fixtures_sync": n_lg, "results_sync": n_lg, "backfill": backfill,
+            "engine": 0, "images": None}         # the engine reads what we hold; images is unknown up front
 
 
 @router.get("/ingest/extras")

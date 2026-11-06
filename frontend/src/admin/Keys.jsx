@@ -34,7 +34,7 @@ function KeyCard({ k, owner, onChange }) {
           <div className="a-btns">
             <button className="btn btn--primary btn--sm" disabled={!val || busy} data-testid={`key-${k.provider}-save`}>Save</button>
             {k.set && <button type="button" className="btn btn--secondary btn--sm" onClick={test} data-testid={`key-${k.provider}-test`}>Test</button>}
-            {k.set && <button type="button" className="btn btn--ghost btn--sm" onClick={() => setRm(true)} data-testid={`key-${k.provider}-delete`}>Remove</button>}
+            {k.set && <button type="button" className="btn btn--danger btn--sm" onClick={() => setRm(true)} data-testid={`key-${k.provider}-delete`}>Remove</button>}
           </div>
         </form>
       ) : <p className="a-muted small"><Icon name="padlock" size={14} /> Only the owner can change keys.</p>}

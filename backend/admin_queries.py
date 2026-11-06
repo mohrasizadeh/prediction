@@ -177,10 +177,12 @@ def disable_user(db, actor, user_id, disabled: bool, reason: str):
     audit(db, actor, "user.disable" if disabled else "user.enable", user_id, {"reason": reason.strip()[:200]})
 
 
-def force_logout(db, actor, user_id):
+def force_logout(db, actor, user_id, reason: str = ""):
     guard_target(db, actor, user_id, allow_self=True)
     n = A.revoke_all(db, user_id)
-    audit(db, actor, "user.force_logout", user_id, {"sessions": n})
+    # The screen now asks why before it cuts someone's sessions, so the answer is kept with the
+    # row rather than dropped on the floor.
+    audit(db, actor, "user.force_logout", user_id, {"sessions": n, "reason": (reason or "")[:200]})
     return n
 
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { utc } from "../lib/time";
 import Icon from "../components/Icon";
 import { Empty, ErrorBox, Loading } from "../components/States";
+import { Confirm } from "../components/Ui";
 
 export function useWide(q = "(min-width: 1025px)") {
   const [wide, setWide] = useState(() => window.matchMedia(q).matches);
@@ -181,5 +182,62 @@ export function Card({ title, children, actions, testid, className = "" }) {
       {(title || actions) && <header className="a-card-head">{title && <h2>{title}</h2>}{actions}</header>}
       {children}
     </section>
+  );
+}
+
+
+// The guard ladder (docs/redesign/v3/audit/SCREENS-admin.md §3). The audit counted eighteen admin
+// actions that spend quota, send mail to a real reader, change what every visitor sees, or destroy
+// work that no Versions list holds -- with no dialog at all. Several sat beside a *guarded* action
+// of lower consequence: delete-a-webhook asked, rotate-its-secret did not; delete-a-popup asked,
+// publish-it-to-every-visitor did not; add-a-note asked, e-mail-the-member did not.
+//
+// The fix is not "add a dialog everywhere": a guard that is identical everywhere is one people learn
+// to click through, which is worse than none. So the rungs are graded by cost, and the trigger now
+// carries btn--danger whenever the action destroys something -- a class the whole admin used exactly
+// once before this.
+//
+//   nothing      cheap, reversible, scoped to you (a cached explorer call, "send me a test")
+//   confirm      reversible but other people see it      -> <Guard>
+//   + the number anything that spends quota or money      -> <Guard body={<Cost .../>}>
+//   + a reason   anything a reader sees or that touches their account
+//   typed phrase irreversible destruction and bulk sends
+//
+// This is the one component for all of it, so a new button cannot quietly land on the wrong rung.
+export function Guard({ label, busyLabel, title, body, confirmLabel, danger, reason, typed,
+                        onRun, className = "btn btn--ghost", disabled, children, testid }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  return (
+    <>
+      <button type="button" className={className} disabled={disabled || busy} onClick={() => setOpen(true)} data-testid={testid}>
+        {busy ? (busyLabel || "Working…") : (children || label)}
+      </button>
+      <Confirm open={open} title={title || label} body={body} confirmLabel={confirmLabel || label} danger={danger}
+               reason={reason} typed={typed} busy={busy} onClose={() => setOpen(false)}
+               testid={testid ? `${testid}-confirm` : undefined}
+               onConfirm={async (text) => {
+                 setBusy(true);
+                 // A throw is left to travel: Confirm catches it and prints it in the dialog, which
+                 // stays open. Closing on failure would read as success.
+                 try { await onRun(text); setOpen(false); } finally { setBusy(false); }
+               }} />
+    </>
+  );
+}
+
+// What this press costs, in the dialog, next to what is left. The audit's complaint about the six
+// job buttons was not that they lacked a guard but that all six shared one sentence, so a 1-call
+// sync and a ~1,140-call season backfill read identically.
+export function Cost({ calls, left, cap, lead, children }) {
+  return (
+    <>
+      {lead && <p>{lead}</p>}
+      {/* "About 0 provider calls" is not a cost, it is a non-sentence. A press that spends nothing
+          says so in words, and the caller explains WHY it is nothing. */}
+      {calls ? <p><b>About {num(calls)} provider {calls === 1 ? "call" : "calls"}.</b>{left != null ? ` ${num(left)} of ${num(cap)} left in today's budget.` : ""}</p> : null}
+      {!calls && left != null && <p>{num(left)} of {num(cap)} provider calls left in today's budget.</p>}
+      {children}
+    </>
   );
 }

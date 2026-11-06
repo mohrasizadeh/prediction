@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { del, get, put } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
-import { Drawer, Switch, useToast } from "../components/Ui";
+import { Confirm, Drawer, Switch, useToast } from "../components/Ui";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { sayError } from "../lib/errors";
 import Icon from "../components/Icon";
@@ -25,6 +25,7 @@ export function Row({ s, canOwner, onSaved, onHistory }) {
   const toast = useToast();
   const [raw, setRaw] = useState(toText(s, s.value));
   const [err, setErr] = useState(null);
+  const [ask, setAsk] = useState(null);
   const lockedWhy = LOCKED[s.key];
   const ro = !!lockedWhy || (s.owner_only && !canOwner);
   const dirty = raw !== toText(s, s.value);
@@ -32,6 +33,13 @@ export function Row({ s, canOwner, onSaved, onHistory }) {
     setErr(null);
     try { await put(`/admin/settings/${encodeURIComponent(s.key)}`, { value: val }); toast(`Saved ${s.label}`); onSaved(); } catch (x) { setErr(x instanceof SyntaxError ? "That is not valid JSON." : sayError(x)); }
   };
+  // Every setting saved the moment the control moved, with no dialog anywhere -- including the ones
+  // that move money. The owner-only prefixes (security., billing., auth., tracking., the e-mail
+  // provider) are already the product's own statement of which settings are the consequential ones,
+  // so that same list is what asks before it saves. Everything else keeps saving as it did: 252
+  // rows of equal friction would just be 252 rows of nobody reading.
+  const commit = (val, shown) => (s.owner_only ? setAsk({ val, shown: shown ?? String(val) }) : save(val));
+  const cancel = () => { setRaw(toText(s, s.value)); setAsk(null); };
   const reset = async () => { try { await del(`/admin/settings/${encodeURIComponent(s.key)}`); toast("Back to default"); onSaved(); } catch (x) { setErr(sayError(x)); } };
   const opts = s.type === "enum" ? enumOpts(s) : null;
   const tid = `setting-${s.key.replace(/\./g, "-")}`;
@@ -47,9 +55,9 @@ export function Row({ s, canOwner, onSaved, onHistory }) {
       </div>
       <div className="a-setting-input">
         {s.type === "boolean" ? (
-          <Switch label={s.value ? "On" : "Off"} checked={!!s.value} disabled={ro} onChange={(v) => save(v)} testid={`${tid}-input`} />
+          <Switch label={s.value ? "On" : "Off"} checked={!!s.value} disabled={ro} onChange={(v) => commit(v, v ? "On" : "Off")} testid={`${tid}-input`} />
         ) : opts ? (
-          <select value={raw} disabled={ro} onChange={(e) => { setRaw(e.target.value); save(e.target.value); }} aria-label={s.label} data-testid={`${tid}-input`}>{opts.map((o) => <option key={o}>{o}</option>)}</select>
+          <select value={raw} disabled={ro} onChange={(e) => { setRaw(e.target.value); commit(e.target.value); }} aria-label={s.label} data-testid={`${tid}-input`}>{opts.map((o) => <option key={o}>{o}</option>)}</select>
         ) : ["json", "list"].includes(s.type) ? (
           <textarea rows={Math.min(8, raw.split("\n").length + 1)} value={raw} disabled={ro} onChange={(e) => setRaw(e.target.value)} aria-label={s.label} spellCheck={false} data-testid={`${tid}-input`} />
         ) : (
@@ -57,11 +65,19 @@ export function Row({ s, canOwner, onSaved, onHistory }) {
         )}
         {err && <small className="field-err" role="alert">{err}</small>}
         <div className="a-setting-actions">
-          {s.type !== "boolean" && !opts && <button className="btn btn--primary btn--sm" disabled={!dirty || ro} onClick={() => { try { save(parse(s, raw)); } catch { setErr("That is not valid JSON."); } }} data-testid={`${tid}-save`}>Save</button>}
-          <button className="btn btn--ghost btn--sm" disabled={s.is_default || ro} onClick={reset} data-testid={`${tid}-reset`}>Reset to default</button>
+          {s.type !== "boolean" && !opts && <button className="btn btn--primary btn--sm" disabled={!dirty || ro} onClick={() => { try { commit(parse(s, raw), raw); } catch { setErr("That is not valid JSON."); } }} data-testid={`${tid}-save`}>Save</button>}
+          {/* Reset discards a value somebody chose on purpose, which History records but does not
+              put back for you. It asks, whatever the setting is. */}
+          <button className="btn btn--danger btn--sm" disabled={s.is_default || ro} onClick={() => setAsk({ reset: true })} data-testid={`${tid}-reset`}>Reset to default</button>
           <button className="btn btn--ghost btn--sm" onClick={() => onHistory(s)} data-testid={`${tid}-history`}>History</button>
         </div>
       </div>
+      <Confirm open={!!ask} danger title={ask?.reset ? `Put ${s.label} back to its default?` : `Change ${s.label}?`}
+               confirmLabel={ask?.reset ? "Back to default" : "Save the change"} onClose={cancel} testid={`${tid}-confirm`}
+               body={ask?.reset
+                 ? <p><code>{s.key}</code> goes back to <code>{toText(s, s.default).slice(0, 80) || "empty"}</code>. The value in use now{s.updated_by ? `, set by ${s.updated_by},` : ""} is replaced. It applies {(s.applies_at || "").replace(/_/g, " ") || "at once"}.</p>
+                 : <p><code>{s.key}</code> becomes <code>{(ask?.shown || "").slice(0, 80) || "empty"}</code>, from <code>{toText(s, s.value).slice(0, 80) || "empty"}</code>. This is an owner-only setting: it changes how the product charges, signs people in, or is tracked. It applies {(s.applies_at || "").replace(/_/g, " ") || "at once"}.</p>}
+               onConfirm={async () => { if (ask.reset) await reset(); else await save(ask.val); setAsk(null); }} />
     </div>
   );
 }

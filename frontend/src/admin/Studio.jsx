@@ -7,7 +7,7 @@ import { sayError } from "../lib/errors";
 import { Confirm, Drawer, Switch, Tabs, useToast } from "../components/Ui";
 import { ErrorBox, Loading, Empty } from "../components/States";
 import Icon from "../components/Icon";
-import { Chip, PageHead, when } from "./parts";
+import { Chip, Guard, PageHead, when } from "./parts";
 import { BrandLogo } from "../components/Media";
 
 const LABEL = { brand: "Brand", theme: "Look", buttons: "Buttons", nav: "Menus", footer: "Footer", seo: "SEO", cookies: "Cookie banner", home: "Home page", custom_css: "Custom CSS" };
@@ -179,7 +179,13 @@ export default function Studio() {
         <span className="a-pub-state">{d.dirty ? <Chip tone="warn">Unsaved draft</Chip> : <Chip tone="up">Live: version {d.live_v}</Chip>}{d.dirty && d.updated_by && <small>by {d.updated_by}, {when(d.updated_at)}</small>}</span>
         <div className="a-btns">
           <button className="btn btn--ghost btn--sm" onClick={() => setVers(true)} data-testid="studio-versions-btn">Versions</button>
-          {d.dirty && <button className="btn btn--ghost btn--sm" onClick={() => act(() => post("/admin/site/draft/discard"), "Draft discarded")} data-testid="studio-discard">Discard</button>}
+          {/* Versions lists *published* versions, so a draft that was never published has nothing
+              behind it. Discard and Reset section were also the only enabled buttons in this bar
+              when nothing had changed -- the two unrecoverable ones. */}
+          {d.dirty && <Guard className="btn btn--danger btn--sm" label="Discard" danger confirmLabel="Discard the draft"
+                             title="Throw away this draft?"
+                             body={<p>Every unpublished change goes, across all sections{d.updated_by ? ` -- including ${d.updated_by}'s` : ""}. Versions only keeps versions that were published, so there is nothing to bring this back from.</p>}
+                             onRun={() => act(() => post("/admin/site/draft/discard"), "Draft discarded")} testid="studio-discard" />}
           <button className="btn btn--secondary btn--sm" onClick={previewLink} data-testid="studio-preview-link"><Icon name="external" size={16} />Preview link</button>
           <button className="btn btn--primary btn--sm" disabled={!d.dirty} title={d.dirty ? "" : "Nothing to publish"} onClick={() => setPub({})} data-testid="studio-publish">Publish</button>
         </div>
@@ -189,7 +195,10 @@ export default function Studio() {
         <div className="a-editor-form">
           {section === "theme" && (
             <div className="a-presets" data-testid="studio-presets"><span>Start from</span>
-              {(d.meta.presets || []).map((p) => <button key={p.id} className="a-preset" title={p.description} onClick={() => act(() => post("/admin/site/draft/preset", { key: p.id }), `${p.label} applied`)} data-testid={`preset-${p.id}`}>{p.label}</button>)}
+              {(d.meta.presets || []).map((p) => <Guard key={p.id} className="a-preset" label={p.label} confirmLabel={`Apply ${p.label}`}
+                                                           title={`Start the theme again from ${p.label}?`}
+                                                           body={<p>{p.description ? `${p.description} ` : ""}This replaces every colour and type choice in the theme draft. Whatever is in the draft now is gone, and a draft has no history.</p>}
+                                                           onRun={() => act(() => post("/admin/site/draft/preset", { key: p.id }), `${p.label} applied`)} testid={`preset-${p.id}`} />)}
             </div>
           )}
           {section === "footer" && <p className="a-notice"><Icon name="info" size={16} />The disclaimer is always shown and is not edited here.</p>}
@@ -197,7 +206,10 @@ export default function Studio() {
           <div className="a-sticky-save">
             <button className="btn btn--primary" disabled={!changed || busy} onClick={save} data-testid="studio-save">Save to draft</button>
             <button className="btn btn--ghost" disabled={!changed} onClick={() => { setLocal({ ...local, [section]: d.draft[section] }); setProblems({}); }} data-testid="studio-undo">Undo changes</button>
-            <button className="btn btn--ghost" onClick={() => act(() => post(`/admin/site/draft/${section}/reset`, { to: "default" }), "Section back to default")} data-testid="studio-reset">Reset section</button>
+            <Guard className="btn btn--danger" label="Reset section" danger confirmLabel="Reset to the default"
+                   title={`Reset ${LABEL[section] || section} to the shipped default?`}
+                   body={<p>Everything in this section goes back to how it shipped, saved draft included. The other sections are untouched. There is no history for a draft, so this cannot be undone.</p>}
+                   onRun={() => act(() => post(`/admin/site/draft/${section}/reset`, { to: "default" }), "Section back to default")} testid="studio-reset" />
           </div>
         </div>
         <div className="a-editor-preview">

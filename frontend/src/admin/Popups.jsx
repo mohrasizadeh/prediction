@@ -5,7 +5,7 @@ import { useApi } from "../lib/useApi";
 import { Confirm, Drawer, Field, Switch, Tabs, useToast } from "../components/Ui";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { PopupView } from "../components/Popups";
-import { Bars, Card, Chip, DataState, PageHead, ResponsiveTable, StatTile } from "./parts";
+import { Bars, Card, Chip, DataState, Guard, PageHead, ResponsiveTable, StatTile } from "./parts";
 
 const pct = (v) => (v == null ? "No data" : `${(v * 100).toFixed(1)}%`);
 const TONE = { running: "up", draft: "muted", paused: "warn", scheduled: "info", ended: "muted" };
@@ -164,11 +164,17 @@ export default function Popups() {
     { key: "views", label: "Views", render: (r) => (r.stats?.view ?? 0).toLocaleString() },
     { key: "rate", label: "Click / sign-up", render: (r) => `${pct(r.stats?.click_rate)} / ${pct(r.stats?.submit_rate)}` },
     { key: "x", label: "", render: (r) => <span className="a-inline-actions" onClick={(e) => e.stopPropagation()} role="presentation">
+      {/* Going live puts this in front of every matching visitor at once. Deleting a draft asked
+          first and this did not, which is the guard ladder upside down. Pause stays unguarded: it
+          stops something, it starts nothing. */}
       {r.status === "live" ? <button className="btn btn--secondary btn--sm" onClick={() => status(r, "paused")} data-testid={`popup-pause-${r.id}`}>Pause</button>
-        : <button className="btn btn--primary btn--sm" onClick={() => status(r, "live")} data-testid={`popup-live-${r.id}`}>Go live</button>}
+        : <Guard className="btn btn--primary btn--sm" label="Go live" confirmLabel="Put it live"
+                 title={`Show "${r.name}" to visitors?`}
+                 body={<p>Every visitor this popup targets starts seeing it as a {KIND[r.kind] ? KIND[r.kind].toLowerCase() : "popup"} on their next page. Pause brings it back off, but anyone who has already seen it has seen it.</p>}
+                 onRun={() => status(r, "live")} testid={`popup-live-${r.id}`} />}
       <button className="btn btn--ghost btn--sm" onClick={() => setStats(r)} data-testid={`popup-results-${r.id}`}>Results</button>
       <button className="btn btn--ghost btn--sm" onClick={() => dup(r)} data-testid={`popup-dup-${r.id}`}>Copy</button>
-      <button className="btn btn--ghost btn--sm" onClick={() => setGone(r)} data-testid={`popup-delete-${r.id}`}>Delete</button></span> },
+      <button className="btn btn--danger btn--sm" onClick={() => setGone(r)} data-testid={`popup-delete-${r.id}`}>Delete</button></span> },
   ];
   const g = q.data?.global;
   return (

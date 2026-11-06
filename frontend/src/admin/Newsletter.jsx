@@ -26,7 +26,7 @@ export default function Newsletter() {
     { key: "status", label: "Status", render: (r) => <Chip tone={TONE[r.status] || "muted"}>{r.status}</Chip> },
     { key: "consent_at", label: "Agreed", render: (r) => when(r.consent_at) },
     { key: "confirmed_at", label: "Confirmed", render: (r) => when(r.confirmed_at) },
-    { key: "x", label: "", render: (r) => r.status !== "unsubscribed" && <span onClick={(e) => e.stopPropagation()} role="presentation"><button className="btn btn--ghost btn--sm" onClick={() => setGone(r)} data-testid={`nl-remove-${r.id}`}>Remove</button></span> },
+    { key: "x", label: "", render: (r) => r.status !== "unsubscribed" && <span onClick={(e) => e.stopPropagation()} role="presentation"><button className="btn btn--danger btn--sm" onClick={() => setGone(r)} data-testid={`nl-remove-${r.id}`}>Remove</button></span> },
   ];
   const exp = async () => { try { await download("/admin/newsletter/export", "email-list.csv"); } catch (x) { toast(x.status === 403 ? "Your role can't export full addresses." : x.message, "err"); } };
   return (

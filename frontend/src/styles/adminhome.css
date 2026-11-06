@@ -23,7 +23,9 @@ a.ah-tile:hover { transform: translateY(-2px); box-shadow: var(--card-shadow); }
 .ah-tag--job, .ah-tag--alert { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--down); }
 .ah-tag--inbox { background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); }
 .ah-clear { display: flex; align-items: center; gap: 8px; margin: 0; padding: 16px; color: var(--up); }
-.btn--danger { background: var(--down); color: #fff; border-color: var(--down); }
+/* `#fff` was the one literal colour left on this class, and it loads after base.css, so it won
+   overrode the token everywhere. On a light palette white-on-red is the wrong pair. */
+.btn--danger { background: var(--down); color: var(--on-down); border-color: var(--down); }
 .a-budget { display: grid; gap: 4px; }
 .a-budget-bar { display: block; height: 8px; border-radius: 4px; background: var(--surface3); overflow: hidden; }
 .a-budget-bar i { display: block; height: 100%; border-radius: 4px; background: var(--up); transition: width .4s; }

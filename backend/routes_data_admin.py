@@ -163,7 +163,14 @@ def leagues(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
                     "image": lg.get("image"), "enabled": bool(lg.get("enabled")),
                     "current_season": lg.get("current_season"), "backfill_seasons": lg.get("backfill_seasons", []), "zones": lg.get("zones") or [],
                     "seasons": seasons, "estimate_calls": cost, "coverage": cov})
-    return {"leagues": out, "budget": S.get(db, "ingest.daily_call_budget")}
+    # Switching a league on commits a daily cost for as long as it stays on, and the screen could
+    # only show the one-off backfill estimate. The list calls are exact and come straight from the
+    # two sync intervals; the per-match three are stated separately rather than guessed at.
+    fx_h = max(1, int(S.get(db, "ingest.fixtures_sync_hours") or 24))
+    rs_h = max(1, int(S.get(db, "ingest.results_sync_hours") or 24))
+    daily = max(1, round(24 / fx_h)) + max(1, round(24 / rs_h))
+    return {"leagues": out, "budget": S.get(db, "ingest.daily_call_budget"),
+            "daily_calls_per_league": daily, "calls_per_match": CALLS_PER_MATCH}
 
 
 class Zone(BaseModel):

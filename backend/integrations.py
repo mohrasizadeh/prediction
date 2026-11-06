@@ -388,7 +388,10 @@ def overview(db) -> dict:
                   "enabled": bool(S.get(db, "email.enabled")), "from_address": S.get(db, "email.from_address"), "bounces": spec["bounces"],
                   "providers": [{"id": k, "label": v["label"], "bounces": v["bounces"]} for k, v in T.PROVIDERS.items()]},
         "audience": {"provider": ap, "providers": [{"id": k, "label": v["label"]} for k, v in AUDIENCE.items()],
-                     "key_set": bool(ap != "none" and _key(db, ap)), "list_id_set": bool(str(S.get(db, "integrations.audience_list_id") or "").strip()), "jobs": jobs},
+                     "key_set": bool(ap != "none" and _key(db, ap)), "list_id_set": bool(str(S.get(db, "integrations.audience_list_id") or "").strip()), "jobs": jobs,
+                     # "Send everyone now" pushes the whole confirmed list to an outside tool. The
+                     # dialog that now guards it has to be able to say how many people that is.
+                     "confirmed": db.newsletter.count_documents({"status": "confirmed"})},
         "webhooks": {"enabled": bool(S.get(db, "integrations.webhooks_enabled")), "endpoints": len(list_endpoints(db)),
                      "failing": db.webhook_endpoints.count_documents({"fail_streak": {"$gte": 3}}), "pending": db.webhook_outbox.count_documents({"status": "pending"}),
                      "dead": db.webhook_outbox.count_documents({"status": "dead"}), "events": list(EVENTS)},

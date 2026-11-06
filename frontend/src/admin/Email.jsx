@@ -3,7 +3,7 @@ import { useState } from "react";
 import { del, get, post, put } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { Confirm, Drawer, Field, FormError, useToast } from "../components/Ui";
-import { Chip, DataState, PageHead, Pager, ResponsiveTable, when } from "./parts";
+import { Chip, DataState, Guard, PageHead, Pager, ResponsiveTable, when } from "./parts";
 
 const LOG_TONE = { sent: "up", delivered: "up", failed: "down", bounced: "down", complained: "down", delayed: "warn", queued: "info",
   skipped_disabled: "muted", skipped_unconfigured: "muted", skipped_suppressed: "muted", skipped_optout: "muted", skipped_cap: "muted" };
@@ -54,7 +54,13 @@ function Editor({ k, onClose, onSaved }) {
               <button className="btn btn--primary" disabled={!edit} onClick={() => act(() => put(`/admin/email/templates/${k}`, Object.fromEntries(fields.map((f) => [f, t[f]]))), "Template saved")} data-testid="tpl-save">Save</button>
               <button className="btn btn--secondary" onClick={() => act(async () => setPrev(await get(`/admin/email/templates/${k}/preview`)), "Preview ready")} data-testid="tpl-preview">Preview</button>
               <button className="btn btn--ghost" onClick={() => act(() => post(`/admin/email/templates/${k}/test`), "Test sent to your inbox")} data-testid="tpl-test">Send test to me</button>
-              <button className="btn btn--ghost" onClick={() => act(async () => { await post(`/admin/email/templates/${k}/reset`); setEdit(null); q.reload(); }, "Reset to the default")} data-testid="tpl-reset">Reset</button>
+              {/* Reset throws away a customised template and there is no history behind it. It sat
+                  in the same ghost row as Preview and Send-test, which cost nothing at all. */}
+              <Guard className="btn btn--danger" label="Reset" danger confirmLabel="Reset to the default"
+                     title="Reset this template to the default?"
+                     body={<p>Your edits to <b>{k}</b> are discarded and the shipped wording comes back. Nothing here keeps a copy, so this cannot be undone.</p>}
+                     onRun={() => act(async () => { await post(`/admin/email/templates/${k}/reset`); setEdit(null); q.reload(); }, "Reset to the default")}
+                     testid="tpl-reset" />
             </div>}>
       {q.loading && !q.data ? <p className="a-muted">Loading…</p> : (
         <div className="a-form">
@@ -94,7 +100,7 @@ export function Suppressions() {
     { key: "email", label: "Address", primary: true },
     { key: "reason", label: "Why", render: (r) => <Chip tone="warn">{r.reason || "blocked"}</Chip> },
     { key: "at", label: "Since", render: (r) => when(r.at) },
-    { key: "x", label: "", render: (r) => <span onClick={(e) => e.stopPropagation()} role="presentation"><button className="btn btn--ghost btn--sm" onClick={() => setPick(r)} data-testid={`unblock-${r.email}`}>Unblock</button></span> },
+    { key: "x", label: "", render: (r) => <span onClick={(e) => e.stopPropagation()} role="presentation"><button className="btn btn--danger btn--sm" onClick={() => setPick(r)} data-testid={`unblock-${r.email}`}>Unblock</button></span> },
   ];
   return (
     <div className="a-page" data-testid="admin-suppressions">

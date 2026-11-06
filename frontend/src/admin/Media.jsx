@@ -41,7 +41,7 @@ export default function Media() {
               <small className="muted">{kb(a.bytes)} · {when(a.at)}</small>
               <span className="a-inline-actions">
                 <button className="btn btn--secondary btn--sm" onClick={() => copy(a)} data-testid={`media-copy-${a.id}`}>Copy address</button>
-                <button className="btn btn--ghost btn--sm" onClick={() => setGone(a)} data-testid={`media-delete-${a.id}`}>Delete</button>
+                <button className="btn btn--danger btn--sm" onClick={() => setGone(a)} data-testid={`media-delete-${a.id}`}>Delete</button>
               </span>
             </li>
           ))}

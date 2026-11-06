@@ -5,15 +5,14 @@ import { useState } from "react";
 import { get, post, put } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { Field, FormError, useToast } from "../components/Ui";
-import { Card, Chip, DataState, JsonTree, KV, PageHead, StatTile, num, when } from "./parts";
+import { Card, Chip, Cost, DataState, Guard, JsonTree, KV, PageHead, StatTile, num, when } from "./parts";
 
 const KINDS = ["date", "events", "final", "lineups", "backfill", "leagues"];
 
 function Status({ s, reload }) {
   const toast = useToast();
-  const [busy, setBusy] = useState(false);
   const share = Math.min(100, Math.round((s.calls_today / Math.max(1, s.cap)) * 100));
-  const run = async () => { setBusy(true); try { const r = await post("/admin/sportapi/tick"); toast(`Run finished: ${r.status}${r.note ? ` (${r.note})` : ""}`, r.status === "ok" || r.status === "off" ? "ok" : "err"); reload(); } catch (x) { toast(x.message, "err"); } finally { setBusy(false); } };
+  const run = async () => { const r = await post("/admin/sportapi/tick"); toast(`Run finished: ${r.status}${r.note ? ` (${r.note})` : ""}`, r.status === "ok" || r.status === "off" ? "ok" : "err"); reload(); };
   return (
     <Card title="Status and budget" testid="sportapi-status" actions={<Chip tone={s.enabled && s.key_saved ? "up" : "warn"} testid="sportapi-state">{s.enabled ? (s.key_saved ? "On" : "No key") : "Off"}</Chip>}>
       <p className="muted small">Live scores, match events and lineups. Only the minute job calls SportAPI; visitors never do. Turn it on with <code>sportapi.enabled</code> in Settings once the key and leagues are set.</p>
@@ -27,7 +26,14 @@ function Status({ s, reload }) {
       <p className="muted small" data-testid="sportapi-by-kind">{KINDS.map((k) => `${k} ${num(s.by_kind?.[k] || 0)}`).join(" · ")} · resets {(() => { const r = new Date(); r.setUTCHours(24, 0, 0, 0); return r.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); })()}</p>
       <p className="muted small">Last run: {s.last_tick ? when(s.last_tick) : "never"}{s.last_result ? ` · ${s.last_result.status}${s.last_result.note ? `: ${s.last_result.note}` : ""}` : ""}</p>
       <p className="muted small">Clubs matched: {Object.entries(s.teams || {}).map(([k, v]) => `${k} ${v}`).join(" · ")}</p>
-      <button className="btn btn--primary btn--sm self-start" onClick={run} disabled={busy} data-testid="sportapi-run-now">{busy ? "Running" : "Run now"}</button>
+      {/* Spends SportAPI quota the moment it is pressed, and the same job run from AD-08 Jobs has
+          always asked first. The dialog states what is left, because the quota is the thing this
+          screen is actually about. */}
+      <Guard className="btn btn--primary btn--sm self-start" label="Run now" busyLabel="Running" confirmLabel="Run it now"
+             title="Run the live tick now?"
+             body={<Cost left={Math.max(0, (s.cap || 0) - (s.calls_today || 0))} cap={s.cap}
+                         lead="This calls SportAPI straight away for whatever is live or due: scores, events and lineups. The minute job does this on its own, so a manual run is only for checking." />}
+             onRun={run} testid="sportapi-run-now" />
     </Card>
   );
 }
@@ -118,13 +124,17 @@ function Review({ s, reload }) {
   );
 }
 
-function Backfill({ reload }) {
+const DAY = 86400000;
+const spanDays = (a, b) => (a && b ? Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / DAY)) + 1 : 0);
+
+function Backfill({ s, reload }) {
   const [f, setF] = useState({ start: "", end: "" });
   const [res, setRes] = useState(null);
   const [err, setErr] = useState(null);
-  const go = async (e) => { e.preventDefault(); setErr(null); setRes(null); try { setRes(await post("/admin/sportapi/backfill", f)); reload(); } catch (x) { setErr(x); } };
+  const go = async () => { setErr(null); setRes(null); try { setRes(await post("/admin/sportapi/backfill", f)); reload(); } catch (x) { setErr(x); throw x; } };
+  const days = spanDays(f.start, f.end);
   return (
-    <form className="a-card a-form" onSubmit={go} data-testid="sportapi-backfill">
+    <div className="a-card a-form" data-testid="sportapi-backfill">
       <h2 className="h3">Backfill past results</h2>
       <p className="muted small">One call per date, at most 60 days per request. Dates already complete cost nothing. It pauses to keep calls for live scores; run it again to carry on.</p>
       <div className="a-grid2">
@@ -133,8 +143,14 @@ function Backfill({ reload }) {
       </div>
       <FormError error={err} />
       {res && <KV obj={{ status: res.status, done: (res.done || []).length, skipped: (res.skipped || []).length, stored: res.stored, next: res.next, calls_left: res.calls_left }} />}
-      <button className="btn btn--primary btn--sm self-start" disabled={!f.start || !f.end} data-testid="sportapi-backfill-go">Start</button>
-    </form>
+      {/* One call per date, so the press itself has a price and the reader can be told it before
+          paying it rather than reading calls_left afterwards. */}
+      <Guard className="btn btn--primary btn--sm self-start" label="Start" busyLabel="Backfilling…" confirmLabel="Spend the calls"
+             disabled={!f.start || !f.end} title="Backfill these dates?"
+             body={<Cost calls={days} left={Math.max(0, (s?.cap || 0) - (s?.calls_today || 0))} cap={s?.cap}
+                         lead={`${days} ${days === 1 ? "date" : "dates"}, one call each. Dates already complete cost nothing, and it stops early to keep calls for live scores.`} />}
+             onRun={go} testid="sportapi-backfill-go" />
+    </div>
   );
 }
 
@@ -272,7 +288,7 @@ export default function SportAPI() {
         <Matching s={s} />
         <Mapping s={s} reload={q.reload} />
         <Review s={s} reload={q.reload} />
-        <Backfill reload={q.reload} />
+        <Backfill s={s} reload={q.reload} />
       </div>
     )}</DataState>
   );

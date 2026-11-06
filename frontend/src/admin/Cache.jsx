@@ -80,7 +80,7 @@ function CacheTable() {
     <Card title="Cache" testid="cache-table-card">
       <div className="a-filters">
         <div className="a-search"><Icon name="search" size={18} /><input type="search" placeholder="Path starts with, e.g. /v1/matches" aria-label="Search cache by path" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} data-testid="cache-search" /></div>
-        <button className="btn btn--secondary btn--sm" disabled={!search.trim()} onClick={() => setAsk({ title: `Delete every row starting with ${search.trim()}?`, params: { prefix: search.trim() }, label: "prefix" })} data-testid="cache-delete-prefix">Delete these</button>
+        <button className="btn btn--danger btn--sm" disabled={!search.trim()} onClick={() => setAsk({ title: `Delete every row starting with ${search.trim()}?`, params: { prefix: search.trim() }, label: "prefix" })} data-testid="cache-delete-prefix">Delete these</button>
         <button className="btn btn--danger btn--sm" onClick={() => setAsk({ title: "Delete the whole cache?", params: { all: "true" }, typed: "DELETE", label: "all" })} data-testid="cache-delete-all">Delete all</button>
       </div>
       <DataState q={q} empty="The cache is empty. Answers appear here after the first calls.">

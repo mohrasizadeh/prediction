@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { post, put } from "../lib/api";
 import { useApi } from "../lib/useApi";
-import { Drawer, FormError, Switch, useToast } from "../components/Ui";
+import { Confirm, Drawer, FormError, Switch, useToast } from "../components/Ui";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { LeagueMark } from "../components/Media";
 import Icon from "../components/Icon";
-import { Card, Chip, MissingRoutes, PageHead, notMounted, num } from "./parts";
+import { Card, Chip, Cost, Guard, MissingRoutes, PageHead, notMounted, num } from "./parts";
 
 function Seasons({ lg, budget, onClose, onSaved }) {
   const toast = useToast();
@@ -71,9 +71,14 @@ function Zones({ lg, onClose, onSaved }) {
   );
 }
 
-function LeagueCard({ lg, budget, onEdit, onZones, onChanged }) {
+function LeagueCard({ lg, budget, daily, perMatch, onEdit, onZones, onChanged }) {
   const toast = useToast();
+  const [ask, setAsk] = useState(false);
   const toggle = async (v) => { try { await put(`/admin/leagues/${lg.iid}`, { enabled: v }); toast(v ? `${lg.name} switched on` : `${lg.name} switched off`); onChanged(); } catch (x) { toast(x.message || "Could not save", "err"); } };
+  // Switching ON commits provider calls every day for as long as it stays on, which is the one
+  // recurring cost in the admin and had no guard and no number beside it. Switching OFF only stops
+  // spending, so it goes through unasked.
+  const onChange = (v) => (v ? setAsk(true) : toggle(false));
   const done = lg.seasons.filter((s) => s.backfilled).length;
   return (
     <article className={"a-card a-league" + (lg.enabled ? " is-on" : "")} data-testid={`league-${lg.iid}`}>
@@ -81,7 +86,14 @@ function LeagueCard({ lg, budget, onEdit, onZones, onChanged }) {
         <LeagueMark league={lg} size={36} decorative />
         <div><h2>{lg.name}</h2><small>{lg.country_code || "No data"} · id {lg.ext_id}</small></div>
       </header>
-      <Switch label={lg.enabled ? "On" : "Off"} hint="Fixtures and results sync for leagues that are on" checked={lg.enabled} onChange={toggle} testid={`league-${lg.iid}-toggle`} />
+      <Switch label={lg.enabled ? "On" : "Off"} hint={`Fixtures and results sync for leagues that are on · about ${num(daily)} calls a day each`} checked={lg.enabled} onChange={onChange} testid={`league-${lg.iid}-toggle`} />
+      <Confirm open={ask} title={`Switch ${lg.name} on?`} confirmLabel="Switch it on" onClose={() => setAsk(false)}
+               testid={`league-${lg.iid}-toggle-confirm`}
+               body={<Cost calls={daily} left={budget} cap={budget}
+                           lead={`Every day it stays on, this league costs about ${num(daily)} list calls, plus about ${num(perMatch)} more for each match that finishes. Switching it off again stops that.`}>
+                       {lg.estimate_calls ? <p className="muted small">Its picked backfill seasons would also cost about {num(lg.estimate_calls)} calls, once.</p> : null}
+                     </Cost>}
+               onConfirm={async () => { await toggle(true); setAsk(false); }} />
       <dl className="a-dl a-dl--tight">
         <div><dt>Seasons</dt><dd>{lg.seasons.length} known · {done} backfilled</dd></div>
         <div><dt>Backfill picked</dt><dd>{lg.backfill_seasons.length ? lg.backfill_seasons.join(", ") : "None"}</dd></div>
@@ -100,7 +112,7 @@ export default function Leagues() {
   const [edit, setEdit] = useState(null);
   const [zones, setZones] = useState(null);
   const [filter, setFilter] = useState("");
-  const sync = async () => { try { await post("/admin/jobs/run?job=reference_sync"); toast("League list refresh queued"); } catch (x) { toast(x.message || "Could not queue it", "err"); } };
+  const sync = async () => { await post("/admin/jobs/run?job=reference_sync"); toast("League list refresh queued"); };
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (notMounted(q.error)) return <div className="a-page" data-testid="admin-leagues"><PageHead title="Leagues" lead="Switch leagues on and pick seasons to backfill." /><MissingRoutes /></div>;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
@@ -109,13 +121,15 @@ export default function Leagues() {
   return (
     <div className="a-page" data-testid="admin-leagues">
       <PageHead title="Leagues" lead={q.data.leagues.length ? `${on} of ${q.data.leagues.length} switched on. New leagues arrive switched off.` : "Switch leagues on and pick seasons to backfill."}
-                actions={<button className="btn btn--secondary btn--sm" onClick={sync} data-testid="leagues-sync"><Icon name="refresh" size={16} />Refresh league list</button>} />
+                actions={<Guard className="btn btn--secondary btn--sm" confirmLabel="Queue the refresh" title="Refresh the league list?"
+                                 body={<Cost calls={1} left={q.data.budget} cap={q.data.budget} lead="This queues the reference sync, which asks PitchAPI for every league it covers. New leagues arrive switched off, so nothing starts spending on its own." />}
+                                 onRun={sync} testid="leagues-sync"><Icon name="refresh" size={16} />Refresh league list</Guard>} />
       {q.data.leagues.length === 0 ? (
         <Card><Empty icon="trophy" testid="leagues-empty">No leagues yet. Save the PitchAPI key in Keys, then use Refresh league list (one call) or run GET /v1/leagues in the Endpoint explorer.</Empty></Card>
       ) : (
         <>
           <div className="a-filters"><div className="a-search"><Icon name="search" size={18} /><input type="search" placeholder="Search leagues or country" aria-label="Search leagues" value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="leagues-search" /></div></div>
-          {list.length === 0 ? <Empty>No league matches.</Empty> : <div className="a-key-grid">{list.map((l) => <LeagueCard key={l.iid} lg={l} budget={q.data.budget} onEdit={setEdit} onZones={setZones} onChanged={q.reload} />)}</div>}
+          {list.length === 0 ? <Empty>No league matches.</Empty> : <div className="a-key-grid">{list.map((l) => <LeagueCard key={l.iid} lg={l} budget={q.data.budget} daily={q.data.daily_calls_per_league} perMatch={q.data.calls_per_match} onEdit={setEdit} onZones={setZones} onChanged={q.reload} />)}</div>}
         </>
       )}
       {edit && <Seasons lg={edit} budget={q.data.budget} onClose={() => setEdit(null)} onSaved={q.reload} />}

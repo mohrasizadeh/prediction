@@ -6,15 +6,22 @@ import { useApi } from "../lib/useApi";
 import { Drawer, Field, FormError, Switch, useToast } from "../components/Ui";
 import { ErrorBox, Loading } from "../components/States";
 import Icon from "../components/Icon";
-import { Chip, PageHead } from "./parts";
+import { Chip, Guard, PageHead } from "./parts";
 
 const lim = (v) => (v === -1 ? "No limit" : typeof v === "boolean" ? (v ? "On" : "Off") : v);
 
-function SyncButton({ k }) {
+// This creates real products and real prices in the connected Stripe account, and a Stripe price
+// cannot be edited afterwards -- only archived and replaced. It was an unguarded ghost button beside
+// "Edit", on a screen whose own header comment says the sync is meant to be off.
+function SyncButton({ k, name }) {
   const toast = useToast();
-  const [busy, setBusy] = useState(false);
-  const go = async () => { setBusy(true); try { await post(`/admin/plans/${k}/sync`); toast("Plan and prices synced to Stripe"); } catch (x) { toast(x.message || "Sync failed", "err"); } finally { setBusy(false); } };
-  return <button className="btn btn--ghost btn--sm" onClick={go} disabled={busy} data-testid={`plan-sync-${k}`}>{busy ? "Syncing…" : "Sync to Stripe"}</button>;
+  return (
+    <Guard className="btn btn--danger btn--sm" label="Sync to Stripe" busyLabel="Syncing…" confirmLabel="Create them in Stripe" danger
+           title={`Create ${name || k} and its prices in Stripe?`}
+           body={<p>This writes to the connected Stripe account. A price in Stripe cannot be changed once it exists, only archived and replaced, so a wrong amount here leaves a wrong price behind for good. Check the amounts and the currency under <b>Edit</b> first.</p>}
+           onRun={async () => { await post(`/admin/plans/${k}/sync`); toast("Plan and prices synced to Stripe"); }}
+           testid={`plan-sync-${k}`} />
+  );
 }
 
 function Editor({ plan, cat, onClose, onSaved }) {
@@ -88,7 +95,7 @@ export default function Plans() {
             {p.prices?.length > 0 && <p className="a-plan-prices">{p.prices.map((x) => `${((x.amount_cents || 0) / 100).toFixed(2)} ${x.currency || ""}/${x.interval}`).join(" · ")}</p>}
             <div className="a-btns">
               <button className="btn btn--secondary btn--sm" onClick={() => setEdit(p)} data-testid={`plan-edit-${p.key}`}><Icon name="edit" size={16} />Edit</button>
-              {p.key !== "free" && <SyncButton k={p.key} />}
+              {p.key !== "free" && <SyncButton k={p.key} name={p.name} />}
             </div>
           </article>
         ))}

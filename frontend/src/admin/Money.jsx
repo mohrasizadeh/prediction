@@ -119,7 +119,7 @@ export function Coupons() {
     { key: "code", label: "Code", primary: true, render: (r) => <span className="a-person"><b>{r.code}</b><small>{r.name}</small></span> },
     { key: "off", label: "Off", render: (r) => (r.percent_off ? `${r.percent_off}%` : cents(r.amount_off_cents, r.currency)) },
     { key: "active", label: "State", render: (r) => <Chip tone={r.active !== false ? "up" : "muted"}>{r.active !== false ? "Active" : "Off"}</Chip> },
-    { key: "x", label: "", render: (r) => r.active !== false && <span onClick={(e) => e.stopPropagation()} role="presentation"><button className="btn btn--ghost btn--sm" onClick={() => setOff(r)} data-testid={`coupon-off-${r.code}`}>Switch off</button></span> },
+    { key: "x", label: "", render: (r) => r.active !== false && <span onClick={(e) => e.stopPropagation()} role="presentation"><button className="btn btn--danger btn--sm" onClick={() => setOff(r)} data-testid={`coupon-off-${r.code}`}>Switch off</button></span> },
   ];
   return (
     <div className="a-page" data-testid="admin-coupons">

@@ -5,7 +5,7 @@ import { del, post, put } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
 import { Confirm, Drawer, Field, FormError, Switch, useToast } from "../components/Ui";
-import { Card, Chip, DataState, PageHead, ResponsiveTable, when } from "./parts";
+import { Card, Chip, DataState, Guard, PageHead, ResponsiveTable, num, when } from "./parts";
 
 function EmailCard({ e, reload }) {
   const toast = useToast();
@@ -34,7 +34,11 @@ function AudienceCard({ a, reload }) {
       <div className="a-inline-actions">
         <button className="btn btn--primary btn--sm" onClick={() => run(() => put("/admin/integrations/audience", f), () => "Saved")} data-testid="int-audience-save">Save</button>
         {a.provider !== "none" && <><button className="btn btn--secondary btn--sm" onClick={() => run(() => post("/admin/integrations/audience/test"), (r) => (r.ok ? "Connection works" : `Not working: ${r.code}`))} data-testid="int-audience-test">Test</button>
-          <button className="btn btn--ghost btn--sm" onClick={() => run(() => post("/admin/integrations/audience/backfill"), (r) => `${r.queued} addresses queued`)} data-testid="int-audience-backfill">Send everyone now</button></>}
+          <Guard className="btn btn--danger btn--sm" label="Send everyone now" confirmLabel="Send the whole list" danger typed="SEND"
+                 title="Send the whole list to this tool?"
+                 body={<><p>This copies <b>{num(a.confirmed)}</b> confirmed {a.confirmed === 1 ? "address" : "addresses"} to your marketing tool. Every one of them may get that tool's welcome e-mail, and we cannot take them back out of it from here.</p><p className="muted small">Use <b>Test</b> first if you only want to know the connection works.</p></>}
+                 onRun={() => run(() => post("/admin/integrations/audience/backfill"), (r) => `${r.queued} addresses queued`)}
+                 testid="int-audience-backfill" /></>}
       </div>
     </Card>
   );
@@ -72,8 +76,11 @@ function Webhooks() {
     { key: "x", label: "", render: (r) => <span className="a-inline-actions" onClick={(e) => e.stopPropagation()} role="presentation">
       <button className="btn btn--ghost btn--sm" onClick={() => run(() => post(`/admin/integrations/webhooks/${r.id}/test`), (x) => (x.ok ? "Test delivered" : `Test failed (${x.status || x.info})`))} data-testid={`hook-test-${r.id}`}>Test</button>
       <button className="btn btn--ghost btn--sm" onClick={() => run(() => put(`/admin/integrations/webhooks/${r.id}`, { active: !r.active }), r.active ? "Turned off" : "Turned on")} data-testid={`hook-toggle-${r.id}`}>{r.active ? "Turn off" : "Turn on"}</button>
-      <button className="btn btn--ghost btn--sm" onClick={() => run(() => post(`/admin/integrations/webhooks/${r.id}/rotate`))} data-testid={`hook-rotate-${r.id}`}>New secret</button>
-      <button className="btn btn--ghost btn--sm" onClick={() => setGone(r)} data-testid={`hook-delete-${r.id}`}>Delete</button></span> },
+      <Guard className="btn btn--danger btn--sm" label="New secret" confirmLabel="Make a new secret" danger
+             title="Replace this webhook's signing secret?"
+             body={<p>The old secret stops working straight away, so <b>{r.url}</b> will reject every delivery until you paste the new one into it. The new secret is shown once, on the next screen.</p>}
+             onRun={() => run(() => post(`/admin/integrations/webhooks/${r.id}/rotate`))} testid={`hook-rotate-${r.id}`} />
+      <button className="btn btn--danger btn--sm" onClick={() => setGone(r)} data-testid={`hook-delete-${r.id}`}>Delete</button></span> },
   ];
   return (
     <Card title="Webhooks (Zapier, Make, n8n, Slack)" testid="int-webhooks" actions={<button className="btn btn--secondary btn--sm" onClick={() => setForm(true)} data-testid="hook-new">Add webhook</button>}>
