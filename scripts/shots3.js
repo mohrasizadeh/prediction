@@ -4,6 +4,30 @@
 //   SCHEMES=dark,light node scripts/shots3.js after P-01 P-04
 const { chromium } = require('playwright');
 const fs = require('fs');
+const crypto = require('crypto');
+
+// RFC 6238. The demo owner is staff, security.require_staff_2fa is on, so signing in lands on
+// scope "enroll_2fa" and App.js Gates() then redirects EVERY route to /enroll-2fa. A harness that
+// signs in and then walks the public routes therefore photographs the same wall ~150 times, which
+// is exactly what the first run of this file did. Enrol properly instead of weakening the setting.
+const b32 = (s) => {
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const c of s.replace(/=+$/, '').toUpperCase()) {
+    const v = A.indexOf(c); if (v < 0) continue;
+    bits += v.toString(2).padStart(5, '0');
+  }
+  const out = Buffer.alloc(Math.floor(bits.length / 8));
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+  return out;
+};
+const totp = (secret) => {
+  const ctr = Buffer.alloc(8);
+  ctr.writeUInt32BE(Math.floor(Date.now() / 1000 / 30), 4);
+  const h = crypto.createHmac('sha1', b32(secret)).update(ctr).digest();
+  const o = h[h.length - 1] & 0xf;
+  return String(((h.readUInt32BE(o) & 0x7fffffff) % 1e6)).padStart(6, '0');
+};
 
 const BASE = process.env.BASE || 'http://127.0.0.1:8011';
 const STAGE = process.argv[2] || 'before';
@@ -49,7 +73,11 @@ const PUBLIC = {
   'P-35': ['/enroll-2fa', null],
   'P-36': ['/unsubscribe', null],
 };
-const MATCH_TABS = { 'M-01': 'live', 'M-02': 'recap', 'M-03': 'forecasts', 'M-04': 'lineups', 'M-05': 'analysis' };
+// Match.jsx holds the tab in React state, not in the URL -- `?tab=` is ignored entirely. A harness
+// that passes a query param photographs the same tab five times, which every past review did.
+// Click the control instead, and record when a tab is simply not offered for this fixture's state
+// (before kick-off there is no Live and no Recap).
+const MATCH_TABS = { 'M-01': 'Live', 'M-02': 'Recap', 'M-03': 'Forecasts', 'M-04': 'Lineups', 'M-05': 'Analysis' };
 const ACCOUNT = ['profile', 'security', 'devices', 'notifications', 'plan', 'privacy'];
 const ADMIN = {
   'AD-01': '/admin', 'AD-02': '/admin/needs', 'AD-03': '/admin/analytics',
@@ -112,45 +140,106 @@ const dismiss = async (page) => {
 
   // ---- build the full job list
   const jobs = [];
-  for (const [id, [path, tid]] of Object.entries(PUBLIC)) jobs.push({ id, path, tid, auth: false });
-  if (ids.matchId) for (const [id, tab] of Object.entries(MATCH_TABS)) jobs.push({ id, path: `/match/${ids.matchId}?tab=${tab}`, tid: 'match-page', auth: false });
+  const skipped = [];
+  for (const [id, [path, tid]] of Object.entries(PUBLIC)) {
+    // ':league' and friends are placeholders filled from the ids resolved above. They were being
+    // pushed raw, so every entity screen navigated to a literal "/:league" and was never captured.
+    const real = path.startsWith(':') ? ids[path.slice(1)] : path;
+    if (!real) { skipped.push(`${id} (no ${path.slice(1)} in demo data)`); continue; }
+    jobs.push({ id, path: real, tid, auth: false });
+  }
+  if (ids.matchId) for (const [id, tab] of Object.entries(MATCH_TABS)) jobs.push({ id, path: `/match/${ids.matchId}`, tid: 'match-page', auth: false, tab });
   ACCOUNT.forEach((s, i) => jobs.push({ id: `A-0${i + 1}`, path: `/account/${s}`, tid: null, auth: true }));
   for (const [id, path] of Object.entries(ADMIN)) jobs.push({ id, path, tid: null, auth: true });
+  if (skipped.length) console.log('skipped, nothing to point at:', skipped.join(', '));
   const picked = want.length ? jobs.filter((j) => want.includes(j.id)) : jobs;
   console.log(`${picked.length} screens x ${VIEWS.length} views x ${SCHEMES.length} schemes`);
 
-  let shot = 0; const failed = [];
+  let shot = 0; const failed = [], redirected = [], notOffered = [];
+  let authState = null, secret = null;
+  if (picked.some((j) => j.auth)) {
+    const c = await browser.newContext({ viewport: VIEWPORTS.desk });
+    const sp = await c.newPage();
+    try {
+      await sp.goto(`${BASE}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await sp.waitForTimeout(1000); await dismiss(sp);
+      await sp.fill('input[type="email"]', OWNER);
+      await sp.fill('input[type="password"]', PASS);
+      await sp.getByRole('button', { name: /sign in/i }).first().click();
+      await sp.waitForTimeout(2500);
+      // the account may already carry 2FA from an earlier run of this harness
+      const codeBox = sp.locator('input[inputmode="numeric"], input[name="code"], input[autocomplete="one-time-code"]');
+      if (await codeBox.count() && secret) {
+        await codeBox.first().fill(totp(secret));
+        await sp.getByRole('button', { name: /verify|continue|sign in/i }).first().click();
+        await sp.waitForTimeout(2500);
+      }
+      if (/enroll-2fa/.test(sp.url())) {
+        const r = await sp.evaluate(async () => {
+          const x = await fetch('/api/account/2fa/begin', { method: 'POST', credentials: 'include',
+            headers: { 'content-type': 'application/json' }, body: '{}' });
+          return x.ok ? await x.json() : { error: x.status };
+        });
+        secret = r && (r.secret || r.key || r.totp_secret || (r.otpauth || '').match(/secret=([A-Z2-7]+)/i)?.[1]);
+        if (secret) {
+          const ok = await sp.evaluate(async (code) => {
+            const x = await fetch('/api/account/2fa/confirm', { method: 'POST', credentials: 'include',
+              headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }) });
+            return x.ok;
+          }, totp(secret));
+          console.log(`  2fa enrol: ${ok ? 'done' : 'refused'}`);
+          fs.writeFileSync('/tmp/claude-shots3-2fa-secret.txt', secret);
+          await sp.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
+          await sp.waitForTimeout(1500);
+        } else console.log('  2fa begin gave no secret:', JSON.stringify(r).slice(0, 120));
+      }
+      if (/change-password/.test(sp.url())) {
+        // App.js Gates() sends a staff account with must_change_password to /change-password
+        // before any other route will render. Set one so the panel can be photographed.
+        const np = process.env.DEMO_NEWPASS || 'Demo-Shots-Pass-9xQ!';
+        const boxes = sp.locator('input[type="password"]');
+        const cnt = await boxes.count();
+        for (let i = 0; i < cnt; i++) await boxes.nth(i).fill(i === 0 && cnt === 3 ? PASS : np);
+        await sp.getByRole('button', { name: /change|save|continue|set/i }).first().click().catch(() => {});
+        await sp.waitForTimeout(2500);
+        console.log(`  password change: ${/change-password/.test(sp.url()) ? 'FAILED' : 'done'} (${cnt} fields)`);
+      }
+      if (!/\/sign-in|\/enroll-2fa|\/change-password/.test(sp.url())) {
+        authState = await c.storageState();
+        console.log('  auth: signed in, state saved');
+      } else console.log(`  auth: FAILED at ${sp.url()}`);
+    } catch (e) { console.log('  auth error:', String(e).split('\n')[0].slice(0, 90)); }
+    await c.close();
+  }
   for (const scheme of SCHEMES) {
     for (const vname of VIEWS) {
-      const ctx = await browser.newContext({ viewport: VIEWPORTS[vname], deviceScaleFactor: 1, colorScheme: scheme });
-      // one sign-in per context, reused by every authenticated screen
-      let signedIn = false;
-      if (picked.some((j) => j.auth)) {
-        const sp = await ctx.newPage();
-        try {
-          await sp.goto(`${BASE}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 20000 });
-          await sp.waitForTimeout(1200);
-          await dismiss(sp);
-          await sp.fill('input[type="email"]', OWNER);
-          await sp.fill('input[type="password"]', PASS);
-          await sp.getByRole('button', { name: /sign in/i }).first().click();
-          await sp.waitForTimeout(3500);
-          signedIn = !/\/sign-in/.test(sp.url());
-          console.log(`  sign-in ${vname}/${scheme}: ${signedIn ? 'ok' : 'FAILED (' + sp.url() + ')'}`);
-        } catch (e) { console.log('  sign-in error:', String(e).split('\n')[0].slice(0, 80)); }
-        await sp.close();
-      }
+      const base = { viewport: VIEWPORTS[vname], deviceScaleFactor: 1, colorScheme: scheme };
+      const pub = await browser.newContext(base);        // signed OUT: the public screens
+      const ctx = authState ? await browser.newContext({ ...base, storageState: authState }) : pub;
+      const signedIn = !!authState;
       for (const j of picked) {
         if (j.auth && !signedIn) { failed.push(`${j.id} (not signed in)`); continue; }
-        const page = await ctx.newPage();
+        const page = await (j.auth ? ctx : pub).newPage();
         try {
           await page.goto(BASE + j.path, { waitUntil: 'domcontentloaded', timeout: 20000 });
           await dismiss(page);
           if (j.tid) await page.getByTestId(j.tid).first().waitFor({ timeout: 8000 }).catch(() => {});
+          if (j.tab) {
+            const t = page.getByTestId('match-tabs').getByRole('tab', { name: j.tab })
+              .or(page.getByTestId('match-tabs').getByRole('button', { name: j.tab }));
+            if (await t.count()) { await t.first().click().catch(() => {}); await page.waitForTimeout(900); }
+            else { notOffered.push(`${j.id} (${j.tab} tab not offered for this fixture)`); }
+          }
           else await page.waitForTimeout(600);
           // let late data land without waiting on a polling page that never goes idle
           await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {});
           await page.waitForTimeout(900);
+          const got = new URL(page.url()).pathname;
+          const asked = new URL(BASE + j.path).pathname;
+          if (got !== asked) {
+            redirected.push(`${j.id}: asked ${asked}, got ${got}`);
+            console.log(`  REDIRECTED ${j.id}-${vname}-${scheme}: ${asked} -> ${got}`);
+          }
           await page.screenshot({ path: `${OUT}/${j.id}-${vname}-${scheme}.png`, fullPage: true });
           shot++;
         } catch (e) {
@@ -159,10 +248,20 @@ const dismiss = async (page) => {
         }
         await page.close();
       }
-      await ctx.close();
+      if (ctx !== pub) await ctx.close();
+      await pub.close();
       console.log(`done ${vname}/${scheme}`);
     }
   }
   console.log(`\n${shot} shots, ${failed.length} failed${failed.length ? ': ' + failed.join(', ') : ''}`);
+  if (redirected.length) {
+    console.log(`\n${redirected.length} REDIRECTED -- these files are not the screen they are named for:`);
+    for (const r of redirected) console.log('  ' + r);
+  } else console.log('no redirects: every file is the screen it is named for');
+  if (notOffered.length) {
+    const uniq = [...new Set(notOffered)];
+    console.log(`\n${uniq.length} tab(s) not offered -- the file shows the default tab, not the named one:`);
+    for (const r of uniq) console.log('  ' + r);
+  }
   await browser.close();
 })();
