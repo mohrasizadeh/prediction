@@ -109,7 +109,9 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
         </li>
       </ol>
       <p className="v2-cr-cap k-small">
-        <b>{cleared} of {who} last {known.length}</b> reached {need}+ · tonight <b>{shown}</b>
+        <span className="v2-cr-tag">Last {known.length}</span>
+        <b>{cleared} cleared {need}+</b>
+        <span className="v2-cr-hint">minutes above, opponent below</span>
       </p>
     </div>
   );
