@@ -51,6 +51,12 @@ for _ in range(3):
     try: A.login(db, "fan@example.com", "wrong-password")
     except A.AuthError: pass
 check(raises("LOCKED", A.login, db, "fan@example.com", "correct-horse-1"), "locked after repeated failures, even with the right password")
+# The hold used to be read before the password, so it answered 429 to any try on a real address and
+# 401 to any try on an unknown one -- six requests named whoever holds an e-mail. A wrong password
+# must look the same on a held account as on an address nobody has.
+check(raises("BAD_CREDENTIALS", A.login, db, "fan@example.com", "wrong-password"), "a held account answers a wrong password the same as an unknown address")
+check(raises("BAD_CREDENTIALS", A.login, db, "ghost@example.com", "wrong-password"), "and the unknown address still answers that way")
+check(raises("LOCKED", A.login, db, "fan@example.com", "correct-horse-1"), "the hold still stands against the right password")
 db.users.update_one({"id": u["id"]}, {"$set": {"locked_until": A.utcnow() - timedelta(seconds=1)}})
 check(A.login(db, "fan@example.com", "correct-horse-1")["status"] == "ok", "lock ends on time")
 

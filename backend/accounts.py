@@ -226,10 +226,21 @@ def verify_email(db, raw: str) -> dict:
 
 
 # ----------------------------------------------------------------------------- sign in
-def _lock_check(u, now):
+# The lockout used to be read BEFORE the password was checked, and only a real address has a user
+# record to read it from. So five wrong passwords against an address that exists turned the reply
+# from 401 into 429, and an address that does not exist stayed on 401 forever -- six requests told
+# an attacker whether anyone holds that e-mail. Everything else on this screen was already blind to
+# it: `register` hashes before the lookup and answers the same either way, `request_reset` always
+# answers 202, and `verify_password` runs one bcrypt comparison against a dummy hash when there is
+# no user so the timing matches.
+#
+# The lock is now read AFTER the credentials, so a wrong password is 401 whatever the state of the
+# account, and only someone who typed the right password is told the account is held. That keeps the
+# lockout exactly as strong -- the right password still does not sign in while the lock stands --
+# and keeps the message where it is useful, on the one person who can act on it.
+def _locked(u, now) -> bool:
     lu = _aware(u.get("locked_until"))
-    if lu and lu > now:
-        raise AuthError("LOCKED", 429, "Too many attempts. Try again later.")
+    return bool(lu and lu > now)
 
 
 def _fail(db, u, now):
@@ -245,14 +256,17 @@ def login(db, email: str, password: str, *, ip=None, ua=None) -> dict:
     now = utcnow()
     e = (email or "").strip().lower()
     u = db.users.find_one({"email": e})
-    if u:
-        _lock_check(u, now)
     good = verify_password(password or "", u.get("password_hash") if u else None)
     if not u or not good:
+        # A failure while the account is already held does not extend the hold: _fail counts from
+        # zero again and only re-locks once it reaches the limit, as it did before.
         if u:
             _fail(db, u, now)
         log_auth(db, "login", False, user_id=u and u["id"], email=e, ip=ip, ua=ua, reason="bad_credentials")
         raise AuthError("BAD_CREDENTIALS", 401, "Wrong e-mail or password.")
+    if _locked(u, now):                              # right password, but the hold still stands
+        log_auth(db, "login", False, user_id=u["id"], email=e, ip=ip, ua=ua, reason="locked")
+        raise AuthError("LOCKED", 429, "Too many attempts. Try again later.")
     if u.get("disabled"):
         log_auth(db, "login", False, user_id=u["id"], email=e, ip=ip, ua=ua, reason="disabled")
         raise AuthError("ACCOUNT_DISABLED", 403, "This account is turned off. Contact support.")

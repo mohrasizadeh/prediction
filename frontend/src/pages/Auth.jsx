@@ -193,12 +193,16 @@ function NewPasswordForm({ onSubmit, submitLabel, needCurrent, testid }) {
   const [busy, setBusy] = useState(false);
   const submit = async (e) => {
     e.preventDefault(); setErr(null);
+    // The form carries `noValidate`, so these two rules are stated here rather than by the
+    // browser. Reported: a short password raised a raw Chromium bubble -- grey-and-orange OS
+    // chrome over a dark themed form -- and it covered the hint that says the rule.
+    if (f.a.length < 10) return setErr("Use at least 10 characters.");
     if (f.a !== f.b) return setErr("The two passwords are not the same.");
     setBusy(true);
     try { await onSubmit(f); } catch (x) { setErr(x); } finally { setBusy(false); }
   };
   return (
-    <form className="form" onSubmit={submit} data-testid={testid}>
+    <form className="form" noValidate onSubmit={submit} data-testid={testid}>
       {needCurrent && <PasswordField label="Current password" autoComplete="current-password" required value={f.current} onChange={(e) => setF({ ...f, current: e.target.value })} testid={`${testid}-current`} />}
       <PasswordField label="New password" autoComplete="new-password" required minLength={10} value={f.a} onChange={(e) => setF({ ...f, a: e.target.value })} testid={`${testid}-new`} />
       <PasswordField label="New password again" autoComplete="new-password" required minLength={10} value={f.b} onChange={(e) => setF({ ...f, b: e.target.value })} testid={`${testid}-repeat`} />
@@ -210,13 +214,57 @@ function NewPasswordForm({ onSubmit, submitLabel, needCurrent, testid }) {
 }
 export { NewPasswordForm };
 
+// A dead reset link has one useful answer and it is not an error message: another link. The reader
+// is already on the screen, already knows their address, and the resend path is the same one the
+// forgot screen posts to -- so it is offered here instead of sending them back a step.
+function DeadResetLink() {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const { wait, send } = useResend("/auth/forgot-password", email);
+  if (sent) return (
+    <AuthCard title="Check your inbox" lead="If that address can be used, we sent a new link. It works once, for 60 minutes." icon="mail" testid="reset-resent">
+      <div className="form"><Link to="/sign-in" className="btn btn--secondary btn--block">Back to sign in</Link></div>
+    </AuthCard>
+  );
+  return (
+    <AuthCard title="This link has expired" lead="A reset link works once and only for a short while. Ask for a new one and it will be in your inbox." icon="key" testid="reset-dead">
+      <form className="form" noValidate onSubmit={(e) => { e.preventDefault(); if (!email) return; send(); setSent(true); }}>
+        <Field label="Your e-mail" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} testid="reset-dead-email" />
+        <button className="btn btn--primary btn--lg btn--block" disabled={wait > 0 || !email} data-testid="reset-dead-resend">Send a new link</button>
+        <p className="form-foot"><Link to="/sign-in">Back to sign in</Link></p>
+      </form>
+    </AuthCard>
+  );
+}
+
 export function ResetPassword() {
   const [params] = useSearchParams();
+  const token = params.get("token") || "";
   const [ok, setOk] = useState(false);
+  // Reported by the auth audit: with no token, an expired token or a spent token this screen drew a
+  // complete, enabled, confident form. The reader invented a password, typed it twice, and *then*
+  // learned the link was dead, on a screen with no way to ask for a new one. So the link is read
+  // before anything is drawn. null = still asking, true = good, false = dead.
+  const [live, setLive] = useState(token ? null : false);
+  useEffect(() => {
+    if (!token) return undefined;
+    let gone = false;
+    post("/auth/reset-password/check", { token })
+      .then((r) => { if (!gone) setLive(!!r.valid); })
+      .catch(() => { if (!gone) setLive(true); });   // our own fault, not the reader's: let the form try
+    return () => { gone = true; };
+  }, [token]);
+
   if (ok) return <AuthCard title="Password set" lead="Every device was signed out. Sign in with your new password." icon="check" testid="reset-ok"><div className="form"><Link to="/sign-in" className="btn btn--primary btn--lg btn--block" data-testid="reset-signin">Sign in</Link></div></AuthCard>;
+  if (live === null) return (
+    <AuthCard title="Set a new password" lead="Checking your link." icon="key" testid="reset-checking">
+      <div className="form"><p className="form-foot">One moment.</p></div>
+    </AuthCard>
+  );
+  if (!live) return <DeadResetLink />;
   return (
     <AuthCard title="Set a new password" lead="This link works once." icon="key" testid="reset-page">
-      <NewPasswordForm testid="reset-form" submitLabel="Save password" onSubmit={async (f) => { await post("/auth/reset-password", { token: params.get("token") || "", password: f.a }); setOk(true); }} />
+      <NewPasswordForm testid="reset-form" submitLabel="Save password" onSubmit={async (f) => { await post("/auth/reset-password", { token, password: f.a }); setOk(true); }} />
     </AuthCard>
   );
 }

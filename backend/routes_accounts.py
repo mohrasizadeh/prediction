@@ -170,6 +170,20 @@ def forgot_password(body: Email, request: Request, db=Depends(D.get_db)):
     return {"ok": True, "message": "If that address has an account, we sent a reset link."}
 
 
+# A reset link works once and expires. The screen that uses it drew a complete, enabled form
+# regardless: the reader invented a password, typed it twice, and only then learned the link was
+# dead -- on a screen with no way to ask for a new one. This says whether the link is still good
+# before any of that, without spending it. `peek_token` reads; `consume_token` spends.
+#
+# POST, not GET, so the token does not land in an access log or a referrer a second time, and rate
+# limited even though guessing a 32-byte random token is not a route anyone can walk.
+@router.post("/auth/reset-password/check")
+def reset_password_check(body: TokenBody, request: Request, db=Depends(D.get_db)):
+    ip, _ = _ctx(request)
+    RL.check(db, f"resetcheck:{ip}", 30, 3600)
+    return {"valid": bool(A.peek_token(db, body.token, "password_reset"))}
+
+
 @router.post("/auth/reset-password")
 def reset_password(body: ResetBody, request: Request, db=Depends(D.get_db)):
     ip, ua = _ctx(request)

@@ -92,7 +92,13 @@ with TestClient(srv.app) as c:
     # forgot / reset
     check(c.post("/api/auth/forgot-password", json={"email": "ghost@example.com"}).status_code == 202 and c.post("/api/auth/forgot-password", json={"email": "sam@example.com"}).status_code == 202, "forgot-password: 202 for known and unknown")
     rt = token_for("sam@example.com", "Reset")
+    # The screen reads the link before it draws a form that depends on it, and reading must not
+    # spend it: a reader who lands on the page twice has to be able to use it the second time.
+    ck = c.post("/api/auth/reset-password/check", json={"token": rt})
+    check(ck.status_code == 200 and ck.json()["valid"] is True, "a live reset link reads as live")
+    check(c.post("/api/auth/reset-password/check", json={"token": "garbage"}).json()["valid"] is False, "a link nobody issued reads as dead")
     check(rt and c.post("/api/auth/reset-password", json={"token": rt, "password": "reset-pass-word-3"}).status_code == 200, "reset link works")
+    check(c.post("/api/auth/reset-password/check", json={"token": rt}).json()["valid"] is False, "a spent link reads as dead")
     check(c.get("/api/auth/me").json()["user"] is None, "reset signed out every device")
     check(c.post("/api/auth/reset-password", json={"token": rt, "password": "reset-pass-word-4"}).status_code == 400, "reset link works once")
     # 2FA over HTTP
