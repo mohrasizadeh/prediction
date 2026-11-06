@@ -113,6 +113,7 @@ export function Forecasts({ d, matchId }) {
   const hits = all.filter((x) => track[x.fkey]?.state === "hit").length;
   const [min, setMin] = useState(50);
   const [by, setBy] = useState("team");
+  const fxTeams = { [d.match.home_iid]: d.home, [d.match.away_iid]: d.away };
   const rows = cardsOf(d).filter((f) => f.p * 100 >= min);
   const groups = by === "team"
     ? [[d.home.name, rows.filter((f) => f.team_iid === d.match.home_iid && !f.stat?.startsWith("match_"))], [d.away.name, rows.filter((f) => f.team_iid === d.match.away_iid && !f.stat?.startsWith("match_"))], ["Both teams", rows.filter((f) => f.stat?.startsWith("match_"))]]
@@ -124,6 +125,8 @@ export function Forecasts({ d, matchId }) {
       {/* UX_AUDIT section 4: the grouping control and the likelihood floor sat as a wide toolbar above
           the forecasts, the second copy of a slider whose Insights twin was also holding a full row.
           One quiet line, with the slider given only the width it needs. */}
+      {/* Without this map ForecastCard's fixtureOf() cannot name the club or the opponent, so every
+          card on this tab -- and the fixture line inside the sheet it opens -- rendered blank. */}
       <div className="mc-fc-bar v2-bar">
         <Segmented options={[{ id: "team", label: "By team" }, { id: "market", label: "By market" }]} value={by} onChange={setBy} label="Group" testid="fc-group" />
         <div className="mc-fc-min"><RangeSlider min={50} max={95} step={5} value={min} onChange={setMin} label="Minimum likelihood" format={(v) => `${v}%+`} testid="fc-min" /></div>
@@ -132,7 +135,7 @@ export function Forecasts({ d, matchId }) {
         : !rows.length ? <EmptyState icon="target" title={`Nothing at ${min}% or more`} testid="fc-none" action={<button type="button" className="btn btn--secondary btn--sm" onClick={() => setMin(50)} data-testid="fc-reset">Show all</button>}>Lower the minimum likelihood.</EmptyState>
         : groups.filter(([, xs]) => xs.length).map(([title, xs]) => (
           <section key={title} className="mc-fc-group"><h2 className="k-sec">{title} · {xs.length}</h2>
-            <div className="fgrid">{xs.map((f) => <ForecastCard key={f.id} f={f} homeIid={d.match.home_iid} showTime={false} track={track} testid={`match-fc-${f.id}`} />)}</div></section>
+            <div className="fgrid">{xs.map((f) => <ForecastCard key={f.id} f={f} teams={fxTeams} homeIid={d.match.home_iid} showTime={false} track={track} testid={`match-fc-${f.id}`} />)}</div></section>
         ))}
     </div>
   );

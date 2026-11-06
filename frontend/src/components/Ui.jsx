@@ -64,7 +64,7 @@ export function useEsc(on, fn) {
   }, [on, fn]);
 }
 
-function useFocusTrap(ref, open) {
+export function useFocusTrap(ref, open) {
   useEffect(() => {
     if (!open || !ref.current) return undefined;
     const prev = document.activeElement;

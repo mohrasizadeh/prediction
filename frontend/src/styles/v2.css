@@ -1046,3 +1046,6 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   color: var(--text2); background: var(--surface2); border: 1px solid var(--border);
 }
 .cb-mode-none { color: var(--text3); font-variation-settings: "wdth" 88, "wght" 600; }
+
+/* The account head carries the sign-out, so it is a row rather than a lone heading. */
+.v2-acc-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../Icon";
+import { useFocusTrap } from "../Ui";
 
 export function BottomSheet({ open, onClose, title, children, footer, testid = "ui-sheet" }) {
   const ref = useRef(null);
@@ -17,6 +18,10 @@ export function BottomSheet({ open, onClose, title, children, footer, testid = "
     ref.current?.focus();
     return () => { document.removeEventListener("keydown", key); document.body.style.overflow = ""; back?.focus?.(); };
   }, [open]);
+  // The sheet declared aria-modal="true" and only moved focus into itself once, so Tab walked
+  // straight out onto the page behind -- measured at 22 presses. Every overlay in the product is
+  // built on this component, so one trap fixes all of them. The hook was already written.
+  useFocusTrap(ref, open);
   if (!open) return null;
   return createPortal(
     <div className="k-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} data-testid={`${testid}-scrim`}>

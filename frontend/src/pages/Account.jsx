@@ -1,6 +1,6 @@
 // Account area (docs/13 §2 tabs): Profile, Security, Devices, Notifications, Plan and billing, Privacy.
 import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate, NavLink, Route, Routes, useSearchParams } from "react-router-dom";
+import { Link, Navigate, NavLink, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
 import { del, get, patch, post } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
@@ -249,12 +249,20 @@ function Privacy() {
 }
 
 export default function Account() {
+  const { signOut: doSignOut } = useAuth();
+  const nav = useNavigate();
+  const signOutNow = async () => { try { await doSignOut(); } finally { nav("/"); } };
   const { user, loading } = useAuth();
   if (loading) return <Loading />;
   if (!user) return <Navigate to="/sign-in?next=/account" replace />;
   return (
     <div className="account" data-testid="account-page">
-      <header className="page-head"><h1>Account</h1></header>
+      {/* There was no sign-out control anywhere on the reader-facing site: signOut was called in
+          exactly one place, to finish deleting an account. Reader sessions last 14 days, and this
+          omission is also what made the forced password change inescapable. */}
+      <header className="page-head v2-acc-head"><h1>Account</h1>
+        <button type="button" className="btn btn--secondary btn--sm" onClick={signOutNow} data-testid="account-signout">Sign out</button>
+      </header>
       <div className="account-grid">
         <nav className="acc-nav" aria-label="Account">
           {TABS.map(([id, label, icon]) => <NavLink key={id} to={`/account/${id}`} className="acc-link" data-testid={`account-tab-${id}`}><Icon name={icon} size={18} /><span>{label}</span></NavLink>)}

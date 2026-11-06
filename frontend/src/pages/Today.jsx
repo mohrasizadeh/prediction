@@ -22,12 +22,25 @@ function until(s) {
   return min < 60 ? `in ${min} min` : `in ${Math.floor(min / 60)}h ${min % 60}m`;
 }
 
-// Top 3 are the best-rated lines of the day: Strong before Solid, then the whole chance (his chance to play counted), at most two per match.
-// Nothing below Solid is shown here; the full list stays on the Insights page.
+// Top 3 are the day's most informative lines, at most two per match. Nothing below Solid.
+//
+// This used to sort by tier and then by the whole chance, which is the likeliest line rather than
+// the one with the most to say -- and after docs/44 the likeliest line a player owns is always his
+// dullest. Measured on the live feed, that ranking put up departures of +1.5, +1.0 and +1.9 points
+// over the players' own usual, one of them a 9+ shots line whose span is 1.8 points: the exact card
+// docs/56 was written to keep off the front page. Ranked by departure the same feed offers +10.0,
+// +9.4 and +7.4.
+//
+// The API already sorts by `edge` (engine.feed_sort), so the fix is mostly to stop undoing it: keep
+// the order the server sent, apply the tier floor, and drop rungs that would read the same against
+// every opponent in the league.
 const RANK = { Strong: 2, Solid: 1 };
-const whole = (f) => (f.p || 0) * (f.scope === "player" && f.p_play != null ? f.p_play : 1);
+export const MIN_SPAN = 0.05;                 // docs/56: below this a rung cannot move with the opponent
+// A span of null means "we could not measure it", which must never be read as "it is small".
+const canMove = (f) => f.span == null || Math.abs(f.span) >= MIN_SPAN;
 export function topRated(rows, n = 3) {
-  const pool = rows.filter((x) => RANK[x.tier]).sort((a, b) => RANK[b.tier] - RANK[a.tier] || whole(b) - whole(a) || (b.lo || 0) - (a.lo || 0));
+  const tiered = rows.filter((x) => RANK[x.tier]);
+  const pool = tiered.filter(canMove).length ? tiered.filter(canMove) : tiered;
   const per = {};
   const out = pool.filter((x) => (per[x.match_iid] = (per[x.match_iid] || 0) + 1) <= 2);
   return out.slice(0, n);
