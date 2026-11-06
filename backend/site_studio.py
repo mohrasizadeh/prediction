@@ -59,23 +59,48 @@ COLOR_TOKENS = ("bg", "surface1", "surface2", "surface3", "border", "borderStron
                 "brand", "onBrand", "tierStrong", "tierSolid", "tierWatch", "up", "down", "onDown",
                 "chart1", "chart2", "chart3", "chart4", "chart5", "chart6")
 
-# Default palette: the owner's six -- Carbon #101114, Mist #EEF0F2, Electric #2547E8,
-# Violet #5F31C4, Lime #C6F04A, Steel #55606D.
+# Default palette: the owner's seven -- Forest #034737, Sprout #A9FF9B, Stone #979C94,
+# Pitch #22281E, Chalk #F4F7F3, White #FFFFFF, Mint #38D996.
 #
-# The six are used exactly wherever they are legible, and only where they are. Measured, the set is
-# built for LIGHT: Electric, Violet and Steel all pass as text on Mist (5.84, 6.75, 5.60) and all
-# three FAIL as text on Carbon (2.83, 2.45, 2.95 against the 4.5 a text pair needs). Lime is the
-# mirror image -- 14.35 on Carbon, 1.15 on Mist. So dark mode takes the minimum tint of each toward
-# white that clears 4.5, and light mode takes the six as given. A brand palette needs tints for the
-# mode it was not drawn for; inventing new hues would not be the same palette.
+# The seven are used exactly where they are legible, and the two modes take opposite halves of the
+# set. Measured: Forest is 9.92 on Chalk and Mint is 1.69 on it, so Forest carries light mode and
+# Mint cannot; Mint is 8.30 on Pitch and Sprout 12.56, so those two carry dark mode. Stone passes
+# as small text on the dark surfaces (4.84) and fails on the light ones (2.59), so light mode uses
+# it shaded toward Pitch. Every surface and border step between them is a blend of two of the
+# seven -- no step is a hue the owner did not choose.
 #
-# Two colours are ADDED, and it is worth being plain about why. The six contain no red, and this
-# product needs one: "below usual" is half of what a forecast card says, and a destructive action
-# has to read as destructive. #F2555F is that red, shaded to #BD424A in light so Mist clears 4.5 on
-# it. Violet carries "conditional" in place of the amber the set does not have.
+# ONE colour is added, and it is worth being plain about why. The seven contain no red, and this
+# product needs one: "did not happen" is half of what a tracked forecast says, and a destructive
+# admin action has to read as destructive. Green cannot carry that meaning and grey would read as
+# "unknown", which already means something else here. #FF8A7A is that red in dark and #A8372B in
+# light, both chosen to sit with the greens rather than against them.
 #
-# Every pair in BLOCK_PAIRS and WARN_PAIRS was measured in both modes before this was committed.
-DARK = {"bg": "#101114", "surface1": "#18191C", "surface2": "#212224", "surface3": "#2B2C2F",
+# There is no amber either, so Watch -- the tier that means "we are not sure yet" -- is Stone. The
+# least coloured tier for the least certain claim, which is the right way round, and TierBadge
+# draws one, two or three dots so colour is never the only signal.
+#
+# Every pair in BLOCK_PAIRS and WARN_PAIRS was measured in both modes before this was committed;
+# the worst in either mode is 4.37 against a 3.0 bar and 4.84 against a 4.5 bar.
+DARK = {"bg": "#22281E", "surface1": "#2A3026", "surface2": "#32382F", "surface3": "#3C4238",
+        "border": "#3C4238", "borderStrong": "#575C53",
+        "text": "#F4F7F3", "text2": "#DDE0DB", "text3": "#979C94",
+        "brand": "#38D996", "onBrand": "#22281E",
+        "tierStrong": "#A9FF9B", "tierSolid": "#38D996", "tierWatch": "#979C94",
+        "up": "#38D996", "down": "#FF8A7A", "onDown": "#22281E",
+        "chart1": "#38D996", "chart2": "#A9FF9B", "chart3": "#979C94",
+        "chart4": "#FF8A7A", "chart5": "#6FBF9B", "chart6": "#F4F7F3"}
+LIGHT = {"bg": "#F4F7F3", "surface1": "#FFFFFF", "surface2": "#EBEEEA", "surface3": "#E0E3DE",
+         "border": "#D3D7D2", "borderStrong": "#AAAEA7",
+         "text": "#22281E", "text2": "#3C4238", "text3": "#62685F",
+         "brand": "#034737", "onBrand": "#FFFFFF",
+         "tierStrong": "#1B8962", "tierSolid": "#034737", "tierWatch": "#62685F",
+         "up": "#106C4F", "down": "#A8372B", "onDown": "#FFFFFF",
+         "chart1": "#034737", "chart2": "#1B8962", "chart3": "#62685F",
+         "chart4": "#A8372B", "chart5": "#6FBF9B", "chart6": "#22281E"}
+
+# The palette that was the default before this one: Carbon, Mist, Electric, Violet, Lime, Steel.
+# Kept as a preset, the way Apple and Midnight were when they were replaced.
+CARBON_DARK = {"bg": "#101114", "surface1": "#18191C", "surface2": "#212224", "surface3": "#2B2C2F",
         "border": "#313235", "borderStrong": "#494A4C",
         "text": "#EEF0F2", "text2": "#C6CBD2", "text3": "#8E97A2",
         "brand": "#6079EE", "onBrand": "#101114",
@@ -83,7 +108,7 @@ DARK = {"bg": "#101114", "surface1": "#18191C", "surface2": "#212224", "surface3
         "up": "#C6F04A", "down": "#F2555F", "onDown": "#101114",
         "chart1": "#6079EE", "chart2": "#C6F04A", "chart3": "#8F6FD6",
         "chart4": "#F2555F", "chart5": "#7A838D", "chart6": "#EEF0F2"}
-LIGHT = {"bg": "#EEF0F2", "surface1": "#FFFFFF", "surface2": "#E4E7EB", "surface3": "#D7DBE0",
+CARBON_LIGHT = {"bg": "#EEF0F2", "surface1": "#FFFFFF", "surface2": "#E4E7EB", "surface3": "#D7DBE0",
          "border": "#D2D6DC", "borderStrong": "#AFB6BF",
          "text": "#101114", "text2": "#2C3238", "text3": "#55606D",
          "brand": "#2547E8", "onBrand": "#EEF0F2",
@@ -608,7 +633,9 @@ def _preset(label, desc, mode, dark=None, light=None, radius="default", buttons=
 
 
 PRESETS = {
-    "carbon": _preset("Carbon", "The default. Carbon and Mist, with Electric, Violet and Lime.", "system"),
+    "forest": _preset("Forest", "The default. Forest and Chalk by day, Pitch and Mint by night.", "system"),
+    "carbon": _preset("Carbon", "The previous default. Carbon and Mist, with Electric, Violet and Lime.", "system",
+                      dark=CARBON_DARK, light=CARBON_LIGHT),
     "chalk": _preset("Chalk", "Chalk on slate: a hued blue slate, chalk ink, and colour reserved for meaning.", "system",
                      dark=CHALK_DARK, light=CHALK_LIGHT),
     "apple": _preset("Apple", "The previous default. Apple Human Interface Guidelines system colours, capsule buttons.", "system",
