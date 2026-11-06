@@ -11,8 +11,9 @@ import { STATS, Seg, Select } from "../Football";
 import { Empty, ErrorBox, Loading } from "../States";
 import { GameStrip } from "./Marks";
 
-export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, title, collapsible = false, forecasts, children, testid = "quick-view" }) {
-  const [open, setOpen] = useState(!collapsible);
+export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, title, collapsible = false,
+                            defaultOpen, showForecast = true, forecasts, children, testid = "quick-view" }) {
+  const [open, setOpen] = useState(defaultOpen != null ? defaultOpen : !collapsible);
   const [stat, setStat] = useState(STATS.some((s) => s.id === stat0) ? stat0 : "shots");
   const [last, setLast] = useState(10);
   const [line, setLine] = useState(line0 || 1);
@@ -51,7 +52,7 @@ export function QuickView({ playerId, stat: stat0 = "shots", line: line0 = 1, ti
         <>
           <div className="v2-qv-head">
             <p className="muted small" data-testid={`${testid}-summary`}>{known ? `${line} or more in ${hits} of ${known} games.` : "No data for this stat."}</p>
-            {fc ? (
+            {!showForecast ? null : fc ? (
               <p className="v2-qv-fc" data-testid={`${testid}-forecast`}>
                 <span>{line}+ {label.toLowerCase()} next match</span>
                 <b>{Math.round((fc.p || 0) * 100)}%</b>

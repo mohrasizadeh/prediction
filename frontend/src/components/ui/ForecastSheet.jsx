@@ -10,6 +10,7 @@ import { SaveButton } from "../Actions";
 import { BottomSheet } from "./BottomSheet";
 import { GameStrip } from "./Marks";
 import { QuickView } from "./QuickView";
+import { AnswerBlock, LadderList, SubjectHead, WhyList } from "./Subject";
 import { timeOf } from "./ForecastCard";
 import { posLabel } from "../Football";
 
@@ -64,12 +65,15 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
   const rng = f.p_display ? null : range(f.lo, f.hi);
   const title = `${f.player?.name || fx.team?.name || "Forecast"} · ${f.market}`;
   return (
-    <BottomSheet open={open} onClose={onClose} title={title} testid={testid}
+    <BottomSheet open={open} onClose={onClose} title={title} headed testid={testid}
       footer={<>{f.fkey && <SaveButton fkey={f.fkey} />}{f.scope === "player" && f.player?.id && <NoteBox player={f.player} testid={testid} />}<button type="button" className="btn btn--secondary" onClick={share} data-testid={`${testid}-share`}>Share</button></>}>
       {/* The sheet is the player page for most readers -- it is what opens when they tap a card --
           so it leads with the same facts in the same order: who he is, which club, and whether the
           next match is home or away. It used to show only the fixture as plain text. */}
-      <div className="k-fs-head" style={{ "--tone": f.tier ? `var(--tier-${f.tier.toLowerCase()})` : "var(--text3)" }}>
+      <SubjectHead f={f} fx={fx} size="sheet" testid={testid} />
+      <AnswerBlock f={f} size="sheet" testid={testid} />
+      <WhyList reasons={f.reasons} testid={`${testid}-why`} />
+      <div className="k-fs-head sr-only" aria-hidden="true" style={{ "--tone": f.tier ? `var(--tier-${f.tier.toLowerCase()})` : "var(--text3)" }}>
         {f.player ? <PlayerAvatar player={f.player} size={52} /> : <Crest team={fx.team} size={52} />}
         <span className="k-fc-who">
           {f.player && (
@@ -89,20 +93,16 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
         </span>
         <span className="k-fc-pwrap"><b className="k-fc-p">{pct(f.p)}</b>{rng && <small className="k-fc-range" data-testid={`${testid}-range`}>{rng}</small>}</span>
       </div>
-      {rng && <p className="k-faint k-small" data-testid={`${testid}-range-note`}>That range is how sure we are: the wider it is, the less sure the forecast.</p>}
-      {(f.reasons || []).length > 0 && <section><h3 className="k-sec">Why</h3><ul className="k-fs-why">{f.reasons.map((r) => <li key={r}>{r}</li>)}</ul></section>}
-      {f.scope === "player" && (
-        <div className="k-fs-tiles">
-          {f.p_play != null && <div className="k-fs-tile"><small>Chance he plays</small><b data-testid={`${testid}-pplay`}>{pct(f.p_play)}</b></div>}
-          {f.p != null && <div className="k-fs-tile"><small>If he plays</small><b>{pct((f.p_basis === "all" || f.model === "cards") && f.p_play ? Math.min(1, f.p / f.p_play) : f.p)}</b></div>}
-          <div className="k-fs-tile"><small>Lineup</small><b className={f.lineup_badge === "confirmed" || (!f.lineup_badge && f.lineup_confirmed) ? "k-up" : "k-watch"}>{{ confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" }[f.lineup_badge] || (f.lineup_confirmed ? "Confirmed" : "Not out yet")}</b></div>
-        </div>
-      )}
+      {rng && <p className="k-faint k-small sr-only" data-testid={`${testid}-range-note`}>That range is how sure we are: the wider it is, the less sure the forecast.</p>}
       {/* For a player, the full Quick view, opened on the line being looked at: the reader's next question is
           almost always "what about 2+, or only at home", and that used to mean leaving the sheet (docs/48). */}
       {f.scope === "player" && f.player?.id && (
         <>
-          <QuickView playerId={f.player.id} stat={f.stat} line={Math.floor(f.thr) + 1} title="Quick view"
+          {/* AnswerBlock states the likelihood above, so the Quick view must not state it again --
+              it was the third printing of the same number in one panel. Filters start closed here:
+              a 190px control console is most of a phone screenful inside a modal. */}
+          <QuickView playerId={f.player.id} stat={f.stat} line={Math.floor(f.thr) + 1} title="The last ten, and any other line"
+                     collapsible defaultOpen={false} showForecast={false}
                      forecasts={[f, ...(f.more_lines || [])]} testid={`${testid}-qv`} />
           <Link to={`/player/${f.player.id}`} className="v2-fs-open" data-testid={`${testid}-open-player`}>
             Open {f.player.name}&rsquo;s page
@@ -117,13 +117,16 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
           <GameStrip games={d.games} stat={f.stat} line={Math.floor(f.thr) + 1} label={f.market} testid={`${testid}-hits`} />
         </section>
       )}
-      {(f.p_usual != null || (f.scope === "player" && f.rec_n >= 8)) && (
+      {/* This paragraph said "A player like him in a fixture like this" for ANY scope -- so a club
+          line read "a player ... him" -- and it was the third different label for p_usual, which is
+          the entity's OWN rate before this opponent. AnswerBlock states it once, as "Usual". The
+          season count stays, over its own window, labelled as the season. */}
+      {f.scope === "player" && f.rec_n >= 8 && (
         <p className="k-faint k-small k-fs-ctx">
-          {f.scope === "player" && f.rec_n >= 8 && <span data-testid={`${testid}-rec`}>Reached this line in {f.rec_k} of his last {f.rec_n} games.</span>}
-          {f.p_usual != null && <span data-testid={`${testid}-usual`}>A player like him in a fixture like this: usually {pct(f.p_usual)}.</span>}
+          <span data-testid={`${testid}-rec`}>This season: reached this line in {f.rec_k} of {f.rec_n} games.</span>
         </p>
       )}
-      {lines.length > 1 && <section><h3 className="k-sec">All lines</h3><ul className="k-fc-lines">{lines.map((x) => <li key={x.fkey} style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}><span>{x.market}</span><b>{pct(x.p)}{range(x.lo, x.hi) && <small className="k-fc-range"> ({range(x.lo, x.hi)})</small>}</b></li>)}</ul></section>}
+      <LadderList lines={lines} current={f.fkey} testid={`${testid}-ladder`} />
       {tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} {f.scope} {STAT_WORD[f.stat] || f.stat} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to={`/track-record?stat=${f.stat}`}>Track record</Link></p>}
       <p className="k-faint k-small">{DISCLAIMER} <Link to="/learn/forecast-card" aria-label="How to read a forecast card" data-testid={`${testid}-learn`}>How to read this card (?)</Link></p>
     </BottomSheet>

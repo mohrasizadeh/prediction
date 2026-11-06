@@ -1076,3 +1076,74 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .k-scrim { z-index: 95; }
 .overlay { z-index: 100; }
 .toasts { z-index: 105; }
+
+/* ============================================================ 28. The shared spine
+   The sheet and the player page were ~80% the same material drawn two different ways, so a reader
+   who tapped a card met a different product from the one they landed on. One set of blocks now
+   renders both; `--sheet` is the compact edition and `--page` the full one. */
+/* The clipping context and the flex row are separate elements on purpose: when they were one, the
+   container reported clientHeight 22 (its own padding) against scrollHeight 107 and clipped the
+   portrait and the name. */
+.v2-sh { position: relative; isolation: isolate; display: block; border-radius: 14px; }
+.v2-sh-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; display: block; }
+.v2-sh-row { display: flex; gap: 14px; align-items: flex-start; }
+.v2-sh--sheet { padding: 12px 12px 10px; }
+.v2-sh--page { padding: 22px 16px 18px; border-radius: 16px; }
+.v2-sh::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface1) 46%, transparent),
+                                      color-mix(in srgb, var(--surface1) 88%, transparent)); }
+/* The wash must stay out of flow. `.v2-sh > *` matched it too and, being the later rule of equal
+   specificity, turned it into a 220px flex item that collapsed the head to 22px. */
+.v2-sh > .v2-sh-row { position: relative; z-index: 1; }
+.v2-sh-bg > .v2-phead-wash { position: absolute; inset: 0; z-index: 0; height: auto;
+  background-size: cover; background-position: 50% 32%; filter: blur(42px) saturate(135%);
+  opacity: .45; transform: scale(1.4); }
+.v2-sh-bg > .v2-phead-wash.is-plain { background: linear-gradient(135deg,
+  color-mix(in srgb, var(--brand) 38%, transparent), transparent 70%);
+  filter: none; opacity: 1; transform: none; }
+.v2-sh-face { flex: none; }
+.v2-sh-face .media, .v2-sh-face .media-fallback, .v2-sh-face img { border-radius: 50%; }
+.v2-sh-main { min-width: 0; flex: 1 1 auto; }
+.v2-sh-name { margin: 0 0 6px; letter-spacing: -.028em; line-height: 1.04; text-wrap: balance; }
+.v2-sh-name a { color: inherit; text-decoration: none; }
+.v2-sh-name a:hover { text-decoration: underline; }
+.v2-sh--sheet .v2-sh-name { font-size: 1.5rem; font-variation-settings: "wdth" 108, "wght" 700; }
+.v2-sh--page .v2-sh-name { font-size: clamp(1.85rem, 7.2vw, 3.1rem); font-variation-settings: "wdth" 112, "wght" 800; }
+.v2-sh-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
+.v2-sh-fx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0;
+  font-size: .75rem; color: var(--text3); font-variation-settings: "wdth" 88, "wght" 500;
+  text-decoration: none; }
+.v2-sh-fx-t { min-width: 0; }
+.v2-sh-act { margin-top: 11px; }
+
+/* The claim, once. This replaced the head percentage, the three tiles and a standing paragraph
+   explaining the bracket -- the headline used to appear four times in one panel. */
+.v2-ans { border-left: 3px solid var(--tone, var(--text3)); padding: 2px 0 2px 12px; margin-top: 14px; }
+.v2-ans-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.v2-ans-mkt { font-size: .75rem; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--text2); font-variation-settings: "wdth" 86, "wght" 600; }
+.v2-ans-p { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 0; flex-wrap: wrap; }
+.v2-ans-p .k-fc-p { font-size: 2rem; font-variation-settings: "wdth" 96, "wght" 800; letter-spacing: -.035em; }
+.v2-ans--page .k-fc-p { font-size: 2.5rem; }
+.v2-ans-cmp { display: flex; align-items: center; gap: 10px; margin: 7px 0 0; flex-wrap: wrap;
+  font-size: .75rem; color: var(--text3); font-variation-settings: "wdth" 88, "wght" 500; }
+.v2-ans-cmp b { color: var(--text2); font-variation-settings: "wdth" 88, "wght" 700; font-variant-numeric: tabular-nums; }
+.v2-ans-lineup { margin: 7px 0 0; font-size: .75rem; color: var(--text3);
+  font-variation-settings: "wdth" 88, "wght" 500; }
+.v2-ans-lineup b { color: var(--text2); font-variation-settings: "wdth" 88, "wght" 700; }
+
+/* The opened line, marked in the ladder so the comparison has no hole in it. */
+.k-fc-lines li.is-here { background: color-mix(in srgb, var(--tone) 13%, transparent); }
+.k-fc-lines li.is-here span::before { content: "▸ "; color: var(--tone); }
+
+/* The scrim was a literal rgba(5,8,15,.5) with no blur, identical in both themes -- so the card
+   behind the panel, showing the same run and the same number, read clearly through it. A reader
+   comparing the panel against the card bleeding through it is the clearest possible way to make
+   two renderings of one thing look like a disagreement. A token, per mode, and a blur where the
+   browser has one. */
+:root, :root[data-theme="dark"] { --scrim: rgba(4, 6, 11, .72); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --scrim: rgba(16, 17, 20, .46); } }
+:root[data-theme="light"] { --scrim: rgba(16, 17, 20, .46); }
+.k-scrim { background: var(--scrim); }
+@supports (backdrop-filter: blur(6px)) { .k-scrim { backdrop-filter: blur(6px); } }
+@media (prefers-reduced-transparency: reduce) { .k-scrim { backdrop-filter: none; background: var(--bg); } }

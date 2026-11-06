@@ -5,7 +5,9 @@ import { createPortal } from "react-dom";
 import Icon from "../Icon";
 import { useFocusTrap } from "../Ui";
 
-export function BottomSheet({ open, onClose, title, children, footer, testid = "ui-sheet" }) {
+// `headed`: the content supplies its own visible heading, so the title bar keeps the dialog's
+// accessible name but stops printing a string the next 40px repeat.
+export function BottomSheet({ open, onClose, title, children, footer, headed = false, testid = "ui-sheet" }) {
   const ref = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -28,7 +30,7 @@ export function BottomSheet({ open, onClose, title, children, footer, testid = "
       <div className="k-sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref} data-testid={testid}>
         <span className="k-grab" aria-hidden="true" />
         <header className="k-sheet-head">
-          <h2>{title}</h2>
+          <h2 className={headed ? "sr-only" : undefined}>{title}</h2>
           <button type="button" className="k-icon-btn" onClick={onClose} aria-label="Close" data-testid={`${testid}-close`}><Icon name="x" size={20} /></button>
         </header>
         <div className="k-sheet-body">{children}</div>

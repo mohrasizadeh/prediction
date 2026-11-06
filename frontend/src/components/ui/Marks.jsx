@@ -163,7 +163,12 @@ export function GameStrip({ games = [], stat, line, label, note = true, testid =
           return (
             <li key={g.match_iid ?? g.kickoff ?? i} className={"pgs-g" + (hit ? " on" : "") + (v == null ? " nd" : "")}
                 data-testid={`${testid}-${g.match_iid ?? i}`}>
-              {anyMins && <span className="pgs-min" title="Minutes played">{mins == null ? "\u2013" : `${Math.round(mins)}'`}</span>}
+              {/* Always rendered, blank when the entity has no minutes. A club has none, so this
+                  span used to disappear and every column lost a row: the line rule, positioned
+                  against the column box, then landed BELOW all ten bars and the strip showed ten
+                  of ten clearing a line its own caption said six had. A strip that contradicts its
+                  caption is worse than no strip. */}
+              <span className="pgs-min" title={anyMins ? "Minutes played" : undefined} aria-hidden={anyMins ? undefined : "true"}>{!anyMins ? "\u00a0" : mins == null ? "\u2013" : `${Math.round(mins)}'`}</span>
               <span className="pgs-v" aria-hidden="true">{v == null ? "\u2013" : v}</span>
               <span className="v2-gs-bar" aria-hidden="true"><b style={{ height: `${v == null ? 0 : Math.max(2, (v / vmax) * 100)}%` }} /></span>
               <span className="pgs-opp"><Crest team={g.opp} size={22} /></span>
