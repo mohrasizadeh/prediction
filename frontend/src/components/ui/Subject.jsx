@@ -44,7 +44,7 @@ function spanLine(f) {
 
 // Who this is about. A club line used to open a panel that never named the club and never linked to
 // it; a match line named neither side. The subject is always named, and always reachable.
-export function SubjectHead({ f, fx, size = "sheet", action, fixtureTestid, testid = "ui-subject-head" }) {
+export function SubjectHead({ f, fx, size = "sheet", action, extraMeta, fixtureTestid, testid = "ui-subject-head" }) {
   const isMatch = !!f.stat?.startsWith("match_");
   const team = fx?.team;
   const name = f.player?.name || (isMatch ? (fx?.text || "Both teams") : team?.name || "");
@@ -77,6 +77,9 @@ export function SubjectHead({ f, fx, size = "sheet", action, fixtureTestid, test
         <p className="v2-sh-meta">
           {!isMatch && team?.id && f.player && <Link to={`/team/${team.id}`} className="v2-club" onClick={(e) => e.stopPropagation()}><Crest team={team} size={big ? 20 : 18} /> {team.name}</Link>}
           {f.pos && <span className="v2-pos">{posLabel(f.pos)}</span>}
+          {/* A club head wants its league and its form where a player head wants a position. One
+              extra slot, rather than a second component for the same job. */}
+          {extraMeta}
         </p>
         {(fx?.text || f.kickoff) && (
           <FixtureLine f={f} fx={fx} link={big} testid={fixtureTestid || `${testid}-fixture`} />

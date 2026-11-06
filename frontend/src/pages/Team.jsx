@@ -8,6 +8,7 @@ import { Tabs } from "../components/Ui";
 import { FormPills, MatchRow, STATS, Seg, Select, TEAM_STATS, TacticChip, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
 import { ForecastCard } from "../components/ui";
+import { SubjectHead } from "../components/ui/Subject";
 import FirstGoal from "../components/FirstGoal";
 
 const WINDOWS = [{ id: 5, label: "Last 5" }, { id: 10, label: "Last 10" }, { id: 20, label: "Last 20" }];
@@ -124,16 +125,27 @@ export default function Team() {
   const d = q.data;
   const cards = d.cards || [];
   const nextTeams = d.next?.[0] ? { [d.next[0].home_iid]: d.next[0].home, [d.next[0].away_iid]: d.next[0].away } : {};
+  // SubjectHead speaks the forecast shape, so the club is handed to it as one: no player, the club
+  // as the subject, and the next fixture for the Home/Away line.
+  const n0 = d.next?.[0];
+  const headF = { scope: "team", team_iid: d.team.iid, home_iid: n0?.home_iid, match_id: n0?.id, kickoff: n0?.kickoff, stat: "" };
+  const headFx = n0
+    ? { team: d.team, opp: n0.home_iid === d.team.iid ? n0.away : n0.home, homeFirst: n0.home_iid === d.team.iid,
+        text: `${n0.home?.name || ""} v ${n0.away?.name || ""}` }
+    : { team: d.team, text: "" };
   return (
     <section data-testid="team-page">
-      <header className="phead">
-        <Crest team={d.team} size={64} decorative={false} eager />
-        <div className="phead-main">
-          <h1>{d.team.name}</h1>
-          {d.league && <Link to={`/league/${d.league.id}`} className="muted small inline"><LeagueMark league={d.league} size={20} /> {d.league.name}</Link>}
-          <div className="phead-row"><FormPills form={d.form} /><div className="chips">{(d.style?.tactics || []).map((t) => <TacticChip key={t} t={t} />)}</div><FollowButton kind="team" refId={d.team.id} name={d.team.name} /><Link to={`/compare?a=${d.team.id}`} className="btn btn--secondary btn--sm" data-testid="team-compare">Compare with…</Link></div>
-        </div>
-      </header>
+      {/* The same head the player page and the sheet open with. The club head was .phead -- a 64px
+          crest centred against a three-row column, 141px against the player's 261px -- so the two
+          entity pages did not look like one product. */}
+      <SubjectHead f={headF} fx={headFx} size="page" testid="team-head"
+                   extraMeta={<>
+                     {d.league && <Link to={`/league/${d.league.id}`} className="v2-club"><LeagueMark league={d.league} size={18} /> {d.league.name}</Link>}
+                     <FormPills form={d.form} />
+                     {(d.style?.tactics || []).map((t) => <TacticChip key={t} t={t} />)}
+                   </>}
+                   action={<><FollowButton kind="team" refId={d.team.id} name={d.team.name} />
+                     <Link to={`/compare?a=${d.team.id}`} className="btn btn--secondary btn--sm" data-testid="team-compare">Compare with…</Link></>} />
       {/* CONSOLIDATION: six tabs became three. "Squad" and "Squad grid" were two renderings of one
           thing -- a view toggle wearing two tabs -- so they are one tab with a toggle. "Team totals",
           "Against" and "First goal" are all the same question, what this club's numbers look like,

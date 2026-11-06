@@ -1114,7 +1114,7 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   font-size: .75rem; color: var(--text3); font-variation-settings: "wdth" 88, "wght" 500;
   text-decoration: none; }
 .v2-sh-fx-t { min-width: 0; }
-.v2-sh-act { margin-top: 11px; }
+.v2-sh-act { margin-top: 11px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* The claim, once. This replaced the head percentage, the three tiles and a standing paragraph
    explaining the bracket -- the headline used to appear four times in one panel. */
