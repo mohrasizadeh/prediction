@@ -1147,3 +1147,10 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .k-scrim { background: var(--scrim); }
 @supports (backdrop-filter: blur(6px)) { .k-scrim { backdrop-filter: blur(6px); } }
 @media (prefers-reduced-transparency: reduce) { .k-scrim { backdrop-filter: none; background: var(--bg); } }
+
+/* A rung is keepable, so each row carries its own controls. The row stays a three-part grid so the
+   market, the figure and the controls hold their columns down the list. */
+.k-fc-lines.has-act li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; }
+.v2-ll-act { display: inline-flex; align-items: center; gap: 2px; }
+.v2-ll-act .icon-btn { min-width: 36px; min-height: 36px; }
+.v2-ll-act .icon-btn.is-on { color: var(--brand); }

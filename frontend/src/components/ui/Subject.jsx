@@ -10,6 +10,8 @@
 // the testids the sheet already published are carried through onto their new homes.
 import { Link } from "react-router-dom";
 import { pct, range } from "../../lib/copy";
+import { useCombo } from "../../lib/combo";
+import { SaveButton } from "../Actions";
 import { Crest, PlayerAvatar } from "../Media";
 import { posLabel } from "../Football";
 import { TierBadge } from "./Marks";
@@ -126,16 +128,45 @@ export function WhyList({ reasons, max = 2, heading, testid = "ui-why" }) {
   );
 }
 
+// Reported: a card leads with "4+ shots 70%" while the same player has "2+ shots 90%" underneath,
+// and the reader could read the second but not keep it. Every rung carries its own fkey and
+// /me/saved keys on fkey alone, so following one has always been possible -- it was simply never
+// offered. These are the controls, on every rung, for players and for clubs alike.
+//
+// A rung carries only its own figures (fkey, stat, thr, market, p, lo, hi, tier). The combo needs
+// match_iid, scope and the entity, which live on the card it came from, so the parent is merged
+// underneath it. `id` is cleared on purpose: the parent's forecast id belongs to a different line.
+export function LineActions({ line, parent, testid }) {
+  const { has, toggle } = useCombo();
+  if (!line?.fkey) return null;                       // a rung read off the ladder has no stored line to keep
+  const full = { ...(parent || {}), ...line, id: line.id ?? null };
+  const canAdd = full.match_iid != null && full.addable !== false && !full.from_ladder;
+  const on = canAdd && has(line.fkey);
+  return (
+    <span className="v2-ll-act">
+      <SaveButton fkey={line.fkey} />
+      {canAdd && (
+        <button type="button" className={"icon-btn icon-btn--sm" + (on ? " is-on" : "")} aria-pressed={on}
+                aria-label={on ? `Remove ${line.market} from the combo` : `Add ${line.market} to the combo`}
+                onClick={(e) => { e.stopPropagation(); toggle(full); }}
+                data-testid={testid ? `${testid}-add-${line.fkey}` : undefined}>
+          <span aria-hidden="true">{on ? "\u2212" : "+"}</span>
+        </button>
+      )}
+    </span>
+  );
+}
+
 // Every line for this subject, in ladder order rather than sorted by likelihood, so the shape of
 // the night reads as a curve instead of a leaderboard. Promoted to sit under the run: measured,
 // the sheet opened on 2+ at 84% while the player's best line sat below two screenfuls.
-export function LadderList({ lines, current, heading = "All lines", testid = "ui-ladder" }) {
+export function LadderList({ lines, current, parent, actions = false, heading = "All lines", testid = "ui-ladder" }) {
   const rows = (lines || []).filter((x) => x && x.market).slice().sort((a, b) => (a.thr ?? 0) - (b.thr ?? 0));
   if (rows.length < 2) return null;
   return (
     <section data-testid={testid}>
-      <h3 className="k-sec">{heading}</h3>
-      <ul className="k-fc-lines">
+      {heading && <h3 className="k-sec">{heading}</h3>}
+      <ul className={"k-fc-lines" + (actions ? " has-act" : "")}>
         {rows.map((x) => {
           const here = current != null && x.fkey === current;
           return (
@@ -143,6 +174,7 @@ export function LadderList({ lines, current, heading = "All lines", testid = "ui
                 style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}>
               <span>{x.market}</span>
               <b>{pct(x.p)}{range(x.lo, x.hi) && <small className="k-fc-range"> ({range(x.lo, x.hi)})</small>}</b>
+              {actions && <LineActions line={x} parent={parent} testid={testid} />}
             </li>
           );
         })}

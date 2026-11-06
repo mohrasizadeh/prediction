@@ -6,6 +6,7 @@ import { pct, range } from "../../lib/copy";
 import { utc } from "../../lib/time";
 import { Crest, PlayerAvatar } from "../Media";
 import { TierBadge, CardRun } from "./Marks";
+import { LineActions } from "./Subject";
 import { ForecastSheet } from "./ForecastSheet";
 import { useCombo } from "../../lib/combo";
 import Icon from "../Icon";
@@ -145,8 +146,15 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
         </footer>
       )}
       {open && (
-        <ul className="k-fc-lines" data-testid={`${id}-lines`}>
-          {more.map((x) => <li key={x.fkey} style={{ "--tone": tone(x.tier) }}><span>{x.market}{track?.[x.fkey]?.state === "hit" && <span className="lv-tick" aria-label="Happened"><Icon name="check" size={14} /></span>}</span><b>{pct(x.p)}{range(x.lo, x.hi) && <small className="k-fc-range"> ({range(x.lo, x.hi)})</small>}</b></li>)}
+        <ul className="k-fc-lines has-act" data-testid={`${id}-lines`}>
+          {/* Reported: the card leads with 4+ shots at 70% while 2+ shots at 90% sits under it,
+              and the reader could read the second but not keep it. Each rung carries its own fkey,
+              so each one can now be saved, and added to a combo where the line is still open. */}
+          {more.map((x) => <li key={x.fkey} style={{ "--tone": tone(x.tier) }}>
+            <span>{x.market}{track?.[x.fkey]?.state === "hit" && <span className="lv-tick" aria-label="Happened"><Icon name="check" size={14} /></span>}</span>
+            <b>{pct(x.p)}{range(x.lo, x.hi) && <small className="k-fc-range"> ({range(x.lo, x.hi)})</small>}</b>
+            <LineActions line={x} parent={{ ...f, team: f.team || fx.team }} testid={`${id}-lines`} />
+          </li>)}
         </ul>
       )}
       {canAdd && (

@@ -126,7 +126,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
           <span data-testid={`${testid}-rec`}>This season: reached this line in {f.rec_k} of {f.rec_n} games.</span>
         </p>
       )}
-      <LadderList lines={lines} current={f.fkey} testid={`${testid}-ladder`} />
+      <LadderList lines={lines} current={f.fkey} parent={{ ...f, team: f.team || fx.team }} actions testid={`${testid}-ladder`} />
       {tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} {f.scope} {STAT_WORD[f.stat] || f.stat} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to={`/track-record?stat=${f.stat}`}>Track record</Link></p>}
       <p className="k-faint k-small">{DISCLAIMER} <Link to="/learn/forecast-card" aria-label="How to read a forecast card" data-testid={`${testid}-learn`}>How to read this card (?)</Link></p>
     </BottomSheet>
