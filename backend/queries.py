@@ -888,8 +888,18 @@ def predicted_xi(db, fc, team_iids) -> list[dict]:
     return out
 
 
-def team_history(db, team_iid: int, stat: str, last_n: int = 10) -> dict:
-    rows = list(db.team_match_stats.find({"team_iid": team_iid, stat: {"$ne": None}}, {"_id": 0, "kickoff": 1, "opp_iid": 1, "home": 1, stat: 1}).sort("kickoff", -1).limit(last_n))
+def team_history(db, team_iid: int, stat: str, last_n: int = 10, venue: str = "") -> dict:
+    """Last `last_n` games for one stat, newest first.
+
+    `venue` ("home" or "away") is the club's half of the player Quick view's own filter. Without it
+    the Venue control on a club's Quick view was a lie -- and "only when they are at home" is the
+    most-asked question a club line has, because a club's corner and shot counts swing with venue
+    more than with anything else we hold.
+    """
+    q: dict = {"team_iid": team_iid, stat: {"$ne": None}}
+    if venue in ("home", "away"):
+        q["home"] = (venue == "home")
+    rows = list(db.team_match_stats.find(q, {"_id": 0, "kickoff": 1, "opp_iid": 1, "home": 1, stat: 1}).sort("kickoff", -1).limit(last_n))
     opp = _names(db, "teams", [r["opp_iid"] for r in rows])
     return {"games": [{**r, "opp": opp.get(r["opp_iid"])} for r in rows]}
 

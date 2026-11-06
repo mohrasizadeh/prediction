@@ -114,7 +114,6 @@ function Row({ m }) {
 
 function Group({ league, rows }) {
   const [open, setOpen] = useState(true);
-  const n = rows.reduce((a, m) => a + (m.insight_count || 0), 0);
   const nl = rows.filter(isLive).length;
   return (
     <section className="td-group card" data-testid={`today-league-${league?.id || "other"}`}>

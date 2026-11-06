@@ -21,6 +21,10 @@ export const STATS = [
 ];
 export const TEAM_STATS = [{ id: "shots", label: "Shots", core: true }, { id: "sot", label: "Shots on target", core: true }, { id: "corners", label: "Corners", core: true }, { id: "tackles", label: "Tackles", core: true },
   { id: "xg", label: "Expected goals (xG)" }, { id: "yellow_cards", label: "Yellow cards" }, { id: "red_cards", label: "Red cards" }];
+// The subset `team_match_stats` actually stores a column for (normalize.TEAM_COLS), so the club's
+// Quick view only offers stats it can answer game by game. Red cards are forecast but not kept per
+// match, and offering them would have drawn an empty strip that reads as a broken screen.
+export const TEAM_HISTORY_STATS = TEAM_STATS.filter((s) => s.id !== "red_cards");
 export const MATCH_STATS = [{ id: "match_yellow_cards", label: "Yellow cards in the match", core: true }];
 const TACTICS = { low_block: "Low block", high_press: "High press", possession: "Possession" };
 

@@ -7,7 +7,6 @@ import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
 import { useTitle } from "../components/Football";
-import Icon from "../components/Icon";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard, ProLock, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
 import { fixtureOf, timeOf } from "../components/ui/ForecastCard";
 

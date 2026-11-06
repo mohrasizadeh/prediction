@@ -33,17 +33,13 @@ function useCountdown(ko) {
   return dd ? `${dd}d ${h}h` : h ? `${h}h ${mm}m` : `${mm} min`;
 }
 
+// What each side has left to play for. This used to live in a `Situation` component that the
+// redesign stopped rendering, so the chips vanished from the product while the engine kept
+// computing them -- its referee line had already been taken into MatchNotes below. They belong
+// beside "Worth knowing", which is the same kind of claim.
 const SITUATION = { rel: "Relegation fight", race: "In the race at the top", dead: "Nothing left to play for" };
-function Situation({ d }) {
-  const chips = [[d.home, d.match.home_iid], [d.away, d.match.away_iid]].flatMap(([t, iid]) => Object.entries(d.context?.[iid]?.situation || {}).filter(([, v]) => v).map(([k]) => `${t.name}: ${SITUATION[k] || k}`));
-  if (!chips.length && !d.referee?.sentence) return null;
-  return (
-    <>
-      {chips.length > 0 && <div className="mc-situ" data-testid="match-situation">{chips.map((c) => <span key={c} className="k-tag">{c}</span>)}</div>}
-      {d.referee?.sentence && <p className="mc-ref k-faint" data-testid="match-referee">{d.referee.sentence}</p>}
-    </>
-  );
-}
+const situationChips = (d) => [[d.home, d.match.home_iid], [d.away, d.match.away_iid]]
+  .flatMap(([t, iid]) => Object.entries(d.context?.[iid]?.situation || {}).filter(([, v]) => v).map(([k]) => `${t.name}: ${SITUATION[k] || k}`));
 
 function Side({ team, align }) {
   return <Link to={`/team/${team.id}`} className={`mc-team mc-team--${align}`} data-testid={`match-team-${align}`}><Crest team={team} size={64} eager /><b>{team.name}</b></Link>;
@@ -92,10 +88,12 @@ function useCompare(d) {
 // Before-kickoff notes that belong next to the lineups: why the match matters, absences and who is likely to miss out.
 export function MatchNotes({ d }) {
   const why = [[d.home, d.match.home_iid], [d.away, d.match.away_iid]].flatMap(([t, iid]) => (d.context?.[iid]?.why || []).map((w) => `${t.name}: ${w}`)).slice(0, 3);
+  const situ = situationChips(d);
   const news = (d.availability || []).length > 0;
-  if (!why.length && !news && !d.referee?.sentence) return null;
+  if (!why.length && !situ.length && !news && !d.referee?.sentence) return null;
   return (
     <div className="mc-notes" data-testid="match-preview">
+      {situ.length > 0 && <div className="mc-situ" data-testid="match-situation">{situ.map((c) => <span key={c} className="k-tag">{c}</span>)}</div>}
       {why.length > 0 && <section className="card mc-why-card"><h2 className="k-sec">Worth knowing</h2><ul className="mc-why" data-testid="match-why">{why.map((w) => <li key={w}>{w}</li>)}</ul></section>}
       <TeamNews d={d} />
       {d.referee?.sentence && <p className="mc-ref k-faint" data-testid="match-referee">{d.referee.sentence}</p>}

@@ -89,15 +89,22 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
   const cleared = known.filter((g) => g.v > line).length;
   const vmax = Math.max(1, line + 1, ...known.map((g) => g.v));
   const need = Math.floor(line) + 1;                       // thr 2.5 -> the card is talking about 3+
+  // A club has no minutes, so this row was ten columns of nothing -- a blank band across the card,
+  // measured at about 10px. It has a better use: where the game was played. A club's corner and
+  // shot counts swing with venue more than with anything else here, and `run[].home` was already
+  // stored on every entry and drawn nowhere. For a player the minutes keep the row, because
+  // "81', 79', 23'" is the thing that decides whether the figure beside it means anything.
+  const slot = (g) => (g.m != null ? `${Math.round(g.m)}'` : g.home == null ? "" : g.home ? "H" : "A");
+  const venues = known.some((g) => g.m == null && g.home != null);
   return (
     <div className={"v2-cr" + (down ? " is-down" : "")} data-testid={testid}
-         role="img" aria-label={`Last ${known.length} games: ${known.map((g) => g.v).join(", ")}. Reached ${need} or more in ${cleared} of them. Tonight ${shown}.`}>
+         role="img" aria-label={`Last ${known.length} games: ${known.map((g) => `${g.v}${g.m == null && g.home != null ? (g.home ? " at home" : " away") : ""}`).join(", ")}. Reached ${need} or more in ${cleared} of them. Tonight ${shown}.`}>
       <ol className="v2-cr-row" aria-hidden="true">
         {games.map((g, i) => (
           <li key={i} className={"v2-cr-g" + (g.v == null ? " nd" : g.v > line ? " on" : "")}>
             <b style={{ height: `${g.v == null ? 2 : Math.max(6, (g.v / vmax) * 100)}%` }} />
             <i className="v2-cr-v">{g.v == null ? "\u2013" : g.v}</i>
-            <i className={"v2-cr-m" + (g.m != null && g.m < 70 ? " low" : "")}>{g.m == null ? "" : `${Math.round(g.m)}'`}</i>
+            <i className={"v2-cr-m" + (g.m != null && g.m < 70 ? " low" : "") + (g.m == null && g.home === false ? " away" : "")}>{slot(g)}</i>
             <i className="v2-cr-o">{g.opp?.image ? <Crest team={g.opp} size={13} /> : abbr(g.opp?.name || g.opp)}</i>
           </li>
         ))}
@@ -113,7 +120,7 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
         <b>{cleared} cleared {need}+</b>
         {/* A club has no minutes, so that row is empty and the hint described a line that is not
             drawn. Say only what is there. */}
-        <span className="v2-cr-hint">{known.some((g) => g.m != null) ? "minutes above, opponent below" : "opponent below"}</span>
+        <span className="v2-cr-hint">{known.some((g) => g.m != null) ? "minutes above, opponent below" : venues ? "home or away above, opponent below" : "opponent below"}</span>
       </p>
     </div>
   );
@@ -146,6 +153,9 @@ export function GameStrip({ games = [], stat, line, label, note = true, testid =
   const hits = known.filter((g) => g[stat] >= line).length;
   const word = (label || stat).toLowerCase();
   const anyMins = rows.some((g) => g.minutes != null);
+  // A club has no minutes, so this row was a blank band here too. Same answer as on the card:
+  // where the game was played, which is the filter a club line is most often read through.
+  const anyVenue = !anyMins && rows.some((g) => g.home != null);
   // docs/redesign/v2: each column stands to its own figure and the line is drawn across the whole
   // run, so this is the run graph and the game-by-game detail in one object rather than two
   // renderings of the same ten games stacked on a page.
@@ -168,16 +178,17 @@ export function GameStrip({ games = [], stat, line, label, note = true, testid =
                   against the column box, then landed BELOW all ten bars and the strip showed ten
                   of ten clearing a line its own caption said six had. A strip that contradicts its
                   caption is worse than no strip. */}
-              <span className="pgs-min" title={anyMins ? "Minutes played" : undefined} aria-hidden={anyMins ? undefined : "true"}>{!anyMins ? "\u00a0" : mins == null ? "\u2013" : `${Math.round(mins)}'`}</span>
+              <span className={"pgs-min" + (anyVenue && g.home === false ? " away" : "")} title={anyMins ? "Minutes played" : anyVenue ? "Home or away" : undefined} aria-hidden={anyMins || anyVenue ? undefined : "true"}>
+                {anyMins ? (mins == null ? "\u2013" : `${Math.round(mins)}'`) : anyVenue ? (g.home == null ? "\u2013" : g.home ? "H" : "A") : "\u00a0"}</span>
               <span className="pgs-v" aria-hidden="true">{v == null ? "\u2013" : v}</span>
               <span className="v2-gs-bar" aria-hidden="true"><b style={{ height: `${v == null ? 0 : Math.max(2, (v / vmax) * 100)}%` }} /></span>
               <span className="pgs-opp"><Crest team={g.opp} size={22} /></span>
-              <span className="sr-only">{`Against ${who}: ${v == null ? "no figure" : `${v} ${word}`}${mins == null ? "" : `, ${Math.round(mins)} minutes`}.`}</span>
+              <span className="sr-only">{`${g.home == null ? "Against" : g.home ? "At home against" : "Away against"} ${who}: ${v == null ? "no figure" : `${v} ${word}`}${mins == null ? "" : `, ${Math.round(mins)} minutes`}.`}</span>
             </li>
           );
         })}
       </ol>
-      {note && <p className="pgs-key k-faint k-small">{known.length ? `${hits} of ${known.length} reached this line. ` : "No figures yet. "}{anyMins ? "Minutes above each column, opponent below." : "Opponent below each column."}</p>}
+      {note && <p className="pgs-key k-faint k-small">{known.length ? `${hits} of ${known.length} reached this line. ` : "No figures yet. "}{anyMins ? "Minutes above each column, opponent below." : anyVenue ? "Home or away above each column, opponent below." : "Opponent below each column."}</p>}
     </div>
   );
 }

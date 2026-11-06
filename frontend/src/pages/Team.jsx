@@ -7,7 +7,7 @@ import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { FormPills, MatchRow, STATS, Seg, Select, TEAM_STATS, TacticChip, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
-import { ForecastCard } from "../components/ui";
+import { ForecastCard, QuickView } from "../components/ui";
 import { SubjectHead } from "../components/ui/Subject";
 import FirstGoal from "../components/FirstGoal";
 
@@ -160,6 +160,14 @@ export default function Team() {
         {!d.next.length ? <p className="muted">No upcoming match loaded.</p>
           : cards.length ? <div className="fgrid">{cards.map((f) => <ForecastCard key={f.id} f={f} teams={nextTeams} homeIid={d.next[0].home_iid} showTime={false} testid={`team-fc-${f.id}`} />)}</div>
           : <p className="muted small">No forecasts for this club yet.</p>}
+      </section>
+      {/* The interrogation the player page has had since it was written, and the club did not:
+          pick a stat, a line, a window and a venue and read the run game by game. QuickView took a
+          `playerId` only, so this half of the product had no evidence block at all -- and "what
+          about 4+, and only away?" is exactly the question a club line raises. */}
+      <section className="card" data-testid="team-quick-view-card">
+        <h2 className="h3">The last ten, and any other line</h2>
+        <QuickView teamId={id} forecasts={d.forecasts || []} testid="team-quick-view" />
       </section>
       <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "squad", label: "Squad" }, { id: "totals", label: "Numbers" }, { id: "fixtures", label: "Fixtures" }]} />
       {tab === "squad" && (

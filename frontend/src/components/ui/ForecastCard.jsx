@@ -99,8 +99,16 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
             "Last 10". */}
         {f.p_usual != null && <div className="v2-cmp" data-testid={`${id}-cmp`}>
           <span className="v2-cmp-u">Usual <b>{pct(f.p_usual)}</b></span>
+          {/* This said "his average 4.8", and it is not an average of anything he has done
+              (docs/redesign/v3/audit/METRICS.md §4.2) -- it is the count his usual game implies for
+              this line. So the label invited the reader to check it against the strip's own numbers
+              (2, 1, 3, 2, 4, 4, 1, 6, 4, 10 -- mean 3.7) and find the card wrong about itself.
+              `expected`, the count expected against THIS opponent, was stored on every forecast and
+              drawn nowhere. With the two side by side the pair is the headline restated in counts,
+              counted the same way the strip underneath counts. */}
           {f.expected_usual != null && <span className="v2-cmp-a" data-testid={`${id}-usual`}>
-            {f.scope === "player" ? "his" : "their"} average <b>{f.expected_usual.toFixed(1)}</b></span>}
+            {f.expected != null && <><b>{f.expected.toFixed(1)}</b> tonight · </>}
+            usually <b>{f.expected_usual.toFixed(1)}</b></span>}
           {dep != null && <b className={"v2-cmp-d " + dir} data-testid={`${id}-dep`}>{dep > 0 ? "+" : ""}{dep}</b>}
         </div>}
         {tk && tk.state !== "unknown" && <div className="lv-row"><Track t={tk} id={id} /></div>}

@@ -495,6 +495,9 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
   border-radius: 0; background: none; padding: 0 2px;
 }
 .pgs-g .pgs-min { font-size: 10px; font-stretch: 85%; color: var(--text3); }
+/* Same here, and weight only for the same reason. The screen-reader line says "at home against" /
+   "away against" in full, so nothing depends on seeing the difference. */
+.pgs-g .pgs-min.away { font-weight: 450; }
 .pgs-g .pgs-v {
   background: none; min-height: 0; padding: 0; display: block;
   font-size: 12px; font-stretch: 92%; font-weight: 600; color: var(--text3);
@@ -527,7 +530,14 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 
 /* The market and the line are the question this box answers, so they lead the controls and the
    refinements follow. All of it on one wrapped row instead of five full-width stacked ones. */
-.v2-qv { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+/* .qv is a grid, so each block in it is a grid item, and a grid item's automatic minimum size is
+   its min-content -- which the Line control, with a club's sixteen rungs, pushed to 857px inside a
+   390px phone. The whole Quick view then overflowed sideways: the strip, the head and the filters
+   all stretched to that width. minmax(0, 1fr) says the column may not exceed the container, which
+   is what every block in here already assumes. */
+.qv { grid-template-columns: minmax(0, 1fr); }
+.v2-qv { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-width: 0; }
+.v2-qv .seg2 { max-width: 100%; }
 .v2-qv > * { flex: 0 1 auto; width: auto; min-width: 0; }
 .v2-qv select { width: auto; min-width: 150px; }
 .v2-qv .check-inline { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; color: var(--text2); }
@@ -870,6 +880,11 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .v2-cr-g.on .v2-cr-v { color: var(--up); border-top-color: var(--up); }
 .v2-cr-m { font-size: .5rem; letter-spacing: .02em; color: var(--text3); font-variation-settings: "wdth" 70, "wght" 600; }
 .v2-cr-m.low { color: var(--tier-watch); }      /* a short appearance is context, not a bad game */
+/* A club fills this row with H or A instead of minutes. Away is the quieter of the two so a column
+   of H with one A stands out -- but by WEIGHT only, not by opacity or colour: the row is already
+   0.5rem, and anything that thins the ink would put it under the contrast floor this palette is
+   measured against. The letter itself is the signal; the weight is only emphasis. */
+.v2-cr-m.away { font-variation-settings: "wdth" 70, "wght" 450; }
 .v2-cr-o { font-size: .5rem; color: var(--text3); font-variation-settings: "wdth" 68, "wght" 700; }
 
 /* Tonight is the line itself, not a count: it has not happened, so it is drawn as the target. */

@@ -89,4 +89,14 @@ none_rows = Q.finder(db, "form", "shots", 1, last_n=10, day="2031-01-01", now=no
 check(none_rows == [], "finder with a day that has no matches returns nothing")
 lk = Q.finder(db, "likelihood", "shots", 1, day=day, now=now)
 check(lk and all(x["kickoff"].date().isoformat() == day for x in lk), "finder likelihood with a date: only that day")
+# The club's Quick view offers a Venue control, which was a lie until team_history could honour it.
+t_iid = db.team_match_stats.find_one({"corners": {"$ne": None}})["team_iid"]
+allg = Q.team_history(db, t_iid, "corners", 40)["games"]
+home = Q.team_history(db, t_iid, "corners", 40, "home")["games"]
+away = Q.team_history(db, t_iid, "corners", 40, "away")["games"]
+check(len(allg) > 0 and len(home) + len(away) == len(allg), "team history: home plus away is the whole run")
+check(all(g["home"] for g in home) and not any(g["home"] for g in away), "...and each half holds only its own venue")
+check(Q.team_history(db, t_iid, "corners", 40, "elsewhere")["games"] == allg, "an unknown venue filters nothing rather than everything")
+check(all(g.get("home") is not None for g in allg), "every row says where it was played, which is what the strip draws")
+
 print("\nALL QUERY CHECKS PASSED")

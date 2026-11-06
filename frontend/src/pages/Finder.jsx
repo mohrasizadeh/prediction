@@ -116,7 +116,7 @@ export default function Finder() {
   const [presets, setPresets] = useState(() => { try { return JSON.parse(localStorage.getItem(PRESETS)) || []; } catch { return []; } });
   const fav = useFavLeagues();
   useEffect(() => {
-    if (!me?.user) return;
+    if (!me?.user?.id) return;
     get("/me/presets").then((r) => {
       const local = JSON.parse(localStorage.getItem(PRESETS) || "[]");
       const merged = [...r.items, ...local.filter((p) => !r.items.some((x) => x.name === p.name))].slice(0, 8);

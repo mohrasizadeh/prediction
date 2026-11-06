@@ -14,6 +14,11 @@ import { AnswerBlock, LadderList, SubjectHead, WhyList } from "./Subject";
 import { timeOf } from "./ForecastCard";
 import { posLabel } from "../Football";
 
+// A match market (match_yellow_cards and the rest) is stored with scope "team" against the home
+// side, so scope alone cannot tell a club line from a fixture line. The stat prefix can, and
+// Subject.jsx reads it the same way.
+const isMatchLine = (f) => !!f.stat?.startsWith("match_");
+
 function useSheetData(open, f) {
   const [d, setD] = useState({ games: null, record: null });
   useEffect(() => {
@@ -22,9 +27,12 @@ function useSheetData(open, f) {
     // Keep the API's rows whole. This used to map each game to a single true/false, which threw away the
     // opponent, the minutes and the figure itself -- everything the strip needs to say more than "yes/no" (docs/45).
     const strip = (r) => { if (!stop) setD((x) => ({ ...x, games: r.games || [] })); };    // team lines only
-    // A player's history is fetched by the QuickView below, which can change the window and the filters; asking
-    // for it here as well would be the same call twice (docs/48).
-    if (f.scope === "team" && f.team?.id) get(`/teams/${f.team.id}/history`, { stat: f.stat, last: 10 }).then(strip).catch(() => {});
+    // History is fetched by the QuickView below, which can change the stat, the window and the
+    // venue; asking for it here as well would be the same call twice (docs/48). That now holds for
+    // a club as well as a player, so only a MATCH line still needs the plain strip fetched here --
+    // a match line is stored with scope "team" against the home side, but it is about the fixture,
+    // not about that club, so there is no entity to interrogate.
+    if (isMatchLine(f) && f.team?.id) get(`/teams/${f.team.id}/history`, { stat: f.stat, last: 10 }).then(strip).catch(() => {});
     get("/track-record", { scope: f.scope, stat: f.stat }).then((r) => { if (!stop) setD((x) => ({ ...x, record: r })); }).catch(() => {});
     return () => { stop = true; };
   }, [open, f]);
@@ -96,22 +104,25 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       {rng && <p className="k-faint k-small sr-only" data-testid={`${testid}-range-note`}>That range is how sure we are: the wider it is, the less sure the forecast.</p>}
       {/* For a player, the full Quick view, opened on the line being looked at: the reader's next question is
           almost always "what about 2+, or only at home", and that used to mean leaving the sheet (docs/48). */}
-      {f.scope === "player" && f.player?.id && (
+      {(f.scope === "player" ? f.player?.id : !isMatchLine(f) && f.scope === "team" ? f.team?.id : null) && (
         <>
           {/* AnswerBlock states the likelihood above, so the Quick view must not state it again --
               it was the third printing of the same number in one panel. Filters start closed here:
               a 190px control console is most of a phone screenful inside a modal. */}
-          <QuickView playerId={f.player.id} stat={f.stat} line={Math.floor(f.thr) + 1} title="The last ten, and any other line"
+          <QuickView playerId={f.scope === "player" ? f.player.id : undefined}
+                     teamId={f.scope === "team" ? f.team.id : undefined}
+                     stat={f.stat} line={Math.floor(f.thr) + 1} title="The last ten, and any other line"
                      collapsible defaultOpen={false} showForecast={false}
                      forecasts={[f, ...(f.more_lines || [])]} testid={`${testid}-qv`} />
-          <Link to={`/player/${f.player.id}`} className="v2-fs-open" data-testid={`${testid}-open-player`}>
-            Open {f.player.name}&rsquo;s page
+          <Link to={f.scope === "player" ? `/player/${f.player.id}` : `/team/${f.team.id}`} className="v2-fs-open"
+                data-testid={f.scope === "player" ? `${testid}-open-player` : `${testid}-open-team`}>
+            Open {(f.scope === "player" ? f.player.name : f.team.name)}&rsquo;s page
           </Link>
         </>
       )}
-      {/* A team line has no Quick view, so it keeps the plain strip. Only when the feed carries the stat: a strip
-          of dashes says nothing. */}
-      {f.scope !== "player" && d.games?.some((g) => g[f.stat] != null) && (
+      {/* A match line has no entity behind it, so it keeps the plain strip. Only when the feed
+          carries the stat: a strip of dashes says nothing. */}
+      {isMatchLine(f) && d.games?.some((g) => g[f.stat] != null) && (
         <section>
           <h3 className="k-sec">Last {d.games.filter((g) => g[f.stat] != null).length} games · {f.market}</h3>
           <GameStrip games={d.games} stat={f.stat} line={Math.floor(f.thr) + 1} label={f.market} testid={`${testid}-hits`} />

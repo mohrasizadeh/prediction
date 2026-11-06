@@ -128,11 +128,11 @@ def league(league_id: str, response: Response, db=Depends(D.get_db)):
 
 
 @router.get("/teams/{team_id}/history")
-def team_history(team_id: str, response: Response, stat: str = Query(..., pattern="^(shots|sot|tackles|corners|yellow_cards|match_yellow_cards|goals|fouls)$"),
-                 last: int = Query(10, ge=1, le=40), db=Depends(D.get_db)):
+def team_history(team_id: str, response: Response, stat: str = Query(..., pattern="^(shots|sot|tackles|corners|yellow_cards|match_yellow_cards|goals|fouls|xg)$"),
+                 last: int = Query(10, ge=1, le=40), venue: str = Query("", pattern="^(home|away)?$"), db=Depends(D.get_db)):
     tid = _iid(db, "teams", team_id)
     _cache(response)
-    return Q.team_history(db, tid, stat, last)
+    return Q.team_history(db, tid, stat, last, venue)
 
 
 @router.get("/teams/{team_id}/squad-season")
