@@ -98,7 +98,10 @@ def assign(db, rec: Record | None, f: dict, strong_needs_lineup: bool = True) ->
         est, n = rec.earned(scope, f["stat"], w)
         if n < rec.min_n:
             if t == "Strong":
-                t, note = "Solid", "Strong needs more finished matches to back it"
+                # "finished matches" read as this player's matches, which are drawn on the card
+                # right below the note -- ten of them. It never meant those: it means OUR OWN
+                # settled forecasts, the sample the track record is measured on. Say that.
+                t, note = "Solid", "Held at Solid until our record on these lines is measured"
         else:
             if t == "Strong" and est < s_min - 0.02:
                 t, note = ("Solid" if est >= so_min - 0.02 else "Watch"), f"Similar lines happened {round(est * 100)}% of the time"

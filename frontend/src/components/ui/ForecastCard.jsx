@@ -46,6 +46,11 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
   const [sheet, setSheet] = useState(false);
   const fx = fixtureOf(f, teams, homeIid);
   const more = [...(f.more_lines || [])].sort((a, b) => b.p - a.p);
+  // The lead line is the one with the most to say, which is often not the likeliest one this
+  // player has. Reported: a safer line sitting at 92% was invisible behind "+3 more lines", so the
+  // card looked like the player's best was the number on its face. The control now says what is
+  // behind it whenever something behind it is likelier.
+  const topMore = more.length && f.p != null && more[0].p > f.p ? more[0] : null;
   const venueKnown = (f.home_iid ?? homeIid) != null;
   const sub = f.stat?.startsWith("match_") ? "Both teams"
     : [f.player && fx.team?.name, fx.opp ? `vs ${fx.opp.name}` : fx.text, !f.player && venueKnown && fx.opp ? (fx.homeFirst ? "home" : "away") : null].filter(Boolean).join(" · ");
@@ -133,7 +138,8 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
       </button>
       {(more.length > 0 || lineup || (showTime && f.kickoff)) && (
         <footer className="k-fc-foot">
-          {more.length > 0 ? <button type="button" className="k-link" aria-expanded={open} onClick={() => setOpen(!open)} data-testid={`${id}-more`}>{open ? "Hide other lines" : `+${more.length} more line${more.length === 1 ? "" : "s"}`}</button> : <span />}
+          {more.length > 0 ? <button type="button" className="k-link" aria-expanded={open} onClick={() => setOpen(!open)} data-testid={`${id}-more`}>{open ? "Hide other lines" : `+${more.length} more line${more.length === 1 ? "" : "s"}`}
+            {!open && topMore && <em className="v2-more-top" data-testid={`${id}-more-top`}>up to {pct(topMore.p)}</em>}</button> : <span />}
           <span className="k-fc-foot-r">{lineup && <span className={`k-tag${sure ? " k-tag--up" : ""}${muted ? " k-tag--muted" : ""}`} data-testid={`${id}-badge`}>{lineup}</span>}
             {showTime && f.kickoff && <small className="k-fc-date" data-testid={`${id}-date`}>{timeOf(f.kickoff)}</small>}</span>
         </footer>

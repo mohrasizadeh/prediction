@@ -17,7 +17,7 @@ F = lambda p, lo, badge="confirmed", play=1.0, scope="player", stat="shots": {"p
 # no results yet: thresholds only, and Strong is capped at Solid because nothing backs it
 rec = TI.Record(db)
 t, _ = TI.assign(db, None, F(0.93, 0.88)); check(t == "Strong", "confirmed 93% with a wide low end is Strong when no record is used")
-t, n = TI.assign(db, rec, F(0.93, 0.88)); check(t == "Solid" and "more finished matches" in n, "with no results behind it Strong drops to Solid")
+t, n = TI.assign(db, rec, F(0.93, 0.88)); check(t == "Solid" and "our record" in n, "with no results behind it Strong drops to Solid")
 t, _ = TI.assign(db, None, F(0.85, 0.75)); check(t == "Solid", "85% is Solid")
 t, _ = TI.assign(db, None, F(0.78, 0.7)); check(t == "Watch", "78% is Watch: Solid is 80% now")
 # before the lineup: whole chance

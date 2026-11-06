@@ -223,11 +223,13 @@ def suggest(db, match_iid: int, mode: str = "balanced") -> dict:
         raise ComboError("BAD_MODE", "Mode is safer, balanced or bolder.")
     m = MODES[mode]
     cand = list(db.forecasts.find({**Q.NOT_HIDDEN, "match_iid": match_iid, "tier": {"$ne": None}}, {"_id": 0, "contrib": 0}))
-    ok = []
+    ok, gated, reachable = [], 0, []
     for d in cand:
         if d["scope"] == "player" and d.get("lineup_badge") not in ("confirmed", "likely"):
+            gated += 1
             continue                                              # never suggest a player we are unsure will play
         c = chance(d)
+        reachable.append(c)
         if c >= m["min_q"]:
             ok.append((c if m["rank"] == "q" else float(d.get("edge", 0.0)) + 0.25 * c, d))
     ok.sort(key=lambda t: -t[0])
@@ -240,7 +242,21 @@ def suggest(db, match_iid: int, mode: str = "balanced") -> dict:
         if len(chosen) == m["n"]:
             break
     if len(chosen) < 2:
-        return {"mode": mode, "lines": [], "reason": "Not enough confident lines for this match yet."}
+        # "None yet" read as "we have not worked it out", so the reader went looking for the lines
+        # they could see on the cards. Nothing is missing: this match simply has no two lines that
+        # clear the bar once the chance to play is counted. Say which, and how close it gets.
+        best = max(reachable) if reachable else None
+        if best is None and gated:
+            reason = "Lineups are not out, so there is no one here we are sure will play."
+        elif best is None:
+            reason = "No lines for this match yet."
+        else:
+            reason = (f"No two lines in this match reach {round(m['min_q'] * 100)}% once the chance to play "
+                      f"is counted. The best single line is {round(best * 100)}%.")
+            if gated:
+                reason += f" {_s(gated, 'line')} left out because the lineup is not sure."
+        return {"mode": mode, "lines": [], "reason": reason,
+                "best": round(best, 4) if best is not None else None, "min_q": m["min_q"]}
     est = _with_match(db, _report(Q._decorate(db, chosen), list(S.get(db, "combo.pre_factors"))))
     est["mode"] = mode
     return est

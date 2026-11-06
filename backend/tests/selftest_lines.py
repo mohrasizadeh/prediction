@@ -104,7 +104,7 @@ check(all(r["tier"] in ("Watch", None) for r in plain), "other players stay at m
 # introduced ("Solid once the lineup is confirmed", on a line held back by the chance to play rather than by the
 # lineup rule). Match the shapes instead.
 import re as _re
-OK_NOTE = (None, "Watch until lineups are out", "On the bench: Watch only", "Strong needs more finished matches to back it")
+OK_NOTE = (None, "Watch until lineups are out", "On the bench: Watch only", "Held at Solid until our record on these lines is measured")
 _SHAPES = (r"^(Strong|Solid) once the lineup is confirmed$", r"^Similar lines happened \d+% of the time$")
 bad = [r["tier_note"] for r in pre
        if r["tier_note"] not in OK_NOTE and not any(_re.match(x, str(r["tier_note"])) for x in _SHAPES)]

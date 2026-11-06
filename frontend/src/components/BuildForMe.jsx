@@ -45,7 +45,11 @@ export default function BuildForMe({ matchId }) {
               <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} className={"cb-mode" + (mode === m.id ? " on" : "")} onClick={() => setMode(m.id)} data-testid={`combo-mode-${m.id}`}>
                 <span className="cb-radio" aria-hidden="true" />
                 <span className="cb-mode-t"><b>{m.label}</b><small>{m.sub}</small></span>
-                <span className="cb-mode-p">{!r ? "…" : r.lines?.length ? <><b>{pct(r.combined)}</b><small>{r.plain}</small></> : <small>None yet</small>}</span>
+                <span className="cb-mode-p">{!r ? "\u2026" : r.lines?.length
+                  ? <><b>{pct(r.combined)}</b><small>{r.plain}</small></>
+                  /* "None yet" sounded like something was still loading. What it means is that
+                     this match does not get there, and the reader is owed the distance. */
+                  : <small className="cb-mode-none">{r.best != null ? <>best line {pct(r.best)}</> : "Not available"}</small>}</span>
               </button>
             );
           })}
