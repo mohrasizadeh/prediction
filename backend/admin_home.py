@@ -13,8 +13,32 @@ import settings_store as S
 import sportapi as SP
 
 
+# admin_queries.health() already warns at 3 hours with no job of any kind. A feed is given longer
+# because a quiet night is normal, and the engine longer again because it runs on a matchday rhythm.
+STALE_SYNC = timedelta(hours=6)
+STALE_ENGINE = timedelta(hours=26)
+
+
 def _tone(used, cap):
     return "red" if cap and used >= cap else "amber" if cap and used >= 0.8 * cap else "green"
+
+
+def _age_tone(last, limit, *, never="red"):
+    """Red when it has never happened, red when it is older than `limit`, amber from four fifths.
+
+    _tone above keys on budget use alone, and a pipeline that has stopped makes no calls at all, so
+    a dead feed scored zero against its cap and came out the GREENEST thing on the dashboard -- at
+    the same moment Health was saying no job had run in three hours. Time is the signal that
+    matters for "is it running"; quota is only the signal for "is it about to stop".
+    """
+    if last is None:
+        return never
+    age = datetime.now(timezone.utc) - A._aware(last)
+    return "red" if age > limit else "amber" if age > 0.8 * limit else "green"
+
+
+def _worst(*tones):
+    return "red" if "red" in tones else "amber" if "amber" in tones else "green"
 
 
 def tiles(db, now: datetime) -> list[dict]:
@@ -22,9 +46,12 @@ def tiles(db, now: datetime) -> list[dict]:
     reset = day0 + timedelta(days=1)
     h = AQ.health(db, now)
     sync = db.job_runs.find_one({"job": {"$in": ["fixtures_sync", "results_sync"]}, "status": "ok"}, {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
-    data = {"id": "data", "module": "pitchapi", "title": "Data", "tone": "red" if h["breaker_open"] else _tone(h["api_calls_today"], h["api_budget"]),
+    last_sync = (sync or {}).get("finished_at") or (sync or {}).get("started_at")
+    data = {"id": "data", "module": "pitchapi", "title": "Data",
+            "tone": "red" if h["breaker_open"] else _worst(_tone(h["api_calls_today"], h["api_budget"]),
+                                                           _age_tone(last_sync, STALE_SYNC)),
             "provider": "PitchAPI", "used": h["api_calls_today"], "cap": h["api_budget"], "reset_at": reset,
-            "last_sync": (sync or {}).get("finished_at") or (sync or {}).get("started_at"), "breaker_open": h["breaker_open"]}
+            "last_sync": last_sync, "breaker_open": h["breaker_open"]}
     sp = SP.status(db, now)
     live = {"id": "live", "module": "sportapi", "title": "Live", "tone": _tone(sp["calls_today"], sp["cap"]) if sp["enabled"] else "off",
             "provider": "SportAPI", "enabled": sp["enabled"], "used": sp["calls_today"], "cap": sp["cap"], "by_kind": sp["by_kind"], "reset_at": reset,
@@ -32,7 +59,10 @@ def tiles(db, now: datetime) -> list[dict]:
     run = db.job_runs.find_one({"job": {"$regex": "^engine"}}, {"_id": 0, "started_at": 1, "status": 1}, sort=[("started_at", -1)])
     bad = db.job_runs.count_documents({"job": {"$regex": "^engine"}, "status": "error", "started_at": {"$gte": now - timedelta(hours=24)}})
     own = db.engine_calibration.find_one({"active": True}, {"_id": 1})
-    engine = {"id": "engine", "module": "engine", "title": "Engine", "tone": "red" if (run or {}).get("status") == "error" else "amber" if bad else "green",
+    engine = {"id": "engine", "module": "engine", "title": "Engine",
+              "tone": "red" if (run or {}).get("status") == "error"
+                      else _worst("amber" if bad else "green",
+                                  _age_tone((run or {}).get("started_at"), STALE_ENGINE)),
               "last_run": (run or {}).get("started_at"), "forecasts": db.forecasts.count_documents({"is_current": True}),
               "map": "off" if CAL.current(db) is None else ("own" if own else "default"), "errors_24h": bad}
     review = db.image_map.count_documents({"status": "review"})

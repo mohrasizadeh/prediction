@@ -202,6 +202,13 @@ export default function AdminApp() {
               return rs;
             })}
             {MOVED.map(([from, to]) => <Route key={from} path={from} element={<Navigate to={to} replace />} />)}
+            {/* Only the dashboard module owns "/", and it is gated on analytics.read -- which the
+                support role does not have. A support account therefore signed in and landed on
+                "Not here", and the rail's own Control room brand link was permanently dead for
+                them. Send a role that cannot see Home to the first tool it CAN see. */}
+            {!d.modules.some((m) => (sub(m.route) || "/") === "/") && d.modules.length > 0 && (
+              <Route path="/" element={<Navigate to={sub(d.modules[0].route)} replace />} />
+            )}
             <Route path="*" element={<div className="a-soon" data-testid="admin-not-found"><h1>Not here</h1><p>This tool does not exist or your role cannot use it.</p></div>} />
           </Routes>
           </Boundary>
