@@ -219,7 +219,7 @@ def _goal_lines(db, m, probs, run_id, now, labels, usual=None) -> list[dict]:
                     "thr_personal": None, "is_personal": False, "expected_usual": None,
                     # docs/56: a match total has no single opponent to be sensitive to, so its span is unknown
                     # rather than small. Unknown is never treated as trivial.
-                    "span": None, "p_start": None,
+                    "span": None, "span_lo": None, "span_hi": None, "span_pos": None, "p_start": None,
                     "ladder": ladder, "model": "strength", "is_current": True, "hidden": False, "created_at": now})
     return out
 
@@ -383,6 +383,15 @@ def run_league(db, league_iid: int, now=None) -> dict:
             if f.thr_personal is not None and not is_own:
                 t, tier_note = None, None
             p_usual = p_usual_raw
+            # Where tonight's opponent sits in the league's range for THIS rung, 0 = the meanest
+            # defence, 1 = the leakiest. Computed entirely in the model's own space, because the
+            # published p has been calibrated and anchored while span_lo/span_hi have not -- mixing
+            # them produced a "leakiest" end below the published number, which is the sort of
+            # self-contradiction a reader is right to distrust. A position is scale-free, so it
+            # survives that difference; the two raw ends stay stored but are not for display.
+            span_pos = None
+            if f.span_lo is not None and f.span_hi is not None and abs(f.span_hi - f.span_lo) > 1e-9:
+                span_pos = min(1.0, max(0.0, (float(f.p) - float(f.span_lo)) / (float(f.span_hi) - float(f.span_lo))))
             fkey = f"{m['iid']}:{f.scope}:{f.team}:{f.player or 0}:{f.stat}:{f.thr:g}"
             docs.append({"id": str(uuid.uuid4()), "fkey": fkey, "run_id": run_id, "match_iid": m["iid"], "league_iid": league_iid,
                          "kickoff": m["kickoff"], "scope": f.scope, "team_iid": int(f.team), "opp_iid": int(f.opp),
@@ -402,6 +411,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          # docs/52: the entity's own 50% line, and the count it manages in its usual game
                          # docs/56: how far this rung's likelihood moves across the league's range of opponents
                          "span": (float(f.span) if f.span is not None else None),
+                         "span_lo": (float(f.span_lo) if f.span_lo is not None else None),
+                         "span_hi": (float(f.span_hi) if f.span_hi is not None else None),
+                         "span_pos": span_pos,
                          "p_start": (float(f.p_start) if f.p_start is not None else None),
                          "thr_personal": (float(f.thr_personal) if f.thr_personal is not None else None),
                          "is_personal": (f.thr_personal is not None and abs(float(f.thr) - float(f.thr_personal)) < 1e-9),

@@ -1154,3 +1154,19 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .v2-ll-act { display: inline-flex; align-items: center; gap: 2px; }
 .v2-ll-act .icon-btn { min-width: 36px; min-height: 36px; }
 .v2-ll-act .icon-btn.is-on { color: var(--brand); }
+
+/* ============================================================ 29. A fixture row reaches its clubs
+   The row was one anchor to the match, so the club names could not be links and there was no route
+   at all from a league fixture to a club page. The match link is a stretched hit area behind the
+   row; the clubs sit above it. Both are real links, neither is nested in the other. */
+.mrow { position: relative; }
+.mrow-hit { position: absolute; inset: 0; z-index: 0; border-radius: inherit; }
+.mrow-hit:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.mrow > :not(.mrow-hit) { position: relative; z-index: 1; }
+.mrow-club { color: inherit; text-decoration: none; border-radius: 6px; }
+.mrow-club:hover { text-decoration: underline; }
+.mrow-club:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* What the opponent is worth on this line -- the one quantity a counting tool cannot produce. */
+.v2-ans-span { margin: 8px 0 0; font-size: .8125rem; line-height: 1.4; color: var(--text2);
+  font-variation-settings: "wdth" 94, "wght" 500; }

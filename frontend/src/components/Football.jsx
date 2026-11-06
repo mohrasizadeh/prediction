@@ -145,20 +145,30 @@ export function MatchRow({ m }) {
   const final = m.status === "final" && m.hg != null;
   const p = m.probs;
   const best = m.best_line;
+  // The row was a single anchor to the match, so the club names could not be links -- nesting one
+  // anchor inside another is invalid -- and there was no route at all from a league fixture to a
+  // club page. The match link is now a stretched hit area behind the row, which keeps the whole
+  // row tappable and its testid, and the two club names sit above it as real links.
+  const club = (t, end) => (t?.id
+    ? <Link to={`/team/${t.id}`} className={"team mrow-club" + (end ? " team--end" : "")} data-testid={`mrow-club-${t.id}`}>
+        {end ? <>{t.name} <Crest team={t} size={20} /></> : <><Crest team={t} size={20} /> {t.name}</>}
+      </Link>
+    : <span className={"team" + (end ? " team--end" : "")}>{end ? <>{"Away"} <Crest team={t} size={20} /></> : <><Crest team={t} size={20} /> {"Home"}</>}</span>);
   return (
-    <li>
-      <Link to={`/match/${m.id}`} className="mrow" data-testid={`match-row-${m.id}`}>
+    <li className="mrow-li">
+      <div className="mrow">
+        <Link to={`/match/${m.id}`} className="mrow-hit" aria-label={`${m.home?.name || "Home"} v ${m.away?.name || "Away"}, open the match`} data-testid={`match-row-${m.id}`} />
         <time className="mrow-time">{final ? shortDay(m.kickoff) : kickoff(m.kickoff)}</time>
-        <span className="team"><Crest team={m.home} size={20} /> {m.home?.name || "Home"}</span>
+        {club(m.home, false)}
         <span className="mrow-score">{final ? `${m.hg} – ${m.ag}` : "v"}</span>
-        <span className="team team--end">{m.away?.name || "Away"} <Crest team={m.away} size={20} /></span>
+        {club(m.away, true)}
         {!final && p && <span className="mrow-bar"><WdlBar home={p.p_home} draw={p.p_draw} away={p.p_away} homeName={m.home?.name} awayName={m.away?.name} testid={`mrow-wdl-${m.id}`} /></span>}
         {/* A count is not a value: every fixture has a similar number of lines, so "14 insights"
             never helped anyone choose. The row says the one line most worth reading instead. */}
         {best?.market && <span className="mrow-best" data-testid={`mrow-best-${m.id}`}>
           <b>{best.who}</b> {best.market} <em>{Math.round((best.p || 0) * 100)}%</em>
         </span>}
-      </Link>
+      </div>
     </li>
   );
 }

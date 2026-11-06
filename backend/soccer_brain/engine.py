@@ -132,6 +132,11 @@ class Forecast:
                                         # about THIS fixture -- every opponent gives nearly the same answer -- so it
                                         # should not lead a card. None means unknown; unknown is never treated as
                                         # trivial.
+    span_lo: float | None = None        # the same rung against the MEANEST defence in the league, and against the
+    span_hi: float | None = None        # leakiest. Both were already computed to get `span` and then thrown away,
+                                        # which left the product's one genuinely distinctive quantity as an
+                                        # abstract width nobody could read. With the two ends a card can say what
+                                        # the opponent is actually worth: "against the meanest 58%, the leakiest 79%".
     p_start: float | None = None        # his chance to START (docs/55). p_play is the chance to feature, which is
                                         # near 1 for a regular substitute, so a gate on p_play does not catch him.
 
@@ -943,9 +948,10 @@ class SoccerEngine:
                     k = int(np.floor(thr)) + 1
                     p = float(nb_sf(k, mu_team[s], self.glm[s].r))
                     # docs/56: the same rung against the leakiest and the meanest defence in the league
-                    span = (abs(float(nb_sf(k, mu_team[s] * np.exp(dlog), self.glm[s].r))
-                                - float(nb_sf(k, mu_team[s] * np.exp(-dlog), self.glm[s].r)))
-                            if dlog > 1e-6 else None)
+                    # keep the two ends, not only the distance between them
+                    s_hi = float(nb_sf(k, mu_team[s] * np.exp(dlog), self.glm[s].r)) if dlog > 1e-6 else None
+                    s_lo = float(nb_sf(k, mu_team[s] * np.exp(-dlog), self.glm[s].r)) if dlog > 1e-6 else None
+                    span = abs(s_hi - s_lo) if dlog > 1e-6 else None
                     pd_ = nb_sf(k, mu_team[s] * u, self.glm[s].r)
                     lo, hi = np.percentile(pd_, [10, 90])
                     hist = self.tg_hist.get(team)
@@ -957,7 +963,8 @@ class SoccerEngine:
                                         opp_tactics=opp_tac, own_tactics=own_tac,
                                         opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
                                         rotation=rot[team][0], rotation_why=rot[team][1], p_usual=p_usual,
-                                        thr_personal=thr_own, expected_usual=float(mu_usual[s]), span=span))
+                                        thr_personal=thr_own, expected_usual=float(mu_usual[s]), span=span,
+                                        span_lo=s_lo, span_hi=s_hi))
 
             # ---- player markets
             squad = self.squads.get(team, {})
@@ -1015,14 +1022,15 @@ class SoccerEngine:
                         lo, hi = float(lo), float(hi)
                         # docs/56: the opponent reaches a player through mu_team, so the span is measured by moving
                         # the whole expectation over the league's range of defences, mixture and all.
-                        span = (abs(float(np.sum(probs * nb_sf(k, mus * np.exp(dlog), self.r_player[s])))
-                                    - float(np.sum(probs * nb_sf(k, mus * np.exp(-dlog), self.r_player[s]))))
-                                if dlog > 1e-6 else None)
+                        s_hi = float(np.sum(probs * nb_sf(k, mus * np.exp(dlog), self.r_player[s]))) if dlog > 1e-6 else None
+                        s_lo = float(np.sum(probs * nb_sf(k, mus * np.exp(-dlog), self.r_player[s]))) if dlog > 1e-6 else None
+                        span = abs(s_hi - s_lo) if dlog > 1e-6 else None
                         if self.cond_play:                  # divide out the chance to play: "if he plays" (docs/27)
                             d = max(float(pplay), 1e-3)
                             p, lo, hi, p_base = (min(v / d, 0.999) for v in (p, lo, hi, p_base))
                             if span is not None:            # the span is in the same units as p, so it scales with it
                                 span = min(span / d, 1.0)
+                                s_lo, s_hi = min(s_lo / d, 1.0), min(s_hi / d, 1.0)
                             expected_c = expected / d
                         else:
                             expected_c = expected
@@ -1034,7 +1042,8 @@ class SoccerEngine:
                                             rotation=rot[team][0], rotation_why=rot[team][1],
                                             p_play_usual=usual_ps.get(pid), p_usual=p_base,
                                             rec_k=int((last40 > thr).sum()), rec_n=int(len(last40)),
-                                            thr_personal=thr_own, span=span, p_start=float(ps_start),
+                                            thr_personal=thr_own, span=span, span_lo=s_lo, span_hi=s_hi,
+                                            p_start=float(ps_start),
                                             expected_usual=(mu_usual_p / max(float(pplay), 1e-3)) if self.cond_play else mu_usual_p))
         mh, ma = (1.0, 1.0)
         if self.match_context and match_ctx:

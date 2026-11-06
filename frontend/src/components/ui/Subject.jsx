@@ -18,6 +18,30 @@ import { TierBadge } from "./Marks";
 
 const BADGE = { confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" };
 
+// docs/56 calls `span` the quantity that separates a forecast from a count: how far this rung moves
+// between the meanest defence in the league and the leakiest. It was computed on every line, used
+// only as a hidden gate, and had no frontend reference at all -- the product's most distinctive
+// number was invisible. This says it.
+//
+// Only the WIDTH and the POSITION are shown, never the two raw ends. The ends are the model's own
+// output while the published likelihood has been calibrated and anchored, so printing them beside
+// it produced a "leakiest" figure below the headline. A width and a position are scale-free and
+// survive that difference; the ends stay in the record for the engine's own use.
+const MIN_SPAN = 0.05;
+function spanLine(f) {
+  if (f.span == null) return null;                       // unknown is not the same as small
+  const pts = Math.round(Math.abs(f.span) * 100);
+  if (Math.abs(f.span) < MIN_SPAN) {
+    return `Much the same against any defence in the league — about ${pts} point${pts === 1 ? "" : "s"} between the hardest and the easiest.`;
+  }
+  const pos = f.span_pos;
+  const where = pos == null ? null
+    : pos >= 0.67 ? "and tonight's is a kinder one than most"
+    : pos <= 0.33 ? "and tonight's is a harder one than most"
+    : "and tonight's is about average";
+  return `The defence is worth about ${pts} points on this line${where ? `, ${where}` : ""}.`;
+}
+
 // Who this is about. A club line used to open a panel that never named the club and never linked to
 // it; a match line named neither side. The subject is always named, and always reachable.
 export function SubjectHead({ f, fx, size = "sheet", action, testid = "ui-subject-head" }) {
@@ -106,6 +130,8 @@ export function AnswerBlock({ f, size = "sheet", testid = "ui-answer" }) {
           {dep != null && <b className={`v2-cmp-d ${dir}`}>{dep > 0 ? "+" : ""}{dep}</b>}
         </p>
       )}
+      {/* What the opponent is actually worth here. */}
+      {spanLine(f) && <p className="v2-ans-span" data-testid={`${testid}-span`}>{spanLine(f)}</p>}
       {(lineup || plays != null) && (
         <p className="v2-ans-lineup">
           {lineup}
