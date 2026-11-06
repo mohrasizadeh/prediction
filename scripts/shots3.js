@@ -156,17 +156,25 @@ const dismiss = async (page) => {
   console.log(`${picked.length} screens x ${VIEWS.length} views x ${SCHEMES.length} schemes`);
 
   let shot = 0; const failed = [], redirected = [], notOffered = [];
-  let authState = null, secret = null;
+  const SECRET_FILE = '/tmp/claude-shots3-2fa-secret.txt';
+  let authState = null;
+  let secret = fs.existsSync(SECRET_FILE) ? fs.readFileSync(SECRET_FILE, 'utf8').trim() : null;
   if (picked.some((j) => j.auth)) {
     const c = await browser.newContext({ viewport: VIEWPORTS.desk });
     const sp = await c.newPage();
     try {
-      await sp.goto(`${BASE}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 20000 });
-      await sp.waitForTimeout(1000); await dismiss(sp);
-      await sp.fill('input[type="email"]', OWNER);
-      await sp.fill('input[type="password"]', PASS);
-      await sp.getByRole('button', { name: /sign in/i }).first().click();
-      await sp.waitForTimeout(2500);
+      const NEWPASS = process.env.DEMO_NEWPASS || 'Demo-Shots-Pass-9xQ!';
+      let used = null;
+      for (const pw of [PASS, NEWPASS]) {
+        await sp.goto(`${BASE}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        await sp.waitForTimeout(1000); await dismiss(sp);
+        await sp.fill('input[type="email"]', OWNER);
+        await sp.fill('input[type="password"]', pw);
+        await sp.getByRole('button', { name: /sign in/i }).first().click();
+        await sp.waitForTimeout(2500);
+        if (!/\/sign-in$/.test(new URL(sp.url()).pathname)) { used = pw; break; }
+      }
+      console.log(`  password accepted: ${used ? (used === PASS ? 'seeded' : 'changed-by-an-earlier-run') : 'NEITHER'}`);
       // the account may already carry 2FA from an earlier run of this harness
       const codeBox = sp.locator('input[inputmode="numeric"], input[name="code"], input[autocomplete="one-time-code"]');
       if (await codeBox.count() && secret) {
@@ -196,10 +204,10 @@ const dismiss = async (page) => {
       if (/change-password/.test(sp.url())) {
         // App.js Gates() sends a staff account with must_change_password to /change-password
         // before any other route will render. Set one so the panel can be photographed.
-        const np = process.env.DEMO_NEWPASS || 'Demo-Shots-Pass-9xQ!';
+        const np = NEWPASS;
         const boxes = sp.locator('input[type="password"]');
         const cnt = await boxes.count();
-        for (let i = 0; i < cnt; i++) await boxes.nth(i).fill(i === 0 && cnt === 3 ? PASS : np);
+        for (let i = 0; i < cnt; i++) await boxes.nth(i).fill(i === 0 && cnt === 3 ? (used || PASS) : np);
         await sp.getByRole('button', { name: /change|save|continue|set/i }).first().click().catch(() => {});
         await sp.waitForTimeout(2500);
         console.log(`  password change: ${/change-password/.test(sp.url()) ? 'FAILED' : 'done'} (${cnt} fields)`);
