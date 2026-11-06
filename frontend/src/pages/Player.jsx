@@ -1,10 +1,10 @@
 // Screen 8, Player (docs/01 §5, docs/04 Chart): hero, next-fixture forecasts, Quick view chart, history table.
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
-import { Crest, PlayerAvatar } from "../components/Media";
+import { Crest } from "../components/Media";
 import { ErrorBox, Loading } from "../components/States";
-import { ColumnPicker, STATS, kickoff, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
+import { ColumnPicker, STATS, num1, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
 import { useAuth } from "../lib/auth";
 import { del, put } from "../lib/api";
@@ -12,7 +12,9 @@ import { useToast } from "../components/Ui";
 // The page used Football.jsx's ForecastCard while every other screen used the one in ui/. Tapping
 // a card anywhere landed on a player page whose own cards were a different component with a
 // different layout, which is exactly the inconsistency reported. One card, everywhere.
-import { ForecastCard, QuickView } from "../components/ui";
+import { QuickView } from "../components/ui";
+import { AnswerBlock, LadderList, SubjectHead, WhyList } from "../components/ui/Subject";
+import { fixtureOf } from "../components/ui/ForecastCard";
 
 function Note({ id }) {
   const { user } = useAuth();
@@ -45,8 +47,10 @@ function History({ id, forecasts }) {
   // The controls and the strip live in components/ui/QuickView.jsx, shared with the forecast sheet (docs/48).
   return (
     <section className="card" data-testid="quick-view-card">
-      <h2 className="h3">Quick view</h2>
-      <QuickView playerId={id} forecasts={forecasts} testid="quick-view">{(games) => (
+      {/* "Quick view" named the widget. The block is a tool, so it says what it is for -- and the
+          answer above it means it no longer needs to state the likelihood a second time. */}
+      <h2 className="h3">The last ten, and any other line</h2>
+      <QuickView playerId={id} forecasts={forecasts} showForecast={false} testid="quick-view">{(games) => (
         <>
           <button type="button" className="linkish" onClick={() => setTable(!table)} data-testid="qv-table-toggle">{table ? "Hide table" : "Show table"}</button>
           {table && <ColumnPicker options={STATS} value={cols} onChange={setCols} testid="history-cols" />}
@@ -95,54 +99,41 @@ export default function Player() {
   // other market said "No forecast" however many the engine had actually produced.
   const forecasts = q.data.forecasts || cards;
   const teams = nx ? { [nx.home_iid]: nx.home, [nx.away_iid]: nx.away } : {};
+  // The card the page leads with, and every rung behind it, so the ladder can be read and kept.
+  const lead = cards.length ? { ...cards[0], player: p, team, match_id: nx?.id } : null;
+  const lfx = lead ? fixtureOf(lead, teams, nx?.home_iid) : { team };
+  const allLines = lead
+    ? [{ fkey: lead.fkey, market: lead.market, thr: lead.thr, p: lead.p, lo: lead.lo, hi: lead.hi, tier: lead.tier },
+       ...(lead.more_lines || [])]
+    : [];
   return (
     <section data-testid="player-page">
       {/* The head opened with a name and a grey word, then made you scroll past a card to find out
           who he plays next. Position, club and the next fixture are the three things you want
           before anything else, so they are in the head: the club as its crest, and the fixture with
           both crests and whether he is at home or away. */}
-      <header className="phead v2-phead v2-ph2">
-        {/* The club's mark, blurred right down behind the head, so the page is recognisably about
-            this club before a word is read. Decorative only: it carries no information the text
-            does not, so it is hidden from assistive technology and sits under everything. */}
-        {/* With a crest we blur the real thing; without one (crests arrive from PitchAPI and are
-            absent in demo data) the head still gets a quiet tint rather than nothing, so the
-            treatment does not appear and disappear with the image. */}
-        {/* queries.attach_images pops image_url and emits `image`, so this read a field that is
-            never present: the wash has taken the plain fallback on every build since it was
-            written, and the crest treatment has never once been seen. */}
-        <span className={"v2-phead-wash" + (team?.image ? "" : " is-plain")} aria-hidden="true"
-              style={team?.image ? { backgroundImage: `url(${team.image})` } : undefined} />
-        <PlayerAvatar player={p} size={84} decorative={false} />
-        <div className="phead-main">
-          {/* The name is the page. It was set at the same weight as the body, so the head read as a
-              row of equal parts; it now carries the width and weight axes of the variable face and
-              everything else sits under it as metadata. */}
-          <h1 className="v2-ph2-name">{p.name}</h1>
-          <p className="v2-phead-sub v2-ph2-meta">
-            {team && <Link to={`/team/${team.id}`} className="v2-club"><Crest team={team} size={20} /> {team.name}</Link>}
-            <span className="v2-pos">{posLabel(p.pos)}</span>
-          </p>
-          {nx && (
-            <Link to={`/match/${nx.id}`} className="v2-nextfx" data-testid="player-next-fixture">
-              <span className="v2-nextfx-at">{nx.home_iid === team?.iid ? "Home" : "Away"}</span>
-              <span className="v2-nextfx-t"><Crest team={nx.home} size={24} />{nx.home?.name}</span>
-              <span className="v2-nextfx-v">v</span>
-              <span className="v2-nextfx-t"><Crest team={nx.away} size={24} />{nx.away?.name}</span>
-              <time>{kickoff(nx.kickoff)}</time>
-            </Link>
-          )}
-          <div><FollowButton kind="player" refId={p.id} name={p.name} /></div>
-        </div>
-      </header>
-      <History id={id} forecasts={forecasts} />
+      {/* The same head the sheet opens with (docs/redesign/v4/SHEET.md). The two surfaces were
+          about 80% the same material drawn two different ways; this is the block that makes them
+          one. v2-ph2 stays in the stylesheet for the club page until that adopts it too. */}
+      <SubjectHead f={lead} fx={lfx} size="page" fixtureTestid="player-next-fixture"
+                   action={<FollowButton kind="player" refId={p.id} name={p.name} />} testid="player-head" />
       {/* The fixture itself has moved into the head, so this is what it was always for: the lines. */}
+      {/* Was a ForecastCard, which carried a second copy of the same ten games the Quick view
+          below already draws -- the identical run in two idioms, 550px apart. The card is a
+          ranking object for a feed; this page is the answer, so it states it directly. */}
       <section className="card" data-testid="player-next">
         <h2 className="k-sec">What we expect next match</h2>
         {!nx ? <p className="muted">No upcoming match loaded.</p>
-          : cards.length ? <div className="fgrid">{cards.map((f) => <ForecastCard key={f.id} f={{ ...f, player: p }} teams={teams} homeIid={nx.home_iid} />)}</div>
+          : lead ? <>
+              <AnswerBlock f={lead} size="page" testid="player-answer" />
+              <WhyList reasons={lead.reasons} testid="player-why" />
+              <LadderList lines={allLines} current={lead.fkey} parent={lead} actions testid="player-ladder" />
+            </>
           : <p className="muted small">No forecasts for this player yet.</p>}
       </section>
+      {/* The tool sits under the answer, not above it: measured, the answer began 889px down
+          because the Quick view's controls came first. */}
+      <History id={id} forecasts={forecasts} />
       {/* Asked for: lead with Quick view and drop the "Last 10 games" box. They were two renderings
           of the same ten games stacked on one page -- the four-line overview could not be
           interrogated and the detailed one could not be compared. Quick view now does both jobs,

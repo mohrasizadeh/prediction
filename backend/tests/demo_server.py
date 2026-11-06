@@ -39,8 +39,15 @@ def build():
     I.assign_rounds(db, lg["iid"]); I.update_coverage(db, lg["iid"])
     now = fake.kick(n_final) - dt.timedelta(hours=2)
     I.lineup_watch(pc, now=now); B.run_league(db, lg["iid"], now=now)
-    # move time so the next round kicks off today at 19:00 UTC
-    target = dt.datetime.now(dt.timezone.utc).replace(hour=19, minute=0, second=0, microsecond=0)
+    # Move time so the next round is still ahead of us. This used to pin the round to 19:00 UTC
+    # *today*, so from 19:00 onwards every fixture was in the past -- and because the feeds filter
+    # on kickoff >= now, Today, Insights, the Finder and every player page came up empty. Anyone
+    # reviewing the demo after seven in the evening saw an app with nothing in it. Roll to
+    # tomorrow once today's slot is within half an hour.
+    _now = dt.datetime.now(dt.timezone.utc)
+    target = _now.replace(hour=19, minute=0, second=0, microsecond=0)
+    if target <= _now + dt.timedelta(minutes=30):
+        target += dt.timedelta(days=1)
     delta = target - fake.kick(n_final).replace(tzinfo=dt.timezone.utc) if fake.kick(n_final).tzinfo is None else target - fake.kick(n_final)
     for coll in ("matches", "forecasts", "player_match_stats", "team_match_stats"):
         for d in db[coll].find({"kickoff": {"$exists": True}}, {"_id": 1, "kickoff": 1}):

@@ -989,10 +989,10 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
                                "$or": [{"home_iid": p["team_iid"]}, {"away_iid": p["team_iid"]}]}, {"_id": 0}, sort=[("kickoff", 1)])
     # only the lines for the match the page calls "next": finished matches keep is_current rows for a while (docs/36 H8)
     fc = list(db.forecasts.find({"player_iid": player_iid, "match_iid": nxt["iid"], **NOT_HIDDEN}, {"_id": 0, "contrib": 0}).sort("p", -1)) if nxt else []
-    # Without this the page's own cards had no p_usual and no run, so the one card a reader sees
-    # after tapping through from anywhere else was drawn in the old style. The card has to be the
-    # same object on every screen that shows it.
-    _usual(db, fc)
+    # _decorate runs _usual and also attaches team, opp and home_iid. Without those the page's own
+    # cards had no baseline and no run, and the head could not say whether the fixture is home or
+    # away -- the same gap team_detail had. The card has to be the same object on every screen.
+    _decorate(db, fc)
     p = attach_images(db, "players", [p])[0]
     team = attach_images(db, "teams", [team])[0] if team else None
     if nxt:

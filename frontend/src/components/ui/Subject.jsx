@@ -44,7 +44,7 @@ function spanLine(f) {
 
 // Who this is about. A club line used to open a panel that never named the club and never linked to
 // it; a match line named neither side. The subject is always named, and always reachable.
-export function SubjectHead({ f, fx, size = "sheet", action, testid = "ui-subject-head" }) {
+export function SubjectHead({ f, fx, size = "sheet", action, fixtureTestid, testid = "ui-subject-head" }) {
   const isMatch = !!f.stat?.startsWith("match_");
   const team = fx?.team;
   const name = f.player?.name || (isMatch ? (fx?.text || "Both teams") : team?.name || "");
@@ -79,7 +79,7 @@ export function SubjectHead({ f, fx, size = "sheet", action, testid = "ui-subjec
           {f.pos && <span className="v2-pos">{posLabel(f.pos)}</span>}
         </p>
         {(fx?.text || f.kickoff) && (
-          <FixtureLine f={f} fx={fx} link={big} testid={testid} />
+          <FixtureLine f={f} fx={fx} link={big} testid={fixtureTestid || `${testid}-fixture`} />
         )}
         {action ? <div className="v2-sh-act">{action}</div> : null}
       </div>
@@ -88,7 +88,7 @@ export function SubjectHead({ f, fx, size = "sheet", action, testid = "ui-subjec
   );
 }
 
-function FixtureLine({ f, fx, link, testid }) {
+function FixtureLine({ f, fx, link, testid }) {   // `testid` here is the full id, not a prefix
   const at = f.team_iid != null && f.home_iid != null ? (f.team_iid === f.home_iid ? "Home" : "Away") : null;
   const body = (
     <>
@@ -99,8 +99,8 @@ function FixtureLine({ f, fx, link, testid }) {
   // In a modal a link out strands the reader mid-task, so the sheet states the fixture and the
   // page links it.
   return link && f.match_id
-    ? <Link to={`/match/${f.match_id}`} className="v2-sh-fx" data-testid={`${testid}-fixture`}>{body}</Link>
-    : <p className="v2-sh-fx" data-testid={`${testid}-fixture`}>{body}</p>;
+    ? <Link to={`/match/${f.match_id}`} className="v2-sh-fx" data-testid={testid}>{body}</Link>
+    : <p className="v2-sh-fx" data-testid={testid}>{body}</p>;
 }
 
 // The claim, stated once. This replaces the sheet's head percentage, its "Chance he plays / If he

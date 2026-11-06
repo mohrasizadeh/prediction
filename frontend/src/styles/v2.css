@@ -1134,7 +1134,7 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 
 /* The opened line, marked in the ladder so the comparison has no hole in it. */
 .k-fc-lines li.is-here { background: color-mix(in srgb, var(--tone) 13%, transparent); }
-.k-fc-lines li.is-here span::before { content: "▸ "; color: var(--tone); }
+.k-fc-lines li.is-here > span:first-child::before { content: "\25B8\00a0"; color: var(--tone); }
 
 /* The scrim was a literal rgba(5,8,15,.5) with no blur, identical in both themes -- so the card
    behind the panel, showing the same run and the same number, read clearly through it. A reader
