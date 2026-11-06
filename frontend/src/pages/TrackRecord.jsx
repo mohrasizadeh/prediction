@@ -32,8 +32,17 @@ function Chart({ bins }) {
   );
 }
 
+// The tile used to take the tier's own colour, so the biggest number read as the best one. On real
+// data a lime "90 of 100" can be WORSE calibrated than a violet "64 of 100": the colour was grading
+// magnitude, not accuracy. It now says whether the gap is inside what a sample this size produces.
+function calClass(v) {
+  const se = Math.sqrt(Math.max(v.stated * (1 - v.stated), 1e-6) / Math.max(v.n, 1));
+  if (Math.abs(v.actual - v.stated) <= 1.96 * se) return "tr-cal tr-cal--ok";
+  return v.actual < v.stated ? "tr-cal tr-cal--under" : "tr-cal tr-cal--over";
+}
+
 // How much of a said-vs-happened gap is real, and how much is the sample being small.
-function Reliability({ b }) {
+function Reliability({ b, whole }) {
   const se = Math.sqrt(Math.max(b.stated * (1 - b.stated), 1e-6) / Math.max(b.n, 1));
   const margin = 1.96 * se;                       // the band chance alone would produce
   const gap = b.actual - b.stated;
@@ -41,7 +50,7 @@ function Reliability({ b }) {
   const dir = gap > 0 ? "more often than we said" : "less often than we said";
   return (
     <p className="tr-rel" data-testid="tr-reliability">
-      From <b>{b.n.toLocaleString()}</b> forecast{b.n === 1 ? "" : "s"} in that band, so the margin is
+      From <b>{b.n.toLocaleString()}</b> forecast{b.n === 1 ? "" : "s"}{whole ? "" : " in that band"}, so the margin is
       about <b>±{Math.round(margin * 100)} points</b>.{" "}
       {real
         ? <>The gap is wider than that: these happen {dir}{gap > 0 ? ", so we are promising less than we deliver" : ", which is the gap to watch"}.</>
@@ -51,14 +60,17 @@ function Reliability({ b }) {
 }
 
 function Body({ d }) {
-  // The headline rests on ONE band, not on every scored forecast, so it should rest on the band
-  // with the most evidence behind it. This preferred the 0.7 band even when a bigger one existed.
-  const head = [...d.bins].sort((a, b) => b.n - a.n)[0];
+  // The headline used to rest on ONE band, chosen for holding the most rows. In this product the
+  // likelihoods cluster high, so that rule always landed on 0.90-1.00 -- the band where being
+  // right proves least, and a rule the reader could not see. It rests on the whole record now,
+  // which the server computes over every scored row rather than over the bands that cleared the
+  // 30-row floor.
+  const all = d.overall;
   const since = d.since ? utc(d.since).toLocaleDateString(undefined, { month: "long", year: "numeric" }) : null;
   return (
     <>
       <div className="tr-hero">
-        {head ? <p className="tr-head" data-testid="tr-headline">When we say {pct(head.stated)}, it happens <em>{pct(head.actual)}</em> of the time.</p>
+        {all ? <p className="tr-head" data-testid="tr-headline">Across <b>{all.n.toLocaleString()}</b> settled forecasts we said <b>{pct(all.stated)}</b> on average. It happened <em>{pct(all.actual)}</em> of the time.</p>
           : <p className="tr-head" data-testid="tr-headline">{d.scored} forecasts scored so far.</p>}
         {/* A gap between what we said and what happened means nothing without the count behind it.
             At 30 forecasts a 14-point gap is what chance alone produces; at 100 it is real. The
@@ -66,8 +78,8 @@ function Body({ d }) {
             had to assume the worst. It now says the count, the margin, and which of the two this
             is -- and names the direction, because promising less than we deliver is the safe
             side of a miss and reads as a fault when it is not. */}
-        {head && <Reliability b={head} />}
-        <p className="k-faint">Across all bands: {d.scored.toLocaleString()} scored forecast{d.scored === 1 ? "" : "s"}{since ? ` since ${since}` : ""}.</p>
+        {all && <Reliability b={all} whole />}
+        <p className="k-faint">{since ? `Since ${since}. ` : ""}Counted when the player appeared{d.not_played ? <>; <b>{d.not_played.toLocaleString()}</b> line{d.not_played === 1 ? "" : "s"} where he did not play are left out of this page, and counted as missed when a tier is earned</> : null}.</p>
       </div>
       <div className="tr-grid2">
         {d.bins.length ? <Chart bins={d.bins} /> : <EmptyState icon="bar-chart" title="Not enough in each band yet" testid="tr-no-bins">We draw the chart once each band holds 30 forecasts.</EmptyState>}
@@ -75,7 +87,10 @@ function Body({ d }) {
           {Object.entries(d.tiers).map(([t, v]) => (
             <div key={t} className="tr-tier card" style={{ "--tone": `var(--tier-${t.toLowerCase()})` }} data-testid={`tr-tier-${t}`}>
               <span><TierBadge tier={t} testid={`tr-tier-badge-${t}`} /><small className="k-faint">{v.n.toLocaleString()} forecasts</small></span>
-              <span className="tr-of"><b>{v.n >= 100 ? `${of100(v.actual)} of 100` : `${Math.round(v.actual * v.n)} of ${v.n}`}</b><small className="k-faint">came true</small></span>
+              <span className="tr-of">
+                <b className={calClass(v)}>{v.n >= 100 ? `${of100(v.actual)} of 100` : `${Math.round(v.actual * v.n)} of ${v.n}`}</b>
+                <small className="k-faint">came true · we said {pct(v.stated)}</small>
+              </span>
             </div>
           ))}
           {!Object.keys(d.tiers).length ? <p className="k-faint">No forecasts with a tier have been scored yet.</p>

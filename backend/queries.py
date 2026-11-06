@@ -754,9 +754,15 @@ def track_record(db, league_iid=None, min_n: int = 300, stat=None, scope=None) -
         q["stat"] = stat
     if scope:
         q["scope"] = scope
+    # What this page counts, said once here so the screen can say it too. A line where the player
+    # never appeared is EXCLUDED, so the question answered is "when he played, were we right?".
+    # tiering.Record earns a tier against the whole chance and scores a non-appearance as a miss,
+    # so the two are not the same measurement. Both are fair; the page may not print one and label
+    # it with the other, so the count left out travels with the answer.
     rows = list(db.forecast_outcomes.find({**q, "player_played": True}, {"_id": 0, "tier": 1, "p": 1, "reached": 1, "scored_at": 1}))
+    not_played = db.forecast_outcomes.count_documents({**q, "player_played": False})
     if len(rows) < min_n:
-        return {"ready": False, "scored": len(rows), "needed": min_n}
+        return {"ready": False, "scored": len(rows), "needed": min_n, "not_played": not_played}
     tiers = {}
     for t in ("Strong", "Solid", "Watch"):
         g = [r for r in rows if r["tier"] == t]
@@ -768,7 +774,13 @@ def track_record(db, league_iid=None, min_n: int = 300, stat=None, scope=None) -
         if len(g) >= 30:
             bins.append({"from": lo, "to": round(lo + 0.1, 1), "n": len(g), "stated": sum(r["p"] for r in g) / len(g), "actual": sum(r["reached"] for r in g) / len(g)})
     since = min((r["scored_at"] for r in rows if r.get("scored_at")), default=None)
-    return {"ready": True, "scored": len(rows), "tiers": tiers, "bins": bins, "since": since}
+    # The whole record, over every scored row rather than over the bands that survived the 30-row
+    # floor. The page led on a single band picked for having the most rows, which in this product
+    # is always the 0.90-1.00 band -- the one where being right proves least.
+    overall = {"n": len(rows), "stated": sum(r["p"] for r in rows) / len(rows),
+               "actual": sum(r["reached"] for r in rows) / len(rows)}
+    return {"ready": True, "scored": len(rows), "tiers": tiers, "bins": bins, "since": since,
+            "overall": overall, "not_played": not_played}
 
 
 # --------------------------------------------------------------------- Search

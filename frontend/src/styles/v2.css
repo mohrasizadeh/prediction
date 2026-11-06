@@ -1049,3 +1049,30 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 
 /* The account head carries the sign-out, so it is a row rather than a lone heading. */
 .v2-acc-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+
+/* Track record: the tier number is coloured by how well it is calibrated, never by how big it is.
+   Over-delivering is the safe side of a miss, so it is not drawn as a fault. */
+.tr-cal--ok { color: var(--text); }
+.tr-cal--over { color: var(--up); }
+.tr-cal--under { color: var(--down); }
+
+/* ============================================================ 27. One stacking order
+   There wasn't one. Measured across the stylesheets: dialogs sat at 60, the cookie banner was
+   lifted to 70 by shell.css, sheets at 80, toasts at 80, the search overlay at 90. So the consent
+   banner -- the most ambient thing on the page -- covered modal dialogs, including the one that
+   asks a reader to confirm that their account is to be deleted for good. On a phone that dialog
+   is confirmed from a strip showing Cancel and a red "Delete for good" with the banner over it.
+
+   The rule is that a thing which blocks the page must sit above a thing which merely sits on it,
+   and a message about what just happened must be visible above both.
+
+     70   cookie banner, visitor popups   ambient: can be ignored
+     90   search overlay                  takes the screen, dismissible
+     95   bottom sheet                    modal
+    100   dialog                          modal, and may be opened from inside a sheet
+    105   toasts                          must be readable above anything
+
+   Only the modal layers move; the ambient ones keep the values they had. */
+.k-scrim { z-index: 95; }
+.overlay { z-index: 100; }
+.toasts { z-index: 105; }
