@@ -114,6 +114,35 @@ check(all(f.get("match_id") for f in feed), "every card carries the public match
 mid = feed[0]["match_id"]
 check(db.matches.find_one({"id": mid, "iid": feed[0]["match_iid"]}) is not None, "...and it is that match's own public id, not another's")
 
+# --- "N of the last M" is a count, not a ratio (v7 Tier 2)
+# It was compared against however many rows survived the filters, so a stricter filter could make
+# the search looser: measured on this fixture, asking for 60+ minutes used to return MORE rows.
+lgs = [l["iid"] for l in db.leagues.find({}, {"iid": 1})]
+base = Q.finder(db, "form", "shots", 1, last_n=10, league_iids=lgs, min_reached=0.6, now=now)
+mins = Q.finder(db, "form", "shots", 1, last_n=10, league_iids=lgs, min_reached=0.6, min_minutes=60, now=now)
+strt = Q.finder(db, "form", "shots", 1, last_n=10, league_iids=lgs, min_reached=0.6, started=True, now=now)
+# Minutes and started do not narrow the POPULATION, they change which games are counted: "his last
+# ten games of 60+ minutes" reaches further back than "his last ten games", so players the plain
+# search missed can appear. That is what the sentence asks for, and it is why the bar below has to
+# be a count -- as a ratio over whatever survived, three games with two hits passed "6 of 10".
+check(all(len(r["hits"]) <= 10 for r in mins), "a filtered window is still at most the window the reader named")
+check(all(r["reached"] >= 6 for r in base), "every row in '6 of the last 10' actually reached it six times")
+check(all(r["reached"] >= 6 for r in mins), "...and still does once short appearances are dropped")
+few = Q.finder(db, "form", "shots", 1, last_n=10, league_iids=lgs, min_reached=1.0, now=now)
+check(all(r["reached"] >= 10 for r in few), "'all 10 of the last 10' needs ten hits, not three out of three")
+twice = Q.finder(db, "form", "shots", 1, last_n=10, league_iids=lgs, min_reached=0.6, now=now)
+check([r["id"] for r in twice] == [r["id"] for r in base], "the same search twice returns the same order")
+
+# Which questions "Our forecast" can answer at all, read from the forecasts rather than a flag.
+with_srv = None
+fmk = {}
+for d in db.forecasts.aggregate([{"$match": {"is_current": True, "hidden": {"$ne": True}}},
+                                 {"$group": {"_id": {"scope": "$scope", "stat": "$stat"}}}]):
+    fmk.setdefault(d["_id"]["scope"], set()).add(d["_id"]["stat"])
+check("player" in fmk and {"shots", "sot", "tackles"} <= fmk["player"], f"player markets exist for the stats the engine makes: {sorted(fmk.get('player', []))}")
+check(not ({"goals", "assists", "minutes", "fouls_committed"} & fmk.get("player", set())),
+      "and none for the stats it does not -- which is what the Finder must stop offering in forecast mode")
+
 # The club's Quick view offers a Venue control, which was a lie until team_history could honour it.
 t_iid = db.team_match_stats.find_one({"corners": {"$ne": None}})["team_iid"]
 allg = Q.team_history(db, t_iid, "corners", 40)["games"]

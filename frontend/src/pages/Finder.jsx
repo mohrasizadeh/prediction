@@ -19,12 +19,17 @@ const DEF = { mode: "form", stat: "shots", n: "2", scope: "player", last_n: "10"
 // since it was written and no browser could ever send either: they were not merely missing from
 // the sentence, the request builder never carried them. They are one question, not two -- "did he
 // play enough for this to mean anything?" -- so they are one control.
+// These labels finish the window phrase -- "6 of the last 10 GAMES OF 60+ MINUTES" -- because the
+// filter changes which games are counted, not just which players qualify. His last ten games of
+// 60+ minutes reach further back than his last ten games, so a stricter setting can surface
+// players the plain search missed. Said plainly, that is what a reader wants; left ambiguous it
+// looks like a bug.
 const GAMETIME = [
-  { id: "", label: "any game time", hint: "Every appearance counts." },
-  { id: "45", label: "45+ minutes", hint: "Drops late cameos." },
-  { id: "60", label: "60+ minutes", hint: "Roughly a full shift." },
-  { id: "75", label: "75+ minutes", hint: "Nearly the whole match." },
-  { id: "started", label: "only when he started", hint: "Named in the eleven, however long he lasted." },
+  { id: "", label: "games", hint: "Every appearance counts, however short." },
+  { id: "45", label: "games of 45+ minutes", hint: "Drops late cameos." },
+  { id: "60", label: "games of 60+ minutes", hint: "Roughly a full shift." },
+  { id: "75", label: "games of 75+ minutes", hint: "Nearly the whole match." },
+  { id: "started", label: "games he started", hint: "Named in the eleven, however long he lasted." },
 ];
 const POS = ["GK", "DEF", "MID", "FWD"];
 const PRESETS = "finder-presets";
@@ -167,8 +172,23 @@ export default function Finder() {
   const visitor = !me?.user;
   const used = visitor ? (anonUsed ?? me?.usage?.finder_today) : me?.usage?.finder_today;
   const out = wall || (cap != null && cap >= 0 && used != null && used >= cap);
-  const pool = (f.scope === "team" ? [...TEAM_STATS, ...(f.mode === "likelihood" ? MATCH_STATS : [])] : STATS.filter((s) => s.id !== "minutes")).filter((s) => f.mode !== "likelihood" || s.core);
-  const stat = pool.find((s) => s.id === f.stat) || pool[0];
+  // "Our forecast" used to offer whatever carried a `core` flag in the browser -- Goals, Assists
+  // and Minutes for a player, Tackles for a club -- none of which the engine makes a market for.
+  // Picking one returned "Nothing meets that line", which reads as "nobody qualifies" rather than
+  // "we do not forecast that". The list now comes from the forecasts we actually hold.
+  const fm = useApi("/forecast-markets");
+  const have = fm.data?.[f.scope] || null;
+  const all = f.scope === "team" ? [...TEAM_STATS, ...(f.mode === "likelihood" ? MATCH_STATS : [])] : STATS.filter((s) => s.id !== "minutes");
+  const pool = f.mode !== "likelihood" ? all : have ? all.filter((s) => have.includes(s.id)) : all.filter((s) => s.core);
+  // And when the reader's stat is not one of them, say so instead of swapping it for shots behind
+  // their back, which is what `pool[0]` quietly did.
+  const noFc = f.mode === "likelihood" && have && !have.includes(f.stat);
+  // When we cannot forecast their choice, the sentence keeps saying THEIR choice. Falling back to
+  // shots here left the sentence reading "2+ shots" beside a notice about fouls committed, which
+  // is the silent swap again wearing an explanation. `run` refuses to search while noFc, so this
+  // never reaches the request.
+  const chosen = all.find((x) => x.id === f.stat);
+  const stat = (noFc && chosen) || pool.find((x) => x.id === f.stat) || pool[0] || all[0];
   const set = (patch) => {
     const n = { ...f, ...patch };
     if (!(n.scope === "team" ? [...TEAM_STATS, ...MATCH_STATS] : STATS).some((s) => s.id === n.stat)) n.stat = "shots";
@@ -176,7 +196,7 @@ export default function Finder() {
     setSp(Object.fromEntries(Object.entries(n).filter(([k, v]) => v !== "" && DEF[k] !== v)), { replace: true });
   };
   const run = async () => {
-    if (!picked.length || out) return;
+    if (!picked.length || out || noFc) return;
     setRes((r) => ({ ...r, err: null, busy: true }));
     try {
       const today = isoDay(new Date());
@@ -241,17 +261,19 @@ export default function Finder() {
           <span className="fs-list">{pool.map((s) => <button key={s.id} type="button" className={`k-chip${s.id === stat.id ? " on" : ""}`} onClick={() => { set({ stat: s.id }); setOpen(null); }} data-testid={`finder-stat-${s.id}`}>{s.label}</button>)}</span></Part>
         {f.mode !== "likelihood" && <>{" in "}<Part id="window" label={f.mode === "run" ? `a row, last ${f.last_n}` : `${f.min} of the last ${f.last_n}`} open={open} setOpen={setOpen}>
           <span className="fs-sliders"><small>Games</small><RangeSlider min={5} max={20} value={Number(f.last_n)} onChange={(v) => set({ last_n: String(v), min: String(Math.min(Number(f.min), v)) })} label="Games window" format={(v) => `${v} games`} testid="finder-window" />
-            {f.mode === "form" && <><small>Reached in at least</small><RangeSlider min={1} max={Number(f.last_n)} value={Number(f.min)} onChange={(v) => set({ min: String(v) })} label="How often" format={(v) => `${v} of ${f.last_n}`} testid="finder-min" /></>}</span></Part>{" games"}</>}
+            {f.mode === "form" && <><small>Reached in at least</small><RangeSlider min={1} max={Number(f.last_n)} value={Number(f.min)} onChange={(v) => set({ min: String(v) })} label="How often" format={(v) => `${v} of ${f.last_n}`} testid="finder-min" /></>}</span></Part>{" "}
+          {f.scope === "player"
+            ? <Part id="gt" label={(GAMETIME.find((g) => g.id === f.gt) || GAMETIME[0]).label} open={open} setOpen={setOpen}>
+                <span className="fs-list fs-list--rows">{GAMETIME.map((g) => (
+                  <button key={g.id || "any"} type="button" className={`k-chip fs-gt${g.id === f.gt ? " on" : ""}`} aria-pressed={g.id === f.gt}
+                          onClick={() => { set({ gt: g.id }); setOpen(null); }} data-testid={`finder-gt-${g.id || "any"}`}>
+                    <b>{g.label}</b><small>{g.hint}</small>
+                  </button>))}</span></Part>
+            : "games"}</>}
         {f.mode !== "likelihood" && <>{", "}<Part id="venue" label={f.venue ? `at ${f.venue}` : "home or away"} open={open} setOpen={setOpen}>
           <Segmented label="Venue" value={f.venue} onChange={(v) => set({ venue: v })} options={[{ id: "", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid="finder-venue" /></Part></>}
         {f.scope === "player" && <>{", "}<Part id="pos" label={f.positions ? f.positions.split(",").join("/") : "any position"} open={open} setOpen={setOpen}>
           <ChipsRow multi label="Position" value={f.positions ? f.positions.split(",") : []} onChange={(v) => set({ positions: v.join(",") })} options={POS.map((p) => ({ id: p, label: p }))} testid="finder-pos" /></Part></>}
-        {f.scope === "player" && f.mode !== "likelihood" && <>{", "}<Part id="gt" label={(GAMETIME.find((g) => g.id === f.gt) || GAMETIME[0]).label} open={open} setOpen={setOpen}>
-          <span className="fs-list fs-list--rows">{GAMETIME.map((g) => (
-            <button key={g.id || "any"} type="button" className={`k-chip fs-gt${g.id === f.gt ? " on" : ""}`} aria-pressed={g.id === f.gt}
-                    onClick={() => { set({ gt: g.id }); setOpen(null); }} data-testid={`finder-gt-${g.id || "any"}`}>
-              <b>{g.label}</b><small>{g.hint}</small>
-            </button>))}</span></Part></>}
         {" in "}<Part id="leagues" label={lgLabel} open={open} setOpen={setOpen}>
           <span className="fs-list">{max >= 0 && <small className="k-faint">Up to {max} on your plan <ProLock label="More with Pro" testid="finder-leagues-pro" /></small>}{leagues.map((l) => {
             const on = picked.includes(l.id);
@@ -266,6 +288,11 @@ export default function Finder() {
         <button type="button" className="k-link" onClick={() => { setSp({}); setRes({ rows: null, err: null, busy: false }); }} data-testid="finder-reset">Reset</button>
         {cap != null && cap >= 0 && <Meter used={used} cap={cap} visitor={visitor} />}
       </div>
+      {noFc && <p className="a-notice fs-nofc" data-testid="finder-no-forecast">
+        <Icon name="info" size={16} />
+        <span>We do not forecast {(all.find((s) => s.id === f.stat) || { label: f.stat }).label.toLowerCase()} yet, so this mode cannot answer it.
+          {" "}<button type="button" className="k-link" onClick={() => set({ mode: "form" })} data-testid="finder-nofc-count">Count it instead</button>, or pick a line we do forecast.</span>
+      </p>}
       {out && <Wall visitor={visitor} cap={cap} freeCap={entitlements?.finder_searches_per_day} next={`/finder${sp.toString() ? `?${sp}` : ""}`} />}
       {res.busy && !res.rows ? <Skeleton shape="row" count={5} testid="finder-loading" />
         : res.err ? <ErrorState message={res.err.message || "The search did not work."} onRetry={run} testid="finder-error" />

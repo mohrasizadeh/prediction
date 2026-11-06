@@ -1238,3 +1238,4 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .fs-gt { display: grid; gap: 1px; text-align: left; height: auto; padding: 8px 12px; }
 .fs-gt > small { opacity: .75; font-size: .75rem; }
 .fs-count { margin: 10px 2px 0; }
+.fs-nofc { margin: 12px 0 0; }

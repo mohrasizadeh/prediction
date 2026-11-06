@@ -485,16 +485,28 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
         for v in vals:
             if v >= threshold: run += 1
             else: break
-        score = reached / len(vals) if mode == "form" else run
-        if mode == "form" and score < min_reached:
+        # "6 of the last 10" is a COUNT, and it was compared as a ratio against however many games
+        # the row happened to have: with the floor at three, two hits in three games satisfied
+        # "6 of the last 10", and the strip then drew three squares under it. Worse, because
+        # min_minutes and started filter rows OUT of the window before this, asking for 60+ minutes
+        # made the denominator smaller and the search LOOSER -- measured on the demo league, a
+        # stricter filter returned 86 rows where no filter returned 75.
+        #
+        # The bar is now what the reader asked for: `min_reached` is still a share of the window
+        # they named, but it is multiplied by that window, not by what survived.
+        need = math.ceil(min_reached * last_n - 1e-9)
+        if mode == "form" and reached < need:
             continue
+        score = reached / last_n if mode == "form" else run
         if mode == "run" and run == 0:
             continue
         if playing is not None and r["team"] not in playing:
             continue
         out.append({"id": r["_id"], "team_iid": r["team"], "games": len(vals), "reached": reached, "run": run, "score": score,
                     "hits": [v >= threshold for v in vals]})
-    out.sort(key=lambda x: (-x["score"], -x["games"]))
+    # Ties are everywhere -- every player who cleared it every time scores the same -- so without a
+    # last key the same search returned a different hundred each time it ran.
+    out.sort(key=lambda x: (-x["score"], -x["games"], str(x["id"])))
     out = out[:limit]
     # attach the next fixture and its forecast
     for o in out:

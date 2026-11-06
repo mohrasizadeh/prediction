@@ -327,6 +327,29 @@ def combo_suggest(match_id: str, response: Response, mode: str = "balanced", db=
         raise D.err(400, e.code, e.message)
 
 
+@router.get("/forecast-markets")
+def forecast_markets(response: Response, db=Depends(D.get_db)):
+    """Which (scope, stat) pairs we actually hold forecasts for right now.
+
+    The Finder's "Our forecast" mode used to offer whatever was flagged `core` in the browser --
+    Goals, Assists, Minutes for a player, Tackles for a club -- none of which the engine produces
+    a market for. Picking one returned "Nothing meets that line", which reads as "nobody
+    qualifies" rather than "we do not forecast that". Worse, choosing a stat we only count (fouls,
+    passes) and then switching to forecast mode swapped the stat under the reader without a word.
+
+    Read from the forecasts themselves rather than from a settings list, so it cannot drift from
+    what the engine is really producing this week.
+    """
+    _cache(response)
+    out: dict[str, list[str]] = {}
+    for d in db.forecasts.aggregate([{"$match": {"is_current": True, "hidden": {"$ne": True}}},
+                                     {"$group": {"_id": {"scope": "$scope", "stat": "$stat"}}}]):
+        k = d["_id"].get("scope")
+        if k:
+            out.setdefault(k, []).append(d["_id"].get("stat"))
+    return {k: sorted(x for x in v if x) for k, v in out.items()}
+
+
 @router.get("/live-forecasts")
 def live_forecasts_feed(response: Response, db=Depends(D.get_db)):
     """Every line we can follow right now, across every live match -- for the feed screens.
