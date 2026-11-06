@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const DISCLAIMER = "Statistical analysis for information and entertainment. Not betting advice.";
-const BANNED = /\b(bet|bets|betting|bettors?|bookies?|bookmakers?|sportsbooks?|odds|wagers?|wagering|parlays?|accumulators?|stakes?|punt|punters?|tipsters?|locks?|bankers?|units|hit rate|picks|props)\b/gi;
+const BANNED = /\b(bet|bets|betting|bettors?|bookies?|bookmakers?|sportsbooks?|odds|wagers?|wagering|parlays?|accumulators?|stakes?|punt|punters?|tipsters?|locks?|bankers?|units|hit[\s-]?rates?|picks|props)\b/gi;
 let bad = 0;
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => {
   const p = path.join(d, e.name);

@@ -42,7 +42,7 @@ function Panel({ theme }) {
         <RangeSlider min={50} max={95} value={one} onChange={setOne} label="Minimum likelihood" format={(v) => `${v}%`} testid={`kit-${theme}-range1`} />
       </div>
       <div className="kit-two">
-        <div><h3 className="k-sec">Hit-rate strip</h3><HitStrip hits={[true, false, true, true, false, true, true, true, false, true]} label="Example" testid={`kit-${theme}-strip`} /></div>
+        <div><h3 className="k-sec">Reached strip</h3><HitStrip hits={[true, false, true, true, false, true, true, true, false, true]} label="Example" testid={`kit-${theme}-strip`} /></div>
         <div><h3 className="k-sec">Win / draw / loss</h3><WdlBar home={0.62} draw={0.22} away={0.16} testid={`kit-${theme}-wdl`} /></div>
       </div>
       <div><h3 className="k-sec">Tiers · colour + word + dots</h3>

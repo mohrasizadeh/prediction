@@ -12,7 +12,7 @@ DISCLAIMER = "Statistical analysis for information and entertainment. Not bettin
 
 BANNED = re.compile(
     r"\b(bet|bets|betting|bettors?|bookies?|bookmakers?|sportsbooks?|odds|wagers?|wagering|parlays?|accumulators?|"
-    r"stakes?|punt|punters?|tipsters?|locks?|bankers?|units|hit rate|picks|props)\b", re.I)
+    r"stakes?|punt|punters?|tipsters?|locks?|bankers?|units|hit[\s-]?rates?|picks|props)\b", re.I)
 
 
 def scan(text: str) -> list[str]:
