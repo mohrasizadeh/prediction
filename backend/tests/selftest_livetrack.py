@@ -133,6 +133,26 @@ cov = SP.stats_coverage(db)
 check(cov["found"]["shots"] is True and cov["found"]["tackles"] is False, f"coverage says which counts were found: {cov['found']}")
 check("Offsides" in cov["unmatched"], "...and which names were not placed")
 
+# --- the same evaluation, widened to a feed (v7 Tier 1)
+# The chip that says "Happened" / "2 of 3 so far" lived on the match page alone, because the only
+# route that answered it took one match id and a feed spans many.
+fd = LT.evaluate_feed(db, now)
+one = LT.evaluate(db, 5)
+check(fd["active"] and fd["live"] == 1 and fd["finished"] == 0, f"the feed sees the match that is on: {fd['live']} live, {fd['finished']} finished")
+check(fd["items"] == one["items"], "...and says exactly what the per-match route says about it")
+check(LT.evaluate_feed(db, now + dt.timedelta(hours=LT.FEED_HOURS_BACK + 1))["active"] is False,
+      "a match that kicked off long enough ago is yesterday's news and drops out of the feed")
+db.live_fixtures.insert_one({"sid": 78, "match_iid": None, "league_iid": 1, "status": "LIVE", "kickoff": now, "polled_at": now})
+check(LT.evaluate_feed(db, now)["items"] == one["items"], "a live fixture we never matched to a match of ours adds nothing")
+db.live_fixtures.delete_one({"sid": 78})
+db.live_fixtures.insert_one({"sid": 79, "match_iid": 6, "league_iid": 1, "status": "Scheduled", "kickoff": now, "polled_at": now})
+check(LT.evaluate_feed(db, now)["items"] == one["items"], "a match that has not kicked off adds nothing")
+db.live_fixtures.delete_one({"sid": 79})
+with TestClient(srv.app) as c:
+    r = c.get("/api/live-forecasts")
+    check(r.status_code == 200 and r.json()["items"].keys() == one["items"].keys(), "GET /api/live-forecasts answers the whole feed at once")
+    check("max-age" in r.headers.get("cache-control", ""), "...and is cached, because every open feed asks for it")
+
 # the admin panel's routes: see the state with no provider call, and teach a name
 with TestClient(srv.app) as owner:
     admin = K.boot(owner)[0]

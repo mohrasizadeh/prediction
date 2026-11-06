@@ -860,6 +860,9 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   list-style: none; margin: 0; padding: 0;
 }
 .v2-cr-g { display: grid; grid-template-rows: 30px auto auto auto; gap: 2px; min-width: 0; align-items: end; }
+/* A fifth row appears only when the position changed across the run, so a card for a player who
+   held one role all season is exactly as tall as it was. */
+.v2-cr-row.has-pos .v2-cr-g { grid-template-rows: 30px auto auto auto auto; }
 .v2-cr-g > b {
   display: block; width: 72%; max-width: 15px; justify-self: center;
   background: var(--surface3); border-radius: 2px 2px 0 0; min-height: 2px;
@@ -868,7 +871,7 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .v2-cr-g.on > b { background: var(--up); }
 .v2-cr.is-down .v2-cr-g.on > b { background: var(--up); }   /* a game he cleared is cleared, whichever way tonight points */
 .v2-cr-g.nd > b { background: var(--border-strong); }
-.v2-cr-v, .v2-cr-m, .v2-cr-o {
+.v2-cr-v, .v2-cr-m, .v2-cr-p, .v2-cr-o {
   display: block; text-align: center; font-style: normal;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -880,6 +883,20 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .v2-cr-g.on .v2-cr-v { color: var(--up); border-top-color: var(--up); }
 .v2-cr-m { font-size: .5rem; letter-spacing: .02em; color: var(--text3); font-variation-settings: "wdth" 70, "wght" 600; }
 .v2-cr-m.low { color: var(--tier-watch); }      /* a short appearance is context, not a bad game */
+/* The position he played that day. Condensed hard because three letters have to sit in a column
+   about 30px wide on a phone. */
+.v2-cr-p { font-size: .5rem; letter-spacing: .01em; color: var(--text3); font-variation-settings: "wdth" 62, "wght" 600; text-transform: uppercase; }
+/* The away mark rides on the opponent, where a reader is already looking to see who it was. */
+.v2-cr-at { font-style: normal; font-size: .5rem; color: var(--text3); margin-right: 1px; vertical-align: 2px; }
+/* "all at MID" is the least urgent of the four things on this line -- it says nothing changed --
+   so on a phone, where the line is already full, it is the one that goes. Same rule as the hint
+   below it. */
+.v2-cr-pos1 { color: var(--text3); font-size: .6875rem; }
+@media (max-width: 420px) { .v2-cr-pos1 { display: none; } }
+/* The streak and the season window sit after the count, at the count's weight minus one, because
+   they answer the same question over different windows and must not outrank it. */
+/* .v2-cr-cap is already a flex row with an 8px gap, so these need no separator of their own. */
+.v2-cr-more { color: var(--text2); font-size: .6875rem; font-variation-settings: "wdth" 88, "wght" 600; }
 /* A club fills this row with H or A instead of minutes. Away is the quieter of the two so a column
    of H with one A stands out -- but by WEIGHT only, not by opacity or colour: the row is already
    0.5rem, and anything that thins the ink would put it under the contrast floor this palette is
@@ -1185,3 +1202,39 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 /* What the opponent is worth on this line -- the one quantity a counting tool cannot produce. */
 .v2-ans-span { margin: 8px 0 0; font-size: .8125rem; line-height: 1.4; color: var(--text2);
   font-variation-settings: "wdth" 94, "wght" 500; }
+
+/* =============================================================== 30. THE FINDER'S FIRST SCREEN
+   The Finder opened on "Pick a league" and a counter of how many searches were left: an
+   instruction and a limit, before the reader had been shown a single thing the tool can do. The
+   counting tools open on eight named questions with their parameters printed, which is how a
+   person learns a query builder without reading any documentation.
+   Each card prints the search it runs, derived from the query itself, so the two cannot drift. */
+.fs-starts { margin-top: 18px; }
+.fs-starts > .muted { margin: 2px 0 14px; }
+.fs-starts-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: 1fr; }
+@media (min-width: 680px) { .fs-starts-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1100px) { .fs-starts-grid { grid-template-columns: 1fr 1fr 1fr; } }
+.fs-start {
+  display: grid; gap: 6px; width: 100%; text-align: left; cursor: pointer;
+  padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border);
+  background: var(--surface1); color: var(--text);
+  transition: border-color var(--v2-quick) var(--v2-ease), background-color var(--v2-quick) var(--v2-ease);
+}
+.fs-start:hover { border-color: var(--border-strong); background: var(--surface2); }
+.fs-start:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.fs-start > b { font-size: 1rem; font-variation-settings: "wdth" 100, "wght" 700; }
+.fs-start-why { color: var(--text2); font-size: .8125rem; line-height: 1.45; }
+.fs-start-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+.fs-start-chips > i {
+  font-style: normal; font-size: .6875rem; padding: 2px 8px; border-radius: 999px;
+  background: var(--surface3); color: var(--text2); white-space: nowrap;
+  font-variation-settings: "wdth" 88, "wght" 600;
+}
+/* The "N more hidden" link sits inside the answer line, so it must not out-shout the count. */
+.ins-answer .ins-clearall { font-size: .875rem; }
+/* Game time is one question with five answers, each needing a line of explanation, so this
+   picker stacks rather than wrapping chips. */
+.fs-list--rows { display: grid; gap: 6px; }
+.fs-gt { display: grid; gap: 1px; text-align: left; height: auto; padding: 8px 12px; }
+.fs-gt > small { opacity: .75; font-size: .75rem; }
+.fs-count { margin: 10px 2px 0; }

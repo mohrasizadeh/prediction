@@ -78,3 +78,38 @@ def evaluate(db, match_iid: int) -> dict:
         items[f["fkey"]] = {"state": state, "current": cur, "needed": need, "source": src}
     return {"active": True, "final": final, "status": lf.get("status"), "minute": lf.get("minute"),
             "updated": lf.get("polled_at"), "stats_at": st.get("at"), "items": items}
+
+
+# A feed spans many matches, and `evaluate` answers for one. So the feed screens -- Today and
+# Insights -- could not show a line going green, and the chip that says "Happened" / "2 of 3 so
+# far" lived on the match page alone. It is the one thing a counting tool cannot show at all: you
+# need to have said something beforehand for it to come true in front of someone.
+FEED_HOURS_BACK = 5          # a match that kicked off longer ago than this is yesterday's news
+FEED_MAX_MATCHES = 40        # a busy Saturday, bounded
+
+
+def evaluate_feed(db, now, hours_back: int = FEED_HOURS_BACK, limit: int = FEED_MAX_MATCHES) -> dict:
+    """Every line we can follow right now, across every match in play or just finished.
+
+    Keyed by `fkey`, the same shape `evaluate` returns for one match, so a card reads it the same
+    way wherever it is drawn. Reads our own database only -- no provider call, like the rest of
+    this module.
+    """
+    import datetime as _dt
+    since = now - _dt.timedelta(hours=hours_back)
+    items: dict = {}
+    n_live = n_final = 0
+    for lf in db.live_fixtures.find({"match_iid": {"$ne": None}, "kickoff": {"$gte": since}},
+                                    {"_id": 0, "match_iid": 1, "status": 1, "kickoff": 1}).sort("kickoff", -1).limit(limit * 2):
+        st = lf.get("status")
+        if not (in_play(st) or is_final(st)):
+            continue
+        r = evaluate(db, lf["match_iid"])
+        if not r.get("active"):
+            continue
+        items.update(r["items"])
+        n_final += 1 if r.get("final") else 0
+        n_live += 0 if r.get("final") else 1
+        if n_live + n_final >= limit:
+            break
+    return {"active": bool(items), "live": n_live, "finished": n_final, "items": items}

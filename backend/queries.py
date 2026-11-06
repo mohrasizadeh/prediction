@@ -393,17 +393,10 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
                          S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")))
     fc.sort(key=FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"]))
     fc = fc[:limit]
-    _usual(db, fc)
-    pl = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
-    tm = _names(db, "teams", [f["team_iid"] for f in fc] + [f["opp_iid"] for f in fc])
-    homes = _homes(db, fc)
-    lgs = _names(db, "leagues", [f["league_iid"] for f in fc if f.get("league_iid")])
-    for f in fc:
-        f["home_iid"] = homes.get(f["match_iid"])
-        f["league_name"] = (lgs.get(f.get("league_iid")) or {}).get("name")
-        f["league_id"] = (lgs.get(f.get("league_iid")) or {}).get("id")
-        f["player"] = pl.get(f.get("player_iid")); f["team"] = tm.get(f["team_iid"]); f["opp"] = tm.get(f["opp_iid"])
-    return fc
+    # This used to repeat _decorate's body inline, which is how the feed came to be the one caller
+    # that never got `match_id` -- and how a change to _homes could break `home_iid` in one place
+    # and not the other. One decorator, one set of fields.
+    return _decorate(db, fc)
 
 
 # --------------------------------------------------------------- Squad grid
@@ -544,7 +537,7 @@ def _usual(db, fc):
     stats = {f["stat"] for f in fc}
     if not stats:
         return fc
-    proj = {"_id": 0, "kickoff": 1, "minutes": 1, "opp_iid": 1, "home": 1, **{s: 1 for s in stats}}
+    proj = {"_id": 0, "kickoff": 1, "minutes": 1, "opp_iid": 1, "home": 1, "pos": 1, **{s: 1 for s in stats}}
     hist = {}
     pids = list({f["player_iid"] for f in fc if f.get("scope") == "player" and f.get("player_iid")})
     tids = list({f["team_iid"] for f in fc if f.get("scope") == "team"})
@@ -562,8 +555,19 @@ def _usual(db, fc):
         vals = [r[f["stat"]] for r in past]
         f["usual_n"] = len(vals)
         f["usual_p"] = round(sum(1 for v in vals if v > f["thr"]) / len(vals), 4) if len(vals) >= 5 else None
+        # `vals` is newest first, so the run of leading hits IS the current streak. The counting
+        # tools lead with this number, searching every market, line and window length until one of
+        # them reads 15/15. We state it second, under a forecast, and never let it choose the line:
+        # a streak has no opponent in it, which is exactly what `span` measures and a streak cannot.
+        streak = 0
+        for v in vals:
+            if v <= f["thr"]:
+                break
+            streak += 1
+        f["streak"] = streak
         # oldest first, because the strip is read left to right and ends at tonight
-        f["run"] = [{"opp_iid": r.get("opp_iid"), "m": r.get("minutes"), "v": r[f["stat"]], "home": r.get("home")}
+        f["run"] = [{"opp_iid": r.get("opp_iid"), "m": r.get("minutes"), "v": r[f["stat"]],
+                     "home": r.get("home"), "pos": r.get("pos")}
                     for r in reversed(past)]
     _run_opponents(db, fc)
     return fc
@@ -605,15 +609,24 @@ def _decorate(db, fc):
     lgs = _names(db, "leagues", [f["league_iid"] for f in fc if f.get("league_iid")])
     for f in fc:
         f["player"] = pl.get(f.get("player_iid")); f["team"] = tm.get(f["team_iid"]); f["opp"] = tm.get(f["opp_iid"])
-        f["home_iid"] = homes.get(f["match_iid"])
+        m = homes.get(f["match_iid"]) or {}
+        f["home_iid"] = m.get("home_iid")
+        f["match_id"] = m.get("id")
         f["league_name"] = (lgs.get(f.get("league_iid")) or {}).get("name")
         f["league_id"] = (lgs.get(f.get("league_iid")) or {}).get("id")
     return fc
 
 
 def _homes(db, fc) -> dict:
-    """match iid -> home team iid, so cards can print home v away."""
-    return {m["iid"]: m["home_iid"] for m in db.matches.find({"iid": {"$in": list({f["match_iid"] for f in fc})}}, {"iid": 1, "home_iid": 1})}
+    """match iid -> {home team iid, public match id}, so cards can print home v away and link the fixture.
+
+    The public `id` was never put on a forecast, yet three places read `f.match_id`: the Insights
+    "Match page" link (which silently fell back to the internal iid and produced a dead URL), the
+    sheet's Share, and the fixture line in SubjectHead. One extra projected field on a lookup the
+    page already makes.
+    """
+    return {m["iid"]: m for m in db.matches.find({"iid": {"$in": list({f["match_iid"] for f in fc})}},
+                                                 {"_id": 0, "iid": 1, "home_iid": 1, "id": 1})}
 
 
 # ------------------------------------------------------------ Leaderboards

@@ -12,8 +12,20 @@ import { Crest, PlayerAvatar } from "../components/Media";
 import Icon from "../components/Icon";
 import { MATCH_STATS, STATS, TEAM_STATS, kickoff, useTitle } from "../components/Football";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, HitStrip, ProLock, RangeSlider, Segmented, Skeleton, isoDay } from "../components/ui";
+import { FINDER_STARTS, startChips } from "../lib/finderStarts";
 
-const DEF = { mode: "form", stat: "shots", n: "2", scope: "player", last_n: "10", min: "6", venue: "", positions: "", leagues: "", day: "" };
+const DEF = { mode: "form", stat: "shots", n: "2", scope: "player", last_n: "10", min: "6", venue: "", positions: "", leagues: "", day: "", gt: "" };
+// How much of the match counts. `min_minutes` and `started` have been parameters of this search
+// since it was written and no browser could ever send either: they were not merely missing from
+// the sentence, the request builder never carried them. They are one question, not two -- "did he
+// play enough for this to mean anything?" -- so they are one control.
+const GAMETIME = [
+  { id: "", label: "any game time", hint: "Every appearance counts." },
+  { id: "45", label: "45+ minutes", hint: "Drops late cameos." },
+  { id: "60", label: "60+ minutes", hint: "Roughly a full shift." },
+  { id: "75", label: "75+ minutes", hint: "Nearly the whole match." },
+  { id: "started", label: "only when he started", hint: "Named in the eleven, however long he lasted." },
+];
 const POS = ["GK", "DEF", "MID", "FWD"];
 const PRESETS = "finder-presets";
 
@@ -63,6 +75,28 @@ function Row({ r, f }) {
       {r.forecast?.fkey && r.forecast.addable !== false && <RowAdd f={{ ...r.forecast, player: r.player || r.forecast.player, team: r.team || r.forecast.team }} />}
       {r.forecast?.from_ladder && <small className="muted fs-ladder" data-testid={`finder-ladder-${r.id}`}>Open the match to add this line.</small>}
     </li>
+  );
+}
+
+// The screen a reader lands on. It used to be one line of instruction; it is now the eight
+// questions this tool can answer, each with the search it runs printed underneath it.
+function Starts({ onPick, statOf }) {
+  return (
+    <section className="fs-starts" data-testid="finder-starts">
+      <h2 className="h3">Start with a question</h2>
+      <p className="muted small">Eight searches worth running. Tap one to load it, then change any underlined word.</p>
+      <ul className="fs-starts-grid">
+        {FINDER_STARTS.map((t) => (
+          <li key={t.id}>
+            <button type="button" className="fs-start" onClick={() => onPick(t)} data-testid={`finder-start-${t.id}`}>
+              <b>{t.name}</b>
+              <span className="fs-start-why">{t.why}</span>
+              <span className="fs-start-chips">{startChips(t.q, statOf(t.q)).map((c) => <i key={c}>{c}</i>)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -148,7 +182,12 @@ export default function Finder() {
       const today = isoDay(new Date());
       const rows = await get("/finder", { mode: f.mode, stat: stat.id, threshold: Number(f.n), scope: f.scope, last_n: f.last_n, leagues: f.leagues,
         day: f.day || today, tz: -new Date().getTimezoneOffset(),
-        venue: f.venue || undefined, positions: f.scope === "player" ? f.positions : "", min_reached: f.mode === "form" ? Number(f.min) / Number(f.last_n) : undefined }, { quiet: true });
+        venue: f.venue || undefined, positions: f.scope === "player" ? f.positions : "",
+        // Both of these have been parameters of the search since it was written and no browser
+        // could ever send them.
+        min_minutes: f.scope === "player" && /^\d+$/.test(f.gt) ? Number(f.gt) : undefined,
+        started: f.scope === "player" && f.gt === "started" ? true : undefined,
+        min_reached: f.mode === "form" ? Number(f.min) / Number(f.last_n) : undefined }, { quiet: true });
       setRes({ rows, err: null, busy: false });
       if (visitor) setAnonUsed((used || 0) + 1);
     } catch (x) {
@@ -170,6 +209,20 @@ export default function Finder() {
     const next = [{ name: name.slice(0, 40), q: sp.toString() }, ...presets.filter((p) => p.name !== name)].slice(0, 8);
     setPresets(next);
     if (me?.user) put("/me/presets", { items: next }).catch(() => {}); else localStorage.setItem(PRESETS, JSON.stringify(next));
+  };
+  // A start sets everything except the leagues, which stay as the reader left them: their plan
+  // decides how many they may search and we have no business guessing which.
+  const pickStart = (t) => {
+    const q = new URLSearchParams(t.q);
+    if (f.leagues) q.set("leagues", f.leagues);
+    if (f.day) q.set("day", f.day);
+    setRes({ rows: null, err: null, busy: false });
+    setSp(q, { replace: true });
+  };
+  const statOf = (q) => {
+    const sp2 = new URLSearchParams(q);
+    const pool = sp2.get("scope") === "team" ? TEAM_STATS : STATS;
+    return (pool.find((x) => x.id === sp2.get("stat")) || { label: sp2.get("stat") }).label;
   };
   const lgLabel = picked.length ? picked.map((id) => leagues.find((l) => l.id === id)?.name || "League").join(", ") : "pick a league";
   useTitle("Forecast Finder");
@@ -193,6 +246,12 @@ export default function Finder() {
           <Segmented label="Venue" value={f.venue} onChange={(v) => set({ venue: v })} options={[{ id: "", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} testid="finder-venue" /></Part></>}
         {f.scope === "player" && <>{", "}<Part id="pos" label={f.positions ? f.positions.split(",").join("/") : "any position"} open={open} setOpen={setOpen}>
           <ChipsRow multi label="Position" value={f.positions ? f.positions.split(",") : []} onChange={(v) => set({ positions: v.join(",") })} options={POS.map((p) => ({ id: p, label: p }))} testid="finder-pos" /></Part></>}
+        {f.scope === "player" && f.mode !== "likelihood" && <>{", "}<Part id="gt" label={(GAMETIME.find((g) => g.id === f.gt) || GAMETIME[0]).label} open={open} setOpen={setOpen}>
+          <span className="fs-list fs-list--rows">{GAMETIME.map((g) => (
+            <button key={g.id || "any"} type="button" className={`k-chip fs-gt${g.id === f.gt ? " on" : ""}`} aria-pressed={g.id === f.gt}
+                    onClick={() => { set({ gt: g.id }); setOpen(null); }} data-testid={`finder-gt-${g.id || "any"}`}>
+              <b>{g.label}</b><small>{g.hint}</small>
+            </button>))}</span></Part></>}
         {" in "}<Part id="leagues" label={lgLabel} open={open} setOpen={setOpen}>
           <span className="fs-list">{max >= 0 && <small className="k-faint">Up to {max} on your plan <ProLock label="More with Pro" testid="finder-leagues-pro" /></small>}{leagues.map((l) => {
             const on = picked.includes(l.id);
@@ -210,10 +269,14 @@ export default function Finder() {
       {out && <Wall visitor={visitor} cap={cap} freeCap={entitlements?.finder_searches_per_day} next={`/finder${sp.toString() ? `?${sp}` : ""}`} />}
       {res.busy && !res.rows ? <Skeleton shape="row" count={5} testid="finder-loading" />
         : res.err ? <ErrorState message={res.err.message || "The search did not work."} onRetry={run} testid="finder-error" />
-        : !res.rows ? <EmptyState icon="search" title={picked.length ? "Ready when you are" : "Pick a league"} testid="finder-idle">Tap any underlined word to change it.</EmptyState>
+        : !res.rows ? <Starts onPick={pickStart} statOf={statOf} />
         : !res.rows.length ? <EmptyState icon="search" title="Nothing meets that line" testid="finder-empty">Try a lower line, a longer window or another league.</EmptyState>
         : f.mode === "likelihood" ? <div className="fgrid" data-testid="finder-results">{res.rows.map((r) => <ForecastCard key={r.id} f={r} testid={`finder-fc-${r.id}`} />)}</div>
-        : <ul className="fs-results card" data-testid="finder-results">{res.rows.map((r) => <Row key={r.id} r={r} f={f} />)}</ul>}
+        : <><ul className="fs-results card" data-testid="finder-results">{res.rows.map((r) => <Row key={r.id} r={r} f={f} />)}</ul>
+            <p className="fs-count muted small" data-testid="finder-count">
+              {res.rows.length >= 100 ? "The first 100. Narrow the search -- a longer window or a higher line -- to see fewer and better."
+                : `${res.rows.length} ${res.rows.length === 1 ? "match" : "matches"}, all of them.`}
+            </p></>}
     </section>
   );
 }

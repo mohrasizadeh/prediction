@@ -327,6 +327,19 @@ def combo_suggest(match_id: str, response: Response, mode: str = "balanced", db=
         raise D.err(400, e.code, e.message)
 
 
+@router.get("/live-forecasts")
+def live_forecasts_feed(response: Response, db=Depends(D.get_db)):
+    """Every line we can follow right now, across every live match -- for the feed screens.
+
+    The per-match route below is unchanged; this is the same evaluation widened so Today and
+    Insights can tick green too, which until now only the match page could do.
+    """
+    import datetime as _dt
+    import live_track as LT
+    response.headers["Cache-Control"] = "public, max-age=15, stale-while-revalidate=30"
+    return LT.evaluate_feed(db, _dt.datetime.now(_dt.timezone.utc))
+
+
 @router.get("/matches/{match_id}/live-forecasts")
 def live_forecasts(match_id: str, response: Response, db=Depends(D.get_db)):
     """While a match is on: for each forecast, how far it is (current of needed) and whether it has happened. Reads our database only."""

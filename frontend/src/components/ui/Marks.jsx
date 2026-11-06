@@ -83,7 +83,8 @@ const abbr = (name) => {
 // strip ends at the question instead of stopping just before it.
 //
 // `games` are {v, m, opp} oldest -> newest, as queries._usual builds them.
-export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", testid = "ui-cardrun" }) {
+export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", streak, recK, recN,
+                          atHome, pos, testid = "ui-cardrun" }) {
   const known = games.filter((g) => g && g.v != null);
   if (known.length < 3) return null;                       // too few games to be evidence of anything
   const cleared = known.filter((g) => g.v > line).length;
@@ -96,31 +97,60 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
   // "81', 79', 23'" is the thing that decides whether the figure beside it means anything.
   const slot = (g) => (g.m != null ? `${Math.round(g.m)}'` : g.home == null ? "" : g.home ? "H" : "A");
   const venues = known.some((g) => g.m == null && g.home != null);
+  // Where he played, that day. `pos` is on every player_match_stats row and was drawn nowhere in
+  // the product -- and it is the biggest confounder in a tackles or a shots run: four tackles from
+  // a centre-back and four from a wide forward are not the same evidence.
+  //
+  // Drawn only when it CHANGED. Ten identical "ST"s is a column of noise, so when the run is all
+  // one position the caption says it once instead. The counting tools draw it every time; drawing
+  // what varies is the same rule the rest of this product follows.
+  const posns = known.map((g) => g.pos).filter(Boolean);
+  const onePos = posns.length === known.length && new Set(posns).size === 1 ? posns[0] : null;
+  const showPos = new Set(posns).size > 1;
+  // Venue, for a player. It was in `run` all along and sighted readers never saw it, because this
+  // column's one text slot was already holding the minutes. An away game is marked and a home game
+  // is not, so the mark reads as a departure rather than as a legend to memorise.
+  const away = (g) => g.m != null && g.home === false;
   return (
     <div className={"v2-cr" + (down ? " is-down" : "")} data-testid={testid}
-         role="img" aria-label={`Last ${known.length} games: ${known.map((g) => `${g.v}${g.m == null && g.home != null ? (g.home ? " at home" : " away") : ""}`).join(", ")}. Reached ${need} or more in ${cleared} of them. Tonight ${shown}.`}>
-      <ol className="v2-cr-row" aria-hidden="true">
+         role="img" aria-label={`Last ${known.length} games: ${known.map((g) => `${g.v}${g.home == null ? "" : g.home ? " at home" : " away"}${g.pos ? ` at ${g.pos}` : ""}`).join(", ")}. Reached ${need} or more in ${cleared} of them. Tonight ${shown}.`}>
+      <ol className={"v2-cr-row" + (showPos ? " has-pos" : "")} aria-hidden="true">
         {games.map((g, i) => (
           <li key={i} className={"v2-cr-g" + (g.v == null ? " nd" : g.v > line ? " on" : "")}>
             <b style={{ height: `${g.v == null ? 2 : Math.max(6, (g.v / vmax) * 100)}%` }} />
             <i className="v2-cr-v">{g.v == null ? "\u2013" : g.v}</i>
             <i className={"v2-cr-m" + (g.m != null && g.m < 70 ? " low" : "") + (g.m == null && g.home === false ? " away" : "")}>{slot(g)}</i>
-            <i className="v2-cr-o">{g.opp?.image ? <Crest team={g.opp} size={13} /> : abbr(g.opp?.name || g.opp)}</i>
+            {showPos && <i className="v2-cr-p">{g.pos || "\u2013"}</i>}
+            <i className="v2-cr-o">{away(g) && <em className="v2-cr-at">@</em>}{g.opp?.image ? <Crest team={g.opp} size={13} /> : abbr(g.opp?.name || g.opp)}</i>
           </li>
         ))}
         <li className="v2-cr-g v2-cr-now">
           <b style={{ height: `${Math.max(6, (need / vmax) * 100)}%` }} />
           <i className="v2-cr-v">{need}+</i>
           <i className="v2-cr-m">{shown}</i>
-          <i className="v2-cr-o">{opp?.image ? <Crest team={opp} size={13} /> : abbr(opp?.name || opp)}</i>
+          {/* Tonight is a column like the others, so it answers the same two questions: where he
+              is expected to play, and whether it is away. Leaving them blank made the newest
+              column the only one a reader could not read across. */}
+          {showPos && <i className="v2-cr-p">{pos || "\u2013"}</i>}
+          <i className="v2-cr-o">{atHome === false && <em className="v2-cr-at">@</em>}{opp?.image ? <Crest team={opp} size={13} /> : abbr(opp?.name || opp)}</i>
         </li>
       </ol>
       <p className="v2-cr-cap k-small">
         <span className="v2-cr-tag">Last {known.length}</span>
         <b>{cleared} cleared {need}+</b>
+        {/* The streak, second and small. A counting tool leads with it, searching every market,
+            every line and every window length until one of them reads 15 of 15 -- which is why
+            one of those always exists. Stated here it is evidence under a forecast, not a
+            headline, and it never chooses which line the card shows.
+            Suppressed when it equals the count above, because then it is the same fact twice. */}
+        {streak >= 3 && streak !== cleared && <span className="v2-cr-more">{streak} in a row</span>}
+        {/* The same question over a longer window: is this a hot run, or is he simply like this?
+            Only when the window is actually longer than the strip, or it restates the count. */}
+        {recN >= 8 && recN > known.length && <span className="v2-cr-more">{recK} of {who === "their" ? "their" : "his"} last {recN}</span>}
         {/* A club has no minutes, so that row is empty and the hint described a line that is not
             drawn. Say only what is there. */}
-        <span className="v2-cr-hint">{known.some((g) => g.m != null) ? "minutes above, opponent below" : venues ? "home or away above, opponent below" : "opponent below"}</span>
+        {onePos && <span className="v2-cr-pos1">all at {onePos}</span>}
+        <span className="v2-cr-hint">{known.some((g) => g.m != null) ? `minutes above${showPos ? ", position" : ""}, opponent below (@ away)` : venues ? "home or away above, opponent below" : "opponent below"}</span>
       </p>
     </div>
   );

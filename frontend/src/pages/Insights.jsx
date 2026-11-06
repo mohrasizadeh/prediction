@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
+import { useLiveLines } from "../lib/live";
 import { pct } from "../lib/copy";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
@@ -31,6 +32,9 @@ function Compact({ rows }) {
 
 export function Insights() {
   const { entitlements } = useAuth();
+  // The same live tracking the match page has always had. A feed where last night's forecasts
+  // visibly went green is the argument this product can make and a counting tool cannot.
+  const track = useLiveLines();
   const [sp] = useSearchParams();
   const [lg, setLg] = useState([]);
   const [mk, setMk] = useState("");
@@ -106,8 +110,14 @@ export function Insights() {
   return (
     <section className="ins" data-testid="insights-page">
       <h1>Insights</h1>
+      {/* "20 lines worth reading" is honest and reads as an empty shelf next to a counting tool
+          saying "1-30 of 609". The answer is not to inflate the number: it is to say what the
+          filters took out, so restraint reads as a decision rather than as a thin feed. */}
       {q.data && <p className="ins-answer" data-testid="ins-answer">
         <b>{rows.length} line{rows.length === 1 ? "" : "s"} worth reading</b> across {groups.length} match{groups.length === 1 ? "" : "es"}.
+        {data.length > rows.length && <> <button type="button" className="k-link ins-clearall" onClick={clearAll} data-testid="ins-filtered-out">
+          {data.length - rows.length} more hidden by your filters &mdash; show them
+        </button></>}
       </p>}
       <div className="ins-days"><button type="button" className={`k-chip${!day ? " on" : ""}`} onClick={() => setDay("")} aria-pressed={!day} data-testid="ins-any-day">Any day</button>
         <DateScroller value={day} onChange={setDay} from={0} count={7} gameDays={gameDays} dayLeagues={dayLeagues} testid="ins-dates" /></div>
@@ -183,7 +193,7 @@ export function Insights() {
                 <span className="k-faint k-small">{timeOf(g.kickoff)}</span>
                 <Link className="k-link" to={`/match/${g.rows[0].match_id || g.rows[0].match_iid}`}>Match page</Link>
               </header>
-              <div className="fgrid ins-grid">{g.rows.map((f) => <ForecastCard key={f.id} f={f} showTime={false} testid={`ins-card-${f.id}`} />)}</div>
+              <div className="fgrid ins-grid">{g.rows.map((f) => <ForecastCard key={f.id} f={f} showTime={false} track={track} testid={`ins-card-${f.id}`} />)}</div>
             </section>
           ))}
       {groups.length > shownGroups.length && (

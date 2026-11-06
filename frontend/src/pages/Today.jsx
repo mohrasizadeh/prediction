@@ -10,7 +10,7 @@ import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/pref
 import Icon from "../components/Icon";
 import { useTitle } from "../components/Football";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, Skeleton, WdlBar, isoDay, useSessionDay } from "../components/ui";
-import { atHalfTime, mLive } from "../lib/live";
+import { atHalfTime, mLive, useLiveLines } from "../lib/live";
 
 const isLive = (m) => mLive(m) && m.status !== "final";
 const isOff = (m) => m.status === "postponed" || m.status === "cancelled";
@@ -48,6 +48,7 @@ export function topRated(rows, n = 3) {
 
 function Top3({ day }) {
   const q = useApi("/insights", { limit: 200 });
+  const track = useLiveLines();            // lines tick green here now, not only on the match page
   const rows = (q.data || []).filter((x) => localDay(x.kickoff) === day);
   if (q.loading && !q.data) return <Skeleton shape="card" count={3} testid="today-top3-loading" />;
   const best = topRated(rows);
@@ -59,7 +60,7 @@ function Top3({ day }) {
       {/* UX_AUDIT decision 9: this was a horizontal carousel inside a page that scrolls down, with the
           second card visibly clipped and nothing else to say more existed. Three items do not need a
           carousel; they need three rows, and then none of them is hidden. */}
-      <div className="fgrid td-top-grid">{best.map((f) => <ForecastCard key={f.id} f={f} testid={`today-top-${f.id}`} />)}</div>
+      <div className="fgrid td-top-grid">{best.map((f) => <ForecastCard key={f.id} f={f} track={track} testid={`today-top-${f.id}`} />)}</div>
     </section>
   );
 }

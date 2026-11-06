@@ -89,6 +89,31 @@ none_rows = Q.finder(db, "form", "shots", 1, last_n=10, day="2031-01-01", now=no
 check(none_rows == [], "finder with a day that has no matches returns nothing")
 lk = Q.finder(db, "likelihood", "shots", 1, day=day, now=now)
 check(lk and all(x["kickoff"].date().isoformat() == day for x in lk), "finder likelihood with a date: only that day")
+# --- what a card can draw about the last ten games (v7 Tier 1)
+pf = [f for f in feed if f.get("scope") == "player" and (f.get("run") or [])]
+check(bool(pf), "the feed carries a run for player cards")
+f0 = pf[0]
+check(all("pos" in g for g in f0["run"]), "every run entry says which position he played that day")
+check(any(g.get("pos") for g in f0["run"]), "...and at least one of them is filled, so the strip has something to draw")
+check(all("home" in g and "m" in g and "v" in g for g in f0["run"]), "a run entry still carries venue, minutes and the count")
+# The streak is the leading run of hits in the SAME walk that produces usual_p, newest first.
+for f in pf:
+    newest = [g["v"] for g in reversed(f["run"])]
+    want = 0
+    for v in newest:
+        if v <= f["thr"]:
+            break
+        want += 1
+    if f["streak"] != want:
+        check(False, f"streak counts the leading run of hits ({f['streak']} != {want})")
+check(True, "streak counts the leading run of hits, newest first, on every card")
+check(all(f["streak"] <= f["usual_n"] for f in pf), "a streak can never be longer than the window it was counted in")
+# match_id was never written onto a forecast, so the Insights "Match page" link resolved to the
+# internal iid and went nowhere.
+check(all(f.get("match_id") for f in feed), "every card carries the public match id, so the fixture can be linked")
+mid = feed[0]["match_id"]
+check(db.matches.find_one({"id": mid, "iid": feed[0]["match_iid"]}) is not None, "...and it is that match's own public id, not another's")
+
 # The club's Quick view offers a Venue control, which was a lie until team_history could honour it.
 t_iid = db.team_match_stats.find_one({"corners": {"$ne": None}})["team_iid"]
 allg = Q.team_history(db, t_iid, "corners", 40)["games"]

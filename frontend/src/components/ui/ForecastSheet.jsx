@@ -134,7 +134,9 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
           season count stays, over its own window, labelled as the season. */}
       {f.scope === "player" && f.rec_n >= 8 && (
         <p className="k-faint k-small k-fs-ctx">
-          <span data-testid={`${testid}-rec`}>This season: reached this line in {f.rec_k} of {f.rec_n} games.</span>
+          {/* "This season" was an overclaim: rec_n counts his last 40 appearances, which is not a
+              season and in October is nothing like one. Say the window we actually counted. */}
+          <span data-testid={`${testid}-rec`}>Reached this line in {f.rec_k} of his last {f.rec_n} appearances.</span>
         </p>
       )}
       <LadderList lines={lines} current={f.fkey} parent={{ ...f, team: f.team || fx.team }} actions testid={`${testid}-ladder`} />

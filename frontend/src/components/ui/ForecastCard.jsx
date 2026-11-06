@@ -122,7 +122,10 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
             A card with almost no segment is describing a normal game. That is the product's whole
             thesis (docs/50, docs/56) and it was previously only a sentence in small grey text. */}
         {run && <CardRun games={run} line={f.thr} pct={shown} opp={f.opp} down={dir === "is-down"}
-                         who={f.scope === "team" ? "their" : "his"} testid={`${id}-run`} />}
+                         who={f.scope === "team" ? "their" : "his"}
+                         streak={f.streak} recK={f.rec_k} recN={f.rec_n}
+                         atHome={f.team_iid != null && f.home_iid != null ? f.team_iid === f.home_iid : undefined}
+                         pos={f.pos} testid={`${id}-run`} />}
         {!run && <span className="k-fc-bar" aria-hidden="true"
               data-dir={f.p_usual == null ? undefined : (f.p >= f.p_usual ? "up" : "down")}>
           {rng && <i className="k-fc-band" style={{ left: `${Math.round(f.lo * 100)}%`, width: `${Math.max(0, Math.round((f.hi - f.lo) * 100))}%` }} />}
