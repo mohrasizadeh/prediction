@@ -194,4 +194,47 @@ check(all(g["home"] for g in home) and not any(g["home"] for g in away), "...and
 check(Q.team_history(db, t_iid, "corners", 40, "elsewhere")["games"] == allg, "an unknown venue filters nothing rather than everything")
 check(all(g.get("home") is not None for g in allg), "every row says where it was played, which is what the strip draws")
 
+# --- v8: goals and assists are stored, and the backfill for history that predates that ---------
+print("[goals zero-fill]")
+played = list(db.player_match_stats.find({"minutes": {"$ne": None}}, {"goals": 1, "assists": 1, "goal_involvements": 1, "shots": 1}))
+check(played and all(r.get("goals") is not None for r in played),
+      f"every appearance records a goal count, 0 included ({len(played)} rows)")
+check(all(r.get("goal_involvements") == (r["goals"] + r["assists"]) for r in played),
+      "goal_involvements is stored, and is goals + assists on every row")
+scored = [r for r in played if r["goals"] > 0]
+check(0 < len(scored) < len(played), f"some appearances have a goal and most do not ({len(scored)} of {len(played)})")
+# The bug this fixes, stated as the arithmetic: a rate over games-he-scored-in is near 1.0 a game.
+# Over every appearance it is a believable per-match rate.
+bad = sum(r["goals"] for r in scored) / len(scored)
+good = sum(r["goals"] for r in played) / len(played)
+check(bad > 0.9 and good < 0.5, f"goals per appearance {good:.2f}, but {bad:.2f} if the goalless rows were still null")
+
+# Nothing left to do, because ingest now fills it -- and the "no goals at all" alarm stays quiet.
+rep = I.fill_player_goal_cols(db, dry_run=True)
+check(rep["ok"] and rep["goals"] == 0 and rep["assists"] == 0 and rep["rows_with_a_goal"] > 0,
+      "the backfill is a no-op on data ingested since the fix")
+
+# Legacy rows: null goals on appearances that were read (shots is not null). They fill, and the
+# derived column is recomputed with them.
+ids = [r["_id"] for r in db.player_match_stats.find({"minutes": {"$ne": None}}, {"_id": 1}).limit(5)]
+db.player_match_stats.update_many({"_id": {"$in": ids}}, {"$set": {"goals": None, "goal_involvements": None}})
+dry = I.fill_player_goal_cols(db, dry_run=True)
+check(dry["goals"] == len(ids) and db.player_match_stats.count_documents({"_id": {"$in": ids}, "goals": None}) == len(ids),
+      "a dry run counts what it would fill and writes nothing")
+wet = I.fill_player_goal_cols(db, dry_run=False)
+check(wet["ok"] and wet["goals"] == len(ids) and wet["involvements"] == len(ids),
+      "the backfill fills the goals and recomputes goal_involvements")
+check(all(r["goals"] == 0.0 and r["goal_involvements"] == r["assists"]
+          for r in db.player_match_stats.find({"_id": {"$in": ids}}, {"goals": 1, "assists": 1, "goal_involvements": 1})),
+      "...and the filled rows are consistent again")
+
+# THE GATE. With the column unmapped every row is null, so a naive fill would record that nobody in
+# the league has ever scored, at full coverage. It must refuse instead.
+keys = S.get(db, "provider.pitchapi.player_keys")
+S.put(db, "provider.pitchapi.player_keys", {**keys, "goals": {**keys["goals"], "key": None}}, "selftest")
+ref = I.fill_player_goal_cols(db, dry_run=False)
+check(not ref["ok"] and "does not map" in ref["reason"] and ref["goals"] == 0,
+      "with the column unmapped the backfill refuses rather than writing zeros over the whole league")
+S.put(db, "provider.pitchapi.player_keys", keys, "selftest")
+
 print("\nALL QUERY CHECKS PASSED")

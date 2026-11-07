@@ -18,7 +18,7 @@ PLAYER_KEYS = {"minutes": {"group": "top_stats", "key": "minutes_played_fake"},
                "shots": {"group": "top_stats", "key": "total_shots"},
                "sot": {"group": "top_stats", "key": "shot_accuracy", "use": "value"},
                "tackles": {"group": "defense", "key": "tackles_fake"},
-               "goals": {"group": "top_stats", "key": None}, "assists": {"group": "top_stats", "key": None},
+               "goals": {"group": "top_stats", "key": "goals_fake"}, "assists": {"group": "top_stats", "key": "assists_fake"},
                "xg": {"group": "top_stats", "key": None}, "saves": {"group": "top_stats", "key": None},
                "interceptions": {"group": "defense", "key": None}, "clearances": {"group": "defense", "key": None},
                "fouls_committed": {"group": "duels", "key": "fouls_fake"}, "fouls_won": {"group": "duels", "key": "fouls_won_fake"},
@@ -119,6 +119,13 @@ class FakePitch:
             top = {"Minutes played": {"key": "minutes_played_fake", "stat": {"type": "integer", "value": int(round(p.minutes))}},
                    "Total shots": {"key": "total_shots", "stat": {"type": "integer", "value": int(p.shots)}},
                    "Shot accuracy": {"key": "shot_accuracy", "stat": {"type": "fractionWithPercentage", "value": int(p.sot), "total": int(p.shots)}}}
+            # The provider omits a count when it is 0, which is the whole reason goals and assists
+            # are zero-filled at normalize. The fake has to omit them too, or the zero-fill is
+            # never exercised by a single test.
+            if int(getattr(p, "goals", 0)):
+                top["Goals"] = {"key": "goals_fake", "stat": {"type": "integer", "value": int(p.goals)}}
+            if int(getattr(p, "assists", 0)):
+                top["Assists"] = {"key": "assists_fake", "stat": {"type": "integer", "value": int(p.assists)}}
             groups = [{"key": "top_stats", "stats": top}]
             if p.pos != "GK":
                 groups.append({"key": "defense", "stats": {"Tackles": {"key": "tackles_fake", "stat": {"type": "integer", "value": int(p.tackles)}}}})

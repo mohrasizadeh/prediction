@@ -86,7 +86,15 @@ same = [f for f in withmore if f["scope"] == "player" and f["stat"] == "shots"]
 if same:
     h = same[0]
     tops = [m for m in h["more_lines"] if m["stat"] == "shots" and m["tier"] == h["tier"]]
-    check(all(m["thr"] < h["thr"] or m["p"] >= h["p"] for m in tops), "headline = the most ambitious line in the best tier")
+    # This asserted "headline = the most ambitious line in the best tier", which was the rule before
+    # docs/46 replaced it with `prominence` -- market importance x position relevance x lift x stake.
+    # Under prominence a LESS ambitious line can lead, and should: here 2+ shots at 94% (prominence
+    # 1.233) leads 3+ shots at 82% (1.038), because it has more to say. The old assertion only ever
+    # passed because no counter-example happened to land on the card it sampled.
+    import settings_store as _S
+    _W, _SC, _PW = _S.get(db, "engine.market_weights"), _S.get(db, "engine.lift_scale"), _S.get(db, "engine.position_weights")
+    check(all(Q.prominence(h, _W, _SC, _PW) >= Q.prominence(m, _W, _SC, _PW) for m in tops),
+          "headline = the line with the most to say, which is what decides the feed order too (docs/46)")
 md = Q.match_detail(db, ex["match_iid"])
 check(len(md["cards"]) < len(md["forecasts"]) and len({(x["team_iid"], x.get("player_iid")) for x in md["cards"]}) == len(md["cards"]), "match page: grouped cards next to the full list")
 S.put(db, "engine.feed_group", "line")                 # docs/46: replaced the old on/off with three choices

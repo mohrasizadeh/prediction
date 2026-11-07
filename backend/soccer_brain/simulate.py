@@ -41,7 +41,13 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
     # ---- squads: 14 players, two defensive stars and two attacking stars each
     pos_list = ["FWD"] * 3 + ["MID"] * 4 + ["DEF"] * 4 + ["FWD", "MID", "DEF"]
     base_w = {"shots": {"FWD": 3.0, "MID": 1.2, "DEF": 0.4},
-              "tackles": {"FWD": 0.7, "MID": 1.5, "DEF": 1.6}}
+              "tackles": {"FWD": 0.7, "MID": 1.5, "DEF": 1.6},
+              # Goals go mostly to forwards; assists are flatter and tilt to midfield. Shaped so a
+              # squad contains both players who score often enough for a goal market to mean
+              # something and players who do not -- which is the thing the eligibility gate has to
+              # be able to tell apart.
+              "goals": {"FWD": 4.0, "MID": 1.1, "DEF": 0.25},
+              "assists": {"FWD": 1.6, "MID": 2.2, "DEF": 0.5}}
     players = []
     for t in range(T):
         def_idx = [k for k, p in enumerate(pos_list) if p == "DEF"]
@@ -55,6 +61,11 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 player=t * 100 + k, team=t, pos=pos, p_start=ps,
                 skill_shots=np.exp(rng.normal(0, 0.35)),
                 skill_tackles=np.exp(rng.normal(0, 0.3)),
+                # Wider spread than shots: whether a player scores often enough to be worth a goal
+                # market is the thing the eligibility gate has to decide, so the squad has to
+                # contain a real range rather than eleven similar players.
+                skill_goals=np.exp(rng.normal(0, 0.55)),
+                skill_assists=np.exp(rng.normal(0, 0.45)),
                 q_def=1.0 if k in def_stars else rng.normal(0, 0.2),
                 q_att=1.0 if k in att_stars else rng.normal(0, 0.2)))
     squads = {t: [p for p in players if p["team"] == t] for t in range(T)}
@@ -119,9 +130,15 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 squad = squads[X]
                 minutes = lineup[X]["minutes"]; starters = lineup[X]["starters"]
                 alloc = {}
+                # Not every goal is assisted, and an assist cannot come from the scorer, so the
+                # count is drawn from the goals rather than equal to them.
+                g_tot = int(side[X]["goals"])
+                a_tot = int(rng.binomial(g_tot, 0.7)) if g_tot else 0
                 for stat, tot, key in (("shots", side[X]["shots"], "shots"),
                                        ("sot", side[X]["sot"], "shots"),
-                                       ("tackles", side[X]["tackles"], "tackles")):
+                                       ("tackles", side[X]["tackles"], "tackles"),
+                                       ("goals", g_tot, "goals"),
+                                       ("assists", a_tot, "assists")):
                     w = np.array([base_w[key][p["pos"]] * p["skill_" + key] * minutes[i] / 90.0
                                   for i, p in enumerate(squad)])
                     if stat == "sot":
@@ -132,6 +149,7 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                                     pos=p["pos"], started=int(i in starters), minutes=minutes[i],
                                     shots=int(alloc["shots"][i]), sot=int(alloc["sot"][i]),
                                     tackles=int(alloc["tackles"][i]),
+                                    goals=int(alloc["goals"][i]), assists=int(alloc["assists"][i]),
                                     team_shots=side[X]["shots"], team_sot=side[X]["sot"],
                                     team_tackles=side[X]["tackles"]))
             gid += 1

@@ -197,7 +197,7 @@ def ingest_match(client: PitchClient, match: dict) -> bool:
         row = {"match_iid": match["iid"], "player_iid": pid, "team_iid": tid, "home": side == "home",
                "opp_iid": away["iid"] if side == "home" else home["iid"], "kickoff": ko,
                "league_iid": match["league_iid"], "pos": p["pos"], "pos_raw": p["pos_raw"], "started": p["started"],
-               **{c: p[c] for c in N.PLAYER_COLS},
+               **{c: p[c] for c in (*N.PLAYER_COLS, *N.DERIVED_PLAYER_COLS)},
                "team_shots": out["team_totals"][side]["shots"], "team_sot": out["team_totals"][side]["sot"],
                "team_tackles": out["team_totals"][side]["tackles"]}
         db.player_match_stats.update_one({"match_iid": match["iid"], "player_iid": pid}, {"$set": row}, upsert=True)
@@ -348,8 +348,68 @@ def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
 
 
 # ----------------------------------------------------------------- coverage
+def fill_player_goal_cols(db, league_iid: int | None = None, dry_run: bool = True) -> dict:
+    """Backfill goals / assists / goal_involvements on history ingested before they were zero-filled.
+
+    Until now only `shots` and `sot` were filled, so a player who did not score stored goals=None.
+    Any per-90 rate built on that divides his goals by the games he SCORED in: every scorer in the
+    league comes out near 1.0 a game, which is a plausible number rather than an obviously broken
+    one, so nothing downstream would have caught it.
+
+    Three guards, because writing a 0 where the truth is "we were never told" is worse than the
+    null it replaces:
+
+    * THE MAPPING GATE. If `provider.pitchapi.player_keys.goals.key` is unset, the column was never
+      read, so EVERY row is null -- and filling them would record that nobody in the league has
+      ever scored, at 100% coverage. The function refuses and says so. This is the gate that makes
+      the rest safe, and it is the one a careless backfill would skip.
+    * PROOF THE ROW WAS READ. Only rows whose `shots` is non-null are touched. `shots` is itself
+      zero-filled at ingest and only when its group was present, so a non-null `shots` is evidence
+      that this player's stats group really was parsed. A row the provider never gave us keeps its
+      nulls.
+    * A REAL APPEARANCE. `minutes` must be set. Someone who did not play has no 0 to record.
+
+    Idempotent, and `dry_run` by default: it reports what it would do and writes nothing.
+    """
+    keys = S.get(db, "provider.pitchapi.player_keys") or {}
+    unmapped = [c for c in ("goals", "assists") if not (keys.get(c) or {}).get("key")]
+    if unmapped:
+        # Same shape as the success path, so a caller never has to branch on which keys exist.
+        return {"ok": False, "reason": f"provider does not map {', '.join(unmapped)} -- every row is null, "
+                                       f"so filling zeros would record that nobody ever scored",
+                "goals": 0, "assists": 0, "involvements": 0, "rows_with_a_goal": 0,
+                "dry_run": dry_run, "league_iid": league_iid}
+    q = {"minutes": {"$ne": None}, "shots": {"$ne": None}}
+    if league_iid is not None:
+        q["league_iid"] = league_iid
+    out = {"ok": True, "dry_run": dry_run, "league_iid": league_iid}
+    for col in ("goals", "assists"):
+        out[col] = db.player_match_stats.count_documents({**q, col: None})
+        if not dry_run and out[col]:
+            db.player_match_stats.update_many({**q, col: None}, {"$set": {col: 0.0}})
+    # Now that both parts are known on those rows, the derived column follows.
+    inv_q = {**q, "goals": {"$ne": None}, "assists": {"$ne": None}, "goal_involvements": None}
+    out["involvements"] = db.player_match_stats.count_documents(inv_q) if dry_run else 0
+    if not dry_run:
+        n = 0
+        for r in db.player_match_stats.find(inv_q, {"_id": 1, "goals": 1, "assists": 1}):
+            db.player_match_stats.update_one({"_id": r["_id"]},
+                                             {"$set": {"goal_involvements": float(r["goals"]) + float(r["assists"])}})
+            n += 1
+        out["involvements"] = n
+    # A league in which nobody has scored is not a league. Report it rather than return a clean zero:
+    # it means the mapping gate passed but the column still holds nothing real.
+    scored = db.player_match_stats.count_documents({**q, "goals": {"$gt": 0}})
+    out["rows_with_a_goal"] = scored
+    if not scored:
+        out["ok"] = False
+        out["reason"] = "no row in scope records a goal -- the column is mapped but carries nothing, so do not trust a fill here"
+    return out
+
+
 COVERAGE_FIELDS = {"team_match_stats": ["shots", "sot", "corners", "tackles", "poss", "xg"],
-                   "player_match_stats": ["minutes", "shots", "sot", "tackles", "pos", "passes", "fouls_won", "fouls_committed"]}
+                   "player_match_stats": ["minutes", "shots", "sot", "tackles", "pos", "passes", "fouls_won", "fouls_committed",
+                                          "goals", "assists", "goal_involvements", "xg"]}
 
 
 def update_coverage(db, league_iid: int) -> dict:

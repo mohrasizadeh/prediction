@@ -99,6 +99,24 @@ def extras_backfill(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     return {"queued": n}
 
 
+@router.post("/ingest/goals/backfill")
+def goals_backfill(league_iid: int = 0, dry_run: bool = True, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Fill goals / assists / goal_involvements on history ingested before they were zero-filled.
+
+    Defaults to a DRY RUN: it reports what it would change and writes nothing. Pass dry_run=false
+    to apply. Read `ok` before trusting the counts -- it is false when the provider does not map
+    the column (in which case every row is null and filling zeros would record that nobody in the
+    league has ever scored) or when nothing in scope records a goal at all.
+    """
+    import ingest as ING
+    rep = ING.fill_player_goal_cols(db, league_iid or None, dry_run=dry_run)
+    if not dry_run:
+        db.audit_log.insert_one({"actor": user["email"], "action": "ingest.goals_backfill",
+                                 "target": f"league={league_iid or 'all'} ok={rep['ok']} goals={rep['goals']} assists={rep['assists']}",
+                                 "at": datetime.now(timezone.utc)})
+    return rep
+
+
 @router.get("/issues")
 def issues(resolved: bool = False, kind: str = "", page: int = 1, limit: int = 50, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     page, limit = max(1, page), max(1, min(limit, 100))

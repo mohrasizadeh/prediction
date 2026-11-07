@@ -89,7 +89,15 @@ def has_group(p: dict, group: str) -> bool:
 
 PLAYER_COLS = ["minutes", "shots", "sot", "tackles", "goals", "assists", "xg", "saves",
                "interceptions", "clearances", "fouls_committed", "fouls_won", "passes"]
-ZERO_WHEN_ABSENT = ("shots", "sot")
+# A count the provider omits because it is 0. Goals and assists join shots and sot here, and the
+# reason they were missing is the reason this mattered: with them null, any per-90 rate divides a
+# player's goals by only the games he SCORED in, which puts every scorer in the league near 1.0 a
+# game. Nothing downstream could have caught that -- it is a plausible number, not a broken one.
+ZERO_WHEN_ABSENT = ("shots", "sot", "goals", "assists")
+# Derived at ingest, not read from the provider: stored so it can be graded, filtered and drawn
+# like any other column (score_finished reads `actual` by the stat's own name, the Finder's form
+# mode matches on it, and the ten-game strip draws it).
+DERIVED_PLAYER_COLS = ("goal_involvements",)
 
 
 def players(players_data, player_keys: dict, position_map: dict) -> list[dict]:
@@ -108,16 +116,27 @@ def players(players_data, player_keys: dict, position_map: dict) -> list[dict]:
                 row[col] = player_stat(p, spec["group"], spec["key"], spec.get("use", "value"))
             else:
                 row[col] = None
-        # PitchAPI omits a count when it is 0 (0 never appears in real answers). Owner decision: for a player who
-        # played, a missing shots / shots-on-target count is 0 when its key is mapped.
+        # PitchAPI omits a count when it is 0 (0 never appears in real answers). Owner decision: for a player
+        # who played, a missing count is 0 when its key is mapped.
+        #
+        # ...and when the GROUP that would have carried it is present on this player. That second
+        # condition is the one tackles already applies below, and it is the difference between "the
+        # provider said nothing because it was zero" and "the provider sent us nothing at all". A
+        # missing group means no data, and filling a 0 there would invent a fact rather than restore
+        # one. Previously only tackles checked it; now every zero-filled column does.
         for col in ZERO_WHEN_ABSENT:
-            if row[col] is None and (player_keys.get(col) or {}).get("key"):
+            spec = player_keys.get(col) or {}
+            if row[col] is None and spec.get("key") and has_group(p, spec.get("group", "top_stats")):
                 row[col] = 0.0
         # Goalkeepers have no defence group: tackles is None, not 0.
         if row["pos"] == "GK":
             row["tackles"] = None
         elif row["tackles"] is not None and not has_group(p, (player_keys.get("tackles") or {}).get("group", "defense")):
             row["tackles"] = None
+        # "scored or assisted" as its own column. None unless BOTH parts are known: a sum that
+        # silently treats an unknown as a zero is the same error this whole block exists to stop.
+        row["goal_involvements"] = (None if row["goals"] is None or row["assists"] is None
+                                    else float(row["goals"]) + float(row["assists"]))
         rows.append(row)
     return rows
 
