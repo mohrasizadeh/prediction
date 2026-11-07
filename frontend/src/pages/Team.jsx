@@ -166,7 +166,7 @@ export default function Team() {
           `playerId` only, so this half of the product had no evidence block at all -- and "what
           about 4+, and only away?" is exactly the question a club line raises. */}
       <section className="card" data-testid="team-quick-view-card">
-        <h2 className="h3">The last ten, and any other line</h2>
+        <header className="v2-sec-head v2-sec-head--card"><h2 className="h3 v2-sec">The last ten, and any other line</h2></header>
         <QuickView teamId={id} forecasts={d.forecasts || []} testid="team-quick-view" />
       </section>
       <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "squad", label: "Squad" }, { id: "totals", label: "Numbers" }, { id: "fixtures", label: "Fixtures" }]} />

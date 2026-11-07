@@ -1583,3 +1583,236 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
    football product that is every day. */
 .k-day .dot:not(.no) { background: var(--text3); }
 .k-day.on .dot:not(.no) { background: var(--on-brand); }
+
+
+/* =============================================================== 34. THE OWNER'S REFERENCE
+   The owner supplied a reference (Tailwind) for the player page, the forecast sheet, the team page
+   and the match page. What is taken is the ARCHITECTURE of its hero card -- a market pill, the
+   figure, a measurement, a baseline row on a hairline, and a nested box holding the evidence --
+   and the shape of its ladder row. What is refused is listed at the end, because a refusal with a
+   reason is worth more later than a rule without one. */
+
+/* --- the market becomes a pill ------------------------------------------------------------- */
+.v2-ans-mkt {
+  display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px;
+  border-radius: 999px; background: var(--surface2);
+  border: 1px solid var(--v2-hair); color: var(--text2);
+}
+
+/* --- the evidence axis takes the slot the reference gave a progress fill -------------------- */
+.v2-ans-axis { display: block; width: 100%; margin-top: 12px; }
+.v2-ans--page .v2-ans-axis { height: 30px; }
+
+/* --- the baseline row: usual left, departure right, on a hairline --------------------------- */
+.v2-ans-cmp { justify-content: space-between; padding-top: 9px; margin-top: 8px; border-top: 1px solid var(--v2-hair); }
+.v2-ans-cmp .v2-cmp-d { margin-left: auto; }
+
+/* --- the nested box: the one block that explains the figure above it ------------------------ */
+.v2-ans-box {
+  margin-top: 12px; padding: 12px 14px; display: grid; gap: var(--v2-gap-tight);
+  background: var(--surface2); border: 1px solid var(--v2-hair); border-radius: var(--radius-lg);
+}
+.v2-ans-box > .v2-ans-span { margin: 0; }
+.v2-ans-box .k-fs-why { padding-left: 0; list-style: none; gap: 7px; margin: 0; }
+.v2-ans-box .k-fs-why > li { position: relative; padding-left: 26px; font-size: 13px; line-height: 1.45; color: var(--text2); }
+/* A brand tick on a brand tint. NOT the accent: two of these per block on every card that has
+   reasons is the wallpaper failure section 31 records as already made once. */
+.v2-ans-box .k-fs-why > li::before {
+  content: ""; position: absolute; left: 0; top: 1px; width: 17px; height: 17px;
+  border-radius: 50%; background: color-mix(in srgb, var(--brand) 16%, transparent);
+}
+.v2-ans-box .k-fs-why > li::after {
+  content: ""; position: absolute; left: 5px; top: 6px; width: 7px; height: 4px;
+  border-left: 1.6px solid var(--brand); border-bottom: 1.6px solid var(--brand); transform: rotate(-45deg);
+}
+@media (forced-colors: active) {
+  .v2-ans-box .k-fs-why > li::after { border-color: CanvasText; }
+  .v2-ans-box .k-fs-why > li::before { background: Canvas; border: 1px solid CanvasText; }
+}
+
+/* --- the accent budget ----------------------------------------------------------------------
+   Three mechanisms can spend mint on this one block: a Strong tier badge, a departure of 8+
+   points, and the highlighter this pass adds to the span sentence. Three marks in one 390px
+   panel is wallpaper, and the highlighter is the newest, so it is the one that yields -- to the
+   chalk underline the sentence controls already use. */
+.v2-ans:has(.k-tier--strong) .v2-ans-span .v2-hl,
+.v2-ans:has(.v2-cmp-d.is-up.is-big) .v2-ans-span .v2-hl {
+  background-image: none; color: inherit; border-radius: 0;
+  padding-inline: 0; margin-inline: 0; box-shadow: inset 0 -0.12em 0 var(--text3);
+}
+
+/* --- the ladder row -------------------------------------------------------------------------
+   Grouped by market in Subject.jsx, so the separator names the market a run of rungs belongs to. */
+.k-fc-lines .v2-ll-sep {
+  border-top: 1px solid var(--v2-hair); margin-top: 6px; padding: 10px 2px 2px;
+  font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text3);
+}
+.k-fc-lines .v2-ll-sep:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.k-fc-lines.has-act li:not(.v2-ll-sep) { min-height: 52px; padding: 8px 10px; border-top: 0; border-radius: 10px; }
+.k-fc-lines li.is-here {
+  background: color-mix(in srgb, var(--tone) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone) 36%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 10%, transparent);
+}
+.k-fc-lines.has-act li > b {
+  display: grid; justify-items: end; gap: 1px; text-align: right; line-height: 1.05;
+  font-size: 16px; font-weight: 800; letter-spacing: -.02em;
+}
+.k-fc-lines.has-act li > b .k-fc-range { font-size: 11px; font-weight: 500; color: var(--text3); }
+
+/* --- a count chip, and a section head that sits inside a card ------------------------------- */
+.v2-count {
+  font-size: 12px; font-weight: 650; color: var(--text2); white-space: nowrap;
+  border: 1px solid var(--v2-hair); border-radius: 999px; padding: 3px 10px; font-variant-numeric: tabular-nums;
+}
+.v2-sec-head--tight { margin-top: var(--v2-gap-block); }
+.v2-sec-head--card, .card > .v2-sec-head:first-child { margin-top: 0; }
+/* At 390px a 19px head inside a 16px-padded card wraps to two lines on every card. */
+@media (max-width: 420px) { .v2-sec-head--card > h2, .v2-sec-head--card > h3 { font-size: 17px; } }
+
+/* --- the ten-game strip --------------------------------------------------------------------
+   The threshold label was transparent, so the dashes ran under the digits. A pill sits ON the
+   line, which is also what lets the legend sentence underneath stop repeating the count. */
+.v2-gs-rule em, .v2-run-rule em {
+  right: 0; top: -10px; padding: 1px 7px; border-radius: 999px; line-height: 1.5;
+  background: var(--surface1); border: 1px solid var(--text); color: var(--text);
+}
+.pgs-g.on .pgs-v { color: var(--text); font-weight: 700; }
+.pgs-g .pgs-opp {
+  opacity: 1; display: grid; place-items: center; width: 24px; height: 24px;
+  border-radius: 50%; background: var(--surface2); color: var(--text3); overflow: hidden;
+}
+
+/* --- REFUSED, and why ------------------------------------------------------------------------
+   * The gradient progress fill. A width-proportional fill says "this number is big", which is the
+     one conclusion section 4 exists to stop: a truism and a real claim both draw a full bar.
+   * The forest gradient header. SubjectHead already paints the subject's OWN crest as a blurred
+     wash, so a player's head is recognisably his club's. A fixed brand gradient makes every
+     entity's head identical -- a downgrade dressed as a brand move.
+   * The concentric circle outlines. A third texture behind text that already sits over a crest
+     wash and a legibility scrim, buying nothing a reader can act on.
+   * The mint tint and ring on the selected row. The accent is a FILL carrying dark ink; a 10%
+     tint is neither, and there is one selected row per group. It uses --tone, its own tier
+     colour, which already means something.
+   * "Highest confidence selection". It would be false: the lead line is chosen by `prominence`
+     -- the line with the most to say -- explicitly not the highest likelihood.
+   * Odds columns, an odds toggle, "add to slip", "apply pick". No price data appears in this
+     product, and `odds` and `picks` are in the enforced banned list. */
+
+
+/* =============================================================== 35. THE REFERENCE, AS DRAWN
+   Section 34 took the reference's architecture and talked itself out of its surface. The owner's
+   rendered mock makes the gap plain: the forest band at the top, bars you can read from across the
+   room with the figure sitting on them, opponents as tinted pills rather than grey shields, and a
+   chosen line that is visibly chosen. Those are the look, and they are what was asked for. */
+
+/* --- a) the subject band ---------------------------------------------------------------------
+   Mode-aware, because --brand is deep forest in light and MINT in dark: one gradient cannot serve
+   both. Light gets the reference's forest; dark gets a raised band off the page's own surfaces,
+   since the page there is already forest and a second forest would vanish into it. */
+.v2-sh--page, .v2-sh--sheet {
+  background: linear-gradient(158deg, var(--brand) 0%, color-mix(in srgb, var(--brand) 78%, #000) 100%);
+  color: var(--on-brand); overflow: hidden;
+}
+.v2-sh--page .v2-sh-name, .v2-sh--sheet .v2-sh-name,
+.v2-sh--page .v2-sh-name a, .v2-sh--sheet .v2-sh-name a { color: var(--on-brand); }
+/* Everything in the band inherits the band's ink. Naming the classes one by one missed
+   `.v2-club`, `.v2-pos` and the fixture line, which render dark-on-dark -- a contrast failure,
+   not a cosmetic one. One rule for the subtree, then the two muted levels are mixed back. */
+.v2-sh--page .v2-sh-main, .v2-sh--sheet .v2-sh-main,
+.v2-sh--page .v2-sh-main a, .v2-sh--sheet .v2-sh-main a { color: var(--on-brand); }
+.v2-sh--page .v2-sh-meta, .v2-sh--sheet .v2-sh-meta,
+.v2-sh--page .v2-sh-fx, .v2-sh--sheet .v2-sh-fx,
+.v2-sh--page .v2-sh-sub, .v2-sh--sheet .v2-sh-sub {
+  color: color-mix(in srgb, var(--on-brand) 82%, transparent);
+}
+.v2-sh--page .v2-pos, .v2-sh--sheet .v2-pos,
+.v2-sh--page .v2-club, .v2-sh--sheet .v2-club {
+  color: var(--on-brand);
+  border-color: color-mix(in srgb, var(--on-brand) 32%, transparent);
+  background: color-mix(in srgb, var(--on-brand) 12%, transparent);
+}
+/* chips sitting on the band stop being paper-coloured */
+.v2-sh--page .k-tag, .v2-sh--sheet .k-tag,
+.v2-sh--page .chip-tag, .v2-sh--sheet .chip-tag {
+  background: color-mix(in srgb, var(--on-brand) 15%, transparent);
+  border-color: color-mix(in srgb, var(--on-brand) 30%, transparent);
+  color: var(--on-brand);
+}
+/* the crest becomes a tile, as in the reference, instead of a bare circle on the wash */
+.v2-sh--page .v2-sh-face, .v2-sh--sheet .v2-sh-face {
+  padding: 4px; border-radius: 16px;
+  background: color-mix(in srgb, var(--on-brand) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--on-brand) 24%, transparent);
+}
+.v2-sh--page .v2-sh-face .media, .v2-sh--sheet .v2-sh-face .media,
+.v2-sh--page .v2-sh-face .media-fallback, .v2-sh--sheet .v2-sh-face .media-fallback,
+.v2-sh--page .v2-sh-face img, .v2-sh--sheet .v2-sh-face img { border-radius: 12px; }
+/* the ambient arcs */
+.v2-sh--page::before, .v2-sh--sheet::before {
+  content: ""; position: absolute; z-index: 0; pointer-events: none;
+  top: -70px; right: -60px; width: 220px; height: 220px; border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--on-brand) 16%, transparent);
+  box-shadow: 0 0 0 42px color-mix(in srgb, var(--on-brand) 5%, transparent) inset;
+}
+/* the crest wash and the legibility scrim both fought the band; the band is the background now */
+.v2-sh--page .v2-sh-bg, .v2-sh--sheet .v2-sh-bg { opacity: .22; }
+.v2-sh--page::after, .v2-sh--sheet::after { background: none; }
+:root[data-theme="dark"] .v2-sh--page, :root[data-theme="dark"] .v2-sh--sheet {
+  background: linear-gradient(158deg, var(--surface3) 0%, var(--surface1) 100%); color: var(--text);
+}
+:root[data-theme="dark"] .v2-sh--page .v2-sh-main, :root[data-theme="dark"] .v2-sh--sheet .v2-sh-main,
+:root[data-theme="dark"] .v2-sh--page .v2-sh-main a, :root[data-theme="dark"] .v2-sh--sheet .v2-sh-main a,
+:root[data-theme="dark"] .v2-sh--page .v2-pos, :root[data-theme="dark"] .v2-sh--page .v2-club { color: var(--text); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .v2-sh--page, :root:not([data-theme="light"]) .v2-sh--sheet {
+    background: linear-gradient(158deg, var(--surface3) 0%, var(--surface1) 100%); color: var(--text);
+  }
+  :root:not([data-theme="light"]) .v2-sh--page .v2-sh-main,
+  :root:not([data-theme="light"]) .v2-sh--sheet .v2-sh-main,
+  :root:not([data-theme="light"]) .v2-sh--page .v2-sh-main a,
+  :root:not([data-theme="light"]) .v2-sh--sheet .v2-sh-main a,
+  :root:not([data-theme="light"]) .v2-sh--page .v2-pos,
+  :root:not([data-theme="light"]) .v2-sh--page .v2-club { color: var(--text); }
+}
+
+/* --- b) the ten-game chart -------------------------------------------------------------------
+   Taller bars so a shape is readable at a glance, the figure sitting ON its bar, and the opponent
+   as a tinted pill. The grey shields said nothing; the pill says who. */
+.pgs-row { --bar-h: 88px; --foot-h: 24px; }
+.pgs-g { gap: 2px; }
+.pgs-g .pgs-min { font-size: 10px; font-weight: 600; color: var(--text3); }
+.pgs-g .pgs-v { font-size: 13px; font-weight: 700; color: var(--text3); }
+.pgs-g.on .pgs-v { color: var(--text); font-weight: 800; }
+.v2-gs-bar > b {
+  border-radius: 5px 5px 0 0;
+  background: color-mix(in srgb, var(--text3) 26%, transparent);
+}
+.pgs-g.on .v2-gs-bar > b {
+  background: linear-gradient(to top, var(--brand) 0%, var(--up) 100%);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--brand) 30%, transparent);
+}
+.pgs-g .pgs-opp {
+  opacity: 1; display: grid; place-items: center; min-width: 26px; height: 20px;
+  padding: 0 5px; border-radius: 999px; overflow: hidden;
+  font-size: 9px; font-weight: 800; letter-spacing: .02em;
+  background: var(--surface2); border: 1px solid var(--v2-hair); color: var(--text3);
+}
+.pgs-g.on .pgs-opp {
+  background: color-mix(in srgb, var(--up) 14%, transparent);
+  border-color: color-mix(in srgb, var(--up) 34%, transparent); color: var(--up);
+}
+.v2-gs-rule { border-top-width: 1.5px; border-top-style: dashed; }
+
+/* --- c) the chosen line is visibly chosen ----------------------------------------------------
+   The reference marks it with a play triangle in a filled disc. v2.css:1193 already puts a bare
+   "\25B8" in the row's first span, so this replaces that glyph with the disc. */
+.k-fc-lines.has-act li.is-here > span:first-child {
+  display: inline-flex; align-items: center; gap: 9px;
+}
+.k-fc-lines.has-act li.is-here > span:first-child::before {
+  content: "\25B6"; flex: none; display: grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--tone); color: var(--surface1);
+  font-size: 9px; line-height: 1; text-indent: 1px;
+}

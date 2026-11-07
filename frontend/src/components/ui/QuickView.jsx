@@ -62,7 +62,7 @@ export function QuickView({ playerId, teamId, stat: stat0 = "shots", line: line0
   const fc = ans && ans.p != null ? { p: ans.p, tier: ans.tier, exact: ans.source === "stored" } : null;
   return (
     <section className="qv" data-testid={testid}>
-      {title && <h3 className="k-sec">{title}</h3>}
+      {title && <header className="v2-sec-head v2-sec-head--card"><h3 className="k-sec v2-sec">{title}</h3></header>}
       {q.loading && !q.data ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !games.length ? <Empty icon="activity">No games match these filters.</Empty> : (
         <>
           <div className="v2-qv-head">

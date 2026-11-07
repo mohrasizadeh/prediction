@@ -14,7 +14,8 @@ import { useCombo } from "../../lib/combo";
 import { SaveButton } from "../Actions";
 import { Crest, PlayerAvatar } from "../Media";
 import { posLabel } from "../Football";
-import { TierBadge } from "./Marks";
+import { Fragment } from "react";
+import { Hl, TierBadge } from "./Marks";
 
 const BADGE = { confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" };
 
@@ -30,16 +31,20 @@ const BADGE = { confirmed: "Confirmed starter", likely: "Likely lineup", unsure:
 const MIN_SPAN = 0.05;
 function spanLine(f) {
   if (f.span == null) return null;                       // unknown is not the same as small
+  // Returns an element, not a string, so the points figure can carry the highlighter. It is the
+  // one quantity on the block that answers "is this big number a truism?", which is the product's
+  // whole argument, and it had no more emphasis than the sentence around it.
   const pts = Math.round(Math.abs(f.span) * 100);
+  const n = <Hl>{pts} point{pts === 1 ? "" : "s"}</Hl>;
   if (Math.abs(f.span) < MIN_SPAN) {
-    return `Much the same against any defence in the league — about ${pts} point${pts === 1 ? "" : "s"} between the hardest and the easiest.`;
+    return <>Much the same against any defence in the league &mdash; about {n} between the hardest and the easiest.</>;
   }
   const pos = f.span_pos;
   const where = pos == null ? null
     : pos >= 0.67 ? "and tonight's is a kinder one than most"
     : pos <= 0.33 ? "and tonight's is a harder one than most"
     : "and tonight's is about average";
-  return `The defence is worth about ${pts} points on this line${where ? `, ${where}` : ""}.`;
+  return <>The defence is worth about {n} on this line{where ? <>, {where}</> : null}.</>;
 }
 
 // Who this is about. A club line used to open a panel that never named the club and never linked to
@@ -109,7 +114,8 @@ function FixtureLine({ f, fx, link, testid }) {   // `testid` here is the full i
 // The claim, stated once. This replaces the sheet's head percentage, its "Chance he plays / If he
 // plays" tiles and the standing paragraph explaining the bracket: measured, the headline appeared
 // four times in one panel, and one tile read "Chance he plays 100%" beside "If he plays 84%".
-export function AnswerBlock({ f, size = "sheet", testid = "ui-answer" }) {
+export function AnswerBlock({ f, size = "sheet", children, testid = "ui-answer" }) {
+  const DEP_BIG = 8;                 // the accent threshold, same as the card (ForecastCard.jsx)
   const rng = f.p_display ? null : range(f.lo, f.hi);
   const dep = f.p_usual == null || f.p_display ? null : Math.round((f.p - f.p_usual) * 100);
   const dir = dep == null ? "" : dep >= 0 ? "is-up" : "is-down";
@@ -130,11 +136,18 @@ export function AnswerBlock({ f, size = "sheet", testid = "ui-answer" }) {
       {f.p_usual != null && !f.p_display && (
         <p className="v2-ans-cmp" data-testid={`${testid}-usual`}>
           <span>Usual <b>{pct(f.p_usual)}</b></span>
-          {dep != null && <b className={`v2-cmp-d ${dir}`}>{dep > 0 ? "+" : ""}{dep}</b>}
+          {dep != null && <b className={`v2-cmp-d ${dir}${Math.abs(dep) >= DEP_BIG ? " is-big" : ""}`}>{dep > 0 ? "+" : ""}{dep} pts</b>}
         </p>
       )}
-      {/* What the opponent is actually worth here. */}
-      {spanLine(f) && <p className="v2-ans-span" data-testid={`${testid}-span`}>{spanLine(f)}</p>}
+      {/* The sentence the counting tools cannot produce, and the reasons, were two loose
+          paragraphs either side of other content. Boxed together they become the one block that
+          explains the figure above them, which is the strongest idea in the reference. */}
+      {(spanLine(f) || children) && (
+        <div className="v2-ans-box">
+          {spanLine(f) && <p className="v2-ans-span" data-testid={`${testid}-span`}>{spanLine(f)}</p>}
+          {children}
+        </div>
+      )}
       {(lineup || plays != null) && (
         <p className="v2-ans-lineup">
           {lineup}
@@ -190,21 +203,42 @@ export function LineActions({ line, parent, testid }) {
 // the night reads as a curve instead of a leaderboard. Promoted to sit under the run: measured,
 // the sheet opened on 2+ at 84% while the player's best line sat below two screenfuls.
 export function LadderList({ lines, current, parent, actions = false, heading = "All lines", testid = "ui-ladder" }) {
-  const rows = (lines || []).filter((x) => x && x.market).slice().sort((a, b) => (a.thr ?? 0) - (b.thr ?? 0));
-  if (rows.length < 2) return null;
+  const all = (lines || []).filter((x) => x && x.market);
+  if (all.length < 2) return null;
+  const here0 = all.find((x) => x.fkey === current);
+  // This sorted on `thr` alone, across mixed markets, so on a player page "All lines" read
+  //    1+ shot 89% / 2+ tackles 57% / 2+ shots 52%
+  // and a reader scanning 89 -> 57 -> 52 saw a decaying shots ladder with a foreign row in it.
+  // A ladder is a curve INSIDE one market; a tackles rung between two shots rungs is not a step
+  // on anything. Grouped by market, the one the reader is standing on first, ascending within.
+  const rank = (x) => (here0?.stat && x.stat === here0.stat ? 0 : 1);
+  const rows = all.slice().sort((a, b) =>
+    rank(a) - rank(b) || String(a.stat || "").localeCompare(String(b.stat || "")) || (a.thr ?? 0) - (b.thr ?? 0));
+  const multi = new Set(rows.map((x) => x.stat)).size > 1;
+  let last = null;
   return (
     <section data-testid={testid}>
-      {heading && <h3 className="k-sec">{heading}</h3>}
+      {heading && (
+        <header className="v2-sec-head v2-sec-head--tight">
+          <h3 className="k-sec v2-sec">{heading}</h3>
+          <span className="v2-count">{rows.length} line{rows.length === 1 ? "" : "s"}</span>
+        </header>
+      )}
       <ul className={"k-fc-lines" + (actions ? " has-act" : "")}>
         {rows.map((x) => {
           const here = current != null && x.fkey === current;
+          const sep = multi && x.stat !== last;
+          last = x.stat;
           return (
-            <li key={x.fkey || x.market} className={here ? "is-here" : undefined} aria-current={here ? "true" : undefined}
-                style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}>
-              <span>{x.market}</span>
-              <b>{pct(x.p)}{range(x.lo, x.hi) && <small className="k-fc-range"> ({range(x.lo, x.hi)})</small>}</b>
-              {actions && <LineActions line={x} parent={parent} testid={testid} />}
-            </li>
+            <Fragment key={x.fkey || x.market}>
+              {sep && <li className="v2-ll-sep" aria-hidden="true">{String(x.market).replace(/^\d+\+\s*/, "")}</li>}
+              <li className={here ? "is-here" : undefined} aria-current={here ? "true" : undefined}
+                  style={{ "--tone": x.tier ? `var(--tier-${x.tier.toLowerCase()})` : "var(--text3)" }}>
+                <span>{x.market}</span>
+                <b>{pct(x.p)}{range(x.lo, x.hi) && <small className="k-fc-range">{range(x.lo, x.hi)}</small>}</b>
+                {actions && <LineActions line={x} parent={parent} testid={testid} />}
+              </li>
+            </Fragment>
           );
         })}
       </ul>

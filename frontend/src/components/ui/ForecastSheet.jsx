@@ -86,7 +86,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
     const text = `${f.player?.name || fx.team?.name || ""}: ${f.market}, ${pct(f.p)}`;
     try { if (navigator.share) await navigator.share({ title: text, text, url }); else await navigator.clipboard.writeText(`${text} ${url}`); } catch { /* closed */ }
   };
-  const lines = [{ fkey: f.fkey, market: f.market, p: f.p, lo: f.lo, hi: f.hi, tier: f.tier }, ...(f.more_lines || [])];
+  const lines = [{ fkey: f.fkey, market: f.market, stat: f.stat, thr: f.thr, p: f.p, lo: f.lo, hi: f.hi, tier: f.tier }, ...(f.more_lines || [])];
   const rng = f.p_display ? null : range(f.lo, f.hi);
   const title = `${f.player?.name || fx.team?.name || "Forecast"} · ${f.market}`;
   return (
@@ -96,13 +96,16 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
           so it leads with the same facts in the same order: who he is, which club, and whether the
           next match is home or away. It used to show only the fixture as plain text. */}
       <SubjectHead f={f} fx={fx} size="sheet" testid={testid} />
-      <AnswerBlock f={shown} size="sheet" testid={testid} />
+      {/* The reasons move inside the block. They were rendered after the "showing another line"
+          note, which put the explanation two elements away from the claim it explains. */}
+      <AnswerBlock f={shown} size="sheet" testid={testid}>
+        {onTapped && <WhyList reasons={f.reasons} testid={`${testid}-why`} />}
+      </AnswerBlock>
       {!onTapped && <p className="k-faint k-small v2-fs-other" data-testid={`${testid}-other-line`}>
         {picked.source === "ladder"
           ? <>Read off the ladder for this line, so there is no range or tier for it. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Show {f.market} again</button></>
-          : <>Showing {picked.market}. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Back to {f.market}</button></>}
+          : <>Showing {picked.market}. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Show {f.market} again</button></>}
       </p>}
-      {onTapped && <WhyList reasons={f.reasons} testid={`${testid}-why`} />}
       <div className="k-fs-head sr-only" aria-hidden="true" style={{ "--tone": f.tier ? `var(--tier-${f.tier.toLowerCase()})` : "var(--text3)" }}>
         {f.player ? <PlayerAvatar player={f.player} size={52} /> : <Crest team={fx.team} size={52} />}
         <span className="k-fc-who">

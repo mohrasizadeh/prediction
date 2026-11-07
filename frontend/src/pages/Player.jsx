@@ -49,7 +49,7 @@ function History({ id, forecasts }) {
     <section className="card" data-testid="quick-view-card">
       {/* "Quick view" named the widget. The block is a tool, so it says what it is for -- and the
           answer above it means it no longer needs to state the likelihood a second time. */}
-      <h2 className="h3">The last ten, and any other line</h2>
+      <header className="v2-sec-head v2-sec-head--card"><h2 className="h3 v2-sec">The last ten, and any other line</h2></header>
       <QuickView playerId={id} forecasts={forecasts} showForecast={false} testid="quick-view">{(games) => (
         <>
           <button type="button" className="linkish" onClick={() => setTable(!table)} data-testid="qv-table-toggle">{table ? "Hide table" : "Show table"}</button>
@@ -103,7 +103,7 @@ export default function Player() {
   const lead = cards.length ? { ...cards[0], player: p, team, match_id: nx?.id } : null;
   const lfx = lead ? fixtureOf(lead, teams, nx?.home_iid) : { team };
   const allLines = lead
-    ? [{ fkey: lead.fkey, market: lead.market, thr: lead.thr, p: lead.p, lo: lead.lo, hi: lead.hi, tier: lead.tier },
+    ? [{ fkey: lead.fkey, market: lead.market, stat: lead.stat, thr: lead.thr, p: lead.p, lo: lead.lo, hi: lead.hi, tier: lead.tier },
        ...(lead.more_lines || [])]
     : [];
   return (
@@ -122,11 +122,14 @@ export default function Player() {
           below already draws -- the identical run in two idioms, 550px apart. The card is a
           ranking object for a feed; this page is the answer, so it states it directly. */}
       <section className="card" data-testid="player-next">
-        <h2 className="k-sec">What we expect next match</h2>
+        <header className="v2-sec-head v2-sec-head--card"><h2 className="k-sec v2-sec">What we expect next match</h2></header>
         {!nx ? <p className="muted">No upcoming match loaded.</p>
           : lead ? <>
-              <AnswerBlock f={lead} size="page" testid="player-answer" />
-              <WhyList reasons={lead.reasons} testid="player-why" />
+              {/* The reasons live inside the answer block now, as the evidence for the figure
+                  above them rather than as a loose list after it. */}
+              <AnswerBlock f={lead} size="page" testid="player-answer">
+                <WhyList reasons={lead.reasons} testid="player-why" />
+              </AnswerBlock>
               <LadderList lines={allLines} current={lead.fkey} parent={lead} actions testid="player-ladder" />
             </>
           : <p className="muted small">No forecasts for this player yet.</p>}
