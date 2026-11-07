@@ -10,9 +10,8 @@ import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/pref
 import Icon from "../components/Icon";
 import { useTitle } from "../components/Football";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, Hl, Skeleton, WdlBar, isoDay, useSessionDay } from "../components/ui";
-import { atHalfTime, mLive, useLiveLines } from "../lib/live";
+import { atHalfTime, isLiveNow as isLive, useLiveLines } from "../lib/live";
 
-const isLive = (m) => mLive(m) && m.status !== "final";
 const isOff = (m) => m.status === "postponed" || m.status === "cancelled";
 const localDay = (s) => isoDay(utc(s));
 const shift = (day, n) => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() + n); return isoDay(d); };

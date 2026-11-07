@@ -268,8 +268,6 @@ pre { overflow: auto; max-height: 420px; font-size: 13px; }
 @media (min-width: 1025px) { .cookie { left: auto; right: 24px; bottom: 24px; width: 420px; } }
 
 /* Today scaffold + Spec placeholders */
-.spec { display: grid; gap: 12px; }
-.spec-routes { color: var(--text2); }
 .card { background: var(--surface1); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--card-shadow); padding: 16px; margin-bottom: 16px; }
 .chip { white-space: nowrap; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface1); color: var(--text2); cursor: pointer; font-weight: 600; }
 .chip-on { background: var(--text); color: var(--bg); border-color: var(--text); }
