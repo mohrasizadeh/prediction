@@ -9,7 +9,7 @@ import { Crest, LeagueMark } from "../components/Media";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
 import Icon from "../components/Icon";
 import { useTitle } from "../components/Football";
-import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, Skeleton, WdlBar, isoDay, useSessionDay } from "../components/ui";
+import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, Hl, Skeleton, WdlBar, isoDay, useSessionDay } from "../components/ui";
 import { atHalfTime, mLive, useLiveLines } from "../lib/live";
 
 const isLive = (m) => mLive(m) && m.status !== "final";
@@ -55,7 +55,7 @@ function Top3({ day }) {
   if (!best.length) return null;
   return (
     <section className="td-top" aria-label="Top 3 for this day" data-testid="today-top3">
-      <div className="td-sec-head"><h2 className="k-sec">Top 3 for {day === isoDay(new Date()) ? "today" : utc(`${day}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "long" })}</h2>
+      <div className="td-sec-head"><h2 className="k-sec">Top 3 for <Hl>{day === isoDay(new Date()) ? "today" : utc(`${day}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "long" })}</Hl></h2>
         <Link to={`/insights?day=${day}`} className="k-link" data-testid="today-see-all">See all {rows.length}</Link></div>
       {/* UX_AUDIT decision 9: this was a horizontal carousel inside a page that scrolls down, with the
           second card visibly clipped and nothing else to say more existed. Three items do not need a

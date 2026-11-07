@@ -1054,8 +1054,11 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   font-variation-settings: "wdth" 76, "wght" 700; }
 .v2-cmp-d { margin-left: auto; font-size: .8125rem !important; padding: 2px 9px; border-radius: 999px;
   font-variation-settings: "wdth" 86, "wght" 800 !important; }
-.v2-cmp-d.is-up { color: var(--up) !important; background: color-mix(in srgb, var(--up) 15%, transparent); }
-.v2-cmp-d.is-down { color: var(--down) !important; background: color-mix(in srgb, var(--down) 15%, transparent); }
+/* Section 31: the departure is the one figure on the card that is comparable down a whole feed,
+   so it is the mark that gets the accent. Up is the accent at full strength; down keeps the red
+   tint, because "below usual" is a different claim and must not read as the same mark. */
+.v2-cmp-d.is-up { color: var(--on-accent, #22281E) !important; background: var(--accent, #A9FF9B); }
+.v2-cmp-d.is-down { color: var(--down) !important; background: color-mix(in srgb, var(--down) 18%, var(--surface1)); }
 
 .v2-cr-cap { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .v2-cr-tag { font-size: .625rem; letter-spacing: .08em; text-transform: uppercase;
@@ -1255,3 +1258,267 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 /* When the reader moves the Quick view off the line they tapped, the panel says which line it is
    answering and offers the way back. Quiet: it is a status line, not a warning. */
 .v2-fs-other { margin: -4px 0 10px; }
+
+
+/* =============================================================== 31. THE REFERENCE PASS
+   Against the owner's attached reference (a forest/mint marketing site), four things carried its
+   character and none of them were in this product. This section adds them.
+
+   a) AN ACCENT, not a second shade of the brand. The light palette shipped with no mint in it at
+      all: brand, tierStrong, tierSolid, up and chart1/2 were all deep or mid forest, so every
+      coloured thing on a white page was the same colour at the same volume. That is what "dull"
+      was -- not the hue, the absence of a second one. `--accent` / `--on-accent` are new tokens
+      in site_studio.py (mint #A9FF9B under #22281E ink, 12.6:1), and the accent is a FILL that
+      carries dark text, never a text colour. It is spent on the marks that mean "this one is
+      worth your eye": the highlighter on a section's subject, the departure chip -- the one
+      figure on a card that is comparable down a whole feed -- and the Strong tier, the rarest of
+      the three. It is deliberately NOT on Solid or on "Confirmed starter": those sit on most
+      cards, so filling them mint makes mint the wallpaper and emphasises nothing. An accent that
+      turns up everywhere is the same problem as an accent that turns up nowhere.
+   b) THE HIGHLIGHTER. In the reference the subject of each heading gets a swipe of accent behind
+      it -- once per section, on the word that says what the section is about.
+   c) TABS ARE TEXT ON A RULE. The filter row was a line of floating pills with nothing above or
+      below it: the orphan in the middle of the Today page. In the reference a tab row is plain
+      text with a 2px underline under the active item and a hairline running the full width, so
+      the row is attached to the content it filters.
+   d) A SPACING RHYTHM. Large gaps BETWEEN blocks, small gaps INSIDE them. The page had one
+      medium gap everywhere, which is why nothing looked grouped and everything looked adrift. */
+
+:root {
+  --v2-gap-section: 40px;   /* between blocks: the page's breathing */
+  --v2-gap-block: 18px;     /* inside a block: heading to body, body to foot */
+  --v2-gap-tight: 8px;      /* between things that are one thing */
+  --v2-pad-card: 18px;
+  --v2-hair: color-mix(in srgb, var(--text3) 24%, transparent);
+}
+@media (min-width: 900px) { :root { --v2-gap-section: 56px; --v2-pad-card: 22px; } }
+
+/* --- b) the highlighter -------------------------------------------------------------------
+   Painted as a background on the span, not a pseudo-element, so it sits behind the glyphs with
+   no stacking work. It carries --on-accent, because the band is opaque: in dark mode the page's
+   own ink (#F4F7F3) over mint is 1.4:1, and a highlighter that eats its own word is worse than
+   no highlighter. The swipe stops short of the cap height, the way a marker pen does. */
+.v2-hl {
+  background-image: linear-gradient(var(--accent, #A9FF9B), var(--accent, #A9FF9B));
+  background-repeat: no-repeat;
+  background-size: 100% 0.72em;
+  background-position: 0 0.86em;
+  color: var(--on-accent, #22281E);
+  padding-inline: 0.18em;
+  margin-inline: -0.1em;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+}
+@media (forced-colors: active) { .v2-hl { background: Highlight; color: HighlightText; } }
+
+/* --- a/d) the section heading: eyebrow, size, and a rule that holds the link ---------------
+   The heading was 13px -- the same size as the body under it -- so a section announced itself at
+   the volume of a caption. In the reference the section head is the largest thing on the screen
+   after the hero. The "See all" link keeps its place on the rule rather than floating. */
+.td-sec-head { align-items: flex-end; padding-bottom: 10px; border-bottom: 1px solid var(--v2-hair); }
+.td-sec-head h2, .ins > h2, .fg-head h3 {
+  font-size: clamp(21px, 2.3vw, 28px); font-stretch: 104%; font-weight: 650;
+  letter-spacing: -0.021em; line-height: 1.12; color: var(--text);
+}
+/* The link becomes the reference's "Discover more ›": a quiet pill, chevron set in CSS so no
+   copy changes and the checker still sees the same words. */
+.td-sec-head .k-link {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: 36px;
+  border: 1px solid var(--v2-hair); border-radius: 999px; color: var(--text2);
+  text-decoration: none; font-stretch: 96%; white-space: nowrap;
+}
+.td-sec-head .k-link::after { content: "\203A"; font-size: 15px; line-height: 1; opacity: .7; }
+.td-sec-head .k-link:hover { background: var(--surface2); color: var(--text); border-color: var(--border-strong); }
+@media (pointer: coarse) { .td-sec-head .k-link { min-height: 44px; } }
+
+/* --- c) the filter row stops being a row of loose pills ------------------------------------
+   Scoped to .td-chips: ChipsRow is also a multi-select filter elsewhere, where a pill is right.
+   Here it is a tab bar -- one of four, exactly one on -- so it is drawn as one. */
+.td-chips { margin: var(--v2-gap-section) 0 var(--v2-gap-block); border-bottom: 1px solid var(--v2-hair); }
+.td-chips .k-chips { gap: 4px; padding: 0; }
+.td-chips .k-chip {
+  background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  padding: 0 14px; min-height: 44px; color: var(--text3); font-weight: 600; font-stretch: 96%;
+  margin-bottom: -1px;
+}
+.td-chips .k-chip:hover { color: var(--text); background: transparent; }
+.td-chips .k-chip.on {
+  background: transparent; color: var(--text); border-bottom-color: var(--brand); font-weight: 650;
+}
+.td-chips .k-chip.on .k-count { color: var(--text3); opacity: 1; }
+
+/* --- the card: the reference's card is white, hairline, generously padded ------------------- */
+.k-fc { border-color: var(--v2-hair); border-radius: 14px; }
+.k-fc-main { padding: var(--v2-pad-card) var(--v2-pad-card) 14px; gap: 12px; }
+.k-fc-p { font-size: 46px; letter-spacing: -0.038em; }
+
+/* --- the departure chip is the one standout number, so it gets the accent ------------------ */
+/* The colours live with the original rules above (they carry !important, and answering that
+   with more !important is how a stylesheet stops being readable). Only the shape is set here. */
+.v2-cmp-d { border-color: transparent; padding: 3px 9px; }
+
+/* --- the tier ladder reads as three weights, not three greys ------------------------------- */
+.k-tier { border-radius: 999px; font-weight: 650; font-stretch: 96%; padding: 4px 11px; border: 1px solid transparent; }
+.k-tier--strong { background: var(--accent, #A9FF9B); color: var(--on-accent, #22281E); }
+.k-tier--solid { background: transparent; color: var(--brand); border-color: color-mix(in srgb, var(--brand) 40%, transparent); }
+.k-tier--watch { background: transparent; color: var(--text3); border-color: var(--v2-hair); }
+.k-tier .k-dots i { background: currentColor; }
+.k-tier .k-dots i.o { background: currentColor; opacity: .35; }
+
+/* --- d) the rhythm: the page's blocks stand apart ------------------------------------------ */
+.td-top { margin-top: var(--v2-gap-section); }
+.td-sec-head + .td-top-grid, .td-sec-head + * { margin-top: var(--v2-gap-block); }
+.td-livestrip { margin-top: var(--v2-gap-block); }
+
+/* --- the swipe has to read as a marker, not an underline ----------------------------------- */
+.v2-hl { background-size: 100% 0.56em; background-position: 0 0.50em; }
+
+/* --- the day strip: selection is a fill, not a box --------------------------------------
+   Seven bordered tiles side by side is seven boxes competing with each other and with the
+   cards below, and the selected one had to shout over the other six to be seen. In the
+   reference a selected thing is simply filled with the brand and everything else is plain
+   text. One object is loud; the rest get out of the way. */
+.k-day { border: 1px solid transparent; background: transparent; color: var(--text3); border-radius: 10px; }
+.k-day:hover { background: var(--surface2); color: var(--text); }
+.k-day .n { color: var(--text2); }
+.k-day.on, .k-day.on:hover { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.k-day.on .w, .k-day.on .n, .k-day.on .k-day-mon { color: var(--on-brand); opacity: 1; }
+.k-day.on .dot:not(.no) { background: var(--on-brand); }
+.k-day .dot:not(.no) { background: var(--accent, #A9FF9B); }
+.k-day--cal { color: var(--text3); }
+.k-days { padding-block: 2px; }
+
+/* --- the card foot: the orphan row ---------------------------------------------------------
+   Three cards side by side ended at three different heights, so their feet -- the same two
+   facts on each -- sat at three different places and the row read as debris. The cards now
+   share a height and the foot is pinned to it, which is all "no element left orphan" asks
+   for here. "+1 more line" and its "up to 95%" are one statement and stop breaking in two. */
+.td-top-grid > .k-fc { grid-template-rows: 1fr auto; }
+.k-fc-foot {
+  border-top: 1px solid var(--v2-hair); border-top-style: solid;
+  padding: 8px var(--v2-pad-card) 10px; min-height: 48px;
+}
+/* .k-fc is a one-column grid, and a grid column takes the min-content of its WIDEST item. A
+   nowrap foot therefore sized the column, the column overflowed the card, and the card -- which
+   clips -- cut the percentage off the header above. The column is capped instead, and the foot
+   wraps as a whole while "up to 95%" stays in one piece, which was the only part that was
+   breaking. */
+.k-fc { grid-template-columns: minmax(0, 1fr); }
+.k-fc-foot { flex-wrap: wrap; row-gap: 4px; min-width: 0; }
+.k-fc-foot > .k-link { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
+.v2-more-top { font-style: normal; font-stretch: 92%; font-weight: 600; color: var(--text3); white-space: nowrap; }
+
+/* --- the quiet tags stop being mud ---------------------------------------------------------
+   Every status on the card was the same grey pill at the same weight: lineup, record, run,
+   filter. Grey on grey is the other half of "dull". These keep their modesty but pick a side:
+   confirmed is the accent, unconfirmed is a hairline outline, nothing is a filled grey slab. */
+.k-tag { background: transparent; border: 1px solid var(--v2-hair); color: var(--text2); font-weight: 600; }
+.k-tag--up { background: transparent; border-color: color-mix(in srgb, var(--up) 45%, transparent); color: var(--up); }
+.k-tag--muted { color: var(--text3); }
+
+/* Giving the cards a shared height handed the leftover space to the card's own auto rows, so
+   three cards side by side put their market line, their Usual row and their run at three
+   different heights -- the alignment problem the shared height was meant to fix, moved inside
+   the card. The rows pack to the top; the slack goes to the bottom, where the foot already is. */
+.td-top-grid > .k-fc > .k-fc-main { align-content: start; }
+
+/* The run's three rows of 9px grey -- counts, minutes, opponent -- were the densest thing on the
+   page and all three were the same colour and nearly the same size, so none of them could be
+   read at a glance. The counts are the row that answers the question; the other two annotate it. */
+.v2-cr-v { font-size: 12px; font-weight: 650; color: var(--text); }
+.v2-cr-m, .v2-cr-o, .v2-cr-p { font-size: 9px; line-height: 1.2; color: var(--text3); }
+
+/* A marker swipe works on a light page because the half of each letter that stands above the
+   band still reads against the paper. On a dark page it does not: the swiped word carries
+   --on-accent, which is the same dark ink as the background, so the tops of the letters
+   disappeared and "today" came out as a green smear. On dark the band covers the whole word
+   instead -- the same mark the reference uses for a standout figure. */
+:root[data-theme="dark"] .v2-hl {
+  background-size: 100% 100%; background-position: 0 0;
+  border-radius: 5px; padding: 0.04em 0.24em; margin-inline: -0.14em;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .v2-hl {
+    background-size: 100% 100%; background-position: 0 0;
+    border-radius: 5px; padding: 0.04em 0.24em; margin-inline: -0.14em;
+  }
+}
+
+
+/* =============================================================== 32. THE SAME FOUR MOVES, EVERYWHERE
+   Section 31 fixed the Today page. Applying a design language to one screen and not the others is
+   how a product ends up looking assembled rather than designed, so the four moves -- a fitted
+   control, a sized section head, cards that share a baseline, and a hairline instead of a grey
+   fill -- are extended to the rest of the public app here. */
+
+/* --- segmented controls ---------------------------------------------------------------------
+   `.k-seg` stretched to the width of its container, so on the Finder three short words sat in a
+   1000px bordered box with 800px of nothing beside them: a container with no content is the
+   loudest orphan on a page. The track is fitted to its buttons, and the chosen segment is filled
+   with the brand rather than tinted a slightly different grey. */
+.k-seg { width: fit-content; max-width: 100%; border-color: var(--v2-hair); border-radius: 999px; padding: 3px; gap: 2px; }
+.k-seg button { border-radius: 999px; padding: 0 16px; color: var(--text3); font-stretch: 96%; }
+.k-seg button:hover { color: var(--text); }
+.k-seg button[aria-checked="true"], .k-seg button[aria-pressed="true"], .k-seg button.on {
+  background: var(--brand); color: var(--on-brand); font-weight: 650; box-shadow: none;
+}
+
+/* --- every card grid shares a baseline ------------------------------------------------------ */
+.td-top-grid > .k-fc, .fgrid > .k-fc, .ins-grid > .k-fc, .k-fc-grid > .k-fc { grid-template-rows: 1fr auto; }
+.td-top-grid > .k-fc > .k-fc-main, .fgrid > .k-fc > .k-fc-main,
+.ins-grid > .k-fc > .k-fc-main, .k-fc-grid > .k-fc > .k-fc-main { align-content: start; }
+
+/* --- the Finder's eight starts --------------------------------------------------------------
+   Three cards of different text lengths ended at three different heights with their chip rows
+   floating at three different places. The chips are the row a reader scans across, so they are
+   pushed to a shared bottom edge and the cards share a height to give them one. */
+.fs-starts-grid > li { display: grid; }
+.fs-start { height: 100%; align-content: start; }
+.fs-start-chips { margin-top: auto; padding-top: 10px; }
+.fs-start-chips > i { background: transparent; border: 1px solid var(--v2-hair); color: var(--text2); }
+
+/* --- section heads, at the size a section deserves ------------------------------------------ */
+.fs-starts > h2.h3, .ins > h2, .pr h2, .tm h2, .mc-sec h2 {
+  font-size: clamp(19px, 2vw, 24px); font-stretch: 104%; font-weight: 650;
+  letter-spacing: -0.018em; line-height: 1.15;
+}
+.fs-starts { margin-top: var(--v2-gap-section); }
+
+/* --- the Insights match head gets the same pill link as Today's "See all" ----------------- */
+.v2-match-head { align-items: flex-end; padding-bottom: 10px; border-bottom: 1px solid var(--v2-hair); }
+.v2-match-head a, .v2-match-head .k-link {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: 36px;
+  border: 1px solid var(--v2-hair); border-radius: 999px; color: var(--text2);
+  text-decoration: none; font-stretch: 96%; white-space: nowrap;
+}
+.v2-match-head a::after, .v2-match-head .k-link::after { content: "\203A"; font-size: 15px; line-height: 1; opacity: .7; }
+.v2-match-head a:hover, .v2-match-head .k-link:hover { background: var(--surface2); color: var(--text); border-color: var(--border-strong); }
+@media (pointer: coarse) { .v2-match-head a, .v2-match-head .k-link { min-height: 44px; } }
+
+/* matchday.css pinned the Insights grid to `align-items: start`, so its cards kept their own
+   heights and the shared baseline above never reached them. Stretch is what makes the rule work. */
+.ins-grid { align-items: stretch; }
+
+/* A disabled primary is still the page's main action, and on the Finder it is the one a first
+   time reader is looking for. Greyed to near-invisible it reads as broken chrome rather than as
+   "one more choice and this works". The dashed edge is what keeps it from reading as an enabled
+   secondary, which an outline on its own would. */
+.btn[disabled] {
+  opacity: 1; background: transparent; color: var(--text3);
+  border-color: var(--border-strong); border-style: dashed;
+}
+
+/* The section gap is a desktop measure. On a phone 40px of air between the day strip and the
+   first heading is 5% of the fold, and the fold is the whole argument for the strip being one
+   row in the first place (section 22). */
+@media (max-width: 700px) { :root { --v2-gap-section: 26px; } }
+
+/* The bottom bar sat at 78% over a 20px blur. That is the right material when what passes under
+   it is grey text; with a mint tier badge under it the badge read straight through the bar and
+   put a green smear behind "You". The blur stays, the bar just stops being see-through. */
+.bottom-tabs { background: color-mix(in srgb, var(--surface1) 94%, transparent); }
+
+/* The secondary button was a filled grey slab -- the same grey as a disabled control, a tag and
+   a surface, which is how a page ends up with one colour at one volume. In the reference a
+   secondary action is the primary's shape in outline: same pill, paper fill, hairline edge. */
+.btn--secondary { background: var(--surface1); color: var(--text); border-color: var(--v2-hair); }
+.btn--secondary:hover:not([disabled]) { background: var(--surface2); border-color: var(--border-strong); }

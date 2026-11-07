@@ -3,6 +3,12 @@
 import { pct, TIER } from "../../lib/copy";
 import { Crest } from "../Media";
 
+// The reference's one signature move: a swipe of accent behind the word a heading is about.
+// Once per section, on the subject -- never on a whole sentence, which is a marker pen gone wrong.
+export function Hl({ children }) {
+  return <span className="v2-hl">{children}</span>;
+}
+
 export function TierBadge({ tier, testid = "ui-tier" }) {
   if (!tier) return null;
   const n = TIER[tier]?.dots || 0;

@@ -1,4 +1,4 @@
-export { TierBadge, WdlBar, HitStrip, RunStrip, GameStrip, CardRun } from "./Marks";
+export { Hl, TierBadge, WdlBar, HitStrip, RunStrip, GameStrip, CardRun } from "./Marks";
 export { QuickView } from "./QuickView";
 export { DateScroller, useSessionDay, isoDay } from "./DateScroller";
 export { ChipsRow, Segmented } from "./Chips";

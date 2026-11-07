@@ -2,7 +2,7 @@
 
 Sections (one JSON document each, inside one versioned config):
   brand        name, tagline, logo (light/dark), favicon, share image
-  theme        default mode, mode toggle, 23 colour tokens per mode, fonts, scale, radius, density, shadows, motion
+  theme        default mode, mode toggle, 25 colour tokens per mode, fonts, scale, radius, density, shadows, motion
   buttons      shape, size, weight, case, shadow, hover, focus ring, style of each variant
   nav          menu items (label, icon, route, who sees it), phone bottom bar, header button
   footer       link columns, social links, legal line (the disclaimer can never be removed)
@@ -56,7 +56,7 @@ def utcnow():
 
 # ----------------------------------------------------------------------------- defaults
 COLOR_TOKENS = ("bg", "surface1", "surface2", "surface3", "border", "borderStrong", "text", "text2", "text3",
-                "brand", "onBrand", "tierStrong", "tierSolid", "tierWatch", "up", "down", "onDown",
+                "brand", "onBrand", "accent", "onAccent", "tierStrong", "tierSolid", "tierWatch", "up", "down", "onDown",
                 "chart1", "chart2", "chart3", "chart4", "chart5", "chart6")
 
 # Default palette: the owner's seven -- Forest #034737, Sprout #A9FF9B, Stone #979C94,
@@ -84,7 +84,7 @@ COLOR_TOKENS = ("bg", "surface1", "surface2", "surface3", "border", "borderStron
 DARK = {"bg": "#22281E", "surface1": "#2A3026", "surface2": "#32382F", "surface3": "#3C4238",
         "border": "#3C4238", "borderStrong": "#575C53",
         "text": "#F4F7F3", "text2": "#DDE0DB", "text3": "#979C94",
-        "brand": "#38D996", "onBrand": "#22281E",
+        "brand": "#38D996", "onBrand": "#22281E", "accent": "#A9FF9B", "onAccent": "#22281E",
         "tierStrong": "#A9FF9B", "tierSolid": "#38D996", "tierWatch": "#979C94",
         "up": "#38D996", "down": "#FF8A7A", "onDown": "#22281E",
         "chart1": "#38D996", "chart2": "#A9FF9B", "chart3": "#979C94",
@@ -92,7 +92,7 @@ DARK = {"bg": "#22281E", "surface1": "#2A3026", "surface2": "#32382F", "surface3
 LIGHT = {"bg": "#F4F7F3", "surface1": "#FFFFFF", "surface2": "#EBEEEA", "surface3": "#E0E3DE",
          "border": "#D3D7D2", "borderStrong": "#AAAEA7",
          "text": "#22281E", "text2": "#3C4238", "text3": "#62685F",
-         "brand": "#034737", "onBrand": "#FFFFFF",
+         "brand": "#034737", "onBrand": "#FFFFFF", "accent": "#A9FF9B", "onAccent": "#22281E",
          "tierStrong": "#1B8962", "tierSolid": "#034737", "tierWatch": "#62685F",
          "up": "#106C4F", "down": "#A8372B", "onDown": "#FFFFFF",
          "chart1": "#034737", "chart2": "#1B8962", "chart3": "#62685F",
@@ -103,7 +103,7 @@ LIGHT = {"bg": "#F4F7F3", "surface1": "#FFFFFF", "surface2": "#EBEEEA", "surface
 CARBON_DARK = {"bg": "#101114", "surface1": "#18191C", "surface2": "#212224", "surface3": "#2B2C2F",
         "border": "#313235", "borderStrong": "#494A4C",
         "text": "#EEF0F2", "text2": "#C6CBD2", "text3": "#8E97A2",
-        "brand": "#6079EE", "onBrand": "#101114",
+        "brand": "#6079EE", "onBrand": "#101114", "accent": "#C6F04A", "onAccent": "#101114",
         "tierStrong": "#C6F04A", "tierSolid": "#6079EE", "tierWatch": "#8F6FD6",
         "up": "#C6F04A", "down": "#F2555F", "onDown": "#101114",
         "chart1": "#6079EE", "chart2": "#C6F04A", "chart3": "#8F6FD6",
@@ -111,7 +111,7 @@ CARBON_DARK = {"bg": "#101114", "surface1": "#18191C", "surface2": "#212224", "s
 CARBON_LIGHT = {"bg": "#EEF0F2", "surface1": "#FFFFFF", "surface2": "#E4E7EB", "surface3": "#D7DBE0",
          "border": "#D2D6DC", "borderStrong": "#AFB6BF",
          "text": "#101114", "text2": "#2C3238", "text3": "#55606D",
-         "brand": "#2547E8", "onBrand": "#EEF0F2",
+         "brand": "#2547E8", "onBrand": "#EEF0F2", "accent": "#C6F04A", "onAccent": "#101114",
          "tierStrong": "#697F27", "tierSolid": "#2547E8", "tierWatch": "#5F31C4",
          "up": "#697F27", "down": "#BD424A", "onDown": "#EEF0F2",
          "chart1": "#2547E8", "chart2": "#697F27", "chart3": "#5F31C4",
@@ -120,12 +120,12 @@ CARBON_LIGHT = {"bg": "#EEF0F2", "surface1": "#FFFFFF", "surface2": "#E4E7EB", "
 # The "chalk on slate" palette that preceded this one. Kept as a preset, as Apple and Midnight were.
 CHALK_DARK = {"bg": "#0D1620", "surface1": "#13202C", "surface2": "#1A2938", "surface3": "#22344A", "border": "#243546",
         "borderStrong": "#38506A", "text": "#E8EEF2", "text2": "#C4D2DC", "text3": "#9FB0BE", "brand": "#E8EEF2",
-        "onBrand": "#0D1620", "tierStrong": "#35C27E", "tierSolid": "#7FD3F2", "tierWatch": "#E8B23A", "up": "#35C27E",
+        "onBrand": "#0D1620", "accent": "#7FD3F2", "onAccent": "#0D1620", "tierStrong": "#35C27E", "tierSolid": "#7FD3F2", "tierWatch": "#E8B23A", "up": "#35C27E",
         "down": "#FF6B6B", "onDown": "#0D1620", "chart1": "#7FD3F2", "chart2": "#35C27E", "chart3": "#E8B23A",
         "chart4": "#FF6B6B", "chart5": "#B9A3F0", "chart6": "#9FB0BE"}
 CHALK_LIGHT = {"bg": "#EEF2F5", "surface1": "#FFFFFF", "surface2": "#E7ECF1", "surface3": "#DBE2E9", "border": "#D3DBE3",
          "borderStrong": "#AEBBC7", "text": "#111A22", "text2": "#2E3C47", "text3": "#55646F", "brand": "#111A22",
-         "onBrand": "#FFFFFF", "tierStrong": "#0F7A4A", "tierSolid": "#0B6E92", "tierWatch": "#8A6100", "up": "#0F7A4A",
+         "onBrand": "#FFFFFF", "accent": "#7FD3F2", "onAccent": "#111A22", "tierStrong": "#0F7A4A", "tierSolid": "#0B6E92", "tierWatch": "#8A6100", "up": "#0F7A4A",
          "down": "#C0392B", "onDown": "#FFFFFF", "chart1": "#0B6E92", "chart2": "#0F7A4A", "chart3": "#8A6100",
          "chart4": "#C0392B", "chart5": "#5B4AA8", "chart6": "#55646F"}
 
@@ -133,24 +133,24 @@ CHALK_LIGHT = {"bg": "#EEF2F5", "surface1": "#FFFFFF", "surface2": "#E7ECF1", "s
 # colours. Kept as a preset, the way Midnight was when it was replaced.
 APPLE_DARK = {"bg": "#000000", "surface1": "#1C1C1E", "surface2": "#2C2C2E", "surface3": "#3A3A3C", "border": "#38383A",
         "borderStrong": "#545458", "text": "#FFFFFF", "text2": "#EBEBF5", "text3": "#98989F", "brand": "#409CFF",
-        "onBrand": "#000000", "tierStrong": "#30D158", "tierSolid": "#64D2FF", "tierWatch": "#FF9F0A", "up": "#30D158",
+        "onBrand": "#000000", "accent": "#30D158", "onAccent": "#000000", "tierStrong": "#30D158", "tierSolid": "#64D2FF", "tierWatch": "#FF9F0A", "up": "#30D158",
         "down": "#FF6961", "onDown": "#000000", "chart1": "#409CFF", "chart2": "#30D158", "chart3": "#FF9F0A",
         "chart4": "#FF375F", "chart5": "#5E5CE6", "chart6": "#BF5AF2"}
 APPLE_LIGHT = {"bg": "#F2F2F7", "surface1": "#FFFFFF", "surface2": "#F2F2F7", "surface3": "#E5E5EA", "border": "#E5E5EA",
          "borderStrong": "#C7C7CC", "text": "#000000", "text2": "#3C3C43", "text3": "#6C6C70", "brand": "#0066CC",
-         "onBrand": "#FFFFFF", "tierStrong": "#1D7A32", "tierSolid": "#0071A4", "tierWatch": "#B25000", "up": "#1D7A32",
+         "onBrand": "#FFFFFF", "accent": "#30D158", "onAccent": "#000000", "tierStrong": "#1D7A32", "tierSolid": "#0071A4", "tierWatch": "#B25000", "up": "#1D7A32",
          "down": "#D70015", "onDown": "#FFFFFF", "chart1": "#0066CC", "chart2": "#1D7A32", "chart3": "#B25000",
          "chart4": "#D30F45", "chart5": "#5856D6", "chart6": "#8944AB"}
 
 # The previous default ("Midnight"): calm dark navy with an indigo accent. Kept as a preset.
 MIDNIGHT_DARK = {"bg": "#0A0E17", "surface1": "#111827", "surface2": "#182033", "surface3": "#212B42", "border": "#243049",
         "borderStrong": "#33415F", "text": "#E9EEF7", "text2": "#A3AFC6", "text3": "#75819B", "brand": "#7C83FF",
-        "onBrand": "#0A0E17", "tierStrong": "#2DD4BF", "tierSolid": "#60A5FA", "tierWatch": "#FBBF24", "up": "#34D399",
+        "onBrand": "#0A0E17", "accent": "#A3E635", "onAccent": "#0A0E17", "tierStrong": "#2DD4BF", "tierSolid": "#60A5FA", "tierWatch": "#FBBF24", "up": "#34D399",
         "down": "#F87171", "onDown": "#0A0E17", "chart1": "#7C83FF", "chart2": "#2DD4BF", "chart3": "#FBBF24",
         "chart4": "#F472B6", "chart5": "#60A5FA", "chart6": "#A3E635"}
 MIDNIGHT_LIGHT = {"bg": "#F5F7FB", "surface1": "#FFFFFF", "surface2": "#F0F3F9", "surface3": "#E6EBF4", "border": "#E2E8F2",
          "borderStrong": "#C9D2E3", "text": "#0B1220", "text2": "#475269", "text3": "#6B7690", "brand": "#4F46E5",
-         "onBrand": "#FFFFFF", "tierStrong": "#0D9488", "tierSolid": "#2563EB", "tierWatch": "#B45309", "up": "#059669",
+         "onBrand": "#FFFFFF", "accent": "#A3E635", "onAccent": "#0B1220", "tierStrong": "#0D9488", "tierSolid": "#2563EB", "tierWatch": "#B45309", "up": "#059669",
          "down": "#DC2626", "onDown": "#FFFFFF", "chart1": "#4F46E5", "chart2": "#0D9488", "chart3": "#B45309",
          "chart4": "#DB2777", "chart5": "#2563EB", "chart6": "#4D7C0F"}
 
@@ -240,7 +240,8 @@ def contrast(a: str, b: str) -> float:
 
 
 # pairs that must pass 4.5:1 (text on its background) and pairs that only warn
-BLOCK_PAIRS = (("text", "bg"), ("text", "surface1"), ("text", "surface2"), ("text2", "surface1"), ("onBrand", "brand"), ("onDown", "down"))
+BLOCK_PAIRS = (("text", "bg"), ("text", "surface1"), ("text", "surface2"), ("text2", "surface1"), ("onBrand", "brand"),
+               ("onAccent", "accent"), ("onDown", "down"))
 # icons, dots and large numbers need 3:1; small text needs 4.5:1
 WARN_PAIRS = ((("text3", "surface1"), 4.5), (("brand", "bg"), 3.0), (("up", "surface1"), 3.0), (("down", "surface1"), 3.0),
               (("tierStrong", "surface1"), 3.0), (("tierSolid", "surface1"), 3.0), (("tierWatch", "surface1"), 3.0))
@@ -644,20 +645,22 @@ PRESETS = {
                         dark=MIDNIGHT_DARK, light=MIDNIGHT_LIGHT, buttons={"radius_px": 12, "hover": "lift"}),
     "daylight": _preset("Daylight", "Opens in light mode. Same indigo accent.", "light"),
     "pitch": _preset("Pitch green", "Green accent, rounded corners.", "system",
-                     dark={"brand": "#34D399", "onBrand": "#04281C", "chart1": "#34D399"},
-                     light={"brand": "#047857", "onBrand": "#FFFFFF", "chart1": "#047857"}, radius="round"),
+                     dark={"brand": "#34D399", "onBrand": "#04281C", "accent": "#A7F3D0", "onAccent": "#04281C", "chart1": "#34D399"},
+                     light={"brand": "#047857", "onBrand": "#FFFFFF", "accent": "#A7F3D0", "onAccent": "#04281C", "chart1": "#047857"}, radius="round"),
     "sunset": _preset("Sunset", "Warm orange accent, soft shapes.", "dark",
-                      dark={"brand": "#FB923C", "onBrand": "#1F1004", "chart1": "#FB923C"},
-                      light={"brand": "#C2410C", "onBrand": "#FFFFFF", "chart1": "#C2410C"}, radius="round"),
+                      dark={"brand": "#FB923C", "onBrand": "#1F1004", "accent": "#FED7AA", "onAccent": "#1F1004", "chart1": "#FB923C"},
+                      light={"brand": "#C2410C", "onBrand": "#FFFFFF", "accent": "#FED7AA", "onAccent": "#1F1004", "chart1": "#C2410C"}, radius="round"),
     "ocean": _preset("Ocean", "Cool blue accent, sharp corners.", "system",
-                     dark={"brand": "#38BDF8", "onBrand": "#04202E", "chart1": "#38BDF8"},
-                     light={"brand": "#0369A1", "onBrand": "#FFFFFF", "chart1": "#0369A1"}, radius="sharp",
+                     dark={"brand": "#38BDF8", "onBrand": "#04202E", "accent": "#BAE6FD", "onAccent": "#04202E", "chart1": "#38BDF8"},
+                     light={"brand": "#0369A1", "onBrand": "#FFFFFF", "accent": "#BAE6FD", "onAccent": "#04202E", "chart1": "#0369A1"}, radius="sharp",
                      buttons={"radius_px": 6}),
     "contrast": _preset("High contrast", "Maximum readability. Pure black and white text.", "dark",
                         dark={"bg": "#000000", "surface1": "#0B0B0B", "surface2": "#141414", "surface3": "#1E1E1E", "border": "#4B4B4B", "borderStrong": "#8A8A8A",
-                              "text": "#FFFFFF", "text2": "#E0E0E0", "text3": "#BDBDBD", "brand": "#FFD60A", "onBrand": "#000000"},
+                              "text": "#FFFFFF", "text2": "#E0E0E0", "text3": "#BDBDBD", "brand": "#FFD60A", "onBrand": "#000000",
+                              "accent": "#FFD60A", "onAccent": "#000000"},
                         light={"bg": "#FFFFFF", "surface1": "#FFFFFF", "surface2": "#F2F2F2", "surface3": "#E4E4E4", "border": "#6B6B6B", "borderStrong": "#222222",
-                               "text": "#000000", "text2": "#1F1F1F", "text3": "#3D3D3D", "brand": "#0000CC", "onBrand": "#FFFFFF"},
+                               "text": "#000000", "text2": "#1F1F1F", "text3": "#3D3D3D", "brand": "#0000CC", "onBrand": "#FFFFFF",
+                               "accent": "#FFD60A", "onAccent": "#000000"},
                         buttons={"focus_ring_px": 4}),
 }
 

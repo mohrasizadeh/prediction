@@ -18,7 +18,7 @@ with TestClient(srv.app) as owner:
     m = j["meta"]
     # 10 presets: Forest is the default now, and Carbon is kept beside it the way Midnight, Apple
     # and Chalk were kept when each of them stopped being the default.
-    check(len(m["fonts"]) >= 12 and "calendar" in m["icons"] and len(m["presets"]) == 10 and len(m["color_tokens"]) == 23, "editor options: fonts, icons, presets, 23 colour tokens")
+    check(len(m["fonts"]) >= 12 and "calendar" in m["icons"] and len(m["presets"]) == 10 and len(m["color_tokens"]) == 25, "editor options: fonts, icons, presets, 25 colour tokens")
     check(m["presets"][0]["id"] == "forest", "Forest leads the preset list, because it is the default")
 
     # ---------------- public config before anything is published
