@@ -342,12 +342,23 @@ def forecast_markets(response: Response, db=Depends(D.get_db)):
     """
     _cache(response)
     out: dict[str, list[str]] = {}
-    for d in db.forecasts.aggregate([{"$match": {"is_current": True, "hidden": {"$ne": True}}},
-                                     {"$group": {"_id": {"scope": "$scope", "stat": "$stat"}}}]):
+    for d in db.forecasts.aggregate([{"$match": {"is_current": True, "hidden": {"$ne": True}, "carrier": {"$ne": True}},
+                                     }, {"$group": {"_id": {"scope": "$scope", "stat": "$stat"}}}]):
         k = d["_id"].get("scope")
         if k:
             out.setdefault(k, []).append(d["_id"].get("stat"))
-    return {k: sorted(x for x in v if x) for k, v in out.items()}
+    # Which LINES each market can answer, not just which markets exist. The ladders are not all the
+    # same shape: tackles starts at 1.5, so "1+ tackles" is a rung no ladder holds and the forecast
+    # can never answer it -- for anyone, in any fixture. The Finder's stepper offered 1 to 6 for
+    # every stat regardless, so a reader could ask a question the engine has no answer to and read
+    # the silence as the player being missing. A threshold of 1.5 is the line "2+".
+    lines = {}
+    for scope, key in (("player", "engine.player_ladder"), ("team", "engine.team_ladder")):
+        for stat, thrs in (S.get(db, key) or {}).items():
+            got = sorted({int(float(t) + 0.5) for t in thrs or []})
+            if got:
+                lines.setdefault(scope, {})[stat] = got
+    return {"markets": {k: sorted(x for x in v if x) for k, v in out.items()}, "lines": lines}
 
 
 @router.get("/live-forecasts")

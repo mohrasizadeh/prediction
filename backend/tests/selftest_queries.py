@@ -149,6 +149,41 @@ check("player" in fmk and {"shots", "sot", "tackles"} <= fmk["player"], f"player
 check(not ({"goals", "assists", "minutes", "fouls_committed"} & fmk.get("player", set())),
       "and none for the stats it does not -- which is what the Finder must stop offering in forecast mode")
 
+# --- v8: the ladder carrier -------------------------------------------------------------------
+# Reported as "Idrissa Gueye has no percentage and no button". The ladder was stamped only on the
+# lines that SURVIVED engine.line_band, so a player whose every rung fell below it left nothing
+# behind at all and the Finder had no answer -- an empty cell where every other row carries a
+# number, which reads as the player being missing.
+carriers = list(db.forecasts.find({"carrier": True}, {"_id": 0, "stat": 1, "tier": 1, "ladder": 1, "player_iid": 1, "scope": 1}))
+check(all(c["tier"] is None and c.get("ladder") for c in carriers),
+      f"a ladder carrier holds a ladder and no tier ({len(carriers)} of them)")
+# It must be invisible everywhere a reader looks. NOT_HIDDEN is the one guard, so test the queries.
+feed_keys = {f.get("fkey") for f in Q.insights_feed(db, limit=500, tiers=("Strong", "Solid", "Watch"), now=now)}
+carrier_keys = {c.get("fkey") for c in db.forecasts.find({"carrier": True}, {"fkey": 1})}
+check(not (feed_keys & carrier_keys), "a carrier never reaches the feed")
+for mid in {c["match_iid"] for c in db.forecasts.find({"carrier": True}, {"match_iid": 1})}:
+    md = Q.match_detail(db, mid)
+    check(not ({f.get("fkey") for f in md.get("forecasts", [])} & carrier_keys),
+          "a carrier never reaches the match page, which filters on no tier at all")
+    break
+# And the thing it exists for: a line the band dropped can still be answered.
+if carriers:
+    c0 = db.forecasts.find_one({"carrier": True})
+    thr = float(next(iter(c0["ladder"])))
+    got = Q._from_ladder(db, c0["match_iid"], c0["scope"], c0["stat"], thr,
+                         c0.get("player_iid") if c0["scope"] == "player" else c0.get("team_iid"))
+    check(got is not None and got["p"] is not None and got["tier"] is None and got["addable"] is False,
+          "a line the band dropped is answerable from the carrier, with no tier and nothing to save")
+
+# A rung no ladder holds must stay unanswerable rather than borrow a neighbour's number.
+# engine.player_ladder starts tackles at 1.5, so "1+ tackles" is a question with no rung.
+lad = S.get(db, "engine.player_ladder") or {}
+if lad.get("tackles") and 0.5 not in [float(t) for t in lad["tackles"]]:
+    mid2 = db.forecasts.find_one({"scope": "player", "stat": "tackles"}, {"match_iid": 1, "player_iid": 1})
+    if mid2:
+        check(Q._from_ladder(db, mid2["match_iid"], "player", "tackles", 0.5, mid2["player_iid"]) is None,
+              "1+ tackles is not on the ladder, so nothing may imply a number for it")
+
 # The club's Quick view offers a Venue control, which was a lie until team_history could honour it.
 t_iid = db.team_match_stats.find_one({"corners": {"$ne": None}})["team_iid"]
 allg = Q.team_history(db, t_iid, "corners", 40)["games"]

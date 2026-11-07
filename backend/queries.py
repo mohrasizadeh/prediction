@@ -14,7 +14,13 @@ from datetime import datetime, timedelta, timezone
 import settings_store as S
 import referees as RF
 
-NOT_HIDDEN = {"is_current": True, "hidden": {"$ne": True}}
+# `carrier` rows exist only so the Finder can answer a line the band did not keep (see
+# engine_bridge.select_lines). They are not forecasts the product published and must never be
+# displayed, scored or combined -- so the exclusion lives in the constant every display query
+# already spreads, rather than in each of the seven places that would otherwise have to remember.
+NOT_HIDDEN = {"is_current": True, "hidden": {"$ne": True}, "carrier": {"$ne": True}}
+# The one query that DOES want them: the ladder lookup. Carriers carry nothing but a ladder.
+ANY_STORED = {"is_current": True, "hidden": {"$ne": True}}
 TIER_RANK = {"Strong": 0, "Solid": 1, "Watch": 2, None: 3}
 
 
@@ -630,7 +636,7 @@ def _run_opponents(db, fc):
 def _from_ladder(db, match_iid, scope, stat, thr, ent):
     """The exact line was not kept (outside the likelihood band), but every kept line of that player or team and stat
     carries the whole ladder. Answer from it: `band` says "above" (very likely) or "below" (unlikely). No tier, no id."""
-    q = {**NOT_HIDDEN, "match_iid": match_iid, "scope": scope, "stat": stat, "ladder": {"$exists": True},
+    q = {**ANY_STORED, "match_iid": match_iid, "scope": scope, "stat": stat, "ladder": {"$exists": True},
          **({"player_iid": ent} if scope == "player" else {"team_iid": ent})}
     d = db.forecasts.find_one(q, {"_id": 0, "contrib": 0})
     key = f"{thr:g}"

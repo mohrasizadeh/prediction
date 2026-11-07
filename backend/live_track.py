@@ -52,7 +52,7 @@ def evaluate(db, match_iid: int) -> dict:
     st = db.live_stats.find_one({"fixture_sid": sid}, {"_id": 0}) or {}
     team_side = {lf.get("home_iid"): "home", lf.get("away_iid"): "away"}
     items = {}
-    for f in db.forecasts.find({"match_iid": match_iid, "is_current": True, "hidden": {"$ne": True}},
+    for f in db.forecasts.find({"match_iid": match_iid, "is_current": True, "hidden": {"$ne": True}, "carrier": {"$ne": True}},
                                {"_id": 0, "fkey": 1, "stat": 1, "scope": 1, "thr": 1, "player_iid": 1, "team_iid": 1}):
         need = int(math.floor(f["thr"])) + 1
         cur, src = None, None

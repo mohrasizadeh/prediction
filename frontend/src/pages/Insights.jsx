@@ -74,11 +74,15 @@ export function Insights() {
   const hIds = useMemo(() => (hWhen && Array.isArray(hq.data) ? new Set(hq.data.map((r) => r.id)) : null), [hWhen, hq.data]);
   // A card leads with its most telling line, which is rarely its most likely one. "At least N% likely" therefore
   // asks about the best line the card holds (best_p), or nothing a player owns above N% would ever match (docs/46).
-  const rows = data.filter((f) => (!day || isoDay(utc(f.kickoff)) === day) && Math.max(f.p, f.best_p ?? 0) * 100 >= more.min
+  const matched = data.filter((f) => (!day || isoDay(utc(f.kickoff)) === day) && Math.max(f.p, f.best_p ?? 0) * 100 >= more.min
     && (!more.pos.length || more.pos.includes(pos(f))) && (more.venue === "all" || (f.team_iid === f.home_iid) === (more.venue === "home"))
     && (!more.confirmed || f.lineup_confirmed)
     && (!who || f.player?.id === who) && (!club || f.team?.id === club)
     && (!hIds || (f.player_iid != null && hIds.has(f.player_iid))));
+  // The plan's daily cap, applied to what survived the reader's filters. The server used to apply
+  // it to the pool the filters run over, which is why a player plainly in the data could be missing.
+  const capN = entitlements?.insights_per_day;
+  const rows = capN >= 0 ? matched.slice(0, capN) : matched;
   const nMore = more.pos.length + (more.venue !== "all") + more.confirmed + (lg.length > 0);
   const nAll = nMore + (more.min > 0) + tier.length + (mk ? 1 : 0) + (who ? 1 : 0) + (club ? 1 : 0) + (hWhen ? 1 : 0);
   const clearAll = () => { setDay(""); setLg([]); setMk(""); setTier([]); setMore(NOF); setWho(""); setClub(""); setHWhen(""); };
@@ -106,7 +110,7 @@ export function Insights() {
   const shownGroups = groups.slice(0, showN);
   const shown = shownGroups.flatMap((g) => g.rows);
   useEffect(() => { setShowN(STEP); }, [day, mk, tier, lg, more, sort, who, club, hThr, hWhen]);
-  const cap = entitlements?.insights_per_day;
+  const cap = capN;   // same value, named for the notice below
   return (
     <section className="ins" data-testid="insights-page">
       <h1>Insights</h1>
@@ -115,8 +119,8 @@ export function Insights() {
           filters took out, so restraint reads as a decision rather than as a thin feed. */}
       {q.data && <p className="ins-answer" data-testid="ins-answer">
         <b>{rows.length} line{rows.length === 1 ? "" : "s"} worth reading</b> across {groups.length} match{groups.length === 1 ? "" : "es"}.
-        {data.length > rows.length && <> <button type="button" className="k-link ins-clearall" onClick={clearAll} data-testid="ins-filtered-out">
-          {data.length - rows.length} more hidden by your filters &mdash; show them
+        {data.length > matched.length && <> <button type="button" className="k-link ins-clearall" onClick={clearAll} data-testid="ins-filtered-out">
+          {data.length - matched.length} more hidden by your filters &mdash; show them
         </button></>}
       </p>}
       <div className="ins-days"><button type="button" className={`k-chip${!day ? " on" : ""}`} onClick={() => setDay("")} aria-pressed={!day} data-testid="ins-any-day">Any day</button>
@@ -204,7 +208,7 @@ export function Insights() {
           <span className="k-faint k-small" data-testid="ins-pager-count">{shownGroups.length} of {groups.length} matches</span>
         </div>
       )}
-      {cap >= 0 && data.length >= cap && <p className="notice small" data-testid="ins-capped">Your plan shows {cap} insights a day. <ProLock label="Unlimited with Pro" testid="ins-capped-pro" /></p>}
+      {cap >= 0 && matched.length > cap && <p className="notice small" data-testid="ins-capped">Your plan shows {cap} insights a day. <ProLock label="Unlimited with Pro" testid="ins-capped-pro" /></p>}
       <FilterSheet open={sheet} onClose={() => setSheet(false)} onReset={clearAll} count={rows.length} title="Filters" testid="ins-filters">
         <FilterGroup label="Tier"><ChipsRow multi value={tier} onChange={setTier} label="Tier" testid="ins-tier" options={TIERS.map((t) => ({ id: t, label: t }))} /></FilterGroup>
         {leagues.length > 1 && <FilterGroup label="League"><ChipsRow multi value={lg} onChange={setLg} label="League" testid="ins-league" options={leagues.map(([id, name]) => ({ id, label: name }))} /></FilterGroup>}

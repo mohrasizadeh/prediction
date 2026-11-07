@@ -120,12 +120,18 @@ def insights(limit: int = 50, sort: str = "", stat: str = "", scope: str = "", l
              user=Depends(D.optional_user), db=Depends(D.get_db)):
     """sort = edge (default: most different from usual) | likely | kickoff (docs/25).
     `players` and `teams` are comma-separated public ids and narrow the feed to them (docs/52)."""
-    cap = P.effective_plan(db, user)["entitlements"]["insights_per_day"]
+    # `insights_per_day` is a daily quota ("Insight cards per day"), and nothing ever consumed it --
+    # it was being spent as a per-response row limit instead. The page asks for 200 as a filtering
+    # pool and then filters client-side on day, market, tier, position, venue, club and player, so a
+    # free reader's 200 silently became 20 and every one of those filters ran on 20 rows. That is why
+    # a player who is plainly in the data was missing from the feed. The cap belongs on what is
+    # DISPLAYED, after the filters, and the page already applies it there: it reads the same
+    # entitlement itself and renders the "your plan shows N a day" notice (Insights.jsx:109,207).
     ids = [i for i in (Q.iid_of(db, "leagues", x) for x in leagues.split(",") if x) if i] or ([-1] if leagues else None)
     pids = [i for i in (Q.iid_of(db, "players", x) for x in players.split(",") if x) if i] or ([-1] if players else None)
     tids = [i for i in (Q.iid_of(db, "teams", x) for x in teams.split(",") if x) if i] or ([-1] if teams else None)
     tl = tuple(t for t in tiers.split(",") if t in ("Strong", "Solid", "Watch")) or ("Strong", "Solid")
-    return Q.insights_feed(db, limit=min(limit, 200, cap if cap >= 0 else 200), tiers=tl, league_iids=ids,
+    return Q.insights_feed(db, limit=min(limit, 200), tiers=tl, league_iids=ids,
                            stat=stat or None, scope=scope if scope in ("player", "team") else None,
                            sort=sort if sort in Q.FEED_SORTS else None, player_iids=pids, team_iids=tids)
 

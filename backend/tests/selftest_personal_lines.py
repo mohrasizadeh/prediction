@@ -104,8 +104,11 @@ def main():
 
     db_off, _ = build(False)
     db_on, now = build(True)
-    off = [f["p"] for f in db_off.forecasts.find({"is_current": True}, {"_id": 0, "p": 1})]
-    on = [f["p"] for f in db_on.forecasts.find({"is_current": True}, {"_id": 0, "p": 1})]
+    # Carriers are excluded: they are rows that exist only to hold a ladder for the Finder and are
+    # never shown to anyone, so counting them here would measure a distribution no reader sees.
+    q = {"is_current": True, "carrier": {"$ne": True}}
+    off = [f["p"] for f in db_off.forecasts.find(q, {"_id": 0, "p": 1})]
+    on = [f["p"] for f in db_on.forecasts.find(q, {"_id": 0, "p": 1})]
     hi_off, hi_on = sum(p >= .85 for p in off) / len(off), sum(p >= .85 for p in on) / len(on)
     check(st.median(on) < st.median(off),
           f"the shown likelihood stops hugging the top: median {st.median(off):.2f} -> {st.median(on):.2f}")

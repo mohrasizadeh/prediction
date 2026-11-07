@@ -68,7 +68,7 @@ function RowAdd({ f }) {
   );
 }
 
-function Row({ r, f }) {
+function Row({ r, f, canLine, statLabel }) {
   const nx = r.next_match;
   return (
     <li className="fs-row" data-testid={`finder-row-${r.id}`}>
@@ -76,7 +76,15 @@ function Row({ r, f }) {
       <span className="fs-who"><Link to={r.player ? `/player/${r.player.id}` : `/team/${r.team?.id}`}><b>{(r.player || r.team)?.name}</b></Link>
         <small>{[r.player && r.team ? r.team.name : null, nx ? `next v ${(nx.home?.id === r.team?.id ? nx.away : nx.home)?.name}, ${kickoff(nx.kickoff)}` : null].filter(Boolean).join(" · ")}</small></span>
       {f.mode === "run" ? <b data-testid={`finder-run-${r.id}`}>{r.run} in a row</b> : r.hits ? <HitStrip hits={[...r.hits].reverse()} label={`${f.n}+ ${f.stat}`} testid={`finder-strip-${r.id}`} /> : <b>{`${r.reached}/${r.games}`}</b>}
-      {r.forecast ? <b className="fs-next" data-testid={`finder-next-${r.id}`}>Next {r.forecast.p_display || pct(r.forecast.p)}</b> : <span />}
+      {/* This was `<span />`. A blank where every other row carries a percentage reads as the row
+          being broken, or the player being missing -- which is exactly how it was reported. It is
+          neither: either we hold no forecast for this fixture, or the line itself is not a rung on
+          this market's ladder. Say which. We never fall to a neighbouring rung and print its
+          number here: that would attach one line's evidence to another line's percentage. */}
+      {r.forecast ? <b className="fs-next" data-testid={`finder-next-${r.id}`}>Next {r.forecast.p_display || pct(r.forecast.p)}</b>
+        : <small className="fs-nonext muted" data-testid={`finder-nonext-${r.id}`}>
+            {canLine && !canLine.includes(Number(f.n)) ? `We do not forecast ${f.n}+ ${statLabel}` : "No forecast for this match"}
+          </small>}
       {r.forecast?.fkey && r.forecast.addable !== false && <RowAdd f={{ ...r.forecast, player: r.player || r.forecast.player, team: r.team || r.forecast.team }} />}
       {r.forecast?.from_ladder && <small className="muted fs-ladder" data-testid={`finder-ladder-${r.id}`}>Open the match to add this line.</small>}
     </li>
@@ -177,7 +185,16 @@ export default function Finder() {
   // Picking one returned "Nothing meets that line", which reads as "nobody qualifies" rather than
   // "we do not forecast that". The list now comes from the forecasts we actually hold.
   const fm = useApi("/forecast-markets");
-  const have = fm.data?.[f.scope] || null;
+  const have = fm.data?.markets?.[f.scope] || null;
+  // Which lines the forecast can actually answer for this stat. Not every ladder starts at 1:
+  // tackles starts at "2+", so "1+ tackles" is a question the engine has no rung for, for anyone.
+  const canLine = fm.data?.lines?.[f.scope]?.[f.stat] || null;
+  const lineMin = canLine ? canLine[0] : 1;
+  const lineMax = canLine ? canLine[canLine.length - 1] : 6;
+  // Only forecast mode is constrained. "1+ tackle in 6 of his last 10" is a perfectly good
+  // question about history, and clamping it would take away an answer we do have.
+  const nLo = f.mode === "likelihood" ? lineMin : 1;
+  const nHi = f.mode === "likelihood" ? Math.min(6, lineMax) : 6;
   const all = f.scope === "team" ? [...TEAM_STATS, ...(f.mode === "likelihood" ? MATCH_STATS : [])] : STATS.filter((s) => s.id !== "minutes");
   const pool = f.mode !== "likelihood" ? all : have ? all.filter((s) => have.includes(s.id)) : all.filter((s) => s.core);
   // And when the reader's stat is not one of them, say so instead of swapping it for shots behind
@@ -255,8 +272,8 @@ export default function Finder() {
         <Part id="scope" label={f.scope === "team" ? "Teams" : "Players"} open={open} setOpen={setOpen}>
           <Segmented label="Who" value={f.scope} onChange={(v) => set({ scope: v })} options={[{ id: "player", label: "Players" }, { id: "team", label: "Teams" }]} testid="finder-scope" /></Part>{" with "}
         <Part id="n" label={`${f.n}+`} open={open} setOpen={setOpen}>
-          <span className="fs-step"><button type="button" className="k-icon-btn" onClick={() => set({ n: String(Math.max(1, Number(f.n) - 1)) })} aria-label="Fewer" data-testid="finder-n-down">−</button><b>{f.n}+</b>
-            <button type="button" className="k-icon-btn" onClick={() => set({ n: String(Math.min(6, Number(f.n) + 1)) })} aria-label="More" data-testid="finder-n-up">+</button></span></Part>{" "}
+          <span className="fs-step"><button type="button" className="k-icon-btn" onClick={() => set({ n: String(Math.max(nLo, Number(f.n) - 1)) })} aria-label="Fewer" data-testid="finder-n-down">−</button><b>{f.n}+</b>
+            <button type="button" className="k-icon-btn" onClick={() => set({ n: String(Math.min(nHi, Number(f.n) + 1)) })} aria-label="More" data-testid="finder-n-up">+</button></span></Part>{" "}
         <Part id="stat" label={stat.label.toLowerCase()} open={open} setOpen={setOpen}>
           <span className="fs-list">{pool.map((s) => <button key={s.id} type="button" className={`k-chip${s.id === stat.id ? " on" : ""}`} onClick={() => { set({ stat: s.id }); setOpen(null); }} data-testid={`finder-stat-${s.id}`}>{s.label}</button>)}</span></Part>
         {f.mode !== "likelihood" && <>{" in "}<Part id="window" label={f.mode === "run" ? `a row, last ${f.last_n}` : `${f.min} of the last ${f.last_n}`} open={open} setOpen={setOpen}>
@@ -299,7 +316,7 @@ export default function Finder() {
         : !res.rows ? <Starts onPick={pickStart} statOf={statOf} />
         : !res.rows.length ? <EmptyState icon="search" title="Nothing meets that line" testid="finder-empty">Try a lower line, a longer window or another league.</EmptyState>
         : f.mode === "likelihood" ? <div className="fgrid" data-testid="finder-results">{res.rows.map((r) => <ForecastCard key={r.id} f={r} testid={`finder-fc-${r.id}`} />)}</div>
-        : <><ul className="fs-results card" data-testid="finder-results">{res.rows.map((r) => <Row key={r.id} r={r} f={f} />)}</ul>
+        : <><ul className="fs-results card" data-testid="finder-results">{res.rows.map((r) => <Row key={r.id} r={r} f={f} canLine={canLine} statLabel={stat.label.toLowerCase()} />)}</ul>
             <p className="fs-count muted small" data-testid="finder-count">
               {res.rows.length >= 100 ? "The first 100. Narrow the search -- a longer window or a higher line -- to see fewer and better."
                 : `${res.rows.length} ${res.rows.length === 1 ? "match" : "matches"}, all of them.`}

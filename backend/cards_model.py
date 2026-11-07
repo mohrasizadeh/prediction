@@ -194,7 +194,12 @@ def run_match(db, m, run_id=None, now=None, ln=None) -> int:
                              lam, _pois_sf(thr, lam), 1.0, True, why, strong, solid))
     if flags.get("player.yellow_cards", True):
         seen = set()
-        for f in db.forecasts.find({"match_iid": m["iid"], "is_current": True, "scope": "player", "model": {"$ne": "cards"}},
+        # Carriers are excluded to keep this change contained. Note for later: including them would
+        # fix a real cascade -- a player dropped from shots/sot/tackles by the band gets no yellow
+        # card line either, because this loop enumerates players from the engine's surviving
+        # documents rather than from the squad. That is worst for the defensive midfielders whose
+        # best market is the card one. Separate change; it alters how many forecasts exist.
+        for f in db.forecasts.find({"match_iid": m["iid"], "is_current": True, "scope": "player", "model": {"$ne": "cards"}, "carrier": {"$ne": True}},
                                    {"player_iid": 1, "team_iid": 1, "opp_iid": 1, "pos": 1, "p_play": 1, "lineup_confirmed": 1, "tier_basis": 1}):
             pid = f["player_iid"]
             if pid in seen:

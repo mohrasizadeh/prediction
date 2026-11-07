@@ -53,7 +53,17 @@ tight = B.select_lines(kane, [0.5, 0.99], 3)
 check(sorted(d["thr"] for d in tight) == [0.5, 1.5, 2.5], "raising the band floor does not change which three: it only removes long shots")
 one = B.select_lines(kane, [0.9, 0.99], 3)
 check([d["thr"] for d in one] == [0.5], "a floor above the rest of the ladder leaves just the one near-certain line")
-check(B.select_lines(kane, [0.99, 1.0], 3) == [], "a band nothing reaches keeps nothing, rather than falling back to the ambitious end")
+# v8: when a band keeps nothing, one row still survives as a ladder CARRIER so the Finder can
+# answer the lines the band dropped (engine_bridge.select_lines). It is not a published line --
+# NOT_HIDDEN keeps it off every screen, score_finished out of the record, live_track off the
+# ticker -- so what this has always guarded still holds: nothing READABLE is kept, and in
+# particular the ambitious end is not resurrected.
+none_kept = B.select_lines(kane, [0.99, 1.0], 3)
+check([d for d in none_kept if not d.get("carrier")] == [],
+      "a band nothing reaches publishes nothing, rather than falling back to the ambitious end")
+check(len(none_kept) == 1 and none_kept[0].get("carrier") and none_kept[0].get("ladder")
+      and none_kept[0]["thr"] == 0.5 and none_kept[0]["tier"] is None,
+      "...but one unreadable carrier keeps the ladder, so the Finder still has an answer")
 # equally likely lines: the more ambitious one is worth more
 tie = [{"scope": "player", "team_iid": 1, "player_iid": 8, "stat": "sot", "thr": t, "p": 0.8} for t in (0.5, 1.5)]
 check([d["thr"] for d in B.select_lines(tie, [0.5, 0.99], 1)] == [1.5], "of two equally likely lines, the more ambitious is kept")
@@ -75,7 +85,13 @@ I.sync_leagues(c); lg = db.leagues.find_one({}); I.sync_league_matches(c, lg, "2
 I.assign_rounds(db, lg["iid"]); I.update_coverage(db, lg["iid"])
 now = fake.kick(n_final) - dt.timedelta(hours=26)
 B.run_league(db, lg["iid"], now=now)
-rows = list(db.forecasts.find({}, {"_id": 0, "contrib": 0}))
+# Carriers sit outside the band by definition -- that is why they exist -- and are never shown,
+# so every assertion below about what the product publishes excludes them.
+rows = list(db.forecasts.find({"carrier": {"$ne": True}}, {"_id": 0, "contrib": 0}))
+carriers = db.forecasts.count_documents({"carrier": True})
+check(all(not (float(band_chk[0]) <= c["p"] <= float(band_chk[1])) for band_chk in [S.get(db, "engine.line_band")]
+          for c in db.forecasts.find({"carrier": True}, {"p": 1})),
+      f"{carriers} ladder carriers, every one of them outside the band -- which is why it was dropped")
 band = S.get(db, "engine.line_band")          # read the setting: the upper end moved to the display cap (docs/39)
 check(rows and all(float(band[0]) <= r["p"] <= float(band[1]) for r in rows),
       f"{len(rows)} forecasts, all inside the {band[0]:.0%}-{band[1]:.1%} band")

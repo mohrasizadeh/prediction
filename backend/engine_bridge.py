@@ -177,6 +177,21 @@ def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
         ladder = {f"{d['thr']:g}": round(float(d["p"]), 4) for d in g}   # the whole ladder, so the Finder can answer any line
         for d in keep:
             d["ladder"] = ladder
+        if not keep:
+            # The docstring above promises "the whole ladder is still stored on every line, so the
+            # Finder can still answer any threshold the band excluded" -- true only while at least
+            # one line survived. When the whole group falls below the band nothing is inserted, so
+            # the ladder is lost and the Finder has no answer at all: a row with no percentage and
+            # no button, which is what a reader meets for a defensive midfielder searched on shots.
+            # Measured on the demo league, 344 of 504 player stat-groups produced nothing, every one
+            # because every rung sat below the floor.
+            # So one row survives as a carrier. It holds the ladder and nothing else a reader sees:
+            # NOT_HIDDEN excludes it from every display query, score_finished from the record, and
+            # live_track from the ticker. It publishes nothing new -- it restores the ability to
+            # answer a question we already know the answer to.
+            c = dict(max(g, key=lambda d: d["p"]))
+            c.update({"ladder": ladder, "carrier": True, "tier": None, "tier_note": None, "tier_basis": None})
+            out.append(c)
         out += keep
     return out
 
@@ -573,7 +588,9 @@ def context_for_match(cal, m) -> dict:
 def score_finished(db) -> int:
     """After results arrive: store what actually happened next to each forecast (feeds Track Record)."""
     n = 0
-    cur = db.forecasts.find({"kickoff": {"$lt": utcnow()}, "is_current": True})
+    # Carriers are not published lines, so they are not scored: the track record must only ever
+    # count forecasts a reader could have seen.
+    cur = db.forecasts.find({"kickoff": {"$lt": utcnow()}, "is_current": True, "carrier": {"$ne": True}})
     for f in cur:
         if db.forecast_outcomes.find_one({"$or": [{"forecast_id": f["id"]}, {"fkey": f["fkey"]}]}):
             continue                                          # one outcome per forecast, even if old rows linger
