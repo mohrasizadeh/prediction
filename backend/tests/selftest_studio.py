@@ -28,6 +28,7 @@ with TestClient(srv.app) as owner:
     etag = r.headers["etag"]
     check(anon.get("/api/site/config", headers={"If-None-Match": etag}).status_code == 304, "unchanged config answers 304")
     check(cfg["disclaimer"].startswith("Statistical analysis") and cfg["popups_enabled"] is True and cfg["tracking"]["enabled"] is False, "disclaimer, popups switch and tracking state included")
+    check("belong to their owners" in cfg["image_credit"], "the crest and photo credit travels with the footer")
 
     # ---------------- editing the draft: validation
     def put(client, section, data): return client.put(f"/api/admin/site/draft/{section}", json={"data": data})

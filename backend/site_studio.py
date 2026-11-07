@@ -845,6 +845,10 @@ def public_config(db, draft: bool = False) -> dict:
         "maintenance": {"on": bool(pub.get("features.maintenance")), "message": pub.get("site.maintenance_message", "")},
         "disclaimer": pub.get("copy.disclaimer", textguard.DISCLAIMER),
         "data_credit": pub.get("copy.data_credit", "") if d["footer"]["show_data_credit"] else "",
+        # Crests and player photos belong to their clubs. The wording for that sat in `images.credit_text`
+        # from the day the setting was written and reached no screen, so the product showed other people's
+        # marks with no notice at all. It travels with the footer now and is removed by emptying it.
+        "image_credit": pub.get("images.credit_text", ""),
     }
 
 

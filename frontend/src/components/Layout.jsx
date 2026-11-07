@@ -166,6 +166,7 @@ function Footer({ cfg, updated, mode }) {
         <div className="footer-meta">
           {updated && <span data-testid="data-updated">Data updated {updated}.</span>}
           {f.show_data_credit && cfg?.data_credit && <span>{cfg.data_credit}</span>}
+          {cfg?.image_credit && <span data-testid="footer-image-credit">{cfg.image_credit}</span>}
           {f.legal_line && <span>{f.legal_line}</span>}
           {(f.social || []).map((s) => <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer">{s.kind}</a>)}
         </div>

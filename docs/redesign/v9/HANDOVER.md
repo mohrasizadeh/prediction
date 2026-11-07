@@ -104,3 +104,67 @@ true rather than claimed.
 - **`cards_model` enumerates players from surviving forecasts**, so a player dropped from
   shots/sot/tackles gets no yellow-card line either — worst for the defensive midfielders whose
   best market *is* the card one. Noted in the code at the call site.
+
+## The loose-ends sweep — what it fixed
+
+Four things it found were dead or duplicated, and all four are gone from the tree:
+
+- **`isLiveNow` was the canonical "is this match on right now?" test and nothing imported it.**
+  `pages/Today.jsx` and `pages/Match.jsx` each hand-rolled `mLive(m) && status !== "final"`, which
+  is two thirds of it: both counted a **postponed or cancelled** match as live, so it kept the live
+  dot, and on the match page it also re-fetched every 30 seconds forever. Both now import the real
+  one. If you add a third screen that asks the question, import it; do not retype it.
+- **`components/Football.jsx` carried its own earlier `TierBadge`, `LikelihoodBar`, `ForecastCard`
+  and `ProbBar`** long after every screen moved to `components/ui/`. No importers, different
+  output from the kit versions, so a reader comparing the two could not tell which one ships. Gone.
+  `TacticChip`, `MatchRow`, `FormPills`, the stat vocabularies and the small hooks stay — those are
+  live.
+- **`RunStrip`** was a third run graphic beside `CardRun` (feed size) and `GameStrip` (reading
+  size), exported from the kit barrel and used by nothing. Gone. Its `.v2-run*` rules are still in
+  `styles/v2.css` §13, deliberately: they are woven into three shared selectors and cost nothing,
+  and they are where to start if the standalone strip is ever wanted back.
+- **`components/Spec.jsx`** was the "to build" placeholder from the Emergent scaffold. Every screen
+  it stood in for is built, so it and its two CSS rules are gone. `EMERGENT.md` still mentions it;
+  read that as history.
+- **`images.credit_text` held a crest-and-photo attribution notice that reached no screen.** The
+  product was showing other people's crests and player photos with no notice at all. It now travels
+  in the site config and renders in the footer meta (`footer-image-credit`); emptying the setting
+  removes it.
+
+## Settings an owner can change that change nothing
+
+Measured, not guessed: of the 254 keys in `backend/settings_registry.json`, **47 are read by no
+backend code and no frontend code**. They are in the admin Settings panel with labels and defaults,
+and moving them does nothing. That is the single largest "half-built" surface left. In four groups,
+with what I would do:
+
+1. **~21 `features.*` flags** — `insights`, `finder`, `squad_grid`, `team_totals`, `against`,
+   `referees`, `leaderboards`, `learn`, `favourites`, `alerts`, `newsletter`, `track_record`,
+   `following`, `saved`, `search`, `beta_tag`, `show_xg`, `show_lineups`, `show_tactics`,
+   `show_match_probs`, `require_signin_to_follow`. Turning off "Insights feed" leaves the Insights
+   feed running. **This duplicates Site Studio**, which already turns screens off through
+   `nav`/`footer` and is the mechanism that works. `features.billing`, `features.maintenance` and
+   `features.live` are the three that are genuinely wired — do not remove those.
+   *Do:* delete the dead flags from the registry and point the Features help text at Site Studio.
+   Building a second gating layer to match them is the wrong direction.
+2. **11 layout and default knobs the frontend hardcodes instead** — `home.sections`,
+   `home.top_insights_count`, `home.date_back_days`, `home.date_forward_days`, `finder.max_leagues`,
+   `finder.last_options`, `finder.default_last`, `finder.thresholds`, `finder.stats`,
+   `grid.max_games`, `grid.default_games`. The live values are literals: `Finder.jsx:17` holds
+   `last_n: "10"` and its slider is `min={5} max={20}`; the grid window is capped by the plan
+   entitlement `grid_games`, not by `grid.max_games`. *Do:* these are the ones worth **wiring**, via
+   `/api/public/settings` (which exists and today only `Newsletter.jsx` reads). Until then a reader
+   of the registry is being told the wrong numbers.
+3. **4 copy overrides never consulted** — `copy.strings`, `copy.tier_names`,
+   `copy.tactic_explanations`, `copy.reason_overrides`. `lib/copy.js:4` hardcodes the tier names.
+   *Do:* wire `copy.tier_names` (an owner renaming a tier is a real request) and delete the other
+   three unless you build the override layer.
+4. **11 owner-facing settings that are frozen at their defaults** — `security.log_retention_days`,
+   `security.auth_log_retention_days`, `analytics.retention_days`, `ingest.concurrency`,
+   `ingest.fixture_window_days`, `ingest.recheck_final_hours`, `engine.min_team_games`,
+   `auth.google_enabled`, `auth.optional_2fa_for_users`, `alerts.telegram_enabled`,
+   `alerts.telegram_bot_username`. The three retention ones are the sharp case: the real values are
+   **hardcoded TTL indexes** in `backend/mongo_init.py` (`app_logs` 30 days, `auth_log` 90,
+   `events` 400) that happen to equal the registry defaults exactly, so the setting looks live and
+   is inert. *Do:* build those indexes from the settings and re-create them when they change. This
+   one I deliberately did not do: it changes how long data is kept, which is the owner's call.
