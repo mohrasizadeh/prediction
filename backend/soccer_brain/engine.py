@@ -479,12 +479,12 @@ class SoccerEngine:
         # player layer
         pgp = pg[pg["minutes"] > 0]
         self.rho = {}
-        self.rho90 = {}
+        # `rho90`, the positional per-90 mean, was computed here only to shrink the player's own
+        # baseline toward. That baseline is now built from the same posterior and the same team
+        # total as his forecast, so nothing reads it any more.
         for s in PLAYER_STATS:
             E = pgp["team_" + s] * pgp["minutes"] / 90.0
             self.rho[s] = (pgp.groupby("pos")[s].sum() / E.groupby(pgp["pos"]).sum()).to_dict()
-            self.rho90[s] = (pgp.groupby("pos")[s].sum()
-                             / (pgp["minutes"] / 90.0).groupby(pgp["pos"]).sum()).to_dict()
         self.pl = {}
         for pid, g in pg.groupby("player"):
             g = g.sort_values("round")
@@ -1015,9 +1015,34 @@ class SoccerEngine:
                     if opp_pos_f[pid] != 1.0:
                         contrib["opp_role"] = float(np.log(opp_pos_f[pid]))
                     g = info["g"]; ap = g[g["minutes"] > 0]
-                    pb = shrunk_rate(ap[s].values, (ap["minutes"] / 90.0).values,
-                                     self.rho90[s][info["pos"]], 4.0, self.hl)
-                    mus_b = np.array([pb.mean * self._minutes_share(m) for _, m in sc])
+                    # HIS USUAL, BUILT THE SAME WAY AS HIS FORECAST.
+                    #
+                    # `edge = p - p_usual` ranks the whole feed, is the "-6 pts" chip on every card
+                    # and, with personal_lines on, is what the tier itself is graded on. It is a
+                    # DIFFERENCE, so it is only as good as the two sides being the same object.
+                    # They were not. `mus` above is the player's share of a TEAM TOTAL, normalised
+                    # by Z; this line used to be his raw per-90 rate with no normalisation at all,
+                    # and the two rates were separately shrunk -- one a share of the team total with
+                    # the prior in team-stat units, one a per-90 rate with a flat prior of 4. So the
+                    # difference carried a fixed personal offset that never changed between
+                    # fixtures, on top of whatever the opponent did.
+                    #
+                    # Measured (scripts/measure/departure_calibration.py): the opponent can only
+                    # reach a player through the team total, so within one club every player's
+                    # departure must be the SAME number. It was not -- the share of departure
+                    # variance that was genuinely the fixture ran 91% for shots, 95% for tackles and
+                    # 59% for shots on target, which has the worst prior mismatch of the three.
+                    # Four in ten points of a sot card's "above his usual" were an artefact.
+                    #
+                    # Now it is `mus` with the fixture set to average: the club's own usual total,
+                    # his own share of it, the same minutes and the SAME Z. Z and the minutes cancel
+                    # in the ratio, so the departure is log(mu_team / mu_usual) exactly -- a
+                    # club-level quantity, which is what the model actually knows. The one per-player
+                    # term that survives is opp_pos_f, the opponent's concession to his position,
+                    # which is the only legitimate player-specific opponent signal here (and is off
+                    # by default: engine.opp_pos_k).
+                    mus_b = np.array([mu_usual[s] * post[pid].mean * self._minutes_share(m) / Z
+                                      for _, m in sc])
                     reasons = self._player_reasons(contrib, grp[s], s, opp_tac)
                     thrs_p, thr_own = PLAYER_THR[s], None
                     mu_usual_p = float(np.sum(probs * mus_b))      # his own count in this match's minutes

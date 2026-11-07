@@ -148,6 +148,23 @@ check(not mute, f"every Watch line says why it is Watch ({len(mute)} silent)")
 reasons = collections.Counter(r["reasons"][0] for r in pre if r["reasons"])
 check(len(reasons) >= 2, f"player cards do not all share one sentence ({len(reasons)} different first reasons)")
 
+# The opponent can only reach a player through his team's total (docs/54), so "how far above his
+# usual" is a CLUB-level quantity: within one club and one stat, every player's departure is the
+# same number. It was not, because `p` was his share of a normalised team total while `p_usual` was
+# his raw per-90 rate, separately shrunk -- two estimators of one thing, so each player carried a
+# fixed personal offset on top of the fixture. Measured before the fix, the share of departure
+# variance that was genuinely the fixture ran 91% (shots), 95% (tackles) and 59% (sot).
+# scripts/measure/departure_calibration.py is the standing check.
+import numpy as _np
+_dep = collections.defaultdict(list)
+for r in rows:
+    if r["scope"] == "player" and r.get("expected") and r.get("expected_usual"):
+        _dep[(r["team_iid"], r["match_iid"], r["stat"])].append(
+            float(_np.log(r["expected"] / r["expected_usual"])))
+_spread = [float(_np.std(v)) for v in _dep.values() if len(v) > 1]
+check(_spread and max(_spread) < 1e-9,
+      f"one club, one market, one departure: within-club sd {max(_spread) if _spread else -1:.2e} over {len(_spread)} clubs")
+
 print('[player lines are "if he plays", with a lineup badge (docs/27)]')
 pl_rows = [r for r in rows if r["scope"] == "player"]
 check(all(r["p_basis"] == "played" for r in pl_rows) and all(r["p_basis"] == "all" and r["lineup_badge"] is None for r in rows if r["scope"] == "team"),

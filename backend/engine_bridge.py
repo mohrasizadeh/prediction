@@ -659,6 +659,13 @@ def score_finished(db) -> int:
                                          "thr": f["thr"], "actual": float(actual), "reached": bool(actual > f["thr"]),
                                          "p_model": f.get("p_model", f["p"]), "state": f.get("state"),
                                          "player_played": played, "p_basis": f.get("p_basis", "all"), "p_play": f.get("p_play"),
+                                         # The departure is the quantity the feed is ranked on and the
+                                         # one the card leads with ("usually 58%, tonight -6 pts"), and
+                                         # it was the one thing never carried into the record -- so
+                                         # "did a stated departure of d points come true as d points"
+                                         # could not be asked beyond engine.keep_days.
+                                         # scripts/measure/departure_calibration.py is the regression.
+                                         "p_usual": f.get("p_usual"), "edge": f.get("edge"),
                                          "lineup_badge": f.get("lineup_badge"), "kickoff": f.get("kickoff"), "scored_at": utcnow()})
         n += 1
     return n
