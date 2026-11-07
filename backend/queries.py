@@ -836,13 +836,26 @@ def track_record(db, league_iid=None, min_n: int = 300, stat=None, scope=None) -
         if len(g) >= 30:
             bins.append({"from": lo, "to": round(lo + 0.1, 1), "n": len(g), "stated": sum(r["p"] for r in g) / len(g), "actual": sum(r["reached"] for r in g) / len(g)})
     since = min((r["scored_at"] for r in rows if r.get("scored_at")), default=None)
-    # The whole record, over every scored row rather than over the bands that survived the 30-row
-    # floor. The page led on a single band picked for having the most rows, which in this product
-    # is always the 0.90-1.00 band -- the one where being right proves least.
     overall = {"n": len(rows), "stated": sum(r["p"] for r in rows) / len(rows),
                "actual": sum(r["reached"] for r in rows) / len(rows)}
+    # The record over the lines the product actually makes a strong statement about.
+    #
+    # `overall` cannot lead this page, and the reason is not that it is unflattering -- it is that
+    # a mean over every band can be right while every band inside it is wrong. Being overconfident
+    # at the top and underconfident at the bottom cancels to a two-point gap that reads as healthy.
+    # It is also dominated by the mass of low-likelihood lines, where saying 20% and seeing 22% is
+    # neither a skill nor a claim anyone acted on.
+    #
+    # HIGH is the band a reader actually uses: when the product says something is likely, how often
+    # was it? It is stated as calibration -- how close we were -- not as a win rate, because "we
+    # said 93% and it happened 92% of the time" is the honest shape of a good answer here, and a
+    # page that framed it as a score would be inviting the reader to read 92 as a grade.
+    hi_p = float(S.get(db, "engine.record_high_p"))
+    hg = [r for r in rows if r["p"] >= hi_p]
+    high = ({"n": len(hg), "from": hi_p, "stated": sum(r["p"] for r in hg) / len(hg),
+             "actual": sum(r["reached"] for r in hg) / len(hg)} if len(hg) >= 30 else None)
     return {"ready": True, "scored": len(rows), "tiers": tiers, "bins": bins, "since": since,
-            "overall": overall, "not_played": not_played}
+            "overall": overall, "high": high, "not_played": not_played}
 
 
 # --------------------------------------------------------------------- Search

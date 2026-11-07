@@ -70,7 +70,7 @@ export function LearnArticle() {
       <h1>{a.title}</h1>
       {a.body.map((p) => <p key={p}>{p}</p>)}
       {slug === "how-we-score" && <Link to="/track-record" className="btn btn--secondary" data-testid="learn-to-track">See the track record</Link>}
-      <h2 className="k-sec">Read next</h2>
+      <header className="v2-sec-head"><h2 className="k-sec v2-sec">Read next</h2></header>
       <ul className="ln-grid ln-grid--sm">{more.map((x) => <Tile key={x.slug} a={x} />)}</ul>
     </article>
   );

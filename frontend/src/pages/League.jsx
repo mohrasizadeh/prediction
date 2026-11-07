@@ -21,7 +21,7 @@ export function Leagues() {
       <input className="search-in" type="search" placeholder="Search leagues" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search leagues" data-testid="leagues-search" />
       {r.loading && !r.data ? <Loading /> : r.error ? <ErrorBox error={r.error} onRetry={r.reload} /> : !r.data.countries.length ? <Empty icon="trophy">No league matches that search.</Empty> : r.data.countries.map((c) => (
         <div key={c.country} className="card">
-          <h2 className="h3">{c.country}</h2>
+          <header className="v2-sec-head"><h2 className="h3 v2-sec">{c.country}</h2></header>
           <ul className="llist">{c.leagues.map((l) => (
             <li key={l.id}><Link to={`/league/${l.id}`} className="lrow" data-testid={`league-link-${l.id}`}><LeagueMark league={l} size={28} /><span><b>{l.name}</b><small className="muted">{l.current_season}</small></span></Link></li>
           ))}</ul>
@@ -171,7 +171,7 @@ export default function League() {
       {/* CRITIQUE: "Overview" was next-up fixtures plus referees, and "Fixtures" was the same
           fixtures with a next/past switch. Two tabs for one thing. Fixtures absorbs the referees,
           which belong to a round, and Overview goes. */}
-      <Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "fixtures", label: "Fixtures" }, { id: "table", label: "Table" }, { id: "teams", label: "Teams" }, { id: "leaders", label: "Leaders" }]} />
+      <div className="v2-tabrow"><Tabs value={tab} onChange={setTab} testid="league-tabs" tabs={[{ id: "fixtures", label: "Fixtures" }, { id: "table", label: "Table" }, { id: "teams", label: "Teams" }, { id: "leaders", label: "Leaders" }]} /></div>
       <div className="lg-tab">
         {tab === "table" && <Standings id={id} season={d.current_season} zones={d.zones || []} />}
         {tab === "teams" && <Teams id={id} />}

@@ -61,6 +61,32 @@ check(lb and lb[0]["per90"] >= lb[-1]["per90"], "leaderboard per 90 sorted")
 a = Q.against_by_position(db, t, "shots", 10)
 check(a["games"] == 10 and "FWD" in a["by_position"], "against_by_position: by position")
 check(Q.track_record(db)["ready"] is False, "track_record: not shown until enough scored forecasts")
+
+# --- v9: the page leads on the band a reader acts on, not on the mean of every band -------------
+# The headline was "across N forecasts we said 29% on average, it happened 31%". Two faults, and
+# the second is the one that matters: the mean is dominated by the mass of LOW lines, where being
+# right is easy by being timid -- and a mean over every band can be right while every band inside
+# it is wrong, because overconfidence at the top and underconfidence at the bottom cancel out.
+# This builds exactly that: perfect in aggregate, badly wrong in both halves.
+_tr = [{"league_iid": None, "stat": "shots", "scope": "player", "player_played": True,
+        "tier": "Watch", "p": 0.20, "reached": i < 120, "scored_at": now,
+        "fkey": f"trlo{i}", "forecast_id": f"trlo{i}"}                          # said 20, happened 40
+       for i in range(300)]
+_tr += [{"league_iid": None, "stat": "shots", "scope": "player", "player_played": True,
+         "tier": "Strong", "p": 0.90, "reached": i < 210, "scored_at": now,
+         "fkey": f"trhi{i}", "forecast_id": f"trhi{i}"}                         # said 90, happened 70
+        for i in range(300)]
+db.forecast_outcomes.insert_many([dict(x) for x in _tr])
+tr = Q.track_record(db, min_n=100)
+check(tr["ready"] and abs(tr["overall"]["stated"] - tr["overall"]["actual"]) < 0.02,
+      f"the whole-record mean looks healthy: said {tr['overall']['stated']:.0%}, happened {tr['overall']['actual']:.0%}")
+check(tr.get("high") and tr["high"]["n"] == 300 and abs(tr["high"]["stated"] - 0.90) < 0.01,
+      "...but the high band is reported on its own")
+check(tr["high"]["actual"] < tr["high"]["stated"] - 0.15,
+      f"...and it says the thing the mean hid: said {tr['high']['stated']:.0%}, happened {tr['high']['actual']:.0%}")
+check(tr["high"]["from"] == float(S.get(db, "engine.record_high_p")),
+      "the band's floor is the setting, and travels with the answer so the page can name it")
+db.forecast_outcomes.delete_many({"fkey": {"$regex": "^trlo|^trhi"}})
 s = Q.search(db, "player 1")
 check(s["players"] and Q.search(db, "(")["players"] == [], "search: partial match, regex characters are escaped")
 check(Q.team_form(db, t, 5)[0]["result"] in "WDL", "team_form")

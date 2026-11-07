@@ -1816,3 +1816,56 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   background: var(--tone); color: var(--surface1);
   font-size: 9px; line-height: 1; text-indent: 1px;
 }
+
+/* --- the track record chart, in the reference's idiom ---------------------------------------- */
+.tr-fill-top { stop-color: var(--brand); stop-opacity: .22; }
+.tr-fill-bot { stop-color: var(--brand); stop-opacity: .02; }
+.tr-area { fill: url(#tr-fill); stroke: none; }
+.tr-vgrid { stroke: var(--v2-hair); stroke-width: 1; stroke-dasharray: 3 4; }
+.tr-line { stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.tr-mark-dot { fill: var(--surface1); stroke: var(--brand); stroke-width: 2.5; }
+.tr-mark-pill { fill: var(--accent, #A9FF9B); }
+.tr-mark-tx { fill: var(--on-accent, #22281E); font-size: 11px; font-weight: 800; }
+.tr-all { margin-top: 10px; max-width: 62ch; }
+
+
+/* =============================================================== 36. ONE OBJECT, EVERY SCREEN
+   Filter chips existed in two unrelated flavours: ChipsRow's `.k-chip`, whose chosen state is the
+   brand (hig.css:70), and the plain `.chip` on Live and elsewhere, whose chosen state is
+   `var(--text)` -- near-black, so the same control looked like two different controls depending
+   on which page a reader was standing on. They are one object now, with the reference's shape:
+   a pill with a hairline, filled with the brand when it is the chosen one. */
+.k-chip, .chip {
+  min-height: 40px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--v2-hair); background: var(--surface1); color: var(--text2);
+  font-weight: 600; font-stretch: 96%; white-space: nowrap;
+}
+.k-chip:hover, .chip:hover { background: var(--surface2); color: var(--text); border-color: var(--border-strong); }
+.k-chip.on, .chip.chip-on, .chip-on {
+  background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 650;
+}
+.k-chip.on .k-count, .chip.chip-on .k-count { color: inherit; opacity: .75; }
+@media (pointer: coarse) { .k-chip, .chip { min-height: 44px; } }
+/* A row of them breathes the same way wherever it is. */
+.k-chips, .chips, .tr-filters { gap: 8px; row-gap: 8px; }
+
+/* The two rows of filters on the Track record sit above a number they change, so they belong to
+   it rather than floating over the page. */
+.tr-filters { margin-bottom: var(--v2-gap-block); }
+.tr-hero { margin-top: var(--v2-gap-block); }
+
+/* The tab rows that section 33 defined and only Today used. Following, League, Team, Match and
+   Learn all drew their own: pills on League and Learn, a bare row elsewhere. */
+.v2-tabrow .tabs, .v2-tabrow .mc-tabs { gap: 4px; border-bottom: 0; margin-bottom: 0; }
+.v2-tabrow .tab {
+  background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  padding: 0 14px; min-height: 44px; color: var(--text3); font-weight: 600; margin-bottom: -1px;
+}
+.v2-tabrow .tab:hover { color: var(--text); background: transparent; }
+.v2-tabrow .tab.is-on, .v2-tabrow .tab[aria-selected="true"] {
+  background: transparent; color: var(--text); border-bottom-color: var(--brand); font-weight: 650;
+}
+
+/* Section heads reach the last six screens. `.k-sec` keeps its caption job; `.v2-sec` beside it
+   is what makes a heading a heading (section 33). */
+.ex-sec > .v2-sec-head, .cp-out > .v2-sec-head { margin-top: var(--v2-gap-block); }

@@ -73,7 +73,7 @@ function Summary({ done }) {
   const expected = settled.reduce((n, c) => n + (c.combined || 0), 0);
   return (
     <section className="cb-sum" data-testid="combo-summary">
-      <h2 className="h3">How our combined chances did</h2>
+      <header className="v2-sec-head"><h2 className="h3 v2-sec">How our combined chances did</h2></header>
       <p className="small muted">Your {settled.length} finished combo{settled.length === 1 ? "" : "s"}. We work this out here from what you saved.</p>
       <div className="cb-sum-row"><div><b className="cb-mid">{allHit} of {settled.length}</b><small>combos reached every line</small></div><div className="cb-sum-r"><b>{hit} of {lines}</b><small>single lines reached</small></div></div>
       <p className="small muted">From our chances at the time of saving we expected about {expected.toFixed(1)} combo{expected.toFixed(1) === "1.0" ? "" : "s"}.{settled.length < 20 ? ` ${settled.length === 1 ? "One combo is" : `${settled.length} combos are`} a small sample.` : ""}</p>

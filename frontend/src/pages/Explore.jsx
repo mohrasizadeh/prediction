@@ -37,7 +37,7 @@ function YourTeams() {
   if (!user) return null;
   return (
     <section className="ex-sec" data-testid="explore-your-teams">
-      <h2 className="k-sec">Your teams</h2>
+      <header className="v2-sec-head"><h2 className="k-sec v2-sec">Your teams</h2></header>
       {q.error ? <ErrorState message="We could not load your teams." onRetry={q.reload} testid="explore-teams-error" /> : (
         <div className="ex-crests">
           {teams.map((t) => <Link key={t.id} to={`/team/${t.id}`} className="ex-crest" data-testid={`explore-team-${t.id}`}><Crest team={t} size={56} /><span>{t.name}</span></Link>)}
@@ -67,7 +67,7 @@ export default function Explore() {
       <label className="ex-search"><Icon name="search" size={18} /><span className="sr-only">Filter these leagues</span>
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter leagues" data-testid="explore-search" /></label>
       {!q.trim() && <YourTeams />}
-      <section className="ex-sec"><h2 className="k-sec">Leagues</h2>
+      <section className="ex-sec"><header className="v2-sec-head"><h2 className="k-sec v2-sec">Leagues</h2></header>
         {r.loading && !r.data ? <Skeleton shape="card" count={4} testid="explore-loading" />
           : r.error ? <ErrorState message="We could not load the leagues." onRetry={r.reload} testid="explore-error" />
           : !shown.length ? <EmptyState icon="trophy" title={`No league matches “${q.trim()}”`} testid="explore-empty">Looking for a club or a player? <Link to={`/search?q=${encodeURIComponent(q.trim())}`} data-testid="explore-search-all">Search everything</Link></EmptyState>
@@ -79,7 +79,7 @@ export default function Explore() {
         {q.trim().length >= 2 && shown.length > 0 && <Link to={`/search?q=${encodeURIComponent(q.trim())}`} className="k-link" data-testid="explore-search-more">Search players and teams for “{q.trim()}”</Link>}
       </section>
       {!q.trim() && (
-        <section className="ex-sec"><h2 className="k-sec">The rest of the app</h2>
+        <section className="ex-sec"><header className="v2-sec-head"><h2 className="k-sec v2-sec">The rest of the app</h2></header>
           <ul className="ex-more">{MORE.map((t) => (
             <li key={t.to}><Link to={t.to} data-testid={`explore-${t.to.slice(1)}`}>
               <Icon name={t.icon} size={18} />

@@ -30,7 +30,11 @@
 .tm-tray { position: fixed; z-index: 55; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-h) + 14px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 18px; border-radius: 999px; background: var(--surface1); border: 1px solid var(--border-strong); box-shadow: 0 10px 30px rgba(0,0,0,.25); font-weight: 700; white-space: nowrap; }
 @media (min-width: 1025px) { .tm-tray { bottom: 24px; } }
 
-.tr { margin: 0; display: grid; justify-items: center; gap: 8px; } .tr svg { width: 100%; max-width: 380px; overflow: visible; }
+/* This is the RADAR's container. `.tr` is also the Track record page's container (you.css:51),
+   and two unrelated components sharing a class meant the radar's `justify-items: center` was
+   centring that whole page -- the only centred page in a product that is left-aligned
+   everywhere. Scoped to the element the radar actually is, so the page is left alone. */
+figure.tr { margin: 0; display: grid; justify-items: center; gap: 8px; } figure.tr svg { width: 100%; max-width: 380px; overflow: visible; }
 .tr-grid { fill: none; stroke: var(--border); stroke-width: 1; }
 .tr-a { fill: color-mix(in srgb, var(--brand) 28%, transparent); stroke: var(--brand); stroke-width: 2; }
 .tr-b { fill: color-mix(in srgb, var(--tier-strong) 24%, transparent); stroke: var(--tier-strong); stroke-width: 2; stroke-dasharray: 5 3; }

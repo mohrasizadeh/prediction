@@ -15,17 +15,42 @@ const X = (v) => 40 + ((Math.max(LO, Math.min(1, v)) - LO) / (1 - LO)) * 270;
 const Y = (v) => 210 - ((Math.max(LO, Math.min(1, v)) - LO) / (1 - LO)) * 190;
 const of100 = (v) => Math.round(v * 100);
 
-function Chart({ bins }) {
+function Chart({ bins, hi }) {
   const maxN = Math.max(...bins.map((b) => b.n));
   const ticks = [0.4, 0.6, 0.8, 1];
   return (
     <figure className="tr-chart card" data-testid="tr-chart">
       <figcaption className="tr-chart-head"><h2 className="k-sec">Said vs happened</h2><small className="k-faint">Dots on the dashed line = honest numbers</small></figcaption>
       <svg viewBox="0 0 320 240" role="img" aria-label={bins.map((b) => `${pct(b.stated)} said, ${pct(b.actual)} happened`).join("; ")}>
-        {ticks.map((t) => <g key={t}><line x1="40" x2="310" y1={Y(t)} y2={Y(t)} className="tr-grid" /><text x="34" y={Y(t) + 4} textAnchor="end">{of100(t)}%</text><text x={X(t)} y="232" textAnchor="middle">{of100(t)}%</text></g>)}
+        {/* The reference's chart: a soft wash under the line rather than bare dots on a grid, and
+            the gridlines running vertically from the axis a reader reads across. The dashed
+            diagonal stays, because on this chart it is not decoration -- it is the line a
+            perfectly calibrated model sits on, and the whole figure is "how far from it are we". */}
+        <defs>
+          <linearGradient id="tr-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" className="tr-fill-top" />
+            <stop offset="100%" className="tr-fill-bot" />
+          </linearGradient>
+        </defs>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={X(t)} x2={X(t)} y1={Y(1)} y2={Y(LO)} className="tr-vgrid" />
+            <text x="34" y={Y(t) + 4} textAnchor="end">{of100(t)}%</text>
+            <text x={X(t)} y="232" textAnchor="middle">{of100(t)}%</text>
+          </g>
+        ))}
+        <polygon className="tr-area"
+                 points={`${X(bins[0].stated)},${Y(LO)} ${bins.map((b) => `${X(b.stated)},${Y(b.actual)}`).join(" ")} ${X(bins[bins.length - 1].stated)},${Y(LO)}`} />
         <line x1={X(LO)} y1={Y(LO)} x2={X(1)} y2={Y(1)} className="tr-diag" />
         <polyline points={bins.map((b) => `${X(b.stated)},${Y(b.actual)}`).join(" ")} className="tr-line" />
         {bins.map((b) => <circle key={b.from} cx={X(b.stated)} cy={Y(b.actual)} r={4 + 6 * Math.sqrt(b.n / maxN)} className="tr-dot" data-testid={`tr-dot-${b.from}`} />)}
+        {/* The band the page leads on, marked where it sits, the way the reference marks its
+            figure on the curve. */}
+        {hi && <g className="tr-mark">
+          <circle cx={X(hi.stated)} cy={Y(hi.actual)} r="5" className="tr-mark-dot" />
+          <rect x={X(hi.stated) - 26} y={Y(hi.actual) - 30} width="52" height="19" rx="9.5" className="tr-mark-pill" />
+          <text x={X(hi.stated)} y={Y(hi.actual) - 17} textAnchor="middle" className="tr-mark-tx">{of100(hi.actual)}%</text>
+        </g>}
       </svg>
       <p className="k-faint k-small">Each dot is a group of forecasts by what we said (across) and how often it happened (up). Bigger dots hold more forecasts.</p>
     </figure>
@@ -53,24 +78,35 @@ function Reliability({ b, whole }) {
       From <b>{b.n.toLocaleString()}</b> forecast{b.n === 1 ? "" : "s"}{whole ? "" : " in that band"}, so the margin is
       about <b>±{Math.round(margin * 100)} points</b>.{" "}
       {real
-        ? <>The gap is wider than that: these happen {dir}{gap > 0 ? ", so we are promising less than we deliver" : ", which is the gap to watch"}.</>
+        ? <>The gap is wider than that: these happen {dir}{gap > 0 ? ", so the number is cautious" : ", which is the gap to watch"}.</>
         : <>The gap is inside that margin, so it is what a sample this size produces on its own.</>}
     </p>
   );
 }
 
 function Body({ d }) {
-  // The headline used to rest on ONE band, chosen for holding the most rows. In this product the
-  // likelihoods cluster high, so that rule always landed on 0.90-1.00 -- the band where being
-  // right proves least, and a rule the reader could not see. It rests on the whole record now,
-  // which the server computes over every scored row rather than over the bands that cleared the
-  // 30-row floor.
+  // The headline rested on the whole record: "we said 29% on average, it happened 31%". Two
+  // faults, and the second is the serious one.
+  //
+  // It is dominated by the mass of low-likelihood lines, where saying 20% and seeing 22% is
+  // neither a skill nor a claim anyone acted on -- a conservative model scores well there by
+  // being timid. And a mean over every band can be RIGHT while every band inside it is wrong:
+  // overconfident at the top and underconfident at the bottom cancel to a two-point gap that
+  // reads as healthy. So the number that looked like the strongest summary was the one that
+  // could hide the most.
+  //
+  // The page now leads on the band a reader actually uses -- when we said something was likely,
+  // how often was it -- and keeps the whole record underneath as context rather than as the
+  // claim. Stated as calibration, not as a score: "we said 93%, it happened 92%" is the honest
+  // shape of a good answer, and framing it as a win rate would invite 92 to be read as a grade.
   const all = d.overall;
+  const hi = d.high;
   const since = d.since ? utc(d.since).toLocaleDateString(undefined, { month: "long", year: "numeric" }) : null;
   return (
     <>
       <div className="tr-hero">
-        {all ? <p className="tr-head" data-testid="tr-headline">Across <b>{all.n.toLocaleString()}</b> settled forecasts we said <b>{pct(all.stated)}</b> on average. It happened <em>{pct(all.actual)}</em> of the time.</p>
+        {hi ? <p className="tr-head" data-testid="tr-headline">When we said <b>{pct(hi.from)}</b> or more, it happened <em>{pct(hi.actual)}</em> of the time. We said <b>{pct(hi.stated)}</b> on those <b>{hi.n.toLocaleString()}</b> forecasts.</p>
+          : all ? <p className="tr-head" data-testid="tr-headline">Across <b>{all.n.toLocaleString()}</b> settled forecasts we said <b>{pct(all.stated)}</b> on average. It happened <em>{pct(all.actual)}</em> of the time.</p>
           : <p className="tr-head" data-testid="tr-headline">{d.scored} forecasts scored so far.</p>}
         {/* A gap between what we said and what happened means nothing without the count behind it.
             At 30 forecasts a 14-point gap is what chance alone produces; at 100 it is real. The
@@ -78,11 +114,18 @@ function Body({ d }) {
             had to assume the worst. It now says the count, the margin, and which of the two this
             is -- and names the direction, because promising less than we deliver is the safe
             side of a miss and reads as a fault when it is not. */}
-        {all && <Reliability b={all} whole />}
+        {hi ? <Reliability b={hi} whole /> : all ? <Reliability b={all} whole /> : null}
+        {hi && all && (
+          <p className="k-faint tr-all" data-testid="tr-overall">
+            Across all <b>{all.n.toLocaleString()}</b> settled forecasts, including the unlikely ones, we said{" "}
+            <b>{pct(all.stated)}</b> and it happened <b>{pct(all.actual)}</b>. That average is the weaker
+            measure: most lines sit low, and being right about an unlikely thing is easy to do by being timid.
+          </p>
+        )}
         <p className="k-faint">{since ? `Since ${since}. ` : ""}Counted when the player appeared{d.not_played ? <>; <b>{d.not_played.toLocaleString()}</b> line{d.not_played === 1 ? "" : "s"} where he did not play are left out of this page, and counted as missed when a tier is earned</> : null}.</p>
       </div>
       <div className="tr-grid2">
-        {d.bins.length ? <Chart bins={d.bins} /> : <EmptyState icon="bar-chart" title="Not enough in each band yet" testid="tr-no-bins">We draw the chart once each band holds 30 forecasts.</EmptyState>}
+        {d.bins.length ? <Chart bins={d.bins} hi={hi} /> : <EmptyState icon="bar-chart" title="Not enough in each band yet" testid="tr-no-bins">We draw the chart once each band holds 30 forecasts.</EmptyState>}
         <div className="tr-tiers" data-testid="tr-tiers">
           {Object.entries(d.tiers).map(([t, v]) => (
             <div key={t} className="tr-tier card" style={{ "--tone": `var(--tier-${t.toLowerCase()})` }} data-testid={`tr-tier-${t}`}>
@@ -117,10 +160,12 @@ export default function TrackRecord() {
           small caption, so the one screen whose job is to establish trust began by whispering. */}
       <h1>Track record</h1>
       <p className="k-faint tr-sub">Updated as matches finish.</p>
-      <div className="tr-filters">
+      {/* The filters only appear once there is something to filter. Nine controls over "0 so far"
+          is the screen that has to establish trust opening by asking the reader to narrow nothing. */}
+      {q.data?.ready && <div className="tr-filters">
         <ChipsRow label="League" value={league} onChange={(v) => set("league", v)} testid="tr-league" options={[{ id: "", label: "All leagues" }, ...leagues.map((l) => ({ id: l.id, label: l.name }))]} />
         <ChipsRow label="Market" value={stat} onChange={(v) => set("stat", v)} testid="tr-market" options={MARKETS} />
-      </div>
+      </div>}
       {q.loading && !q.data ? <Skeleton shape="card" count={3} testid="tr-loading" />
         : q.error ? <ErrorState message="We could not load the track record." onRetry={q.reload} testid="tr-error" />
         : !q.data.ready ? (

@@ -91,7 +91,7 @@ function BookingRisk() {
   if (!q.data?.rows?.length) return null;
   return (
     <section className="card book-alert" data-testid="following-booking-risk">
-      <h2 className="h3">May be booked this round</h2>
+      <header className="v2-sec-head"><h2 className="h3 v2-sec">May be booked this round</h2></header>
       <p className="muted small">Players you follow who are in their league's top 10 for a yellow card. We e-mail you once per match unless you turn off alert e-mails in your account.</p>
       <ol className="book-list">{q.data.rows.map((f) => (
         <li key={f.id} className="book-row" data-testid={`following-booking-${f.player_iid}`}>
@@ -218,7 +218,7 @@ function You() {
   const n = (q) => (q.data?.items?.length ? ` ${q.data.items.length}` : "");
   return (
     <>
-      <Tabs value={tab} onChange={setTab} testid="following-tabs" tabs={[{ id: "feed", label: "Feed" }, { id: "saved", label: `Saved${n(saved)}` }, { id: "notes", label: `Notes${n(notes)}` }, { id: "follows", label: `Follows${n(follows)}` }]} />
+      <div className="v2-tabrow"><Tabs value={tab} onChange={setTab} testid="following-tabs" tabs={[{ id: "feed", label: "Feed" }, { id: "saved", label: `Saved${n(saved)}` }, { id: "notes", label: `Notes${n(notes)}` }, { id: "follows", label: `Follows${n(follows)}` }]} /></div>
       <div className="y-body">
         {tab === "feed" ? <Feed follows={follows.data?.items || []} saved={saved.data?.items || []} /> : tab === "saved" ? <Saved q={saved} /> : tab === "notes" ? <Notes q={notes} /> : <Follows q={follows} />}
       </div>

@@ -2595,6 +2595,16 @@
     "applies_at": "next engine run"
   },
   {
+    "key": "engine.record_high_p",
+    "group": "Engine",
+    "label": "Where the track record's headline band starts",
+    "type": "float",
+    "default": 0.8,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "The Track record page leads on how often the lines at or above this likelihood came true. A mean over every band can be right while every band in it is wrong, so the page states the band a reader acts on rather than the average of all of them."
+  },
+  {
     "key": "engine.earned_min_n",
     "label": "Track record: results needed",
     "type": "int",

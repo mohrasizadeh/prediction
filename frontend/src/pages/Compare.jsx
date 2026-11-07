@@ -95,7 +95,7 @@ export default function Compare() {
             <div className="card cp-radar"><TeamRadar axes={d.radar} aName={d.a.team.name} bName={d.b.team.name} />
               {!d.same_league && <p className="muted small">Different leagues: each club is placed within its own league.</p>}</div>
             <div className="cp-side">
-              {d.stands_out.length > 0 && <div className="card cp-out" data-testid="compare-stands-out"><h2 className="k-sec">What stands out</h2><ul>{d.stands_out.map((s) => <li key={s}>{s}</li>)}</ul></div>}
+              {d.stands_out.length > 0 && <div className="card cp-out" data-testid="compare-stands-out"><header className="v2-sec-head"><h2 className="k-sec v2-sec">What stands out</h2></header><ul>{d.stands_out.map((s) => <li key={s}>{s}</li>)}</ul></div>}
               <div className="card"><h2 className="k-sec">Per game · {d.a.team.name} v {d.b.team.name}</h2><Edges edges={d.edges} a={d.a.team.name} b={d.b.team.name} /></div>
             </div>
           </div>
