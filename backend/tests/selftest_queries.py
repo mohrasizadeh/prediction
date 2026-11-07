@@ -37,8 +37,14 @@ check(all(not f.get("hidden") for f in d["forecasts"]), "match_detail hides hidd
 feed = Q.insights_feed(db, limit=20, tiers=("Strong", "Solid", "Watch"), now=now)
 # Ranked on the fair measure the sort actually uses, not raw percentage points: since docs/48 "different from
 # usual" is a log-odds change, so that a line usually at 90% is not beaten automatically by one usually at 30%.
-o = [(Q.CONFIDENT[f["tier"]], -Q.lift(f)) for f in feed]
-check(len(feed) > 0 and o == sorted(o), "insights_feed: Strong and Solid together by the lift over usual, then Watch (docs/25)")
+# v8: the order is the same measure that already decides which line LEADS a card (docs/46):
+# market importance x position relevance x lift x stake. It used to be raw lift, which is
+# market-blind and position-blind -- so a centre-back's tackles line with a big departure
+# outranked a striker's shot line, and the feed contradicted the card sitting in it.
+_W, _SC = S.get(db, "engine.market_weights"), S.get(db, "engine.lift_scale")
+_PW = S.get(db, "engine.position_weights")
+o = [(Q.CONFIDENT[f["tier"]], -Q.prominence(f, _W, _SC, _PW)) for f in feed]
+check(len(feed) > 0 and o == sorted(o), "insights_feed: Strong and Solid together by what the line has to say, then Watch (docs/25, docs/46)")
 lk = Q.insights_feed(db, limit=20, tiers=("Strong", "Solid", "Watch"), now=now, sort="likely")
 o2 = [(Q.TIER_RANK[f["tier"]], -f["p"]) for f in lk]
 check(len(lk) > 0 and o2 == sorted(o2), "insights_feed sort=likely: ordered by tier then likelihood")

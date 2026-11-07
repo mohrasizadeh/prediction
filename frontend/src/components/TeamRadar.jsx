@@ -20,7 +20,7 @@ export default function TeamRadar({ axes = [], aName, bName, games, testid = "te
       <figcaption className="tr-legend"><span><i className="tr-key tr-key--a" />{aName}</span><span><i className="tr-key tr-key--b" />{bName}</span></figcaption>
       {games && Math.min(games.a, games.b) < 5 && <p className="k-faint k-small" data-testid={`${testid}-thin`}>Early in the season: {games.a < games.b ? aName : bName} has played {Math.min(games.a, games.b)} game{Math.min(games.a, games.b) === 1 ? "" : "s"} so far, so its shape leans on earlier results.</p>}
       {axes.some((x) => x.means) && <details className="tr-how" data-testid={`${testid}-how`}><summary>What the spokes mean</summary>
-        <p className="k-faint k-small">Each spoke is the club's place in its own league (centre is bottom, edge is top). It is worked out against an average opponent, so a soft run of fixtures does not flatter a club.</p>
+        <p className="k-faint k-small">Each spoke is the club's place in its own league (centre is bottom, outer ring is top). It is worked out against an average opponent, so a soft run of fixtures does not flatter a club.</p>
         <ul>{axes.filter((x) => x.means).map((x) => <li key={x.key}><b>{x.label}.</b> {x.means}</li>)}</ul></details>}
     </figure>
   );

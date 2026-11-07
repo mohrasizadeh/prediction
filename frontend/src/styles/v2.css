@@ -1522,3 +1522,64 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
    secondary action is the primary's shape in outline: same pill, paper fill, hairline edge. */
 .btn--secondary { background: var(--surface1); color: var(--text); border-color: var(--v2-hair); }
 .btn--secondary:hover:not([disabled]) { background: var(--surface2); border-color: var(--border-strong); }
+
+
+/* =============================================================== 33. THE LANGUAGE GETS AN ENTRY POINT
+   Sections 31-32 styled Today and stopped. The reason was not effort: `.k-sec` is a CAPTION class
+   (kit.css:2, 12px uppercase; hig.css:25, 13px) and it is what every other page puts on its
+   section headings. Section 32's head rule named `.fs-starts > h2.h3, .ins > h2, .pr h2, .tm h2,
+   .mc-sec h2` -- five bespoke selectors, none of them the one the pages actually use, and a class
+   beats an element so `.k-sec`'s 13px won anyway. That single collision is why fourteen of fifteen
+   screens measured no section head at all.
+
+   A language that needs a new selector per page is not a language, it is fifteen exceptions. So:
+   one pair of classes, used everywhere. `.k-sec` keeps its caption job (it is genuinely right on
+   an eyebrow like "Step 1 of 3") and stops doing both. */
+.v2-sec-head {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  padding-bottom: 10px; border-bottom: 1px solid var(--v2-hair); margin-top: var(--v2-gap-section);
+}
+.v2-sec-head > h2, .v2-sec-head > h3, h2.v2-sec, h3.v2-sec {
+  font-size: clamp(19px, 2vw, 24px); font-stretch: 104%; font-weight: 650;
+  letter-spacing: -0.018em; line-height: 1.15; color: var(--text); text-transform: none;
+  letter-spacing: -0.018em; margin: 0;
+}
+.v2-sec-head + * { margin-top: var(--v2-gap-block); }
+/* the pill link, lifted out of .td-sec-head so three copies of it stop existing */
+.v2-sec-head a, .v2-sec-head .k-link {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: 36px;
+  border: 1px solid var(--v2-hair); border-radius: 999px; color: var(--text2);
+  text-decoration: none; font-stretch: 96%; white-space: nowrap; font-size: 13px;
+}
+.v2-sec-head a::after, .v2-sec-head .k-link::after { content: "\203A"; font-size: 15px; line-height: 1; opacity: .7; }
+.v2-sec-head a:hover, .v2-sec-head .k-link:hover { background: var(--surface2); color: var(--text); border-color: var(--border-strong); }
+@media (pointer: coarse) { .v2-sec-head a, .v2-sec-head .k-link { min-height: 44px; } }
+
+/* A tab row that is text on a rule, generalised off .td-chips so League and Learn can have it. */
+.v2-tabrow { margin: var(--v2-gap-section) 0 var(--v2-gap-block); border-bottom: 1px solid var(--v2-hair); }
+.v2-tabrow .k-chips { gap: 4px; padding: 0; }
+.v2-tabrow .k-chip, .v2-tabrow .tab {
+  background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  padding: 0 14px; min-height: 44px; color: var(--text3); font-weight: 600; font-stretch: 96%;
+  margin-bottom: -1px;
+}
+.v2-tabrow .k-chip:hover, .v2-tabrow .tab:hover { color: var(--text); background: transparent; }
+.v2-tabrow .k-chip.on, .v2-tabrow .tab.is-on {
+  background: transparent; color: var(--text); border-bottom-color: var(--brand); font-weight: 650;
+}
+
+/* --- the accent had become wallpaper, by its own definition ---------------------------------
+   Section 31 refused the accent to the Solid tier and the lineup tag on the grounds that they sit
+   on most cards. The departure chip sits on EVERY card that has a departure, which is every card:
+   twenty mint pills down one Insights screen, where the chip no longer meant "look here", it meant
+   "this card has a number". The rule needed a threshold, not a category. Above DEP_BIG points the
+   chip is the loudest mark on the page; below it, it is a hairline like every other quiet tag. */
+.v2-cmp-d.is-up { background: transparent !important; color: var(--up) !important;
+                  border: 1px solid color-mix(in srgb, var(--up) 40%, transparent) !important; }
+.v2-cmp-d.is-up.is-big { background: var(--accent, #A9FF9B) !important; color: var(--on-accent, #22281E) !important;
+                         border-color: transparent !important; }
+.v2-cmp-d.is-down { border: 1px solid color-mix(in srgb, var(--down) 35%, transparent); }
+/* Same mistake, smaller: every day in the strip that has fixtures was given a mint dot, and on a
+   football product that is every day. */
+.k-day .dot:not(.no) { background: var(--text3); }
+.k-day.on .dot:not(.no) { background: var(--on-brand); }

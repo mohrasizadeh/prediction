@@ -152,7 +152,14 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
         {streak >= 3 && streak !== cleared && <span className="v2-cr-more">{streak} in a row</span>}
         {/* The same question over a longer window: is this a hot run, or is he simply like this?
             Only when the window is actually longer than the strip, or it restates the count. */}
-        {recN >= 8 && recN > known.length && <span className="v2-cr-more">{recK} of {who === "their" ? "their" : "his"} last {recN}</span>}
+        {/* Cut in v8. rec_k/rec_n are an INPUT to the number above them: engine_bridge.py:386
+            blends them into `p` through tiering.anchor before the forecast is stored. Printed
+            here they read as a second, independent check on the forecast, and they are not --
+            a reader who finds "19 of his last 20" reassuring about an 89% has been shown the
+            same evidence twice. It was also the third and widest-apart of three estimates of one
+            rate on this card (79% / 90% / 95%), which is what made the card look wrong about
+            itself. The sheet still states it, as a fact about the player rather than as support
+            for the forecast. */}
         {/* A club has no minutes, so that row is empty and the hint described a line that is not
             drawn. Say only what is there. */}
         {onePos && <span className="v2-cr-pos1">all at {onePos}</span>}

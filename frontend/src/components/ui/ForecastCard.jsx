@@ -67,6 +67,7 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
   // against; without p_usual the claim sentence has nothing to say and the strip would be decoration.
   const run = !f.p_display && (f.run || []).filter((g) => g && g.v != null).length >= 3 ? f.run : null;
   const dir = f.p_usual == null ? "" : f.p >= f.p_usual ? "is-up" : "is-down";
+  const DEP_BIG = 8;   // points above or below usual before the chip takes the accent
   const dep = f.p_usual == null ? null : Math.round((f.p - f.p_usual) * 100);
   const shown = f.p_display || pct(f.p);
   const rng = f.p_display ? null : range(f.lo, f.hi);          // docs/03 §4.4: show the band with the number
@@ -106,10 +107,17 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
               `expected`, the count expected against THIS opponent, was stored on every forecast and
               drawn nowhere. With the two side by side the pair is the headline restated in counts,
               counted the same way the strip underneath counts. */}
-          {f.expected_usual != null && <span className="v2-cmp-a" data-testid={`${id}-usual`}>
-            {f.expected != null && <><b>{f.expected.toFixed(1)}</b> tonight · </>}
-            usually <b>{f.expected_usual.toFixed(1)}</b></span>}
-          {dep != null && <b className={"v2-cmp-d " + dir} data-testid={`${id}-dep`}>{dep > 0 ? "+" : ""}{dep}</b>}
+          {/* Cut in v8. Three faults at once: it restates the headline comparison in a third
+              unit; "usually 13.5" invites the reader to average the ten numbers in the strip
+              below, which give 11.8, because expected_usual is a model quantity conditioned on
+              playing and not the mean of any games on screen; and "tonight" is false on every
+              card for a fixture days away, which is most of the Insights page. */}
+          {/* v8: the accent is only earned by a departure big enough to be the reason to read this
+              card. Painting every one of them mint put twenty mint pills on one Insights screen,
+              which is the wallpaper the rule was written to prevent -- the chip then meant "this
+              card has a number", not "look here". DEP_BIG is in points, not a ratio, because the
+              reader is comparing it against the other chips on the page, not against its own line. */}
+          {dep != null && <b className={"v2-cmp-d " + dir + (Math.abs(dep) >= DEP_BIG ? " is-big" : "")} data-testid={`${id}-dep`}>{dep > 0 ? "+" : ""}{dep} pts</b>}
         </div>}
         {tk && tk.state !== "unknown" && <div className="lv-row"><Track t={tk} id={id} /></div>}
         {/* v2 (docs/redesign/v2/PLAN.md): this was a filled meter, and a filled meter says "this number

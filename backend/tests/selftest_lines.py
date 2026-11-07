@@ -141,8 +141,19 @@ fmax = float(S.get(db, "engine.feed_max_p"))     # the owner moved this to the d
 check(all(f["p"] <= fmax or all(m["p"] > fmax for m in f["more_lines"]) for f in feed),
       f"a line above {fmax:.0%} only leads when no other line could")
 check(any(f["p"] >= 0.90 for f in feed), "near-certain lines reach the feed and lead their card (docs/39)")
-order = [(Q.CONFIDENT[f["tier"]], -Q.lift(f)) for f in feed]      # log-odds since docs/48, not raw points
-check(order == sorted(order), "default order: Strong and Solid together by the biggest lift over usual, then Watch")
+# v8: the order is the same measure that already decides which line LEADS a card (docs/46):
+# market importance x position relevance x lift x stake. It used to be raw lift, which is
+# market-blind and position-blind -- so a centre-back's tackles line with a big departure
+# outranked a striker's shot line, and the feed contradicted the card sitting in it.
+_W, _SC = S.get(db, "engine.market_weights"), S.get(db, "engine.lift_scale")
+_PW = S.get(db, "engine.position_weights")
+order = [(Q.CONFIDENT[f["tier"]], -Q.prominence(f, _W, _SC, _PW)) for f in feed]   # log-odds since docs/48
+check(order == sorted(order), "default order: Strong and Solid together by what the line has to say, then Watch")
+# The feed order and the card's lead line now answer to one measure. A forward's tackles line
+# cannot out-rank his own shots line in the feed while losing to it inside the card.
+fwd = [f for f in feed if f.get("pos") == "FWD" and f.get("stat") == "tackles"]
+check(all(Q.prominence(f, _W, _SC, _PW) <= max([Q.prominence(m, _W, _SC, _PW) for m in f.get("more_lines") or []] or [0]) or not f.get("more_lines")
+          for f in fwd) or not fwd, "a forward's tackles line does not lead the feed over a line that beats it on the card")
 # the measure the ORDER uses must not be the one that favours whichever market sits mid-table (docs/48)
 pts = [(Q.CONFIDENT[f["tier"]], -Q.lift(f, "points")) for f in feed]
 check(pts != sorted(pts) or len(feed) < 3, "...and that is a different order from ranking on plain percentage points")

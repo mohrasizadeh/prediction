@@ -35,7 +35,7 @@ function Edges({ edges, a, b }) {
         return (
           <li key={e.key} className={`lean-${e.lean || "none"}`}>
             <b>{e.a}</b>
-            <span className="cp-edge-mid"><small>{e.label}{e.lean ? `, edge to ${e.lean === "a" ? a : b}` : ""}</small>
+            <span className="cp-edge-mid"><small>{e.label}{e.lean ? `, leans to ${e.lean === "a" ? a : b}` : ""}</small>
               <span className="cp-edge-bar" aria-hidden="true"><i className="ea" style={{ width: `${(e.a / tot) * 100}%` }} /><i className="eb" style={{ width: `${(e.b / tot) * 100}%` }} /></span></span>
             <b>{e.b}</b>
           </li>

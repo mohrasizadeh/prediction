@@ -94,7 +94,7 @@ export function MatchNotes({ d }) {
   return (
     <div className="mc-notes" data-testid="match-preview">
       {situ.length > 0 && <div className="mc-situ" data-testid="match-situation">{situ.map((c) => <span key={c} className="k-tag">{c}</span>)}</div>}
-      {why.length > 0 && <section className="card mc-why-card"><h2 className="k-sec">Worth knowing</h2><ul className="mc-why" data-testid="match-why">{why.map((w) => <li key={w}>{w}</li>)}</ul></section>}
+      {why.length > 0 && <section className="card mc-why-card"><header className="v2-sec-head"><h2 className="k-sec v2-sec">Worth knowing</h2></header><ul className="mc-why" data-testid="match-why">{why.map((w) => <li key={w}>{w}</li>)}</ul></section>}
       <TeamNews d={d} />
       {d.referee?.sentence && <p className="mc-ref k-faint" data-testid="match-referee">{d.referee.sentence}</p>}
     </div>
@@ -114,7 +114,10 @@ export function Forecasts({ d, matchId }) {
   const fxTeams = { [d.match.home_iid]: d.home, [d.match.away_iid]: d.away };
   const rows = cardsOf(d).filter((f) => f.p * 100 >= min);
   const groups = by === "team"
-    ? [[d.home.name, rows.filter((f) => f.team_iid === d.match.home_iid && !f.stat?.startsWith("match_"))], [d.away.name, rows.filter((f) => f.team_iid === d.match.away_iid && !f.stat?.startsWith("match_"))], ["Both teams", rows.filter((f) => f.stat?.startsWith("match_"))]]
+    // "Both teams" holds the match lines -- total goals, total cards. It is the one market a
+    // stranger understands without being taught, it is the only one that needs no statistics feed,
+    // and it was rendered third, about 5,600px below the fold, behind twenty-two player cards.
+    ? [["Both teams", rows.filter((f) => f.stat?.startsWith("match_"))], [d.home.name, rows.filter((f) => f.team_iid === d.match.home_iid && !f.stat?.startsWith("match_"))], [d.away.name, rows.filter((f) => f.team_iid === d.match.away_iid && !f.stat?.startsWith("match_"))]]
     : [...new Set(rows.map((f) => f.stat))].map((s) => [rows.find((f) => f.stat === s)?.market?.replace(/^\d+\+\s*/, "") || s, rows.filter((f) => f.stat === s)]);
   return (
     <div className="mc-fc" data-testid="match-forecasts">
@@ -132,7 +135,7 @@ export function Forecasts({ d, matchId }) {
       {!cardsOf(d).length ? <EmptyState icon="target" title="No forecasts yet" testid="fc-empty">They appear once the engine has run for this match.</EmptyState>
         : !rows.length ? <EmptyState icon="target" title={`Nothing at ${min}% or more`} testid="fc-none" action={<button type="button" className="btn btn--secondary btn--sm" onClick={() => setMin(50)} data-testid="fc-reset">Show all</button>}>Lower the minimum likelihood.</EmptyState>
         : groups.filter(([, xs]) => xs.length).map(([title, xs]) => (
-          <section key={title} className="mc-fc-group"><h2 className="k-sec">{title} · {xs.length}</h2>
+          <section key={title} className="mc-fc-group"><header className="v2-sec-head"><h2 className="k-sec v2-sec">{title} · {xs.length}</h2></header>
             <div className="fgrid">{xs.map((f) => <ForecastCard key={f.id} f={f} teams={fxTeams} homeIid={d.match.home_iid} showTime={false} track={track} testid={`match-fc-${f.id}`} />)}</div></section>
         ))}
     </div>
@@ -148,12 +151,12 @@ export function Form({ d }) {
   return (
     <div className="mc-form" data-testid="match-stats">
       {e.length > 0 && <div className="card mc-stats">
-        <h2 className="k-sec">Per game this season</h2>
+        <header className="v2-sec-head"><h2 className="k-sec v2-sec">Per game this season</h2></header>
         <p className="k-faint k-small">{d.home.name} at home, {d.away.name} away. Numbers from before kick-off.</p>
         <ul className="cp-edges">{e.map((x) => { const t = (x.a || 0) + (x.b || 0) || 1; return (
           <li key={x.key} className={`lean-${x.lean || "none"}`}><b>{num1(x.a)}</b><span className="cp-edge-mid"><small>{x.label}</small><span className="cp-edge-bar" aria-hidden="true"><i className="ea" style={{ width: `${(x.a / t) * 100}%` }} /><i className="eb" style={{ width: `${(x.b / t) * 100}%` }} /></span></span><b>{num1(x.b)}</b></li>); })}</ul>
       </div>}
-      {c.data?.radar?.length > 0 && <div className="card mc-radar"><h2 className="k-sec">Style shape</h2><TeamRadar axes={c.data.radar} aName={d.home.name} bName={d.away.name} games={c.data.radar_games} testid="match-radar" /></div>}
+      {c.data?.radar?.length > 0 && <div className="card mc-radar"><header className="v2-sec-head"><h2 className="k-sec v2-sec">Style shape</h2></header><TeamRadar axes={c.data.radar} aName={d.home.name} bName={d.away.name} games={c.data.radar_games} testid="match-radar" /></div>}
     </div>
   );
 }

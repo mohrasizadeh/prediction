@@ -348,10 +348,16 @@ def lead_stat(fs):
 
 CONFIDENT = {"Strong": 0, "Solid": 0, "Watch": 1, None: 2}
 # "edge" ranks on the same fair scale the cards use, not on raw percentage points (docs/48).
+# Each sort takes the forecast AND the tables, because the default one ranks by `prominence`, which
+# needs them. v8: "edge" used to rank by raw `lift`, which is market-blind and position-blind -- so a
+# centre-back's tackles line with a big departure outranked a striker's shot line, and the feed
+# contradicted the card sitting in it. `prominence` already knew tackles is worth 0.5 to a forward
+# and 1.5 to a defender (engine.position_weights); it decided which line LEADS a card and was never
+# wired to the order the cards come in. That half-fix is what "random markets for a player" was.
 FEED_SORTS = {
-    "edge": lambda f: (CONFIDENT[f["tier"]], -lift(f), -f["p"]),
-    "likely": lambda f: (TIER_RANK[f["tier"]], -f["p"]),
-    "kickoff": lambda f: (f["kickoff"], TIER_RANK[f["tier"]], -f["p"]),
+    "edge": lambda f, w, sc, pw: (CONFIDENT[f["tier"]], -prominence(f, w, sc, pw), -f["p"]),
+    "likely": lambda f, w, sc, pw: (TIER_RANK[f["tier"]], -f["p"]),
+    "kickoff": lambda f, w, sc, pw: (f["kickoff"], TIER_RANK[f["tier"]], -f["p"]),
 }
 
 
@@ -410,10 +416,13 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     if team_iids: q["team_iid"] = {"$in": list(team_iids)}
     fc = list(db.forecasts.find(q, {"_id": 0, "contrib": 0}).limit(3000))
     grp = S.get(db, "engine.feed_group")
+    weights, scale = S.get(db, "engine.market_weights"), S.get(db, "engine.lift_scale")
+    pos_weights = S.get(db, "engine.position_weights")
     if grp in ("player", "player_market"):
-        fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")), grp, S.get(db, "engine.market_weights"),
-                         S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"))
-    fc.sort(key=FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"]))
+        fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")), grp, weights,
+                         scale, float(S.get(db, "engine.min_span")), pos_weights)
+    key = FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"])
+    fc.sort(key=lambda f: key(f, weights, scale, pos_weights))
     fc = fc[:limit]
     # This used to repeat _decorate's body inline, which is how the feed came to be the one caller
     # that never got `match_id` -- and how a change to _homes could break `home_iid` in one place

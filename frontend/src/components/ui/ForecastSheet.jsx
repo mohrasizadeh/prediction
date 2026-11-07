@@ -99,7 +99,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       <AnswerBlock f={shown} size="sheet" testid={testid} />
       {!onTapped && <p className="k-faint k-small v2-fs-other" data-testid={`${testid}-other-line`}>
         {picked.source === "ladder"
-          ? <>Read off the ladder for this line, so there is no range or tier for it. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Back to {f.market}</button></>
+          ? <>Read off the ladder for this line, so there is no range or tier for it. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Show {f.market} again</button></>
           : <>Showing {picked.market}. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Back to {f.market}</button></>}
       </p>}
       {onTapped && <WhyList reasons={f.reasons} testid={`${testid}-why`} />}
@@ -164,7 +164,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
       )}
       <LadderList lines={lines} current={picked.fkey || f.fkey} parent={{ ...f, team: f.team || fx.team }} actions testid={`${testid}-ladder`} />
       {onTapped && tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} {f.scope} {STAT_WORD[f.stat] || f.stat} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to={`/track-record?stat=${f.stat}`}>Track record</Link></p>}
-      <p className="k-faint k-small">{DISCLAIMER} <Link to="/learn/forecast-card" aria-label="How to read a forecast card" data-testid={`${testid}-learn`}>How to read this card (?)</Link></p>
+      <p className="k-faint k-small">{DISCLAIMER} <Link to="/learn/forecast-card" aria-label="How to read a forecast card" data-testid={`${testid}-learn`}>How to read this card</Link></p>
     </BottomSheet>
   );
 }

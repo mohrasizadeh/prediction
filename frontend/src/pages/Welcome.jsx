@@ -74,7 +74,7 @@ export default function Welcome() {
       const r = await patch("/account/profile", { prefs: { welcomed: true, leagues: picked, ...(save && entitlements.alerts ? { alert_emails: alerts, alert_lineups: lineups, alert_goals: goals } : {}) } });
       setUser(r.user);
       if (save && weekly) await post("/newsletter/subscribe", { email: user.email, consent: true }).then(() => toast("Check your inbox to confirm the weekly e-mail")).catch(() => {});
-      nav("/following", { replace: true });
+      nav("/", { replace: true });   // was /following, which for a reader who skipped a step is an empty page telling them to sign up
     } catch (x) { toast(x.message || "Could not save", "err"); setBusy(false); }
   };
   const next = () => (step < 2 ? setStep(step + 1) : finish(true));
