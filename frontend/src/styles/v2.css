@@ -754,9 +754,22 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 /* =============================================================== 22. THE DAY STRIP
    Measured on a 390px phone: 486px of days in a 302px window, with `scrollbar-width: none`. Three
    of seven days were unreachable and nothing said they existed -- the same fault the game strip
-   had in the Swiss pass, in a different component. A collection wraps before it hides anything. */
-.k-days { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; }
-.k-days-wrap { flex-wrap: wrap; }
+   had in the Swiss pass, in a different component. A collection wraps before it hides anything.
+
+   Wrapping fixed that and cost something else. Eight tiles at their natural 62px need 552px, so
+   the strip became three rows 230px tall -- 30% of a phone fold, one of those rows holding a
+   single calendar icon, before a stranger has seen one forecast. The rule still holds: nothing is
+   hidden. The tiles simply share the row instead of keeping a width nobody asked them to keep.
+   Measured after: one row, 70px. */
+.k-days { flex-wrap: nowrap; overflow-x: visible; gap: 3px; }
+.k-days-wrap { flex-wrap: nowrap; gap: 3px; }
+/* 44px is this project's own touch-target floor (docs/36 A11Y-6), and seven days plus a calendar
+   only clear it on a 390px phone if the gap is 3 and the calendar keeps just enough for its icon.
+   Measured at 390: 44px each. */
+.k-days .k-day { flex: 1 1 0; min-width: 0; padding-inline: 2px; }
+.k-day--cal { flex: 0 0 32px; }
+/* No wrap fallback is needed any more: DateScroller drops to five days under 420px, and five
+   days plus the calendar still measure 48px each on a 320px screen -- above the floor. */
 
 /* The selected day was a solid block of --brand, which v2 redefined to the chalk ink -- so the
    control shouted louder than any content on the page. Selection is a state, not an emphasis:

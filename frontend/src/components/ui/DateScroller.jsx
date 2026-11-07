@@ -15,7 +15,30 @@ export function useSessionDay(storeKey) {
 
 const MAX_MARKS = 3;                       // more than three crests on a 62 px day is a smudge, not information
 
-export function DateScroller({ value, onChange, from = -1, count = 7, gameDays, dayLeagues, testid = "ui-dates" }) {
+// How many days fit on a phone before a tile goes under the project's 44px touch-target floor.
+// Seven days and a calendar button need 552px at their natural width; wrapping them instead cost
+// three rows and 230px, which is 30% of a phone fold spent on a date picker before a stranger has
+// seen one forecast. Five fit in one row at 56px on the narrowest phone we support, and the
+// calendar button reaches every other day anyway.
+const NARROW = 420;
+const NARROW_COUNT = 5;
+
+function useDayCount(count) {
+  const [narrow, setNarrow] = useState(() => (typeof window !== "undefined" && window.matchMedia
+    ? window.matchMedia(`(max-width: ${NARROW - 1}px)`).matches : false));
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const mq = window.matchMedia(`(max-width: ${NARROW - 1}px)`);
+    const h = (e) => setNarrow(e.matches);
+    mq.addEventListener("change", h);
+    setNarrow(mq.matches);
+    return () => mq.removeEventListener("change", h);
+  }, []);
+  return narrow ? Math.min(count, NARROW_COUNT) : count;
+}
+
+export function DateScroller({ value, onChange, from = -1, count: count0 = 7, gameDays, dayLeagues, testid = "ui-dates" }) {
+  const count = useDayCount(count0);
   const ref = useRef(null);
   const cal = useRef(null);
   // The strip never said which month it was in. Crossing a boundary it read "31" then "1", and a
