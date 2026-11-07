@@ -189,7 +189,7 @@ export function HitStrip({ hits = [], label, testid = "ui-hitstrip" }) {
 //
 // `games` are the API's own rows, newest first, as /players/{id}/history and /teams/{id}/history return them.
 // Team rows carry no minutes, so that line is simply left off for them.
-export function GameStrip({ games = [], stat, line, label, note = true, testid = "ui-gamestrip" }) {
+export function GameStrip({ games = [], stat, line, label, note = true, count = true, testid = "ui-gamestrip" }) {
   const rows = [...games].reverse();
   if (!rows.length) return null;
   const known = rows.filter((g) => g[stat] != null);
@@ -231,7 +231,7 @@ export function GameStrip({ games = [], stat, line, label, note = true, testid =
           );
         })}
       </ol>
-      {note && <p className="pgs-key k-faint k-small">{known.length ? `${hits} of ${known.length} reached this line. ` : "No figures yet. "}{anyMins ? "Minutes above each column, opponent below." : anyVenue ? "Home or away above each column, opponent below." : "Opponent below each column."}</p>}
+      {note && <p className="pgs-key k-faint k-small">{count ? (known.length ? `${hits} of ${known.length} reached this line. ` : "No figures yet. ") : ""}{anyMins ? "Minutes above each column, opponent below." : anyVenue ? "Home or away above each column, opponent below." : "Opponent below each column."}</p>}
     </div>
   );
 }

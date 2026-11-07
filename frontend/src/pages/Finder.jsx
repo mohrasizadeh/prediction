@@ -11,7 +11,7 @@ import { pct } from "../lib/copy";
 import { Crest, PlayerAvatar } from "../components/Media";
 import Icon from "../components/Icon";
 import { MATCH_STATS, STATS, TEAM_STATS, kickoff, useTitle } from "../components/Football";
-import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, HitStrip, ProLock, RangeSlider, Segmented, Skeleton, isoDay } from "../components/ui";
+import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, GameStrip, HitStrip, ProLock, RangeSlider, Segmented, Skeleton, isoDay } from "../components/ui";
 import { FINDER_STARTS, startChips } from "../lib/finderStarts";
 
 const DEF = { mode: "form", stat: "shots", n: "2", scope: "player", last_n: "10", min: "6", venue: "", positions: "", leagues: "", day: "", gt: "" };
@@ -75,13 +75,19 @@ function Row({ r, f, canLine, statLabel }) {
       {r.player ? <PlayerAvatar player={r.player} size={44} /> : <Crest team={r.team} size={40} />}
       <span className="fs-who"><Link to={r.player ? `/player/${r.player.id}` : `/team/${r.team?.id}`}><b>{(r.player || r.team)?.name}</b></Link>
         <small>{[r.player && r.team ? r.team.name : null, nx ? `next v ${(nx.home?.id === r.team?.id ? nx.away : nx.home)?.name}, ${kickoff(nx.kickoff)}` : null].filter(Boolean).join(" · ")}</small></span>
-      {f.mode === "run" ? <b data-testid={`finder-run-${r.id}`}>{r.run} in a row</b> : r.hits ? <HitStrip hits={[...r.hits].reverse()} label={`${f.n}+ ${f.stat}`} testid={`finder-strip-${r.id}`} /> : <b>{`${r.reached}/${r.games}`}</b>}
+      {/* Ten filled-or-empty squares could not tell a quiet game from a busy one, or say who it
+          was against. These are the games themselves -- minutes above, the figure, the opponent's
+          crest below -- which is the same component the player page and the sheet already draw. */}
+      {f.mode === "run" ? <b data-testid={`finder-run-${r.id}`}>{r.run} in a row</b>
+        : r.gs?.length ? <GameStrip games={r.gs} stat={f.stat} line={Number(f.n)} label={f.stat} note={false} count={false} testid={`finder-strip-${r.id}`} />
+        : r.hits ? <HitStrip hits={[...r.hits].reverse()} label={`${f.n}+ ${f.stat}`} testid={`finder-strip-${r.id}`} /> : <b>{`${r.reached}/${r.games}`}</b>}
       {/* This was `<span />`. A blank where every other row carries a percentage reads as the row
           being broken, or the player being missing -- which is exactly how it was reported. It is
           neither: either we hold no forecast for this fixture, or the line itself is not a rung on
           this market's ladder. Say which. We never fall to a neighbouring rung and print its
           number here: that would attach one line's evidence to another line's percentage. */}
-      {r.forecast ? <b className="fs-next" data-testid={`finder-next-${r.id}`}>Next {r.forecast.p_display || pct(r.forecast.p)}</b>
+      {r.forecast ? <span className="fs-next" style={{ "--tone": r.forecast.tier ? `var(--tier-${r.forecast.tier.toLowerCase()})` : "var(--brand)" }} data-testid={`finder-next-${r.id}`}>
+            <b>{r.forecast.p_display || pct(r.forecast.p)}</b><small>Next game</small></span>
         : <small className="fs-nonext muted" data-testid={`finder-nonext-${r.id}`}>
             {canLine && !canLine.includes(Number(f.n)) ? `We do not forecast ${f.n}+ ${statLabel}` : "No forecast for this match"}
           </small>}

@@ -41,6 +41,18 @@ Until it has run, any per-90 goal rate divides a player's goals by *the games he
 Measured on the demo league: **0.10 goals per appearance, or 1.16 if the goalless rows are still
 null** — an 11× overstatement that reads as a believable striker rather than a broken number.
 
+## A data bug worth knowing about (`ebf...`, the Finder club fix)
+
+A Finder row took the player's club from `$first` over his MATCH ROWS -- the club he played those
+games for. For anyone who has transferred that is the old club, and because the next fixture and
+the forecast were both looked up from it, the row showed the wrong badge AND no percentage, because
+he is not in that squad any more. One bug wearing two faces.
+
+`players.team_iid` is the current club and was already maintained carefully (`upsert_player` guards
+it with `team_as_of` so an older match ingested later cannot move it back, docs/41). That fix was
+made for the player record in docs/41 and never reached the Finder. **If you add another surface
+that needs a player's club, read it from `players`, not from his match rows.**
+
 ## Settings a deploy introduces
 
 Three, all with registry defaults, so a deploy needs no manual configuration:

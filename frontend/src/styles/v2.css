@@ -1869,3 +1869,40 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 /* Section heads reach the last six screens. `.k-sec` keeps its caption job; `.v2-sec` beside it
    is what makes a heading a heading (section 33). */
 .ex-sec > .v2-sec-head, .cp-out > .v2-sec-head { margin-top: var(--v2-gap-block); }
+
+
+/* =============================================================== 37. THE FINDER ROW
+   The row drew ten filled-or-empty squares, a "10/10", and "Next 93%" at body size. It now draws
+   the games themselves, and the figure a reader came for is the figure they see. */
+
+/* A crest is a crest. Section 35 put it in a tinted well, which on a real badge is a container
+   around a container -- the logo already has its own shape and its own edge. The well is kept
+   ONLY for the text fallback, where two letters on bare paper have nothing to sit in. */
+.pgs-g .pgs-opp {
+  opacity: 1; display: grid; place-items: center; min-width: 22px; height: 22px;
+  padding: 0; border: 0; border-radius: 0; background: none; color: var(--text3);
+  font-size: 9px; font-weight: 800;
+}
+.pgs-g .pgs-opp:not(:has(img)):not(:has(svg)) {
+  min-width: 26px; padding: 0 5px; border-radius: 999px;
+  background: var(--surface2); border: 1px solid var(--v2-hair);
+}
+.pgs-g .pgs-opp img, .pgs-g .pgs-opp svg,
+.pgs-g .pgs-opp .media, .pgs-g .pgs-opp .media-fallback { border-radius: 0; background: none; }
+
+/* The Finder's strip is a row inside a list, not a panel: no caption, tighter than the page's. */
+.fs-row .pgs-row { --bar-h: 46px; --foot-h: 22px; gap: 3px; flex-wrap: nowrap; }
+.fs-row .pgs-g .pgs-min { font-size: 9px; }
+.fs-row .pgs-g .pgs-v { font-size: 11px; }
+.fs-row .pgs { min-width: 0; }
+
+/* "Next 93%" read as a label with a number after it. The number is what the row is for. */
+.fs-next { display: grid; justify-items: end; gap: 1px; white-space: nowrap; }
+.fs-next > b {
+  font-size: 1.45rem; line-height: 1; font-weight: 800; letter-spacing: -.02em;
+  color: var(--tone, var(--brand)); font-variant-numeric: tabular-nums;
+}
+.fs-next > small {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text3);
+}

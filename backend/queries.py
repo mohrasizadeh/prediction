@@ -509,9 +509,19 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
         if started: m["started"] = True
         if min_minutes: m["minutes"] = {"$gte": min_minutes}
         if positions: m["pos"] = {"$in": list(positions)}
+    # One projected sub-document per game instead of one number. The strip drew ten filled-or-empty
+    # squares because that is all this returned: `$push` took the scalar and dropped the minutes,
+    # the opponent and the venue that were sitting on the same documents. Same scan, same rows,
+    # five more projected fields -- the shape /players/{id}/history already returns, so one
+    # component can draw a Finder row and a player page.
+    gf = {"match_iid": "$match_iid", "kickoff": "$kickoff", "opp_iid": "$opp_iid",
+          "home": "$home", stat: "$" + stat}
+    if scope == "player":
+        gf.update({"minutes": "$minutes", "pos": "$pos"})
     pipeline = [{"$match": m}, {"$sort": {"kickoff": -1}},
-                {"$group": {"_id": "$" + idf, "vals": {"$push": "$" + stat}, "team": {"$first": "$team_iid"}}},
-                {"$project": {"vals": {"$slice": ["$vals", last_n]}, "team": 1}}]
+                {"$group": {"_id": "$" + idf, "vals": {"$push": "$" + stat}, "gs": {"$push": gf},
+                            "team": {"$first": "$team_iid"}}},
+                {"$project": {"vals": {"$slice": ["$vals", last_n]}, "gs": {"$slice": ["$gs", last_n]}, "team": 1}}]
     out = []
     for r in db[coll].aggregate(pipeline):
         vals = r["vals"]
@@ -537,10 +547,29 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
         score = reached / last_n if mode == "form" else run
         if mode == "run" and run == 0:
             continue
-        if playing is not None and r["team"] not in playing:
-            continue
         out.append({"id": r["_id"], "team_iid": r["team"], "games": len(vals), "reached": reached, "run": run, "score": score,
-                    "hits": [v >= threshold for v in vals]})
+                    "hits": [v >= threshold for v in vals], "gs": r.get("gs") or []})
+    # A player's club is a property of the PLAYER, not of the games this search happened to count.
+    #
+    # `team` above is `$first` over his match rows, so it is the club he played those games for. For
+    # anyone who has transferred that is his OLD club -- and because everything below keys off it,
+    # the row then named the wrong club, looked up THAT club's next fixture, and found no forecast
+    # for him in it, because he is not in that squad any more. The missing percentage and the wrong
+    # badge were the same bug wearing two faces.
+    #
+    # `players.team_iid` is the current club and is already maintained carefully: upsert_player
+    # guards it with `team_as_of` so an older match ingested later cannot move it back (docs/41).
+    # That fix was made for the player record and never reached here.
+    if scope == "player" and out:
+        cur = _names(db, "players", [o["id"] for o in out])
+        for o in out:
+            o["player"] = cur.get(o["id"])
+            o["hist_team_iid"] = o["team_iid"]
+            o["team_iid"] = (o["player"] or {}).get("team_iid") or o["team_iid"]
+    # ...and "is he playing today?" has to be asked of the club he is at now, so this filter runs
+    # after the correction rather than before it.
+    if playing is not None:
+        out = [o for o in out if o["team_iid"] in playing]
     # Ties are everywhere -- every player who cleared it every time scores the same -- so without a
     # last key the same search returned a different hundred each time it ran.
     out.sort(key=lambda x: (-x["score"], -x["games"], str(x["id"])))
@@ -557,9 +586,12 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
             if f is None:
                 f = _from_ladder(db, nxt["iid"], scope, stat, threshold - 0.5, o["id"])
             o["forecast"] = f
-    if scope == "player":
-        names = _names(db, "players", [o["id"] for o in out])
-        for o in out: o["player"] = names.get(o["id"])
+    # One batched lookup for the opponents the strip draws, after the limit rather than before it.
+    opp_ids = {g["opp_iid"] for o in out for g in o["gs"] if g.get("opp_iid")}
+    opps = _names(db, "teams", list(opp_ids)) if opp_ids else {}
+    for o in out:
+        for g in o["gs"]:
+            g["opp"] = opps.get(g.get("opp_iid"))
     teams = _names(db, "teams", [o["team_iid"] for o in out])
     for o in out:
         o["team"] = teams.get(o["team_iid"])

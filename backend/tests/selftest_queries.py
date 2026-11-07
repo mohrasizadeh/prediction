@@ -56,6 +56,34 @@ for mode in ("likelihood", "form", "run"):
     r = Q.finder(db, mode, "shots", 2, last_n=10, now=now)
     check(len(r) > 0, f"finder mode={mode}: {len(r)} rows")
 check(Q.finder(db, "form", "shots", 2, now=now)[0]["score"] >= Q.finder(db, "form", "shots", 2, now=now)[-1]["score"], "finder form sorted high to low")
+
+# --- v9: a player's club is the player's, not the games' ----------------------------------------
+# Reported: a Finder row named a club the player had left. `team` in the aggregation is $first over
+# his match rows, so for anyone who has transferred it is the OLD club -- and because the next
+# fixture and the forecast are both looked up from it, the row then showed the wrong badge AND no
+# percentage, because he is not in that squad any more. The same bug wearing two faces.
+_rows = Q.finder(db, "form", "shots", 1, last_n=10, now=now)
+_v = next((x for x in _rows if x.get("player")), None)
+if _v:
+    _old = _v["team_iid"]
+    _new = next(t["iid"] for t in db.teams.find({"iid": {"$ne": _old}}, {"iid": 1}))
+    db.players.update_one({"iid": _v["id"]}, {"$set": {"team_iid": _new}})      # he transfers
+    _after = next(x for x in Q.finder(db, "form", "shots", 1, last_n=10, now=now) if x["id"] == _v["id"])
+    check(_after["team_iid"] == _new and _after["team"]["iid"] == _new,
+          "a transferred player's row names the club he is at now, not the one he played those games for")
+    check(_after.get("hist_team_iid") == _old, "...and the club those games were played for is still carried, not lost")
+    nx = _after.get("next_match")
+    check(nx is None or _new in (nx["home_iid"], nx["away_iid"]),
+          "...and the next fixture is his new club's, so a forecast for it can exist at all")
+    db.players.update_one({"iid": _v["id"]}, {"$set": {"team_iid": _old}})
+
+# The strip draws the games, so the games have to be on the row.
+_g = next((x for x in Q.finder(db, "form", "shots", 1, last_n=10, now=now) if x.get("gs")), None)
+check(_g and len(_g["gs"]) == _g["games"], "finder carries the games it counted, not just ten booleans")
+check(_g and all("minutes" in x for x in _g["gs"]), "every game says the minutes -- a low figure in 20 minutes is not a quiet game")
+check(_g and all(x.get("opp") and x["opp"].get("name") for x in _g["gs"]), "...and names the opponent, which is what the crest under each column draws")
+check(_g and sum(1 for x in _g["gs"] if (x.get("shots") or 0) >= 1) == _g["reached"],
+      "the games and the count cannot disagree")
 lb = Q.leaderboard(db, lg["iid"], "shots", per90=True, min_minutes=300)
 check(lb and lb[0]["per90"] >= lb[-1]["per90"], "leaderboard per 90 sorted")
 a = Q.against_by_position(db, t, "shots", 10)
