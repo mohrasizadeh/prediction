@@ -7,6 +7,7 @@ import { utc } from "../../lib/time";
 import { Crest, PlayerAvatar } from "../Media";
 import { TierBadge, CardRun } from "./Marks";
 import { LineActions } from "./Subject";
+import { SaveButton } from "../Actions";
 import { ForecastSheet } from "./ForecastSheet";
 import { useCombo } from "../../lib/combo";
 import Icon from "../Icon";
@@ -53,8 +54,29 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
   // behind it whenever something behind it is likelier.
   const topMore = more.length && f.p != null && more[0].p > f.p ? more[0] : null;
   const venueKnown = (f.home_iid ?? homeIid) != null;
+  const venue = !f.player && venueKnown && fx.opp ? (fx.homeFirst ? "home" : "away") : null;
+  // The position he is expected to play. The run strip underneath has carried it per game since v8,
+  // so the card could say which role the whole forecast assumes and did not -- "2+ tackles" means
+  // something different for a full-back and for a striker, and the reader had to open the sheet to
+  // find out which one they were looking at.
+  const pos = f.scope === "player" && f.pos ? String(f.pos).toUpperCase() : null;
   const sub = f.stat?.startsWith("match_") ? "Both teams"
-    : [f.player && fx.team?.name, fx.opp ? `vs ${fx.opp.name}` : fx.text, !f.player && venueKnown && fx.opp ? (fx.homeFirst ? "home" : "away") : null].filter(Boolean).join(" · ");
+    : [f.player && fx.team?.name, pos, fx.opp ? `vs ${fx.opp.name}` : fx.text, venue].filter(Boolean).join(" · ");
+  // The same line as JSX, so the club can carry its crest. The club was named on every player card
+  // and drawn on none of them, which is the one identifier a reader recognises before they have read
+  // a word. `sub` above is the string the card is ANNOUNCED with, so a screen reader gets the club,
+  // the position and the fixture in words rather than a crest it cannot read.
+  // Each piece carries its own TRAILING separator, inside a nowrap span. Leading separators put a
+  // lone "\u00b7" at the start of the wrapped second line, which reads as a bullet for a list that
+  // is not there.
+  const segs = f.stat?.startsWith("match_") ? [] : [
+    f.player && fx.team ? <><Crest team={fx.team} size={15} />{fx.team.name}</> : null,
+    pos ? <em className="k-fc-pos">{pos}</em> : null,
+    fx.opp ? `vs ${fx.opp.name}` : fx.text || null,
+    venue,
+  ].filter(Boolean);
+  const subLine = f.stat?.startsWith("match_") ? "Both teams"
+    : segs.map((x, i) => <span className="k-fc-seg" key={i}>{x}{i < segs.length - 1 && <span className="k-fc-sep" aria-hidden="true">·</span>}</span>);
   const id = testid || `fc-${f.id || f.fkey}`;
   const name = f.player ? shortName(f.player.name) : (f.stat?.startsWith("match_") ? fx.text || "Both teams" : fx.team?.name || f.team?.name || "");
   const lineup = f.scope === "player" ? (f.lineup_badge ? BADGE[f.lineup_badge] : f.lineup_confirmed ? "Confirmed starter" : f.tier_basis === "likely_starter" ? "Likely lineup" : "Lineup not sure") : null;
@@ -74,10 +96,10 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
   const tk = track?.[f.fkey];
   return (
     <article className={"k-fc" + (canAdd ? " k-fc--add" : "") + (tk?.state === "hit" ? " k-fc--hit" : tk?.state === "missed" ? " k-fc--missed" : "")} style={{ "--tone": tone(f.tier) }} data-testid={id}>
-      <button type="button" className="k-fc-main" onClick={() => setSheet(true)} aria-label={`${name}, ${f.market}, ${shown}${rng ? `, likely range ${rng}` : ""}${f.tier ? `, ${f.tier}` : ""}. Open details`} data-testid={`${id}-open`}>
+      <button type="button" className="k-fc-main" onClick={() => setSheet(true)} aria-label={`${name}, ${sub}, ${f.market}, ${shown}${rng ? `, likely range ${rng}` : ""}${f.tier ? `, ${f.tier}${f.tier_note ? `: ${f.tier_note}` : ""}` : ""}. Open details`} data-testid={`${id}-open`}>
         <header className="k-fc-head v2-fch">
           <Who f={f} fx={fx} />
-          <span className="k-fc-who"><b>{name}</b><small data-testid={`${id}-fixture`}>{sub}</small></span>
+          <span className="k-fc-who"><b>{name}</b><small className="k-fc-sub" data-testid={`${id}-fixture`}>{subLine}</small></span>
           {/* The likelihood is the anchor and belongs in the one place a reader's eye goes first.
               Moving it out cost the card its reference point, and the tier badge that took its slot
               squeezed the name into an ellipsis. Tier is a label for the number, so it sits with
@@ -156,12 +178,16 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
         )}
         {f.reasons?.[0] && <p className="k-fc-why">{f.reasons[0]}</p>}
       </button>
-      {(more.length > 0 || lineup || (showTime && f.kickoff)) && (
+      {(more.length > 0 || lineup || f.fkey || (showTime && f.kickoff)) && (
         <footer className="k-fc-foot">
           {more.length > 0 ? <button type="button" className="k-link" aria-expanded={open} onClick={() => setOpen(!open)} data-testid={`${id}-more`}>{open ? "Hide other lines" : `+${more.length} more line${more.length === 1 ? "" : "s"}`}
             {!open && topMore && <em className="v2-more-top" data-testid={`${id}-more-top`}>up to {pct(topMore.p)}</em>}</button> : <span />}
           <span className="k-fc-foot-r">{lineup && <span className={`k-tag${sure ? " k-tag--up" : ""}${muted ? " k-tag--muted" : ""}`} data-testid={`${id}-badge`}>{lineup}</span>}
-            {showTime && f.kickoff && <small className="k-fc-date" data-testid={`${id}-date`}>{timeOf(f.kickoff)}</small>}</span>
+            {showTime && f.kickoff && <small className="k-fc-date" data-testid={`${id}-date`}>{timeOf(f.kickoff)}</small>}
+            {/* Every rung under "+N more lines" could be kept and the headline line -- the one the
+                card is about -- could not, so the only way to follow what you were looking at was to
+                open the sheet. Same control, same place in the row, as the rungs use. */}
+            {f.fkey && <SaveButton fkey={f.fkey} />}</span>
         </footer>
       )}
       {open && (

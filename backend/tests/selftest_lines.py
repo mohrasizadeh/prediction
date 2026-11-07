@@ -120,11 +120,17 @@ check(all(r["tier"] in ("Watch", None) for r in plain), "other players stay at m
 # introduced ("Solid once the lineup is confirmed", on a line held back by the chance to play rather than by the
 # lineup rule). Match the shapes instead.
 import re as _re
-OK_NOTE = (None, "Watch until lineups are out", "On the bench: Watch only", "Held at Solid until our record on these lines is measured")
-_SHAPES = (r"^(Strong|Solid) once the lineup is confirmed$", r"^Similar lines happened \d+% of the time$")
+OK_NOTE = (None, "Watch until lineups are out", "On the bench: Watch only", "Held at Solid until our record on these lines is measured",
+           "A small step from their usual game", "The likely range still reaches their usual")
+_SHAPES = (r"^(Strong|Solid) once the lineup is confirmed$", r"^Similar lines happened \d+% of the time$",
+           r"^Under \d+%, where Solid starts$")
 bad = [r["tier_note"] for r in pre
        if r["tier_note"] not in OK_NOTE and not any(_re.match(x, str(r["tier_note"])) for x in _SHAPES)]
 check(not bad, f"every card can say why it is not a better tier: {sorted(set(bad))[:3]}")
+# Watch is the absence of a promise, and the number beside it does not say which absence -- "73%,
+# Watch" reads as the card contradicting itself. Strong and Solid may stay silent; Watch may not.
+mute = [r["fkey"] for r in pre if r["tier"] == "Watch" and not r["tier_note"]]
+check(not mute, f"every Watch line says why it is Watch ({len(mute)} silent)")
 check(any(str(r["tier_note"]).endswith("once the lineup is confirmed") for r in pre),
       "...and a line held back only by the chance to play says so, instead of leaving the reader to multiply (docs/48)")
 reasons = collections.Counter(r["reasons"][0] for r in pre if r["reasons"])

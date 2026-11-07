@@ -168,3 +168,38 @@ with what I would do:
    `events` 400) that happen to equal the registry defaults exactly, so the setting looks live and
    is inert. *Do:* build those indexes from the settings and re-create them when they change. This
    one I deliberately did not do: it changes how long data is kept, which is the owner's call.
+
+## The owner's four (v10)
+
+1. **A missed game was invisible.** The run strip drew a game that did not clear the line in
+   `--surface3`, which on the match page is one step from the card it sits on — **1.09:1**. Half of
+   every run was a blank space, so "1, 0, 1, 2, 0" looked like "1, 1, 2" and a reader counting bars
+   counted a better player than the data describes. There is now one token, `--v2-miss`, used by
+   both run graphics (`CardRun` on cards, `GameStrip` on the player page and in the sheet), measured
+   at **3.29:1 light / 3.34:1 dark** — the 3:1 WCAG 1.4.11 asks of a graphic you have to read. A
+   game with no figure at all is hatched now, so "no data" and "did not clear it" are not a shade
+   apart.
+2. **A tier filter beside the slider, and Watch now says why it is Watch.** The chips are the same
+   multi-select `ChipsRow` Insights uses, with counts taken after the slider. On the second half:
+   Watch was the only tier that never explained itself. Strong and Solid are promises and
+   self-explaining; Watch is the *absence* of one, and the number beside it does not say which
+   absence — which is why "73%, Watch" reads as a card contradicting itself. `tiering.assign` now
+   fills a note in the two cases that produced none: the plain one ("Under 80%, where Solid
+   starts") and the personal-line one ("A small step from their usual game"). `selftest_lines`
+   asserts no Watch line is silent. The Learn page's tier entry was rewritten around the same
+   question.
+3. **The card shows the club crest, the position, and can be followed.** The club was *named* on
+   every player card and drawn on none — the one identifier a reader recognises before reading a
+   word. The position matters because "2+ tackles" means something different for a full-back and a
+   striker, and the card assumed one without saying so. `SaveButton` now sits in the foot: every
+   rung under "+N more lines" could be kept and the headline line could not.
+4. **The page scrolled sideways, and it was the header.** Measured on a 390px phone: the header row
+   needs 412px and has 358, so the document took a 429px scroll width and the browser parked the
+   view at the right — which is why a screenshot of Today showed the brand mark cut off the left
+   edge of a page whose content all fits. Nothing in that row is optional, so the saving came from
+   the wordmark beside a logo that is its own mark, and the size of the Beta pill: 338 of 358 now,
+   and `scrollWidth === clientWidth` on every screen. The day strip was a second, smaller case of
+   the same thing — three 14px league crests are ~48px of unshrinkable content inside a 44px tile —
+   and those crests are gone, replaced by the dot that was already there for days without them. The
+   league names stay in the tile's accessible name, where they cost no width. The tiles got a
+   hairline, because transparent tiles on a transparent strip gave the dates nothing to stand on.

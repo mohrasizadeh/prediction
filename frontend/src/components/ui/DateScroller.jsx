@@ -2,7 +2,6 @@
 // The last day picked is remembered for the session (sessionStorage) when `storeKey` is given.
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../Icon";
-import { LeagueMark } from "../Media";
 
 export const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const NAMES = { "-1": "Yest.", 0: "Today", 1: "Tmrw" };
@@ -13,7 +12,13 @@ export function useSessionDay(storeKey) {
   return [day, set];
 }
 
-const MAX_MARKS = 3;                       // more than three crests on a 62 px day is a smudge, not information
+// The league crests that used to sit under each date are gone. Three 14px marks plus a gap need
+// about 48px of unshrinkable content inside a tile that measures 44px on a 390px phone, so the
+// row could not shrink to the viewport and the WHOLE PAGE scrolled sideways -- the day strip was
+// the thing pushing Today off its own screen. They were also the wrong information for the slot:
+// a reader scanning dates is asking "is there football on", not "which five competitions", and
+// the answer to the first is one dot. The leagues stay in the tile's accessible name, where they
+// cost no width.
 
 // How many days fit on a phone before a tile goes under the project's 44px touch-target floor.
 // Seven days and a calendar button need 552px at their natural width; wrapping them instead cost
@@ -65,12 +70,7 @@ export function DateScroller({ value, onChange, from = -1, count: count0 = 7, ga
               aria-label={`${NAMES[off] || d.toLocaleDateString(undefined, { weekday: "short" })} ${d.getDate()}, ${d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}${lgs.length ? `, ${lgs.map((l) => l.name).join(", ")}` : has ? ", has games" : ""}`} data-testid={`${testid}-${k}`}>
               <span className="w">{NAMES[off] || d.toLocaleDateString(undefined, { weekday: "short" })}</span>
               <span className="n">{d.getDate()}{d.getDate() === 1 || off === from ? <i className="k-day-mon">{monthOf(d)}</i> : null}</span>
-              {lgs.length ? (
-                <span className="k-day-lgs" aria-hidden="true">
-                  {lgs.slice(0, MAX_MARKS).map((l) => <LeagueMark key={l.id} league={l} size={14} />)}
-                  {lgs.length > MAX_MARKS && <i className="k-day-more">+{lgs.length - MAX_MARKS}</i>}
-                </span>
-              ) : <span className={`dot${has ? "" : " no"}`} aria-hidden="true" />}
+              <span className={`dot${has || lgs.length ? "" : " no"}`} aria-hidden="true" />
             </button>
           );
         })}

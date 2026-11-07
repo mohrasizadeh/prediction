@@ -5,6 +5,8 @@ our own scored results show it.
   Solid   the whole chance is 80% or more AND the track record agrees
   Watch   60% or more, or anything the track record does not yet back
 
+A Watch line always carries a note saying WHICH of those it is -- see _watch_says_why.
+
 The whole chance of a player line is p x chance to play (a line "if he plays" is not a promise until he plays).
 The track record is `forecast_outcomes`: for each scope and stat, how often lines with a similar whole chance happened
 (a player who did not feature counts as a miss when we stored his chance to play). It can only lower a tier, never raise one.
@@ -78,7 +80,7 @@ def assign(db, rec: Record | None, f: dict, strong_needs_lineup: bool = True) ->
         return ("Watch" if w >= watch else None), "On the bench: Watch only"
     if f.get("is_personal") and f.get("p_usual") is not None:
         t, note = _departure_tier(db, f, w, lw)
-        return _lineup_caveat(t, note, scope, badge, strong_needs_lineup)
+        return _watch_says_why(*_lineup_caveat(t, note, scope, badge, strong_needs_lineup), so_min)
     t = "Strong" if (w >= s_min and lw >= s_lo) else "Solid" if (w >= so_min and lw >= so_lo) else "Watch" if w >= watch else None
     note = None
     if badge == "unsure" and t in ("Strong", "Solid"):
@@ -107,6 +109,24 @@ def assign(db, rec: Record | None, f: dict, strong_needs_lineup: bool = True) ->
                 t, note = ("Solid" if est >= so_min - 0.02 else "Watch"), f"Similar lines happened {round(est * 100)}% of the time"
             if t == "Solid" and est < so_min - 0.02:
                 t, note = "Watch", f"Similar lines happened {round(est * 100)}% of the time"
+    return _watch_says_why(t, note, so_min)
+
+
+def _watch_says_why(t: str | None, note: str | None, so_min: float) -> tuple[str | None, str | None]:
+    """Watch is the one tier a reader cannot work out from the card.
+
+    Strong and Solid are promises, and a card carrying one is self-explaining. Watch is the absence
+    of a promise, and the number beside it does not say which absence: 73% with Watch reads as a
+    contradiction unless the card says that 73 is under the 80 Solid asks for, or that the tier is
+    held back by something other than the number -- the chance to play, the bench, our own record.
+    Every one of those cases already produced a note. The plain one, which is most of them, produced
+    nothing, so the commonest tier in the product was the only one that never explained itself.
+
+    Reported by the owner, in those words: "I don't understand the concept of watch, why it has a
+    high percentage but not solid".
+    """
+    if t == "Watch" and note is None:
+        return t, f"Under {round(so_min * 100)}%, where Solid starts"
     return t, note
 
 
@@ -137,7 +157,9 @@ def _departure_tier(db, f: dict, w: float, lw: float) -> tuple[str | None, str |
     if d >= some:
         return "Solid", (None if clear else "The likely range still reaches their usual")
     if d >= some / 2:
-        return "Watch", None
+        # Not "under 80%": a personal line is graded on the SIZE OF THE GAP, not on the chance, so
+        # the plain note would name a bar this line is not measured against.
+        return "Watch", "A small step from their usual game"
     return None, None
 
 

@@ -17,10 +17,13 @@ export const ARTICLES = [
     "The big number is our estimate of how likely it is that the line is reached in that match. 78% means that, across many forecasts like this one, we expect it to happen about 78 times in 100.",
     "The tier badge (Strong, Solid or Watch) tells you how much the evidence behind the number agrees. Tap the card to see the reasons, the last games on that line and the other lines for the same player or team.",
     "A forecast is a reading of the data, not a promise. Football is noisy, and even a high number will not happen every time."] },
-  { slug: "tiers", cat: "cards", tag: "Reading cards", mins: 2, title: "Strong, Solid and Watch", sub: "What each tier means, and how often it comes true.", Pic: PicTiers, body: [
-    "Strong: the number is high and the signals behind it point the same way.",
-    "Solid: a good reading with a little more doubt, for example a shorter run of games or a question over who starts.",
-    "Watch: worth keeping an eye on, but the evidence is thinner.",
+  { slug: "tiers", cat: "cards", tag: "Reading cards", mins: 2, title: "Strong, Solid and Watch", sub: "Why a card can read 73% and still say Watch.", Pic: PicTiers, body: [
+    "The tier is not a second opinion about the number. It is the bar the number had to clear, and a player's number has to clear it after the chance he plays is counted in.",
+    "Strong: 90% or more once the chance he plays is counted, and our own finished forecasts at that level came true that often.",
+    "Solid: 80% or more on the same measure, with the record agreeing.",
+    "Watch: everything else we still think is worth a card. Usually that just means under 80%. It can also mean the number is high but something else is not settled \u2014 the lineup is not out, the player is on the bench, or we have not yet scored enough finished forecasts like this one to stand behind it.",
+    "So a 73% card says Watch because 73 is under the 80 Solid asks for, not because we doubt the 73. Every Watch card now prints which of those reasons applies, next to the badge.",
+    "A high number is not the same as a good forecast: a line a player clears every week is both. The tier, the usual, and the last ten games are there to tell those two apart.",
     "How often each tier came true is not something we claim. It is counted from finished matches and shown on the Track record page."] },
   { slug: "lineups", cat: "method", tag: "Our method", mins: 3, title: "Why lineups change the numbers", sub: "Who plays changes everything.", Pic: PicLineup, body: [
     "A player can only reach a line if he plays, so every player forecast carries a “chance he plays”.",

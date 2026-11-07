@@ -39,6 +39,15 @@
   --font-heading: 'Archivo v2', system-ui, sans-serif;
   --font-num: 'Archivo v2', system-ui, sans-serif;
   --radius-sm: 6px; --radius-md: 10px; --radius-lg: 12px;
+  /* A game that did NOT clear the line. It was drawn in --surface3, which is one step from the
+     surface a card sits on -- 1.09:1 against the card on the match page -- so half of every run
+     was invisible and the picture only ever showed the hits. That is the one thing this graphic
+     must not do: a run of 1, 0, 1, 2, 0 looked like a run of 1, 1, 2, and a reader counting bars
+     counted a better player than the data describes. Quiet, but drawn.
+     Measured, not eyeballed: against the card surfaces this product uses, the miss tone has to be
+     about 74% of --text3 to clear the 3:1 that WCAG 1.4.11 asks of a graphic a reader has to read.
+     At the old surface3 it was 1.09:1 on the match page. It is 3.4:1 now, light and dark. */
+  --v2-miss: color-mix(in srgb, var(--text3) 74%, transparent);
 }
 body, button, input, select, textarea { font-family: var(--font-body); }
 body { font-size: 15px; line-height: 1.5; font-stretch: 100%; }
@@ -279,6 +288,11 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .mc-fc-group { margin-bottom: 22px; }
 /* The slider takes the width it needs, not a third of the toolbar. */
 .mc-fc-bar .mc-fc-min { flex: 0 1 240px; }
+/* The tier chips sit on their own line under the toolbar: they are a second filter, not a second
+   control for the first one, and putting them beside the slider made a three-object row that wraps
+   badly on a phone. */
+.mc-fc-tiers { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; margin-top: 10px; }
+.mc-fc-tiers + .mc-fc-group, .mc-fc-tiers + section { margin-top: var(--v2-gap-section, 22px); }
 
 
 /* =============================================================== 13. THE RUN, DRAWN BOLDLY
@@ -508,7 +522,7 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .v2-gs-bar { display: flex; align-items: flex-end; width: 100%; height: var(--bar-h); }
 .v2-gs-bar > b {
   display: block; width: 100%; border-radius: 0;
-  background: color-mix(in srgb, var(--text3) 34%, transparent);
+  background: var(--v2-miss);
 }
 .pgs-g.on .v2-gs-bar > b { background: var(--up); }
 .pgs-g.nd .v2-gs-bar > b {
@@ -878,12 +892,18 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .v2-cr-row.has-pos .v2-cr-g { grid-template-rows: 30px auto auto auto auto; }
 .v2-cr-g > b {
   display: block; width: 72%; max-width: 15px; justify-self: center;
-  background: var(--surface3); border-radius: 2px 2px 0 0; min-height: 2px;
+  background: var(--v2-miss); border-radius: 2px 2px 0 0; min-height: 3px;
   transition: height var(--v2-move) var(--v2-ease), background-color var(--v2-quick) var(--v2-ease);
 }
 .v2-cr-g.on > b { background: var(--up); }
 .v2-cr.is-down .v2-cr-g.on > b { background: var(--up); }   /* a game he cleared is cleared, whichever way tonight points */
-.v2-cr-g.nd > b { background: var(--border-strong); }
+/* No figure for that game is not the same as a figure of zero, and now that a miss is drawn
+   the two were a shade apart. Hatched, the way GameStrip draws it, so the one object reads the
+   same in both sizes. */
+.v2-cr-g.nd > b {
+  height: 100% !important;
+  background: repeating-linear-gradient(45deg, var(--surface3) 0 3px, transparent 3px 6px);
+}
 .v2-cr-v, .v2-cr-m, .v2-cr-p, .v2-cr-o {
   display: block; text-align: center; font-style: normal;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1039,6 +1059,22 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .v2-fch { grid-template-columns: 44px minmax(0, 1fr) auto; align-items: start; }
 .v2-fch .k-fc-who { align-self: center; min-width: 0; }
 .v2-fch .k-fc-who b { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.18; }
+/* The line under the name: crest, position, fixture. Inline flow rather than a flex row, so the
+   crest is never squeezed by the text beside it.
+
+   It wraps rather than truncating. With the club, the position and the opponent on it the line is
+   longer than the 180px the name column gets on a phone, and `text-overflow: ellipsis` spent that
+   on "Team 4 · FWD · ..." -- dropping the opponent, which is the half of the line a reader on the
+   feed actually needs. Two short lines beat one line with the answer cut off. */
+.v2-fch .k-fc-sub { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
+.k-fc-sub .media-chip, .k-fc-sub .media-fallback { vertical-align: -3px; margin-right: 5px; border-radius: 3px; }
+.k-fc-seg { white-space: nowrap; }
+.k-fc-sep { margin: 0 5px; color: var(--text3); }
+.k-fc-pos {
+  display: inline-block; font-style: normal; font-size: 10px; letter-spacing: .05em;
+  font-stretch: 86%; font-weight: 650; color: var(--text3);
+  border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; vertical-align: 1px;
+}
 .v2-fch-p { display: grid; justify-items: end; align-content: start; gap: 1px; text-align: right; }
 .v2-fch-p .k-fc-p { font-size: 1.75rem; font-variation-settings: "wdth" 96, "wght" 800;
   letter-spacing: -.035em; line-height: 1; }
@@ -1372,18 +1408,25 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 /* --- the swipe has to read as a marker, not an underline ----------------------------------- */
 .v2-hl { background-size: 100% 0.56em; background-position: 0 0.50em; }
 
-/* --- the day strip: selection is a fill, not a box --------------------------------------
-   Seven bordered tiles side by side is seven boxes competing with each other and with the
-   cards below, and the selected one had to shout over the other six to be seen. In the
-   reference a selected thing is simply filled with the brand and everything else is plain
-   text. One object is loud; the rest get out of the way. */
-.k-day { border: 1px solid transparent; background: transparent; color: var(--text3); border-radius: 10px; }
-.k-day:hover { background: var(--surface2); color: var(--text); }
+/* --- the day strip: selection is a fill, a hairline holds the rest -----------------------
+   Selection is a fill, not a box: the chosen day takes the brand and the other six stay quiet.
+   They are not borderless, though. Transparent tiles on a transparent strip gave the dates
+   nothing to stand on -- seven numbers floating over the page with no edge to say where one
+   day ended and the next began. A hairline is not one of the seven competing boxes this rule
+   was written against; it is the floor they sit on. The selected tile still reads as the only
+   loud object, because it is the only filled one. */
+.k-day { border: 1px solid var(--border); background: var(--surface1); color: var(--text3); border-radius: 10px; }
+.k-day:hover { background: var(--surface2); color: var(--text); border-color: var(--border-strong); }
 .k-day .n { color: var(--text2); }
 .k-day.on, .k-day.on:hover { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
 .k-day.on .w, .k-day.on .n, .k-day.on .k-day-mon { color: var(--on-brand); opacity: 1; }
 .k-day.on .dot:not(.no) { background: var(--on-brand); }
-.k-day .dot:not(.no) { background: var(--accent, #A9FF9B); }
+/* The dot's colour is NOT set here: the end of section 33 gives it --text3, because mint on every day
+   that has fixtures is mint on every day. Measured there: 5.73:1 light, 4.84:1 dark. A rule here
+   would be dead, and a dead rule that looks live is how a reader ends up changing the wrong one. */
+/* The calendar button is a control, not a date: it keeps the strip's shape without the frame. */
+.k-day--cal { border-color: transparent; background: transparent; }
+.k-day--cal:hover { border-color: var(--border); }
 .k-day--cal { color: var(--text3); }
 .k-days { padding-block: 2px; }
 
@@ -1784,9 +1827,10 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .pgs-g .pgs-min { font-size: 10px; font-weight: 600; color: var(--text3); }
 .pgs-g .pgs-v { font-size: 13px; font-weight: 700; color: var(--text3); }
 .pgs-g.on .pgs-v { color: var(--text); font-weight: 800; }
+/* The same miss tone the card run uses, so the strip a reader taps is the strip they tapped. */
 .v2-gs-bar > b {
   border-radius: 5px 5px 0 0;
-  background: color-mix(in srgb, var(--text3) 26%, transparent);
+  background: var(--v2-miss);
 }
 .pgs-g.on .v2-gs-bar > b {
   background: linear-gradient(to top, var(--brand) 0%, var(--up) 100%);
@@ -1910,3 +1954,28 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 /* "79 to 88" is printed on every card and every sheet and was explained only to screen readers.
    It is the sheet's job to teach the vocabulary once, where a reader has stopped to look. */
 .v2-fs-range { margin: -2px 0 10px; }
+
+
+/* =============================================================== 38. THE HEADER THAT DID NOT FIT
+   Reported: "the screen spills and has a bit scroll to left and right while there is no content."
+   Measured on a 390px phone: the header row needs 412px and has 358. It overflows by 39px, the
+   document picks up a 429px scroll width, and because the overflow is to the RIGHT the browser
+   parks the view there -- which is why the brand mark was cut off the left edge of a screenshot
+   of a page whose content all fits. One row of chrome was moving every screen in the product
+   sideways.
+
+   The row is brand 102 + Beta 46 + search 44 + "Sign in" 75 + "Sign up free" 113, with four 10px
+   gaps. Nothing in it is optional: both auth controls are deliberate (a phone visitor used to see
+   "Sign in" alone, which hid the one acquisition control in the chrome from most of the traffic),
+   and search is the only way into the search overlay on a phone. So the saving comes from the two
+   pieces that are saying something the rest of the screen already says: the wordmark beside a logo
+   that is itself the wordmark's mark, and the size of the Beta pill. Measured after: 338 of 358. */
+@media (max-width: 560px) {
+  .brand-name { display: none; }
+  .beta { font-size: 10px; padding: 2px 6px; letter-spacing: .06em; }
+}
+/* A guard rather than a fix: the call to action is owner-editable in Site Studio, so a longer
+   label must shorten the button instead of moving the page. */
+.header-row { min-width: 0; }
+.header-actions { min-width: 0; }
+.header-actions .btn { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

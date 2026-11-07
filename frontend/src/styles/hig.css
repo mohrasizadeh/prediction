@@ -277,13 +277,8 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .lbar-track { background: var(--hig-fill-strong); }
 .pitch { border: .5px solid var(--hig-separator); border-radius: 12px; }
 
-/* ---------- Date strip: which leagues play that day (crests under the number) */
+/* ---------- Date strip: the tile keeps the touch floor; the crests under it are gone (DateScroller) */
 .k-day { min-height: 70px; }
-.k-day-lgs { display: inline-flex; align-items: center; gap: 2px; margin-top: 3px; min-height: 16px; }
-.k-day-lgs .media-chip, .k-day-lgs .media-fallback { border-radius: 4px; }
-.k-day-more { font-style: normal; font-size: 10px; font-weight: 600; color: var(--text2); }
-.k-day.on .k-day-more { color: var(--on-brand); }
-.k-day.on .k-day-lgs .media-fallback { background: color-mix(in srgb, var(--on-brand) 22%, transparent); color: var(--on-brand); }
 
 /* ---------- Player page: one column per game (minutes, count, opponent) */
 .pgs { display: grid; gap: 8px; }

@@ -12,7 +12,7 @@ import TeamNews from "./TeamNews";
 import { ShareCard } from "./Share";
 import { num1 } from "./Football";
 import BuildForMe from "./BuildForMe";
-import { EmptyState, ErrorState, ForecastCard, RangeSlider, Segmented, Skeleton, WdlBar } from "./ui";
+import { ChipsRow, EmptyState, ErrorState, ForecastCard, RangeSlider, Segmented, Skeleton, WdlBar } from "./ui";
 import { fxState, mLive } from "../lib/live";
 
 const cardsOf = (d) => d.cards || d.forecasts;
@@ -111,8 +111,17 @@ export function Forecasts({ d, matchId }) {
   const hits = all.filter((x) => track[x.fkey]?.state === "hit").length;
   const [min, setMin] = useState(50);
   const [by, setBy] = useState("team");
+  // The slider answers "how likely", and the tier answers a different question -- how much is
+  // behind the number -- so filtering by one could not stand in for the other. A reader who wants
+  // the lines this product is prepared to stand behind had to read twenty-three cards and sort
+  // them by badge in their head. Empty means every tier, so the tab opens showing everything.
+  const [tiers, setTiers] = useState([]);
   const fxTeams = { [d.match.home_iid]: d.home, [d.match.away_iid]: d.away };
-  const rows = cardsOf(d).filter((f) => f.p * 100 >= min);
+  const atMin = cardsOf(d).filter((f) => f.p * 100 >= min);
+  const rows = tiers.length ? atMin.filter((f) => tiers.includes(f.tier)) : atMin;
+  // Counted after the slider, so a chip's number is what tapping it would actually show.
+  const TIERS = ["Strong", "Solid", "Watch"];
+  const tierOpts = TIERS.map((t) => ({ id: t, label: t, count: atMin.filter((f) => f.tier === t).length }));
   const groups = by === "team"
     // "Both teams" holds the match lines -- total goals, total cards. It is the one market a
     // stranger understands without being taught, it is the only one that needs no statistics feed,
@@ -132,8 +141,12 @@ export function Forecasts({ d, matchId }) {
         <Segmented options={[{ id: "team", label: "By team" }, { id: "market", label: "By market" }]} value={by} onChange={setBy} label="Group" testid="fc-group" />
         <div className="mc-fc-min"><RangeSlider min={50} max={95} step={5} value={min} onChange={setMin} label="Minimum likelihood" format={(v) => `${v}%+`} testid="fc-min" /></div>
       </div>
+      <div className="mc-fc-tiers">
+        <ChipsRow options={tierOpts} value={tiers} onChange={setTiers} multi label="Tier" testid="fc-tier" />
+        {tiers.length > 0 && <button type="button" className="k-link" onClick={() => setTiers([])} data-testid="fc-tier-all">All tiers</button>}
+      </div>
       {!cardsOf(d).length ? <EmptyState icon="target" title="No forecasts yet" testid="fc-empty">They appear once the engine has run for this match.</EmptyState>
-        : !rows.length ? <EmptyState icon="target" title={`Nothing at ${min}% or more`} testid="fc-none" action={<button type="button" className="btn btn--secondary btn--sm" onClick={() => setMin(50)} data-testid="fc-reset">Show all</button>}>Lower the minimum likelihood.</EmptyState>
+        : !rows.length ? <EmptyState icon="target" title={tiers.length ? `Nothing in ${tiers.join(" or ")} at ${min}% or more` : `Nothing at ${min}% or more`} testid="fc-none" action={<button type="button" className="btn btn--secondary btn--sm" onClick={() => { setMin(50); setTiers([]); }} data-testid="fc-reset">Show all</button>}>{tiers.length ? "Widen the tier, or lower the minimum likelihood." : "Lower the minimum likelihood."}</EmptyState>
         : groups.filter(([, xs]) => xs.length).map(([title, xs]) => (
           <section key={title} className="mc-fc-group"><header className="v2-sec-head"><h2 className="k-sec v2-sec">{title} · {xs.length}</h2></header>
             <div className="fgrid">{xs.map((f) => <ForecastCard key={f.id} f={f} teams={fxTeams} homeIid={d.match.home_iid} showTime={false} track={track} testid={`match-fc-${f.id}`} />)}</div></section>
