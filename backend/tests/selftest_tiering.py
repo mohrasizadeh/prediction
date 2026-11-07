@@ -1,9 +1,12 @@
-"""selftest_tiering.py -- earned tiers (docs/31): Strong and Solid are kept only where the whole chance and our results back them.
+"""selftest_tiering.py -- earned tiers (docs/31): Strong and Solid are kept only where the NUMBER ON THE CARD and our
+results back them.
 
-Proves: a player line before the lineup is judged on chance x chance to play, so a likely starter does not get Strong;
-Strong needs 90% whole chance, Solid 80%; Strong for a player needs a confirmed eleven; the track record can lower a
-tier (a bucket that happened 60% of the time cannot stay Solid) and never raise one; too few results cap Strong at Solid;
-a player who did not feature counts as a miss in the record; an unsure player is Watch at most; classic mode keeps the old rule.
+Proves: the tier grades `p`, the number shown, and nothing else -- a likely starter, an unsure one and a confirmed one
+with the same number get the same tier, because whether he starts is the lineup badge's question and asking it inside
+the tier made a 94% line read "Watch"; Strong needs 90%, Solid 80%, Watch 60%; the track record can lower a tier (a
+bucket that happened 60% of the time cannot stay Solid) and never raise one; too few results cap Strong at Solid; the
+record is measured over matches the player PLAYED, which is what the public track record reports; classic mode keeps
+the old rule.
 """
 import datetime as dt
 import random
@@ -20,12 +23,18 @@ t, _ = TI.assign(db, None, F(0.93, 0.88)); check(t == "Strong", "confirmed 93% w
 t, n = TI.assign(db, rec, F(0.93, 0.88)); check(t == "Solid" and "our record" in n, "with no results behind it Strong drops to Solid")
 t, _ = TI.assign(db, None, F(0.85, 0.75)); check(t == "Solid", "85% is Solid")
 t, _ = TI.assign(db, None, F(0.78, 0.7)); check(t == "Watch", "78% is Watch: Solid is 80% now")
-# before the lineup: whole chance
-t, n = TI.assign(db, None, F(0.96, 0.9, badge="likely", play=0.85)); check(t == "Solid" and TI.whole(0.96, 0.85, "player", "likely") < 0.9, "likely starter at 96% if he plays x 85% to play is not Strong")
-t, _ = TI.assign(db, None, F(0.99, 0.95, badge="likely", play=0.99)); check(t == "Solid", "even at 98% whole, Strong waits for a confirmed eleven")
-t, _ = TI.assign(db, None, F(0.99, 0.95, badge="unsure", play=0.99)); check(t == "Watch", "unsure lineup is Watch at most")
-t, n = TI.assign(db, None, F(0.9, 0.8, badge="bench", play=0.05)); check(t is None and "bench" in n.lower(), "bench: no tier when the whole chance is tiny")
-t, _ = TI.assign(db, None, F(0.93, 0.88, scope="team", badge=None, stat="corners")); check(t == "Strong", "a team line has no lineup condition")
+# THE LINEUP DOES NOT MOVE THE TIER. The same number gets the same label whoever is in the eleven;
+# the lineup badge and the minutes row under the strip are where a reader learns about starting.
+# Reported, twice: "being a starter has nothing to do with the forecasted number for any markets".
+same = [TI.assign(db, None, F(0.96, 0.9, badge=b_, play=pp))[0]
+        for b_, pp in (("confirmed", 1.0), ("likely", 0.85), ("unsure", 0.60), ("bench", 0.33))]
+check(len(set(same)) == 1 and same[0] == "Strong",
+      f"confirmed, likely, unsure and benched all read the same at 96%: {same}")
+t, _ = TI.assign(db, None, F(0.96, 0.9, badge="likely", play=0.85)); check(t == "Strong", "a likely starter at 96% is Strong, not held back for the lineup")
+t, _ = TI.assign(db, None, F(0.84, 0.72, badge="unsure", play=0.55)); check(t == "Solid", "an unsure lineup at 84% is Solid, not capped at Watch")
+t, _ = TI.assign(db, None, F(0.93, 0.88, scope="team", badge=None, stat="corners")); check(t == "Strong", "a team line reads the same way")
+# `p` already carries the expected minutes, so a substitute's own number is what lowers his tier.
+t, _ = TI.assign(db, None, F(0.40, 0.30, badge="bench", play=0.33)); check(t is None, "a substitute's number is low on its own; no separate bench rule is needed")
 
 # a record: shots lines near 85% happened 60% of the time; team corners near 93% happened 94% of the time
 for _ in range(120):
@@ -38,13 +47,15 @@ t, note = TI.assign(db, rec, F(0.85, 0.75)); check(t == "Watch" and "happened" i
 t, _ = TI.assign(db, rec, F(0.93, 0.88, scope="team", badge=None, stat="corners")); check(t == "Strong", "a bucket that delivers keeps Strong")
 t, _ = TI.assign(db, rec, F(0.70, 0.6, scope="team", badge=None, stat="corners")); check(t == "Watch", "the record never raises a tier")
 
-# a player who did not play is a miss when his chance to play was stored
+# The record is measured where the claim applies: in matches he played. `p` says "if he plays", the
+# public track record filters player_played, so the earned check reads the same rows. A no-show is
+# not evidence that the line was wrong -- it is evidence about availability, which lives elsewhere.
 for _ in range(100):
     db.forecast_outcomes.insert_one({"scope": "player", "stat": "tackles", "p": 0.92, "p_play": 0.8, "lineup_badge": "likely", "player_played": False, "reached": False})
 for _ in range(100):
     db.forecast_outcomes.insert_one({"scope": "player", "stat": "tackles", "p": 0.92, "p_play": 0.8, "lineup_badge": "likely", "player_played": True, "reached": True})
 rec = TI.Record(db)
-est, n = rec.earned("player", "tackles", 0.92 * 0.8); check(est < 0.6, f"did-not-play counts as a miss ({est:.2f})")
+est, n = rec.earned("player", "tackles", 0.92); check(n == 100 and est > 0.9, f"the record counts the matches he played, not the ones he missed ({est:.2f}, n={n})")
 
 # the engine bridge reads the tier rule from settings
 setting("engine.tier_mode", "classic"); check(B.S.get(db, "engine.tier_mode") == "classic", "classic mode can be chosen")

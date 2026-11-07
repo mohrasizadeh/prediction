@@ -2625,15 +2625,6 @@
     "applies_at": "next engine run"
   },
   {
-    "key": "engine.strong_needs_lineup",
-    "label": "Strong needs a confirmed eleven (players)",
-    "type": "boolean",
-    "default": true,
-    "group": "Engine",
-    "public": false,
-    "applies_at": "next engine run"
-  },
-  {
     "key": "engine.player_anchor",
     "label": "Player record anchor",
     "type": "boolean",

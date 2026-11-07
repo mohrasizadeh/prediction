@@ -1,16 +1,36 @@
 """tiering.py -- earned tiers (docs/31). A tier is a promise about how often a line happens, so it is kept only where
 our own scored results show it.
 
-  Strong  the whole chance is 90% or more AND similar lines in our track record happened that often
-  Solid   the whole chance is 80% or more AND the track record agrees
+  Strong  90% or more AND similar lines in our track record happened that often
+  Solid   80% or more AND the track record agrees
   Watch   60% or more, or anything the track record does not yet back
 
 A Watch line always carries a note saying WHICH of those it is -- see _watch_says_why.
 
-The whole chance of a player line is p x chance to play (a line "if he plays" is not a promise until he plays).
-The track record is `forecast_outcomes`: for each scope and stat, how often lines with a similar whole chance happened
-(a player who did not feature counts as a miss when we stored his chance to play). It can only lower a tier, never raise one.
-Strong also needs a confirmed eleven for a player (setting). Nothing here changes the percentage shown, only the label.
+THE TIER GRADES THE NUMBER ON THE CARD, AND NOTHING ELSE.
+
+It used to grade `p x p_play` -- the chance he reaches the line times the chance he features -- while the card
+showed `p`. Three things described one forecast and one of them measured something different, so a card could
+read "94%" and "Watch" at the same time and be telling the truth twice. Worse, the lineup caps meant a player
+under `likely_starter_p` could not be Strong or Solid WHATEVER his number was, and every feed admits Strong and
+Solid only: measured 48 hours out, 206 visible player rows produced 3 Solid and 0 Strong, so the best players in
+the league were absent from Today and Insights until about an hour before kick-off.
+
+Whether he starts is a different question from how likely the line is if he plays, and the product already
+answers it twice -- the lineup badge ("Confirmed starter", "Likely lineup", "Lineup not sure", "On the bench")
+and the minutes row under the ten-game strip. Asking it a third time, inside the tier, only broke the tier.
+
+This is also what the track record already measures: queries.track_record filters `player_played: True` and
+reports the no-shows separately. So the number, the tier and the record now all describe the same thing -- the
+chance the line is reached in a match he plays in. `p` itself already accounts for EXPECTED MINUTES, which is
+why a substitute's ladder sits low without any help from the tier.
+
+Whether he features at all is still a relevance question, and it is still answered: `engine.min_p_play` drops
+the card of a player unlikely to feature, before any of this runs.
+
+The track record is `forecast_outcomes`: for each scope and stat, how often lines with a similar chance happened
+in matches the player played. It can only lower a tier, never raise one. Nothing here changes the percentage
+shown, only the label.
 """
 from __future__ import annotations
 
@@ -21,36 +41,30 @@ import settings_store as S
 RANK = {"Strong": 3, "Solid": 2, "Watch": 1, None: 0}
 
 
-def whole(p: float, p_play: float | None, scope: str, badge: str | None) -> float:
-    if scope != "player" or badge == "confirmed" or p_play is None:
-        return p
-    return p * float(p_play)
-
-
 class Record:
-    """Track record for one league run: sorted whole chances and cumulative hits per (scope, stat)."""
+    """Track record for one league run: sorted chances and cumulative hits per (scope, stat).
+
+    Keyed on `p` over matches the player PLAYED, because that is what `p` claims and what the
+    public track record reports (queries.track_record filters `player_played` and counts the
+    no-shows separately). It used to key on `p x p_play` and score a no-show as a miss, which
+    measured the unconditional chance -- a different quantity from the one on the card, and the
+    reason a line could be demoted by a record that was never about it.
+    """
 
     def __init__(self, db, window: float = 0.04, min_n: int = 40, k: float = 20.0):
         self.window, self.min_n, self.k = window, int(min_n), float(k)
         raw: dict = {}
-        for o in db.forecast_outcomes.find({}, {"_id": 0, "scope": 1, "stat": 1, "p": 1, "p_play": 1, "lineup_badge": 1, "player_played": 1, "reached": 1}):
-            if o.get("p") is None:
+        for o in db.forecast_outcomes.find({}, {"_id": 0, "scope": 1, "stat": 1, "p": 1, "player_played": 1, "reached": 1}):
+            if o.get("p") is None or o.get("player_played") is False:
                 continue
-            played = o.get("player_played") is not False
-            if o.get("p_play") is not None and o.get("scope") == "player" and o.get("lineup_badge") != "confirmed":
-                r, y = o["p"] * o["p_play"], 1 if (o.get("reached") and played) else 0       # whole chance: not playing is a miss
-            elif played:
-                r, y = o["p"], 1 if o.get("reached") else 0                                    # older rows: counted when he played
-            else:
-                continue
-            raw.setdefault((o["scope"], o["stat"]), []).append((r, y))
+            raw.setdefault((o["scope"], o["stat"]), []).append((o["p"], 1 if o.get("reached") else 0))
         self.t = {}
         for key, rows in raw.items():
             rows.sort()
             self.t[key] = (np.array([r for r, _ in rows]), np.concatenate([[0], np.cumsum([y for _, y in rows])]))
 
     def earned(self, scope: str, stat: str, r: float):
-        """(estimate, n) for lines with a whole chance near r, or (None, 0) when we hold nothing."""
+        """(estimate, n) for lines with a chance near r, or (None, 0) when we hold nothing."""
         t = self.t.get((scope, stat))
         if t is None:
             return None, 0
@@ -68,36 +82,24 @@ class Record:
         return (hits + self.k * r) / (n + self.k), n
 
 
-def assign(db, rec: Record | None, f: dict, strong_needs_lineup: bool = True) -> tuple[str | None, str | None]:
-    """-> (tier, note). `f` carries p, lo, scope, stat, p_play, lineup_badge."""
+def assign(db, rec: Record | None, f: dict) -> tuple[str | None, str | None]:
+    """-> (tier, note). `f` carries p, lo, scope, stat, lineup_badge.
+
+    Graded on `p`, the number the card shows. There is no lineup condition here any more: see the
+    module docstring. `p_play` is still read elsewhere -- it decides whether the card exists at all
+    (engine.min_p_play) and it sets the lineup badge -- but it no longer moves the label.
+    """
     scope, badge = f["scope"], f.get("lineup_badge")
-    w = whole(f["p"], f.get("p_play"), scope, badge)
-    lw = whole(f["lo"], f.get("p_play"), scope, badge)
+    p, lo = float(f["p"]), float(f["lo"])
     s_min, so_min = float(S.get(db, "engine.strong_min")), float(S.get(db, "engine.solid_min"))
     s_lo, so_lo = float(S.get(db, "engine.strong_lo_min")), float(S.get(db, "engine.solid_lo_min"))
     watch = float(S.get(db, "engine.watch_min"))
-    if badge == "bench":
-        return ("Watch" if w >= watch else None), "On the bench: Watch only"
     if f.get("is_personal") and f.get("p_usual") is not None:
-        t, note = _departure_tier(db, f, w, lw)
-        return _watch_says_why(*_lineup_caveat(t, note, scope, badge, strong_needs_lineup), so_min)
-    t = "Strong" if (w >= s_min and lw >= s_lo) else "Solid" if (w >= so_min and lw >= so_lo) else "Watch" if w >= watch else None
+        return _watch_says_why(*_departure_tier(db, f, p, lo), so_min)
+    t = "Strong" if (p >= s_min and lo >= s_lo) else "Solid" if (p >= so_min and lo >= so_lo) else "Watch" if p >= watch else None
     note = None
-    if badge == "unsure" and t in ("Strong", "Solid"):
-        t, note = "Watch", "Watch until lineups are out"
-    if t == "Strong" and scope == "player" and badge != "confirmed" and strong_needs_lineup:
-        t, note = "Solid", "Strong once the lineup is confirmed"
-    # A player line is tiered on the WHOLE chance -- "if he plays" times the chance he plays -- so a 97% line on a
-    # likely starter is judged as 97 x 84 = 81%. That is why it reads Solid while the card says 97%, and nothing
-    # said so: the note below only fired when the line reached Strong and was held back for the lineup. Say it
-    # whenever the chance to play is the only thing between this tier and a better one (docs/48).
-    if note is None and scope == "player" and badge != "confirmed" and f.get("p_play") is not None:
-        would = "Strong" if (f["p"] >= s_min and f["lo"] >= s_lo) else "Solid" if (f["p"] >= so_min and f["lo"] >= so_lo) else None
-        if would and would != t and (would == "Strong" or t != "Strong"):
-            note = f"{would} once the lineup is confirmed"
-
     if rec is not None and t in ("Strong", "Solid"):
-        est, n = rec.earned(scope, f["stat"], w)
+        est, n = rec.earned(scope, f["stat"], p)
         if n < rec.min_n:
             if t == "Strong":
                 # "finished matches" read as this player's matches, which are drawn on the card
@@ -161,15 +163,6 @@ def _departure_tier(db, f: dict, w: float, lw: float) -> tuple[str | None, str |
         # the plain note would name a bar this line is not measured against.
         return "Watch", "A small step from their usual game"
     return None, None
-
-
-def _lineup_caveat(t, note, scope, badge, strong_needs_lineup):
-    """The lineup rules apply whatever the tier was worked out from."""
-    if badge == "unsure" and t in ("Strong", "Solid"):
-        return "Watch", "Watch until lineups are out"
-    if t == "Strong" and scope == "player" and badge != "confirmed" and strong_needs_lineup:
-        return "Solid", "Strong once the lineup is confirmed"
-    return t, note
 
 
 def _logit(x):

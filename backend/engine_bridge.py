@@ -373,7 +373,6 @@ def run_league(db, league_iid: int, now=None) -> dict:
     line_band = S.get(db, "engine.line_band"); max_lines = int(S.get(db, "engine.max_lines_per_stat"))
     earned = S.get(db, "engine.tier_mode") == "earned"
     rec = TI.Record(db, min_n=int(S.get(db, "engine.earned_min_n")), k=float(S.get(db, "engine.earned_prior_k"))) if earned else None
-    strong_lineup = bool(S.get(db, "engine.strong_needs_lineup"))
     anchor = bool(S.get(db, "engine.player_anchor")); anchor_min = int(S.get(db, "engine.anchor_min_games"))
     anchor_k = float(S.get(db, "engine.anchor_k")); anchor_w = float(S.get(db, "engine.anchor_max_w")); p_cap = float(S.get(db, "engine.p_cap"))
     pmap = CAL.current(db)         # raw likelihood -> the percentage people see (docs/21); None = off
@@ -453,11 +452,11 @@ def run_league(db, league_iid: int, now=None) -> dict:
             p_usual_raw = CAL.apply(pmap, f.p_usual, state, f.scope) if f.p_usual is not None else None
             solid_ok = badge in (None, "confirmed", "likely")
             basis = {None: "team", "confirmed": "lineup", "likely": "likely_starter"}.get(badge, "pre")
-            if earned:                                           # docs/31: the label is earned from the whole chance and our results
+            if earned:                                           # docs/31: the label is earned from the number shown and our results
                 t, tier_note = TI.assign(db, rec, {"p": p, "lo": lo, "hi": hi, "scope": f.scope, "stat": f.stat,
                                                    "p_play": float(f.p_play), "lineup_badge": badge,
                                                    # docs/52: the departure tier needs to know which rung this is
-                                                   "is_personal": is_own, "p_usual": p_usual_raw}, strong_lineup)
+                                                   "is_personal": is_own, "p_usual": p_usual_raw})
             else:
                 t = tier(p, lo, solid_ok, strong=strong, solid=solid)
                 t_full = tier(p, lo, True, strong=strong, solid=solid)

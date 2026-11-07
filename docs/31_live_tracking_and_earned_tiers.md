@@ -44,6 +44,11 @@ In your last results, 1 of 4 Strong and 3 of 8 Solid happened. If a true 90% lin
 4. **Nothing checked a label against results.** The calibration map is fitted on 2015/16 StatsBomb data for three leagues. We run eight leagues on PitchAPI numbers.
 
 ### The rule now (`engine.tier_mode = earned`, new default)
+
+> **Superseded by `58_the_tier_grades_the_number.md`.** The whole-chance rule and the three
+> lineup caps below were removed: the tier grades `p`, the number on the card. The track-record
+> check survives, re-keyed on `p` over matches the player played. Kept here for the history.
+
 - **Whole chance.** Player lines before the lineup: p x chance to play. Confirmed starters and team lines: p.
 - **Strong:** whole chance 90% or more and low end 84% or more. For a player it also needs a confirmed eleven (`engine.strong_needs_lineup`).
 - **Solid:** 80% or more and low end 70% or more.

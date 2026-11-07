@@ -114,16 +114,30 @@ pre = [r for r in rows if r["scope"] == "player"]
 likely = [r for r in pre if r["tier_basis"] == "likely_starter"]
 plain = [r for r in pre if r["tier_basis"] == "pre"]
 check(all(r["p_play"] >= 0.85 for r in likely) and all(r["p_play"] < 0.85 for r in plain), "likely starter = chance to play 85%+ before lineups")
-check(all(r["tier"] != "Strong" for r in likely) and all(r["p"] * r["p_play"] >= 0.8 - 1e-9 for r in likely if r["tier"] == "Solid"), "likely starters are never Strong before lineups; Solid needs 80% whole chance (docs/31)")
-check(all(r["tier"] in ("Watch", None) for r in plain), "other players stay at most Watch before lineups")
+# The tier grades the NUMBER. It used to grade p x p_play, so a likely starter could not be Strong
+# and an unsure one could not be Solid whatever his number was -- which, with every feed admitting
+# Strong and Solid only, took the best players off Today and Insights until the lineup was out.
+# Whether he starts is the lineup badge's question, and the minutes row under the strip answers it
+# again. Asking it a third time inside the tier only broke the tier.
+so_min, s_min = float(S.get(db, "engine.solid_min")), float(S.get(db, "engine.strong_min"))
+wrong = [(r["p"], r["tier"], r["lineup_badge"]) for r in pre
+         if r["tier"] in ("Strong", "Solid") and r["p"] < so_min - 1e-9]
+check(not wrong, f"Strong and Solid are read off the number shown, not off a discounted one: {wrong[:3]}")
+check(any(r["tier"] in ("Strong", "Solid") for r in plain) or not plain,
+      "a player whose lineup is not settled can still reach Solid on his number alone")
+badges = {r["lineup_badge"] for r in pre if r["tier"] in ("Strong", "Solid")}
+check(len(badges) >= 2 or len(pre) < 20, f"the tier does not sort players by lineup badge ({badges})")
 # A whitelist of exact sentences needs editing every time a note is added, which is how it missed the one docs/48
 # introduced ("Solid once the lineup is confirmed", on a line held back by the chance to play rather than by the
 # lineup rule). Match the shapes instead.
 import re as _re
-OK_NOTE = (None, "Watch until lineups are out", "On the bench: Watch only", "Held at Solid until our record on these lines is measured",
+OK_NOTE = (None, "Held at Solid until our record on these lines is measured",
            "A small step from their usual game", "The likely range still reaches their usual")
-_SHAPES = (r"^(Strong|Solid) once the lineup is confirmed$", r"^Similar lines happened \d+% of the time$",
-           r"^Under \d+%, where Solid starts$")
+_SHAPES = (r"^Similar lines happened \d+% of the time$", r"^Under \d+%, where Solid starts$")
+# The three lineup notes are gone with the lineup caps that produced them. A note that explains a
+# demotion the product no longer makes would be a card apologising for nothing.
+gone = [r["tier_note"] for r in pre if r["tier_note"] and ("lineup" in r["tier_note"] or "bench" in r["tier_note"].lower())]
+check(not gone, f"no card still blames the lineup for its tier: {sorted(set(gone))[:3]}")
 bad = [r["tier_note"] for r in pre
        if r["tier_note"] not in OK_NOTE and not any(_re.match(x, str(r["tier_note"])) for x in _SHAPES)]
 check(not bad, f"every card can say why it is not a better tier: {sorted(set(bad))[:3]}")
@@ -131,8 +145,6 @@ check(not bad, f"every card can say why it is not a better tier: {sorted(set(bad
 # Watch" reads as the card contradicting itself. Strong and Solid may stay silent; Watch may not.
 mute = [r["fkey"] for r in pre if r["tier"] == "Watch" and not r["tier_note"]]
 check(not mute, f"every Watch line says why it is Watch ({len(mute)} silent)")
-check(any(str(r["tier_note"]).endswith("once the lineup is confirmed") for r in pre),
-      "...and a line held back only by the chance to play says so, instead of leaving the reader to multiply (docs/48)")
 reasons = collections.Counter(r["reasons"][0] for r in pre if r["reasons"])
 check(len(reasons) >= 2, f"player cards do not all share one sentence ({len(reasons)} different first reasons)")
 
@@ -142,7 +154,8 @@ check(all(r["p_basis"] == "played" for r in pl_rows) and all(r["p_basis"] == "al
       "player forecasts are marked 'if he plays'; team forecasts are not")
 check(all(r["lineup_badge"] == ("likely" if r["p_play"] >= 0.85 else "unsure") for r in pl_rows), "badge before lineups: Likely lineup at 85%+ chance to play, else Not sure")
 check(all(r["p_play"] >= 0.5 for r in pl_rows), "a player unlikely to play gets no card")
-check(all(r["tier"] in ("Watch", None) for r in pl_rows if r["lineup_badge"] == "unsure"), "Not sure players stay at most Watch")
+check(all(r["lineup_badge"] in ("likely", "unsure", "confirmed", "bench") for r in pl_rows),
+      "every player line carries a lineup badge, which is where the start question is answered")
 S.put(db, "engine.condition_on_play", False)
 B.run_league(db, lg["iid"], now=now)
 old_rows = {r["fkey"]: r for r in db.forecasts.find({"scope": "player"}, {"_id": 0, "contrib": 0})}

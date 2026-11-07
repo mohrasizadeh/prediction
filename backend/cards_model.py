@@ -248,10 +248,9 @@ def _retier(db, run_id, docs):
     import tiering as TI
     if _REC.get("run") != run_id:
         _REC.update(run=run_id, rec=TI.Record(db, min_n=int(S.get(db, "engine.earned_min_n")), k=float(S.get(db, "engine.earned_prior_k"))))
-    lineup = bool(S.get(db, "engine.strong_needs_lineup"))
     for d in docs:
         badge = None if d["scope"] == "team" else ("confirmed" if d["lineup_confirmed"] else "likely" if d.get("tier_basis") == "likely_starter" else "unsure")
-        d["tier"], d["tier_note"] = TI.assign(db, _REC["rec"], {"p": d["p"], "lo": d["lo"], "scope": d["scope"], "stat": d["stat"], "p_play": None, "lineup_badge": badge}, lineup)
+        d["tier"], d["tier_note"] = TI.assign(db, _REC["rec"], {"p": d["p"], "lo": d["lo"], "scope": d["scope"], "stat": d["stat"], "p_play": None, "lineup_badge": badge})
 
 
 def run_league(db, league_iid: int, run_id=None, now=None) -> int:

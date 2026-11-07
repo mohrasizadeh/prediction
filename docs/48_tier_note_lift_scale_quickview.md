@@ -1,5 +1,10 @@
 # 48. Why a 97% line reads Solid, which market keeps winning, and the Quick view in the sheet
 
+> **Superseded by `58_the_tier_grades_the_number.md`.** This document answered "why is a 97%
+> line not Strong" by adding a note explaining the discount. The discount itself was the bug,
+> and it has been removed. The notes described here for the lineup no longer exist.
+
+
 Written 2026-11-02, from three things reported on one screenshot of Kylian Mbappé's 1+ shot sheet.
 
 ## 1. "Why is 97% Solid and not Strong?"
