@@ -43,7 +43,7 @@ PLAYER_THR = {"shots": [0.5, 1.5], "sot": [0.5], "tackles": [1.5, 2.5]}
 TEAM_THR = {"corners": [4.5], "shots": [11.5]}
 
 SUM_COLS = ["shots", "shots_against", "corners", "corners_against",
-            "tackles", "tackles_against", "poss", "sot"]       # the core 8; extra metrics are appended after these
+            "tackles", "tackles_against", "poss", "sot", "sot_against"]   # the core 9; extras appended after these
 OWN_I = [0, 2, 6, 4]   # shots_for, corners_for, poss, tackles_for
 OPP_I = [1, 3, 6, 5]   # shots_against, corners_against, poss, tackles_against
 TEAM_DIMS = {"shots": (0, 1), "corners": (2, 3), "tackles": (4, 5)}
@@ -183,7 +183,7 @@ class SoccerEngine:
                  extra_stats=(), match_features=(), strength_decay=0.02,
                  style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None, cond_play=False,
                  minutes_floor=0.0,
-                 ratings_blend=0.0, script_v2=False, fit_player_r=False, opp_pos_k=0.0, xg_blend=0.0,
+                 ratings_blend=0.0, script_v2=False, fit_player_r=False, opp_pos_k=0.0, xg_blend=0.0, sot_against=False,
                  personal_lines=False, personal_spread=1):
         self.interactions = interactions
         # Player lines are "if he plays" (docs/27). His chance to play is shown as a lineup badge, not folded into the percentage.
@@ -199,6 +199,13 @@ class SoccerEngine:
         self.personal_spread = int(personal_spread)
         self.opp_pos_k = float(opp_pos_k)       # >0: what this opponent allows to each position (prior strength)
         self.xg_blend = float(xg_blend)         # weight of an xG-based Dixon-Coles in expected goals
+        # On-target is the one market with no opponent of its own. See _dims: by default the engine
+        # asks how many SHOTS the opponent concedes and how accurate THIS team usually is, so a
+        # defence that gives up 15 shots a game is treated the same whether they fly on target or
+        # are blocked -- and a goalkeeper who saves everything is invisible. The column has been
+        # collected all along (ingest mirrors the opponent's `sot`) and the team page already draws
+        # it as "On target against"; nothing read it.
+        self.sot_opp = bool(sot_against)
         self.opp_pos = {}
         self.dc_xg = None
         # Normalised team averages (docs/25). None / () = the old plain running sums.
@@ -220,7 +227,7 @@ class SoccerEngine:
         self.team_dims = dict(TEAM_DIMS)
         for j, st_ in enumerate(s for s in self.extra if s not in STATS):
             self.sum_cols += [st_, st_ + "_against"]
-            self.team_dims[st_] = (8 + 2 * j, 9 + 2 * j)
+            self.team_dims[st_] = (len(SUM_COLS) + 2 * j, len(SUM_COLS) + 1 + 2 * j)
             TEAM_THR.setdefault(st_, list(EXTRA_THR.get(st_, [])))
         self.lineup_l2 = lineup_l2
         self.hl = half_life_rounds
@@ -329,21 +336,41 @@ class SoccerEngine:
                 self.league_mean[s_] = float(S0[i_] / max(n0, 1))
         return snaps
 
+    def _dims(self, stat):
+        """(this team's output dimension, the opponent's concession dimension).
+
+        With `sot_against` on, on-target becomes a first-class market measured against what the
+        opponent concedes ON TARGET, like shots, corners and tackles already are. Off, it keeps the
+        decomposition it has always had: the opponent's SHOTS conceded, times this team's own
+        accuracy -- which is why `_acc` below exists and why it must not be added twice.
+        """
+        if stat == "sot" and self.sot_opp:
+            # Only the OPPONENT term changes. On-target is shots x accuracy -- sot = binomial(shots,
+            # acc) is literally how it arises -- so the shot-volume channel has to stay on both
+            # sides. Replacing the whole thing with sot_for x sot_against was measured and is worse
+            # (team sot z -1.35, player sot z -1.18 on the simulated league): it discards the volume
+            # that drives most of the count. What this swaps in is the opponent's ON-TARGET conceded
+            # in place of their shots conceded, which is the same volume term plus what they concede
+            # in accuracy -- a keeper who saves everything, a defence that blocks rather than funnels.
+            return self.team_dims["shots"][0], self.sum_cols.index("sot_against")
+        return self.team_dims.get(stat, (0, 1))
+
+    def _acc(self, stat, X, st):
+        """This team's own accuracy. Kept whichever opponent term is used: it is the other half of
+        shots x accuracy, and it describes the attacking side, not the defending one."""
+        return float(st[X, self.sum_cols.index("sot")]) if stat == "sot" else 0.0
+
     def _offset(self, stat, X, Y, snap):
         """Simple baseline in log space: league mean x team's output x
         opponent's concession. The regression only learns corrections."""
         st = snap[0]
-        dfor, dag = self.team_dims.get(stat, (0, 1))
-        off = np.log(max(self.league_mean[stat], 1e-6)) + st[X, dfor] + st[Y, dag]
-        if stat == "sot":
-            off += st[X, 7]
-        return float(off)
+        dfor, dag = self._dims(stat)
+        return float(np.log(max(self.league_mean[stat], 1e-6)) + st[X, dfor] + st[Y, dag] + self._acc(stat, X, st))
 
     def _offset_groups(self, stat, X, Y, snap):
         st = snap[0]
-        dfor, dag = self.team_dims.get(stat, (0, 1))
-        own = float(st[X, dfor] + (st[X, 7] if stat == "sot" else 0.0))
-        return {"own_style": own, "opponent": float(st[Y, dag])}
+        dfor, dag = self._dims(stat)
+        return {"own_style": float(st[X, dfor] + self._acc(stat, X, st)), "opponent": float(st[Y, dag])}
 
     # ------------------------------------------------------------ tactics
     def tactic_labels(self, snap):
@@ -941,8 +968,8 @@ class SoccerEngine:
             # the team's own normalised average against an average opponent (no venue, no matchup): "usual"
             mu_usual = {}
             for s in self.stats:
-                dfor, _ = self.team_dims.get(s, (0, 1))
-                lu_ = np.log(max(self.league_mean[s], 1e-6)) + snap[0][X, dfor] + (snap[0][X, 7] if s == "sot" else 0.0)
+                dfor, _ = self._dims(s)
+                lu_ = np.log(max(self.league_mean[s], 1e-6)) + snap[0][X, dfor] + self._acc(s, X, snap[0])
                 mu_usual[s] = float(np.exp(lu_))
                 tu = team_norm.get(team, {}).get(s + "_usual")
                 if tu:

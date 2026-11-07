@@ -1,4 +1,4 @@
-# 37. Engine upgrades: four candidates and how to decide on them
+# 37. Engine upgrades: five candidates and how to decide on them
 
 Written 2026-11-01. Four changes to the forecast engine are built and shipped **off**. Each one is switched on only
 if it beats what you run today, on your own matches, by the project's usual margin. The script that decides is
@@ -10,7 +10,7 @@ for the result, opponent concession in every team total, a player share with a m
 isotonic calibration and earned tiers. Several of its ideas we have already tested and rejected on real data
 (tactical style layers, formation shape, rotation on team totals: docs/18). What it had that we did not is below.
 
-## 1. The four candidates
+## 1. The five candidates
 
 | Setting | What it adds | Why it might help |
 |---|---|---|
@@ -18,6 +18,7 @@ isotonic calibration and earned tiers. Several of its ideas we have already test
 | `engine.fit_player_r` | Works out how much a player's count bounces around its average from your own results. | Today those numbers are fixed guesses (shots 6, on target 5, tackles 10) set before any real data existed. They set the width of every player percentage. |
 | `engine.opp_pos_k` | What this opponent lets players in that position do, as a factor on each player's share. | The team total already knows the opponent. It does not know that this opponent is soft against wide players and hard against strikers. This is the cheap version of a full-back-versus-winger matchup. |
 | `engine.xg_blend` | A second Dixon-Coles fitted on expected goals, blended into the match chances. | Goals are few and swingy. Expected goals say more about how good a side is with the same number of matches. Our feed carries team expected goals. |
+| `engine.sot_against` | On-target measured against what the opponent concedes **on target**, in place of what they concede in shots. | On-target is the one market with no opponent of its own: `TEAM_DIMS` has pairs for shots, corners and tackles but not for `sot`, so it borrows the shots pair. A defence that gives up 15 shots a game reads the same whether they fly on target or are blocked, and a goalkeeper who saves everything is invisible. The column has been ingested all along and the team page already draws it as "On target against". |
 
 ### What each one does to the maths
 
@@ -88,6 +89,27 @@ Expect it to take a while: it refits the whole engine many times. Start with one
 **Do not fill this in from the demo database.** That league is simulated. It has no position-specific defensive
 behaviour, so `opp_pos` is noise there and the gate correctly throws it out; and its expected goals are derived
 from its goals, so `xg_blend` looks good for a circular reason. Only your own matches decide.
+
+#### `engine.sot_against`: what the demo said, and why it cannot settle it
+
+Measured on the simulated league, 120 matches, refit every 4 rounds. Shots, corners, tackles and the match
+result came back byte-identical, which is the check that the change is scoped to the one market it claims.
+
+| formulation | team sot | player sot |
+|---|---|---|
+| on-target as its own market: `sot_for x sot_against`, own accuracy dropped | −0.0151 (z −1.35) | −0.0012 (z −1.18) |
+| **the opponent term only**: `shots_for x own accuracy x sot_against` | −0.0047 (z −0.57) | −0.0005 (z −0.64) |
+
+The first is worse for a reason worth keeping: on-target IS shots times accuracy — `sot = binomial(shots, acc)`
+is literally how the simulator makes it — so dropping the shot-volume channel throws away most of the count.
+The second keeps it and lands near neutral.
+
+Neither passes, and this league **cannot** make it pass. Its accuracy is `sigmoid(-0.85 + 0.9 * (att[X] -
+dfn[Y]))` and its shot volume keys off the same `dfn[Y]`, so on-target conceded and shots conceded are two
+views of one parameter there — and the on-target view is the noisier one, carrying a binomial draw on top.
+Slightly negative is the correct answer to a question this simulator is not able to be asked. Real defences
+separate the two: blocking, keeper quality, and how far out the shots come from. Run
+`python backend/engine_ab.py --only sot_against` on your own leagues; that is the only number that counts.
 
 ## 4. What is still not covered
 

@@ -61,6 +61,16 @@ def build_frames(db, league_iid: int, history_rounds: int):
     tg = tg.dropna(subset=TEAM_REQUIRED)
     ok = tg.groupby("game_id")["team"].transform("count") == 2        # keep matches with both sides complete
     tg = tg[ok]
+    # On-target conceded. ingest.py mirrors the opponent's `sot` onto every row it writes, but rows
+    # stored before that did not carry it and the engine's style snapshot reads EVERY column in
+    # sum_cols -- a missing one would raise, and putting it in TEAM_REQUIRED would delete the older
+    # rows instead, which is the mistake the tackles column already made once. Derive it from `sot`,
+    # which TEAM_REQUIRED does guarantee, so the column is always present and always right.
+    mir = tg[["game_id", "team", "sot"]].rename(columns={"team": "opp", "sot": "_sot_opp"})
+    tg = tg.merge(mir, on=["game_id", "opp"], how="left")
+    have = tg["sot_against"] if "sot_against" in tg.columns else pd.Series(np.nan, index=tg.index)
+    tg["sot_against"] = have.fillna(tg["_sot_opp"]).fillna(0.0)
+    tg = tg.drop(columns=["_sot_opp"])
     ms = ms[ms["game_id"].isin(set(tg["game_id"]))]
 
     pg = pd.DataFrame(list(db.player_match_stats.find({"match_iid": {"$in": list(set(tg["game_id"]))}}, {"_id": 0})))
@@ -134,7 +144,9 @@ def configure_engine(db) -> E.SoccerEngine:
                          personal_lines=bool(S.get(db, "engine.personal_lines")),
                          personal_spread=int(S.get(db, "engine.personal_spread")),
                          opp_pos_k=float(S.get(db, "engine.opp_pos_k") or 0.0),
-                         xg_blend=float(S.get(db, "engine.xg_blend") or 0.0))
+                         xg_blend=float(S.get(db, "engine.xg_blend") or 0.0),
+                         # on-target measured against what the opponent concedes ON TARGET
+                         sot_against=bool(S.get(db, "engine.sot_against")))
     eng.r_player = dict(S.get(db, "engine.r_player"))      # fit_player_r replaces these during fit() when it is on
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)

@@ -2774,6 +2774,16 @@
     "help": "0 = off. Above 0, match chances use a second strength model fitted on expected goals as well as the one fitted on goals. Expected goals are steadier than goals, which are few and swingy. 0.5 counts them equally. Needs expected goals in the feed (docs/37)."
   },
   {
+    "key": "engine.sot_against",
+    "label": "Shots on target measured against the opponent's on-target conceded",
+    "type": "boolean",
+    "default": false,
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "Off: an on-target forecast uses how many SHOTS the opponent concedes, times this team's own accuracy, so a defence that blocks shots and one that lets them fly on target look the same. On: on-target becomes a market of its own, measured against what the opponent concedes on target, the way shots, corners and tackles already are. Switch on only after engine_ab.py passes it."
+  },
+  {
     "key": "engine.market_weights",
     "group": "Engine",
     "label": "How important each market is",
