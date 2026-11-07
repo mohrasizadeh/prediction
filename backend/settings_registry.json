@@ -2804,6 +2804,50 @@
     "help": "What each market is worth when choosing the one line a card leads with. A line's score is this weight x its lift over usual x its likelihood, so an important market still has to be saying something. Anything not listed counts as 1.0. Order from docs/39 (docs/46)."
   },
   {
+    "key": "engine.position_weights",
+    "group": "Engine",
+    "label": "How relevant each market is to each position",
+    "type": "json",
+    "default": {
+      "FWD": {
+        "goals": 1.6,
+        "sot": 1.5,
+        "shots": 1.4,
+        "assists": 1.3,
+        "yellow_cards": 0.8,
+        "fouls": 0.8,
+        "tackles": 0.5
+      },
+      "MID": {
+        "assists": 1.3,
+        "passes": 1.3,
+        "goals": 1.2,
+        "shots": 1.1,
+        "sot": 1.1,
+        "tackles": 1.1,
+        "fouls_won": 1.1
+      },
+      "DEF": {
+        "tackles": 1.5,
+        "yellow_cards": 1.2,
+        "fouls": 1.1,
+        "goals": 0.9,
+        "assists": 0.8,
+        "shots": 0.6,
+        "sot": 0.6
+      },
+      "GK": {
+        "saves": 1.6,
+        "tackles": 0.3,
+        "shots": 0.3,
+        "sot": 0.3
+      }
+    },
+    "public": false,
+    "applies_at": "immediately",
+    "help": "What a market is worth for a player in THIS position when choosing the one line a card leads with. Multiplies the market weight, so a forward's tackle line has to be far more unusual than his shot line to take the headline. Anything unlisted counts as 1.0, and club and match lines are unaffected because they carry no position. Set every value to 1 to switch it off."
+  },
+  {
     "key": "engine.feed_group",
     "group": "Engine",
     "label": "How feed cards are grouped",

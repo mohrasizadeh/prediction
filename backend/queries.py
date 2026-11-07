@@ -64,7 +64,8 @@ def fixtures_for_date(db, day: str, tz_offset_min: int = 0, league_iids=None) ->
         {"$match": {"match_iid": {"$in": [m["iid"] for m in ms]}, **NOT_HIDDEN, "tier": {"$in": ["Strong", "Solid"]}}},
         {"$group": {"_id": "$match_iid", "n": {"$sum": 1}}}])}
     lgs = _names(db, "leagues", [m["league_iid"] for m in ms])
-    best = _best_line(db, [m["iid"] for m in ms])
+    best = _best_line(db, [m["iid"] for m in ms], S.get(db, "engine.market_weights"),
+                      S.get(db, "engine.lift_scale"), S.get(db, "engine.position_weights"))
     for m in ms:
         m["home"], m["away"] = teams.get(m["home_iid"]), teams.get(m["away_iid"])
         m["league"] = lgs.get(m["league_iid"])
@@ -73,7 +74,7 @@ def fixtures_for_date(db, day: str, tz_offset_min: int = 0, league_iids=None) ->
     return ms
 
 
-def _best_line(db, match_iids: list[int]) -> dict:
+def _best_line(db, match_iids: list[int], weights=None, scale: str = "odds", pos_weights=None) -> dict:
     """The single line most worth saying out loud in each match (docs/redesign/v2 CRITIQUE section 1).
 
     The fixture row carried `insight_count`, and a count is not a value: every match has a similar
@@ -89,7 +90,7 @@ def _best_line(db, match_iids: list[int]) -> dict:
     rows = list(db.forecasts.find(
         {"match_iid": {"$in": match_iids}, **NOT_HIDDEN, "tier": {"$in": ["Strong", "Solid"]}},
         {"_id": 0, "id": 1, "match_iid": 1, "scope": 1, "stat": 1, "market": 1, "p": 1, "p_usual": 1,
-         "is_personal": 1, "span": 1, "player_iid": 1, "team_iid": 1, "edge": 1}))
+         "is_personal": 1, "span": 1, "player_iid": 1, "team_iid": 1, "edge": 1, "pos": 1}))
     if not rows:
         return {}
     pl = _names(db, "players", [r["player_iid"] for r in rows if r.get("player_iid")])
@@ -103,9 +104,9 @@ def _best_line(db, match_iids: list[int]) -> dict:
     out: dict = {}
     for r in rows:
         cur = out.get(r["match_iid"])
-        if cur is None or prominence(r) > cur[0]:
+        if cur is None or prominence(r, weights, scale, pos_weights) > cur[0]:
             who = (pl.get(r["player_iid"]) or {}).get("name") if r.get("player_iid") else (tm.get(r["team_iid"]) or {}).get("name")
-            out[r["match_iid"]] = (prominence(r), {"who": who, "market": r.get("market"),
+            out[r["match_iid"]] = (prominence(r, weights, scale, pos_weights), {"who": who, "market": r.get("market"),
                                                     "p": float(r.get("p") or 0),
                                                     "reached": done.get(r.get("id"))})
     return {k: v[1] for k, v in out.items()}
@@ -136,7 +137,7 @@ def match_detail(db, match_iid: int) -> dict | None:
     return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]], "events": ev,
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
             "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"),
-                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span"))),
+                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights")),
             "styles": styles, "starters": lu,
             "referee": RF.for_match(db, m),
             "predicted": [] if lu else predicted_xi(db, fc, (m["home_iid"], m["away_iid"])),
@@ -237,22 +238,43 @@ def is_trivial(f: dict, min_span: float) -> bool:
     return abs(float(sp)) < float(min_span)
 
 
-def prominence(f: dict, weights: dict | None = None, scale: str = "odds") -> float:
+def prominence(f: dict, weights: dict | None = None, scale: str = "odds", pos_weights: dict | None = None) -> float:
     """How much this line is worth saying out loud.
 
     Reported: "mbappe one shot or benfica 7 shots are not that much great insights those are almost given".
     They were leading cards because the lead was picked on raw likelihood, which after docs/44 is always the
     dullest line a player owns. A near-certainty that is also usual carries no information.
 
-    Three things decide it, multiplied, so a line has to have all three (docs/46):
+    Four things decide it, multiplied, so a line has to have all of them (docs/46):
       * how much the market matters   -- the owner's own order, engine.market_weights;
+      * how much it matters FOR HIM   -- engine.position_weights, below;
       * how unusual this line is      -- its lift over what this player or team usually does;
       * how likely it is              -- an unusual line nobody can act on is not an insight either.
 
-    A line with no lift scores 0 on the second term, so "1+ shot, usually 93%" cannot lead a card while anything
-    else has something to say. When nothing in the group has any lift, the caller falls back to likelihood.
+    A line with no lift scores 0, so "1+ shot, usually 93%" cannot lead a card while anything else has something
+    to say. When nothing in the group has any lift, the caller falls back to likelihood.
+
+    POSITION. Reported with a screenshot: a forward's card led with "1+ tackle" at 54%, with his
+    "1+ shot" at 69% collapsed underneath it. Measured across the demo league, 10 of 48 forward
+    cards led on tackles, and tackles was 41% of every player line produced. Nothing in this
+    function read `pos`, although every forecast carries it.
+
+    The cause was not one bug but a chain. `stake` cannot discriminate between the rungs of a
+    personal card -- by construction they all sit near 0.5, so it is flat at about 0.93 -- which
+    leaves `lift` deciding alone, and lift has no idea what a market MEANS for the player in front
+    of it. engine.market_weights then made it worse by rating tackles 1.3 against shots 1.0: those
+    numbers came from the priority table in docs/39, which is a BUILD BACKLOG -- what is live,
+    what is not built yet -- and shots is absent from it only because it was already shipped, so
+    it fell to the unlisted floor of 1.0. The product's most-wanted player market was weighted
+    last by an accident of how a roadmap was read.
+
+    So relevance is its own term. It is kept out of market_weights deliberately: what a market is
+    worth at all and what it is worth for a centre-back are different questions, and three tests
+    and a measurement script read that key's scope->stat shape.
     """
     w = ((weights or {}).get(f.get("scope")) or {}).get(f.get("stat"), 1.0)
+    # `pos` is None on every team and match line, so they are unaffected with no special case.
+    rel = ((pos_weights or {}).get(f.get("pos")) or {}).get(f.get("stat"), 1.0)
     p = float(f.get("p") or 0.0)
     # docs/52: once a line is the entity's OWN half-way count, a high p is not a virtue -- it is the
     # message. What should carry weight is how much is actually at stake in the sentence, which is
@@ -260,7 +282,7 @@ def prominence(f: dict, weights: dict | None = None, scale: str = "odds") -> flo
     # Without a personal line the old reading still holds: an unusual line nobody can act on is not
     # an insight either.
     stake = 4.0 * p * (1.0 - p) if f.get("is_personal") else p
-    return float(w) * lift(f, scale) * stake
+    return float(w) * float(rel) * lift(f, scale) * stake
 
 
 def _card_key(f: dict, group: str):
@@ -273,7 +295,7 @@ def _card_key(f: dict, group: str):
 
 
 def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weights: dict | None = None, scale: str = "odds",
-                min_span: float = 0.0) -> list[dict]:
+                min_span: float = 0.0, pos_weights: dict | None = None) -> list[dict]:
     """One card per player (or team) per match, per market when `group` is "player_market" (docs/46).
 
     The line that leads is the one with the most to say -- `prominence` above -- not the highest percentage.
@@ -299,19 +321,19 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
         if own:
             # docs/52: when the entity has its own line there is nothing to choose between -- that line
             # is the question worth asking about it, and the neighbours exist only to answer follow-ups.
-            head = max(own, key=lambda f: (prominence(f, weights, scale), f["p"], f["thr"]))
+            head = max(own, key=lambda f: (prominence(f, weights, scale, pos_weights), f["p"], f["thr"]))
             card = dict(head)
-            card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder")}
+            card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos")}
                                          for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
             card["best_p"] = max(f["p"] for f in g)
             out.append(card)
             continue
-        best = max(prominence(f, weights, scale) for f in lead)
+        best = max(prominence(f, weights, scale, pos_weights) for f in lead)
         # nothing in this group is saying anything unusual: fall back to the likeliest, as before
-        head = (max(lead, key=lambda f: (prominence(f, weights, scale), f["p"], f["thr"])) if best > 0
+        head = (max(lead, key=lambda f: (prominence(f, weights, scale, pos_weights), f["p"], f["thr"])) if best > 0
                 else max(lead, key=lambda f: (f["p"], f["thr"])))
         card = dict(head)
-        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder")}
+        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos")}
                                      for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
         # the best percentage anywhere in the card, so a "show me 90%+" filter can see past the lead line
         card["best_p"] = max(f["p"] for f in g)
@@ -390,7 +412,7 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     grp = S.get(db, "engine.feed_group")
     if grp in ("player", "player_market"):
         fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")), grp, S.get(db, "engine.market_weights"),
-                         S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")))
+                         S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"))
     fc.sort(key=FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"]))
     fc = fc[:limit]
     # This used to repeat _decorate's body inline, which is how the feed came to be the one caller
@@ -1034,7 +1056,7 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
         _with_teams(db, [nxt])
     return {"player": p, "team": team, "next_match": nxt,
             "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"),
-                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")))}
+                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"))}
 
 
 # -------------------------------------------------------------- Team page
@@ -1059,12 +1081,13 @@ def team_detail(db, team_iid: int, now=None) -> dict | None:
     # match page's Forecasts tab had.
     _decorate(db, fc)
     cards = group_cards(fc, float(S.get(db, "engine.feed_max_p")), "team", S.get(db, "engine.market_weights"),
-                        S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")))
+                        S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"))
     nxt = _with_teams(db, nxt)
     # The same MatchRow draws a win/draw/loss bar and a named line on the league page and two bare
     # club names here, because those two fields were never attached to this fixture list.
     probs = {x["match_iid"]: x for x in db.match_probs.find({"match_iid": {"$in": [m["iid"] for m in nxt]}, "is_current": True}, {"_id": 0})}
-    best = _best_line(db, [m["iid"] for m in nxt])
+    best = _best_line(db, [m["iid"] for m in nxt], S.get(db, "engine.market_weights"),
+                      S.get(db, "engine.lift_scale"), S.get(db, "engine.position_weights"))
     for m in nxt:
         m["probs"] = probs.get(m["iid"])
         m["best_line"] = best.get(m["iid"])
@@ -1088,7 +1111,8 @@ def league_matches(db, league_iid: int, status: str = "scheduled", limit: int = 
     counts = {r["_id"]: r["n"] for r in db.forecasts.aggregate([
         {"$match": {"match_iid": {"$in": iids}, **NOT_HIDDEN, "tier": {"$in": ["Strong", "Solid"]}}},
         {"$group": {"_id": "$match_iid", "n": {"$sum": 1}}}])}
-    best = _best_line(db, iids)
+    best = _best_line(db, iids, S.get(db, "engine.market_weights"),
+                      S.get(db, "engine.lift_scale"), S.get(db, "engine.position_weights"))
     for m in ms:
         m["probs"] = probs.get(m["iid"])
         m["insight_count"] = counts.get(m["iid"], 0)

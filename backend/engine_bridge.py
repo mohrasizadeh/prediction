@@ -181,6 +181,19 @@ def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
     return out
 
 
+def _goal_reasons(base: list[str], p: float, pu) -> list[str]:
+    """The two fixture sentences, plus how this particular line compares with an average fixture.
+
+    Kept to at most three because the card draws one and the sheet draws two.
+    """
+    out = list(base)
+    if pu is not None:
+        d = round((p - pu) * 100)
+        if abs(d) >= 4:
+            out.append(f"That is {abs(d)} points {'above' if d > 0 else 'below'} an average fixture in this league.")
+    return out[:3]
+
+
 def _goal_lines(db, m, probs, run_id, now, labels, usual=None) -> list[dict]:
     """Total goals in the match, read off the team-strength model's own scoreline matrix (docs/39).
 
@@ -192,6 +205,23 @@ def _goal_lines(db, m, probs, run_id, now, labels, usual=None) -> list[dict]:
         return []
     ladder = {str(k): round(float(v), 4) for k, v in tot.items()}
     out = []
+    # Total goals is the one market a stranger understands on sight -- and it was the only market in
+    # the product shipped with an empty `reasons` list, so the line a newcomer is most likely to
+    # tap was the one line that could never say why. Measured in a first-run walk: every
+    # match_goals row had 0 reasons while every shots, on-target, tackles and corners row had one
+    # or two.
+    #
+    # Nothing new is computed here. The scoreline matrix these percentages are read off already
+    # carries both sides' expected goals, and `usual` already holds the same line in an average
+    # fixture in this league. Both are stated in plain counts.
+    xh, xa = float((probs or {}).get("xg_home", 0) or 0), float((probs or {}).get("xg_away", 0) or 0)
+    base = []
+    if xh + xa > 0:
+        base.append(f"We expect about {xh + xa:.1f} goals in this match.")
+        big, small = max(xh, xa), min(xh, xa)
+        side = "The home side" if xh >= xa else "The away side"
+        base.append(f"Evenly matched for goals ({xh:.1f} to {xa:.1f})." if big - small < 0.25
+                    else f"{side} is the larger share of that ({big:.1f} to {small:.1f}).")
     # the same source every other team line uses: configure_engine filled it from the ladder, or from the fixed
     # thresholds when engine.auto_lines is off, so this market follows that switch too
     for thr in E.TEAM_THR.get("goals", []):
@@ -212,7 +242,7 @@ def _goal_lines(db, m, probs, run_id, now, labels, usual=None) -> list[dict]:
                     "p_play": 1.0, "lineup_confirmed": False, "lineup_badge": None, "p_basis": "all",
                     "tier": None, "tier_basis": "team", "tier_note": None,
                     "p_usual": pu, "edge": (p - pu) if pu is not None else 0.0,
-                    "reasons": [], "opp_tactics": [], "own_tactics": [], "opp_key_players": [], "contrib": {},
+                    "reasons": _goal_reasons(base, p, pu), "opp_tactics": [], "own_tactics": [], "opp_key_players": [], "contrib": {},
                     "rotation": None, "rotation_why": None, "p_play_usual": None, "p_raw": p, "p_base": p,
                     # docs/52: a match total belongs to the fixture, not to one team, so "the count this entity
                     # usually manages" has no meaning here. The keys exist so every line has the same shape.

@@ -14,7 +14,9 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE); sys.path.insert(0, os.path.join(HERE, "soccer_brain")); sys.path.insert(0, os.path.join(HERE, "tests"))
 import queries as Q
 
-W = {r["key"]: r["default"] for r in json.load(open(os.path.join(HERE, "settings_registry.json")))}["engine.market_weights"]
+_REG = {r["key"]: r["default"] for r in json.load(open(os.path.join(HERE, "settings_registry.json")))}
+W = _REG["engine.market_weights"]
+PW = _REG["engine.position_weights"]
 
 
 def check(c, m):
@@ -44,6 +46,28 @@ a = L("sot", 1.5, 0.50, 0.30, "2+ shots on target"); b = L("shots", 1.5, 0.50, 0
 check(Q.prominence(a, W) > Q.prominence(b, W), "same lift, same likelihood: the more important market wins (on target over shots)")
 hi = L("sot", 1.5, 0.60, 0.40, "x"); lo = L("sot", 1.5, 0.30, 0.10, "y")
 check(Q.prominence(hi, W) > Q.prominence(lo, W), "same lift: the likelier line wins, so an unusual long shot does not lead")
+
+# ---------------------------------------------------------------- what the market is worth to HIM
+# Reported with a screenshot: a forward's card led with "1+ tackle" at 54% while his "1+ shot" at
+# 69% sat collapsed underneath. Nothing in this function read `pos`, although every forecast
+# carries it, so a tackle line and a shot line were worth the same to a striker and to a
+# centre-back. Worse, market_weights rated tackles 1.3 against shots 1.0 -- numbers taken from the
+# priority table in docs/39, which is a BUILD BACKLOG, and shots is missing from it only because
+# it was already shipped.
+fw_t = {**L("tackles", 1.5, 0.50, 0.30, "2+ tackles"), "pos": "FWD"}
+fw_s = {**L("shots", 1.5, 0.50, 0.30, "2+ shots"), "pos": "FWD"}
+check(Q.prominence(fw_t, W) > Q.prominence(fw_s, W), "without the table, a forward's tackle line outranks his shot line at equal lift -- the reported bug")
+check(Q.prominence(fw_s, W, "odds", PW) > Q.prominence(fw_t, W, "odds", PW), "with it, the forward leads on shots")
+df_t = {**L("tackles", 1.5, 0.50, 0.30, "2+ tackles"), "pos": "DEF"}
+df_s = {**L("shots", 1.5, 0.50, 0.30, "2+ shots"), "pos": "DEF"}
+check(Q.prominence(df_t, W, "odds", PW) > Q.prominence(df_s, W, "odds", PW), "and a defender still leads on tackles, by more than before")
+check(Q.prominence(df_t, W, "odds", PW) > Q.prominence(df_t, W), "...the table reinforces a lead that was already right")
+# A club line carries no position, so it must be untouched rather than defaulted oddly.
+tm = L("corners", 4.5, 0.50, 0.30, "5+ corners", scope="team")
+check(Q.prominence(tm, W, "odds", PW) == Q.prominence(tm, W), "a club line has no position and is unaffected")
+check(Q.prominence(fw_s, W, "odds", {}) == Q.prominence(fw_s, W), "an empty table is the same as no table, so it can be switched off")
+unknown = {**L("shots", 1.5, 0.50, 0.30, "2+ shots"), "pos": "WB"}
+check(Q.prominence(unknown, W, "odds", PW) == Q.prominence(unknown, W), "a position we do not list counts as 1.0 rather than vanishing")
 check(Q.prominence(L("passes", 9.5, 0.5, 0.3, "x"), {}) > 0, "an empty weight table still scores: anything unlisted counts as 1.0")
 
 # ---------------------------------------------------------------- what leads a card

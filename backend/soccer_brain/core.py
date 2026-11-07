@@ -132,13 +132,29 @@ REASONS = {
 }
 
 
-def top_reasons(contrib: dict, stat: str, n=2, floor=0.04):
-    """Reasons for an 'over' forecast. Lead with the factors that push the
-    count UP, largest first. Only if none do, show the largest drag."""
+def top_reasons(contrib: dict, stat: str, n=2, floor=0.04, deadband=0.02):
+    """The reasons behind a forecast, leading with the direction the factors actually point.
+
+    This used to lead with the factors pushing the count UP, always, and fall back to a drag only
+    when nothing pushed up at all. On a card whose forecast sits BELOW the player's usual game that
+    reads as a contradiction, and it is common: measured on the demo league, 133 of 168 player
+    cards led on a line below usual, and one of them carried "Takes a larger share of the team's
+    tackles than most in the role" under a number six points down. The reader is told why it is
+    high while being shown that it is low. That is most of what "no logic" means.
+
+    The fix is to read the sign of the set itself. These are log-scale contributions, so their sum
+    is the net effect against the baseline: when it is negative the drags are the story and they
+    lead. A deadband keeps a near-balanced set reading positive, as before, rather than flipping on
+    noise.
+    """
     items = [(k, v) for k, v in contrib.items() if abs(v) >= floor and k in REASONS]
     ups = sorted([kv for kv in items if kv[1] > 0], key=lambda kv: -kv[1])
     downs = sorted([kv for kv in items if kv[1] < 0], key=lambda kv: kv[1])
-    chosen = ups[:n] if ups else downs[:1]
+    net = sum(v for _, v in contrib.items() if isinstance(v, (int, float)))
+    if net < -deadband and downs:
+        chosen = downs[:n]
+    else:
+        chosen = ups[:n] if ups else downs[:1]
     word = STAT_WORDS.get(stat, stat)
     return [(REASONS[k][0] if v > 0 else REASONS[k][1]).format(s=word) for k, v in chosen]
 
