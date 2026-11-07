@@ -1239,3 +1239,6 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .fs-gt > small { opacity: .75; font-size: .75rem; }
 .fs-count { margin: 10px 2px 0; }
 .fs-nofc { margin: 12px 0 0; }
+/* When the reader moves the Quick view off the line they tapped, the panel says which line it is
+   answering and offers the way back. Quiet: it is a status line, not a warning. */
+.v2-fs-other { margin: -4px 0 10px; }

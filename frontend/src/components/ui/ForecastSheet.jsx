@@ -11,6 +11,8 @@ import { BottomSheet } from "./BottomSheet";
 import { GameStrip } from "./Marks";
 import { QuickView } from "./QuickView";
 import { AnswerBlock, LadderList, SubjectHead, WhyList } from "./Subject";
+import { answerFor } from "../../lib/lines";
+import { STATS, TEAM_HISTORY_STATS } from "../Football";
 import { timeOf } from "./ForecastCard";
 import { posLabel } from "../Football";
 
@@ -63,6 +65,21 @@ const STAT_WORD = { shots: "shots", sot: "on-target", tackles: "tackles", corner
 
 export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
   const d = useSheetData(open, f);
+  // The reader's chosen line. Reported: "changing the lines or filters doesn't reflect on the
+  // percentage -- that percentage on the card is fixed for 1+ tackle." The Quick view below knew
+  // the answer for every rung and had nowhere to put it, so moving its controls did nothing
+  // visible. The sheet owns the choice now, and the headline follows it.
+  const [sel, setSel] = useState({ stat: f.stat, line: Math.floor(f.thr) + 1 });
+  useEffect(() => { setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 }); }, [f.fkey, f.stat, f.thr]);
+  const all = [f, ...(f.more_lines || [])];
+  const statLabel = ((f.scope === "team" ? TEAM_HISTORY_STATS : STATS).find((x) => x.id === sel.stat) || {}).label || sel.stat;
+  const picked = answerFor(all, sel.stat, sel.line, statLabel);
+  // On the line they tapped, the sheet says everything it knows. One rung along, most of what it
+  // knows belongs to the other rung: the reasons, the defence sentence, the streak and the season
+  // count are all computed per threshold, and carrying them across would attach one line's
+  // evidence to another line's number. So they go, and the panel says which line it is answering.
+  const onTapped = picked.source === "stored" && picked.fkey === f.fkey;
+  const shown = picked.p == null ? f : picked;
   const tier = d.record?.ready && f.tier ? d.record.tiers?.[f.tier] : null;
   const share = async () => {
     const url = f.match_id ? `${window.location.origin}/match/${f.match_id}` : window.location.href;
@@ -79,8 +96,13 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
           so it leads with the same facts in the same order: who he is, which club, and whether the
           next match is home or away. It used to show only the fixture as plain text. */}
       <SubjectHead f={f} fx={fx} size="sheet" testid={testid} />
-      <AnswerBlock f={f} size="sheet" testid={testid} />
-      <WhyList reasons={f.reasons} testid={`${testid}-why`} />
+      <AnswerBlock f={shown} size="sheet" testid={testid} />
+      {!onTapped && <p className="k-faint k-small v2-fs-other" data-testid={`${testid}-other-line`}>
+        {picked.source === "ladder"
+          ? <>Read off the ladder for this line, so there is no range or tier for it. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Back to {f.market}</button></>
+          : <>Showing {picked.market}. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Back to {f.market}</button></>}
+      </p>}
+      {onTapped && <WhyList reasons={f.reasons} testid={`${testid}-why`} />}
       <div className="k-fs-head sr-only" aria-hidden="true" style={{ "--tone": f.tier ? `var(--tier-${f.tier.toLowerCase()})` : "var(--text3)" }}>
         {f.player ? <PlayerAvatar player={f.player} size={52} /> : <Crest team={fx.team} size={52} />}
         <span className="k-fc-who">
@@ -99,7 +121,7 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
             <span className="k-fs-fx-m">{fx.text}</span>{f.kickoff ? <span className="k-fs-fx-t">{timeOf(f.kickoff)}</span> : null}
           </small>
         </span>
-        <span className="k-fc-pwrap"><b className="k-fc-p">{pct(f.p)}</b>{rng && <small className="k-fc-range" data-testid={`${testid}-range`}>{rng}</small>}</span>
+        <span className="k-fc-pwrap"><b className="k-fc-p">{pct(f.p)}</b>{rng && <small className="k-fc-range">{rng}</small>}</span>
       </div>
       {rng && <p className="k-faint k-small sr-only" data-testid={`${testid}-range-note`}>That range is how sure we are: the wider it is, the less sure the forecast.</p>}
       {/* For a player, the full Quick view, opened on the line being looked at: the reader's next question is
@@ -113,7 +135,8 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
                      teamId={f.scope === "team" ? f.team.id : undefined}
                      stat={f.stat} line={Math.floor(f.thr) + 1} title="The last ten, and any other line"
                      collapsible defaultOpen={false} showForecast={false}
-                     forecasts={[f, ...(f.more_lines || [])]} testid={`${testid}-qv`} />
+                     value={sel} onChange={setSel}
+                     forecasts={all} testid={`${testid}-qv`} />
           <Link to={f.scope === "player" ? `/player/${f.player.id}` : `/team/${f.team.id}`} className="v2-fs-open"
                 data-testid={f.scope === "player" ? `${testid}-open-player` : `${testid}-open-team`}>
             Open {(f.scope === "player" ? f.player.name : f.team.name)}&rsquo;s page
@@ -132,15 +155,15 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
           line read "a player ... him" -- and it was the third different label for p_usual, which is
           the entity's OWN rate before this opponent. AnswerBlock states it once, as "Usual". The
           season count stays, over its own window, labelled as the season. */}
-      {f.scope === "player" && f.rec_n >= 8 && (
+      {onTapped && f.scope === "player" && f.rec_n >= 8 && (
         <p className="k-faint k-small k-fs-ctx">
           {/* "This season" was an overclaim: rec_n counts his last 40 appearances, which is not a
               season and in October is nothing like one. Say the window we actually counted. */}
           <span data-testid={`${testid}-rec`}>Reached this line in {f.rec_k} of his last {f.rec_n} appearances.</span>
         </p>
       )}
-      <LadderList lines={lines} current={f.fkey} parent={{ ...f, team: f.team || fx.team }} actions testid={`${testid}-ladder`} />
-      {tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} {f.scope} {STAT_WORD[f.stat] || f.stat} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to={`/track-record?stat=${f.stat}`}>Track record</Link></p>}
+      <LadderList lines={lines} current={picked.fkey || f.fkey} parent={{ ...f, team: f.team || fx.team }} actions testid={`${testid}-ladder`} />
+      {onTapped && tier && tier.n > 0 && <p className="k-fs-record" data-testid={`${testid}-record`}>Our record on {f.tier} {f.scope} {STAT_WORD[f.stat] || f.stat} forecasts: <b>{tier.n >= 100 ? `${Math.round(tier.actual * 100)} of 100` : `${Math.round(tier.actual * tier.n)} of ${tier.n}`}</b> came true{tier.n < 100 ? " so far" : ""}. <Link to={`/track-record?stat=${f.stat}`}>Track record</Link></p>}
       <p className="k-faint k-small">{DISCLAIMER} <Link to="/learn/forecast-card" aria-label="How to read a forecast card" data-testid={`${testid}-learn`}>How to read this card (?)</Link></p>
     </BottomSheet>
   );

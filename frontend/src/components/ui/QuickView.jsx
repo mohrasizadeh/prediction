@@ -10,11 +10,10 @@ import { useApi } from "../../lib/useApi";
 import { STATS, TEAM_HISTORY_STATS, Seg, Select } from "../Football";
 import { Empty, ErrorBox, Loading } from "../States";
 import { GameStrip } from "./Marks";
-
-const MAX_RUNGS = 8;          // as many lines as fit a phone row without turning the control into a wall
+import { answerFor, rungsFor } from "../../lib/lines";
 
 export function QuickView({ playerId, teamId, stat: stat0 = "shots", line: line0 = 1, title, collapsible = false,
-                            defaultOpen, showForecast = true, forecasts, children, testid = "quick-view" }) {
+                            defaultOpen, showForecast = true, forecasts, children, value, onChange, testid = "quick-view" }) {
   // A club gets the same interrogation a player has. Before this, QuickView took `playerId` only,
   // so the club's sheet fell back to a fixed ten-game strip for whichever line had been tapped and
   // the club page had no evidence block at all -- while the reader's next question after "3+
@@ -23,9 +22,17 @@ export function QuickView({ playerId, teamId, stat: stat0 = "shots", line: line0
   const isTeam = !playerId && !!teamId;
   const OPTS = isTeam ? TEAM_HISTORY_STATS : STATS;
   const [open, setOpen] = useState(defaultOpen != null ? defaultOpen : !collapsible);
-  const [stat, setStat] = useState(OPTS.some((s) => s.id === stat0) ? stat0 : (isTeam ? "corners" : "shots"));
+  // The stat and the line can be owned from outside, because they choose the CLAIM and a panel
+  // that shows a headline has to agree with them. The window, the venue and started-only stay
+  // here: those filter the evidence, and the claim is the same whichever games you look at.
+  const [own, setOwn] = useState({ stat: OPTS.some((s) => s.id === stat0) ? stat0 : (isTeam ? "corners" : "shots"), line: line0 || 1 });
+  const sel = value || own;
+  const put = (patch) => { const next = { ...sel, ...patch }; if (onChange) onChange(next); if (!value) setOwn(next); };
+  const stat = sel.stat;
+  const line = sel.line;
+  const setStat = (v) => put({ stat: v });
+  const setLine = (v) => put({ line: Number(v) });
   const [last, setLast] = useState(10);
-  const [line, setLine] = useState(line0 || 1);
   const [venue, setVenue] = useState("all");
   const [started, setStarted] = useState(false);
   // `stat` is a query parameter for a club and NOT for a player, which is not an oversight to tidy
@@ -38,39 +45,21 @@ export function QuickView({ playerId, teamId, stat: stat0 = "shots", line: line0
   const games = q.data?.games || [];
   const known = games.filter((g) => g[stat] != null).length;
   const hits = games.filter((g) => g[stat] != null && g[stat] >= line).length;
-  // Asked for: whichever market and line the reader picks, show what we expect for it next match.
-  // Matching only the stored line would leave most choices blank, because a player keeps three
-  // lines per stat and the reader can pick five. Every forecast carries the whole ladder, so the
-  // percentage is resolved from that and follows any market and line combination.
-  const fcAny = (forecasts || []).find((f) => f.stat === stat);
   // Offer the lines we can actually answer. engine.player_ladder is per stat -- tackles starts at
   // 2+, on-target stops at 4+ -- so a fixed 1+..5+ row promised five answers and delivered as few
   // as three, which read as the forecast being broken rather than the line never being modelled.
-  // With no ladder at all (a stat we hold history but no forecast for) the plain row is still the
-  // right tool for reading the run.
-  // Memoised on the ladder itself: a new array each render made the effect below depend on
-  // identity rather than on content, so it re-ran on every single render.
-  const lineOpts = useMemo(() => {
-    const rungs = fcAny?.ladder ? Object.keys(fcAny.ladder).map((k) => Math.floor(Number(k)) + 1).filter((v) => v > 0).sort((a, b) => a - b) : null;
-    if (!rungs || !rungs.length) return [1, 2, 3, 4, 5];
-    // A player's ladder is three to five rungs. A club's is sixteen (6.5 through 22.5 on the demo
-    // league), and sixteen chips is not a choice, it is a wall -- measured, the row forced the
-    // whole Quick view to 857px inside a 390px phone. So a window of MAX_RUNGS around the line the
-    // reader arrived on, which is the only part of the ladder they are reading against.
-    if (rungs.length <= MAX_RUNGS) return rungs;
-    const at = rungs.indexOf(line0 || rungs[0]);
-    const from = Math.min(Math.max(0, (at < 0 ? 0 : at) - 1), rungs.length - MAX_RUNGS);
-    return rungs.slice(from, from + MAX_RUNGS);
-  }, [fcAny?.ladder, line0]);
+  // Windowed around the line the reader ARRIVED on, not the one they are standing on: a window
+  // that slid under every tap would move the chips out from under the finger.
+  const lineOpts = useMemo(() => rungsFor(forecasts, stat, line0), [forecasts, stat, line0]);
+  const snap = lineOpts.includes(line) ? null
+    : lineOpts.reduce((best, v) => (Math.abs(v - line) < Math.abs(best - line) ? v : best), lineOpts[0]);
   useEffect(() => {
     // Switching market can strip the line out from under the reader; land on the nearest we have.
-    if (lineOpts.includes(line)) return;
-    setLine(lineOpts.reduce((best, v) => (Math.abs(v - line) < Math.abs(best - line) ? v : best), lineOpts[0]));
-  }, [stat, line, lineOpts]);
-  const fcExact = (forecasts || []).find((f) => f.stat === stat && Math.floor(f.thr) + 1 === Number(line));
-  const fromLadder = fcAny?.ladder?.[String(Number(line) - 0.5)];
-  const fcP = fcExact ? fcExact.p : (typeof fromLadder === "number" ? fromLadder : null);
-  const fc = fcP == null ? null : { p: fcP, tier: fcExact?.tier || null, exact: !!fcExact };
+    if (snap != null) setLine(snap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snap]);
+  const ans = forecasts ? answerFor(forecasts, stat, line, label) : null;
+  const fc = ans && ans.p != null ? { p: ans.p, tier: ans.tier, exact: ans.source === "stored" } : null;
   return (
     <section className="qv" data-testid={testid}>
       {title && <h3 className="k-sec">{title}</h3>}
@@ -78,13 +67,13 @@ export function QuickView({ playerId, teamId, stat: stat0 = "shots", line: line0
         <>
           <div className="v2-qv-head">
             <p className="muted small" data-testid={`${testid}-summary`}>{known ? `${line} or more in ${hits} of ${known} games.` : "No data for this stat."}</p>
-            {!showForecast ? null : fc ? (
+            {fc && showForecast ? (
               <p className="v2-qv-fc" data-testid={`${testid}-forecast`}>
                 <span>{line}+ {label.toLowerCase()} next match</span>
                 <b>{Math.round((fc.p || 0) * 100)}%</b>
                 {fc.tier ? <em>{fc.tier}</em> : null}
               </p>
-            ) : forecasts ? (
+            ) : forecasts && !fc ? (
               /* Silence here read as a bug: switch to a market this player has no forecast for and
                  the figure simply vanished, with nothing to say whether it was missing or loading. */
               <p className="v2-qv-fc v2-qv-fc--none" data-testid={`${testid}-forecast`}>
