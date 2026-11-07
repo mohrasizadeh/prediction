@@ -7,6 +7,7 @@ Setup (see 09_engine_integration.md):
 """
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import uuid
@@ -35,6 +36,8 @@ MARKET_COVERAGE = {"player.shots": "player_match_stats.shots", "player.sot": "pl
                    "team.shots": "team_match_stats.shots", "team.sot": "team_match_stats.sot"}
 # Total goals in the match come from the team-strength model, not from the statistics feed, so they need no
 # coverage check: a finished match always has a score (docs/39).
+log = logging.getLogger("engine")
+
 NO_COVERAGE_MARKETS = ("team.goals",)
 TEAM_REQUIRED = ["shots", "sot", "corners", "tackles", "poss", "shots_against", "corners_against", "tackles_against"]
 PLAYER_REQUIRED = ["minutes", "shots", "sot", "tackles", "team_shots", "team_sot", "team_tackles"]
@@ -64,14 +67,41 @@ def build_frames(db, league_iid: int, history_rounds: int):
     excl = set(S.get(db, "engine.exclude_positions"))
     pg = pg.rename(columns={"match_iid": "game_id", "team_iid": "team", "opp_iid": "opp", "player_iid": "player"})
     pg = pg[pg["pos"].notna() & ~pg["pos"].isin(excl)]
-    pg = pg.dropna(subset=PLAYER_REQUIRED)
+    # WHO ACTUALLY PLAYED, taken before the filters below and never thinned by them.
+    #
+    # The engine works out how many of his club's recent matches a player missed by comparing the
+    # club's fixtures against the rows it holds for him. Those rows are this frame AFTER `dropna`,
+    # so a game he played in but for which the provider sent an incomplete stat line was read as a
+    # game he MISSED -- and `missed` drives the absence model, which drives `p_play`, which at
+    # `engine.min_p_play` deletes every card the player has. One missing column turned into "he is
+    # not playing". That is how a zero tackle count removed forwards from the product (see
+    # normalize.ZERO_WHEN_ABSENT), and the zero-fill there only fixes the column we know about.
+    # This fixes the inference: an appearance is minutes on the pitch, not a complete stat line.
+    ap = pg[pg["minutes"].notna() & (pg["minutes"] > 0)][["player", "team", "game_id"]].copy()
+    # A column that is entirely absent is not a data gap, it is an unmapped provider key, and
+    # requiring it below deletes EVERY player row in the league. The registry ships
+    # `provider.pitchapi.player_keys` with `minutes.key` and `tackles.key` set to null, so this is
+    # one unfilled settings field away at all times, and until now its only symptom was a league
+    # with no player forecasts and a run marked "done".
+    blank = [c for c in PLAYER_REQUIRED if c not in pg.columns or pg[c].isna().mean() > 0.99]
+    pg = pg.dropna(subset=[c for c in PLAYER_REQUIRED if c in pg.columns])
     pg = pg.merge(ms[["game_id", "round"]], on="game_id")
     pg["started"] = pg["started"].astype(int)
     for c in ("team", "opp", "player"):
         pg[c] = pg[c].astype(int)
     for c in ("team", "opp"):
         tg[c] = tg[c].astype(int)
-    return ms.reset_index(drop=True), tg.reset_index(drop=True), pg.reset_index(drop=True)
+    ap = ap.merge(ms[["game_id", "round"]], on="game_id")
+    for c in ("team", "player"):
+        ap[c] = ap[c].astype(int)
+    # How much the stat filters removed. It was silent before, which is why this cost the product
+    # its forwards for as long as it did: the rows simply were not there and nothing counted them.
+    kept, raw = len(pg), len(ap)
+    if raw and kept < raw * 0.97:
+        log.warning("engine: %d of %d player appearances dropped for incomplete stats (%.1f%%)",
+                    raw - kept, raw, 100.0 * (raw - kept) / raw)
+    diag = {"appearances": raw, "player_rows_kept": kept, "blank_columns": blank}
+    return ms.reset_index(drop=True), tg.reset_index(drop=True), pg.reset_index(drop=True), ap.reset_index(drop=True), diag
 
 
 # ----------------------------------------------------------------- engine
@@ -284,14 +314,25 @@ def run_league(db, league_iid: int, now=None) -> dict:
     if frames is None:
         db.engine_runs.update_one({"run_id": run_id}, {"$set": {"status": "skipped", "note": "no data", "finished_at": utcnow()}})
         return {"run_id": run_id, "status": "skipped", "forecasts": 0}
-    ms, tg, pg = frames
+    ms, tg, pg, ap, diag = frames
     if len(ms) < 20:
         db.engine_runs.update_one({"run_id": run_id}, {"$set": {"status": "skipped", "note": "fewer than 20 matches", "finished_at": utcnow()}})
         return {"run_id": run_id, "status": "skipped", "forecasts": 0}
+    # Refuse rather than produce a league of team lines and call it a success. Every player row is
+    # gone when a required column is unmapped, and the old behaviour was to finish "done" with no
+    # player forecasts at all -- indistinguishable, from the outside, from a quiet week.
+    if diag["blank_columns"]:
+        note = "player stats not mapped: " + ", ".join(diag["blank_columns"])
+        log.error("engine: league %s skipped, %s", league_iid, note)
+        db.engine_runs.update_one({"run_id": run_id}, {"$set": {"status": "skipped", "note": note, "finished_at": utcnow()}})
+        return {"run_id": run_id, "status": "skipped", "forecasts": 0, "note": note}
+    if diag["appearances"] and diag["player_rows_kept"] < diag["appearances"] * 0.97:
+        db.engine_runs.update_one({"run_id": run_id}, {"$set": {"dropped_player_rows":
+                                  diag["appearances"] - diag["player_rows_kept"], "appearances": diag["appearances"]}})
 
     eng = configure_engine(db)
     as_of = int(ms["round"].max()) + 1
-    eng.fit(ms, tg, pg, as_of)
+    eng.fit(ms, tg, pg, as_of, appearances=ap)
 
     # --- calendar context: who may rest, and (if the held-out test passes) who is expected to start
     cal, gate = None, None

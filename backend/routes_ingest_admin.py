@@ -99,6 +99,28 @@ def extras_backfill(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     return {"queued": n}
 
 
+@router.post("/ingest/tackles/backfill")
+def tackles_backfill(league_iid: int = 0, dry_run: bool = True, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Fill `tackles` on history stored while a 0 tackle count was written as null.
+
+    That null deleted the whole appearance from the engine's frame, and the engine reads a missing
+    appearance as a match the player missed -- which collapses his chance to play and removes every
+    card he has. Forwards are who record no tackle, so this is what took the best players out of
+    the product. New ingests are already correct; this repairs what is stored.
+
+    Defaults to a DRY RUN. Read `ok` before trusting the counts: it is false when the provider does
+    not map the column, and when so many appearances are null that it reads as a defence group that
+    was never parsed rather than as omitted zeros -- `null_share` says which.
+    """
+    import ingest as ING
+    rep = ING.fill_player_tackles(db, league_iid or None, dry_run=dry_run)
+    if not dry_run:
+        db.audit_log.insert_one({"actor": user["email"], "action": "ingest.tackles_backfill",
+                                 "target": f"league={league_iid or 'all'} ok={rep['ok']} tackles={rep['tackles']}",
+                                 "at": datetime.now(timezone.utc)})
+    return rep
+
+
 @router.post("/ingest/goals/backfill")
 def goals_backfill(league_iid: int = 0, dry_run: bool = True, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     """Fill goals / assists / goal_involvements on history ingested before they were zero-filled.

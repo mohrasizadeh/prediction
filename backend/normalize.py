@@ -93,7 +93,19 @@ PLAYER_COLS = ["minutes", "shots", "sot", "tackles", "goals", "assists", "xg", "
 # reason they were missing is the reason this mattered: with them null, any per-90 rate divides a
 # player's goals by only the games he SCORED in, which puts every scorer in the league near 1.0 a
 # game. Nothing downstream could have caught that -- it is a plausible number, not a broken one.
-ZERO_WHEN_ABSENT = ("shots", "sot", "goals", "assists")
+# `tackles` belongs here for the same reason the other four do, and leaving it out cost the product
+# its best players. The provider omits a count when it is 0, so a forward who made no tackle was
+# stored with `tackles: null`; `tackles` is in engine_bridge.PLAYER_REQUIRED, so `dropna` deleted
+# that whole appearance from the engine's frame; and the engine works out how many of his club's
+# recent games a player missed by comparing the club's fixtures against his SURVIVING rows -- so a
+# deleted appearance is indistinguishable from an absence. Two of them in his club's last two games
+# and `p_play` falls under `engine.min_p_play`, which drops every card he has, in every market, with
+# no carrier and no log. It is position-correlated, because a forward is who records no tackle.
+#
+# Measured on the demo league once the fake provider was made to omit a zero the way the real one
+# does: 568 stored player rows fell to 395, and the chance-to-play of the affected players roughly
+# halved (0.59 -> 0.33 for the second-busiest forward in the league, which is under min_p_play).
+ZERO_WHEN_ABSENT = ("shots", "sot", "goals", "assists", "tackles")
 # Derived at ingest, not read from the provider: stored so it can be graded, filtered and drawn
 # like any other column (score_finished reads `actual` by the stat's own name, the Finder's form
 # mode matches on it, and the ten-game strip draws it).

@@ -106,6 +106,16 @@ def main():
     check(db.player_match_stats.count_documents({"minutes": 0}) == 0, "players who did not feature are absent, not stored as zero")
     cov = I.update_coverage(db, lg["iid"])
     check(cov["team_match_stats.corners"] == 1.0 and cov["player_match_stats.tackles"] > 0.7, "coverage computed")
+    # A 0 tackle count is OMITTED by the provider, the way goals and assists are, so a forward who
+    # made no tackle used to be stored with `tackles: null`. `tackles` is in PLAYER_REQUIRED, so
+    # `build_frames`' dropna deleted that whole appearance -- and the engine counts a missing
+    # appearance as a match the player MISSED, which collapses his chance to play and drops every
+    # card he has. It cost the product its forwards, because a forward is who records no tackle.
+    # The old assertion above tolerated 30% of rows being null without asking what the nulls did.
+    out = db.player_match_stats.count_documents({"pos": {"$ne": "GK"}, "minutes": {"$gt": 0}})
+    nul = db.player_match_stats.count_documents({"pos": {"$ne": "GK"}, "minutes": {"$gt": 0}, "tackles": None})
+    check(nul == 0, f"an outfield appearance always carries a tackle count, 0 included ({nul} of {out} null)")
+    check(db.player_match_stats.count_documents({"tackles": 0}) > 0, "...and 0 is stored as 0, so the case is actually exercised")
     check(db.team_match_stats.find_one({"poss": {"$lt": 0}}) is None, "no negative values")
     check(I.assign_rounds(db, lg["iid"]) == n_rounds, "rounds = distinct kickoff dates")
 

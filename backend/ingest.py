@@ -348,6 +348,63 @@ def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
 
 
 # ----------------------------------------------------------------- coverage
+def fill_player_tackles(db, league_iid: int | None = None, dry_run: bool = True) -> dict:
+    """Backfill `tackles` on history ingested while a 0 tackle count was stored as null.
+
+    The provider omits a count when it is 0. `tackles` was not in ZERO_WHEN_ABSENT, so a forward
+    who made no tackle stored `tackles: None` -- and because `tackles` is in
+    engine_bridge.PLAYER_REQUIRED, `dropna` deleted that whole appearance from the engine's frame.
+    The engine then reads a missing appearance as a match the player MISSED, which collapses his
+    chance to play, which at `engine.min_p_play` drops every card he has in every market. It is
+    position-correlated: a forward is who records no tackle. New ingests are correct; this repairs
+    what is already stored.
+
+    Guards, in the same spirit as fill_player_goal_cols, because writing a 0 where the truth is
+    "we were never told" is worse than the null it replaces:
+
+    * THE MAPPING GATE. If `provider.pitchapi.player_keys.tackles.key` is unset the column was
+      never read, so every row is null and filling them would record that nobody in the league
+      ever made a tackle.
+    * NOT A GOALKEEPER. A keeper has no defence group at all; his tackles are null by rule
+      (normalize.py), and that null is correct.
+    * A REAL APPEARANCE, AND PROOF THE ROW WAS PARSED. `minutes` must be set and `shots` non-null.
+    * THE SHARE GATE, which the goals backfill did not need. There is no stored evidence that the
+      DEFENCE group was present on an old row -- `shots` only proves `top_stats` was. So the share
+      of qualifying rows that are null is used as the evidence instead: a genuine omitted-zero
+      pattern leaves a minority of appearances null, while a league whose defence group was never
+      parsed leaves nearly all of them null. Above `max_null_share` the function refuses, because
+      at that point a fill would be inventing a league of players who never tackle.
+
+    Idempotent, and `dry_run` by default.
+    """
+    keys = S.get(db, "provider.pitchapi.player_keys") or {}
+    max_null_share = 0.8
+    if not (keys.get("tackles") or {}).get("key"):
+        return {"ok": False, "reason": "provider does not map tackles -- every row is null, so filling "
+                                       "zeros would record that nobody ever made a tackle",
+                "tackles": 0, "candidates": 0, "null_share": None, "dry_run": dry_run, "league_iid": league_iid}
+    q = {"pos": {"$ne": "GK"}, "minutes": {"$gt": 0}, "shots": {"$ne": None}}
+    if league_iid is not None:
+        q["league_iid"] = league_iid
+    total = db.player_match_stats.count_documents(q)
+    nulls = db.player_match_stats.count_documents({**q, "tackles": None})
+    share = (nulls / total) if total else 0.0
+    out = {"ok": True, "dry_run": dry_run, "league_iid": league_iid, "candidates": total,
+           "tackles": nulls, "null_share": round(share, 4)}
+    if not total:
+        out.update({"ok": False, "reason": "no appearances in scope"})
+        return out
+    if share > max_null_share:
+        out.update({"ok": False, "tackles": 0,
+                    "reason": f"{round(share * 100)}% of appearances have no tackle count, which reads as a "
+                              f"defence group that was never parsed rather than as omitted zeros; "
+                              f"check provider.pitchapi.player_keys.tackles and re-ingest instead"})
+        return out
+    if not dry_run and nulls:
+        db.player_match_stats.update_many({**q, "tackles": None}, {"$set": {"tackles": 0.0}})
+    return out
+
+
 def fill_player_goal_cols(db, league_iid: int | None = None, dry_run: bool = True) -> dict:
     """Backfill goals / assists / goal_involvements on history ingested before they were zero-filled.
 

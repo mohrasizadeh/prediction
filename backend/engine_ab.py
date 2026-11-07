@@ -78,7 +78,7 @@ def run_league(db, league_iid, names, rounds, refit_every, burn, z_min, verbose=
     frames = B.build_frames(db, league_iid, hist)
     if not frames:
         print(f"  league {league_iid}: no finished matches with stats"); return None
-    ms, tg, pg = frames
+    ms, tg, pg, ap, _diag = frames
     all_rounds = sorted(ms["round"].unique())
     if rounds:
         all_rounds = all_rounds[-rounds:]
@@ -100,7 +100,10 @@ def run_league(db, league_iid, names, rounds, refit_every, burn, z_min, verbose=
     for i, r in enumerate(play):
         if i % refit_every == 0 or not engines:
             for n in names:
-                engines[n] = build_engine(db, VARIANTS[n][0]).fit(ms, tg, pg, r)
+                # `appearances` so the walk-forward measures the same availability model the
+                # product runs: without it the absence count is taken from the stat-complete frame
+                # and an incomplete line reads as a missed match (engine_bridge.build_frames).
+                engines[n] = build_engine(db, VARIANTS[n][0]).fit(ms, tg, pg, r, appearances=ap)
             if verbose:
                 print(f"    refit at round {r} ({time.time() - t0:.0f}s)", flush=True)
         for m in ms[ms["round"] == r].itertuples():

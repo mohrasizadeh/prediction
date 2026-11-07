@@ -420,7 +420,11 @@ class SoccerEngine:
         return np.array(g), np.array(l2)
 
     # --------------------------------------------------------------- fit
-    def fit(self, matches, tg, pg, as_of):
+    def fit(self, matches, tg, pg, as_of, appearances=None):
+        """`appearances` (optional): player, team, game_id, round for every match a player actually
+        featured in, taken BEFORE the stat-completeness filters. Used only to count the club games
+        he missed. Without it that count falls back to `pg`, which is thinned by those filters, so
+        an incomplete stat line reads as an absence -- see engine_bridge.build_frames."""
         self.as_of = as_of
         matches = matches[matches["round"] < as_of]
         tg = tg[tg["round"] < as_of].copy().reset_index(drop=True)
@@ -487,9 +491,20 @@ class SoccerEngine:
             self.pl[pid] = dict(team=int(g["team"].iloc[-1]), pos=g["pos"].iloc[-1], g=g, pid=pid)
         # club matches in order, and for each player how many of his club's latest matches he has missed
         team_games = {t: list(g.sort_values("round")["game_id"]) for t, g in tg.groupby("team")}
+        # Who played, from the unfiltered record when the caller supplied one. `pg` has had every
+        # row with an incomplete stat line removed, so counting absences from it answers "which of
+        # his club's games do we hold a full stat line for", not "which did he play in" -- and the
+        # difference is fed straight into the availability model.
+        played = {}
+        if appearances is not None and len(appearances):
+            ap = appearances[appearances["round"] < as_of]
+            for (pid, team), g in ap.groupby(["player", "team"]):
+                played[(int(pid), int(team))] = set(g["game_id"])
         for pid, info in self.pl.items():
             tgl = team_games.get(info["team"], [])
-            mine = set(info["g"].loc[info["g"]["team"] == info["team"], "game_id"])
+            mine = played.get((int(pid), int(info["team"])))
+            if mine is None:
+                mine = set(info["g"].loc[info["g"]["team"] == info["team"], "game_id"])
             missed = 0
             for gid in reversed(tgl):
                 if gid in mine:

@@ -128,7 +128,17 @@ class FakePitch:
                 top["Assists"] = {"key": "assists_fake", "stat": {"type": "integer", "value": int(p.assists)}}
             groups = [{"key": "top_stats", "stats": top}]
             if p.pos != "GK":
-                groups.append({"key": "defense", "stats": {"Tackles": {"key": "tackles_fake", "stat": {"type": "integer", "value": int(p.tackles)}}}})
+                # The defence group is always sent for an outfield player, but the Tackles count
+                # inside it is omitted when it is 0 -- the same rule the provider applies to goals
+                # and assists above, and the reason this fake existed with a zero here was simply
+                # that nobody had written the case down. A forward who made no tackle is the
+                # commonest row in the feed, so the fake has to produce it or the zero-fill, the
+                # dropna in build_frames and the absence model are all tested on data the real
+                # provider never sends.
+                dstats = {}
+                if int(p.tackles):
+                    dstats["Tackles"] = {"key": "tackles_fake", "stat": {"type": "integer", "value": int(p.tackles)}}
+                groups.append({"key": "defense", "stats": dstats})
                 # The simulation does not model passes or fouls, so these are invented from minutes and position.
                 # They exist to exercise the shapes the real provider uses -- a made/attempted pair in `attack`, plain
                 # counts in `duels` -- not to be realistic football (docs/47).
