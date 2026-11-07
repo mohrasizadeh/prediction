@@ -49,7 +49,15 @@ function spanLine(f) {
 
 // Who this is about. A club line used to open a panel that never named the club and never linked to
 // it; a match line named neither side. The subject is always named, and always reachable.
-export function SubjectHead({ f, fx, size = "sheet", action, extraMeta, fixtureTestid, testid = "ui-subject-head" }) {
+export function SubjectHead({ f: f0, fx, size = "sheet", action, extraMeta, fixtureTestid, testid = "ui-subject-head" }) {
+  // `f` is the subject's lead forecast, and on the player page it is null whenever the player has
+  // no current line -- a club with no scheduled fixture in the window, markets switched off for a
+  // league, or (the common one) every rung of every market below engine.line_band, which leaves
+  // only carrier rows that NOT_HIDDEN excludes. `f.stat?.` guarded `stat`, not `f`, so the whole
+  // route threw and the page's own "No forecasts for this player yet" fallback was unreachable.
+  // Guarded here rather than at the call site: the component had no contract saying `f` is
+  // required, and three pages pass it.
+  const f = f0 || {};
   const isMatch = !!f.stat?.startsWith("match_");
   const team = fx?.team;
   const name = f.player?.name || (isMatch ? (fx?.text || "Both teams") : team?.name || "");

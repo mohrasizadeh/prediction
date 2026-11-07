@@ -81,7 +81,7 @@ export const useCombo = () => useContext(Ctx) || { combo: null, count: 0, has: (
 export const comboText = (est, label) => [
   label, ...est.lines.map((l) => `${l.player?.name || l.team?.name} ${l.market}: ${Math.round(l.chance * 100)}%`),
   `All together: ${Math.round(est.combined * 100)}% (${est.plain})`,
-  `Forecast${est.state === "pre" ? " before lineups" : ""}. Prediciotn`,
+  `Forecast${est.state === "pre" ? " before lineups" : ""}. Forecast`,
 ].filter(Boolean).join("\n");
 
 // The share card, drawn on a canvas (no network, no photos): 1080 x auto PNG blob.
@@ -93,7 +93,7 @@ export function drawCard(est, label, when) {
   g.fillStyle = grad; g.fillRect(0, 0, W, H);
   const font = (w, s) => { g.font = `${w} ${s}px Inter, "Plus Jakarta Sans", system-ui, sans-serif`; };
   g.fillStyle = "#7C83FF"; g.beginPath(); g.arc(pad + 22, pad + 22, 22, 0, 7); g.fill();
-  g.fillStyle = "#E9EEF7"; font(700, 34); g.textBaseline = "middle"; g.fillText("Prediciotn", pad + 62, pad + 22);
+  g.fillStyle = "#E9EEF7"; font(700, 34); g.textBaseline = "middle"; g.fillText("Forecast", pad + 62, pad + 22);
   g.fillStyle = "#A3AFC6"; font(600, 28); g.textAlign = "right"; g.fillText(when || "", W - pad, pad + 22); g.textAlign = "left";
   g.fillStyle = "#E9EEF7"; font(800, 68); g.fillText(label || "Your combo", pad, 190);
   g.fillStyle = "#A3AFC6"; font(500, 30); g.fillText(`${est.lines.length} lines · forecast${est.state === "pre" ? " before lineups" : ""}`, pad, 250);

@@ -99,7 +99,8 @@ export default function App() {
           <Route index element={<Today />} />
           <Route path="match/:id" element={<Match />} />
           <Route path="live" element={<Live />} />
-          <Route path="dev/kit" element={<DevKit />} />
+          {/* A component gallery, not a product page: behind the same staff check as /admin. */}
+          {process.env.NODE_ENV !== "production" && <Route path="dev/kit" element={<DevKit />} />}
           <Route path="compare" element={<Compare />} />
           <Route path="explore" element={<Explore />} />
           <Route path="insights" element={<Insights />} />

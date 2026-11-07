@@ -1906,3 +1906,7 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--text3);
 }
+
+/* "79 to 88" is printed on every card and every sheet and was explained only to screen readers.
+   It is the sheet's job to teach the vocabulary once, where a reader has stopped to look. */
+.v2-fs-range { margin: -2px 0 10px; }

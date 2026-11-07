@@ -96,6 +96,10 @@ export function SignIn() {
 }
 
 export function SignUp() {
+  // SignIn reads `next` and returns the reader to what they were doing; SignUp did not, so the
+  // destination a reader was sent here FOR was dropped at the one moment they agreed to sign up.
+  const [params] = useSearchParams();
+  const next = safe(params.get("next"));
   const [f, setF] = useState({ email: "", password: "", display_name: "" });
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState(null);
@@ -107,7 +111,7 @@ export function SignUp() {
   if (sent) {
     return (
       <AuthCard title="Check your inbox" lead={`If that address can be used, we sent a link to ${f.email}. Open it to confirm your e-mail.`} icon="mail" testid="signup-sent">
-        <div className="form"><ResendButton email={f.email} /><Link to="/sign-in" className="btn btn--ghost btn--block" data-testid="signup-sent-signin">Go to sign in</Link></div>
+        <div className="form"><ResendButton email={f.email} /><Link to={`/sign-in${next && next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`} className="btn btn--ghost btn--block" data-testid="signup-sent-signin">Go to sign in</Link></div>
       </AuthCard>
     );
   }

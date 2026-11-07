@@ -5,7 +5,6 @@ import { Link } from "react-router-dom";
 import { get, put } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { DISCLAIMER, pct, range } from "../../lib/copy";
-import { PlayerAvatar, Crest } from "../Media";
 import { SaveButton } from "../Actions";
 import { BottomSheet } from "./BottomSheet";
 import { GameStrip } from "./Marks";
@@ -13,8 +12,6 @@ import { QuickView } from "./QuickView";
 import { AnswerBlock, LadderList, SubjectHead, WhyList } from "./Subject";
 import { answerFor } from "../../lib/lines";
 import { STATS, TEAM_HISTORY_STATS } from "../Football";
-import { timeOf } from "./ForecastCard";
-import { posLabel } from "../Football";
 
 // A match market (match_yellow_cards and the rest) is stored with scope "team" against the home
 // side, so scope alone cannot tell a club line from a fixture line. The stat prefix can, and
@@ -106,27 +103,11 @@ export function ForecastSheet({ open, onClose, f, fx, testid = "ui-fsheet" }) {
           ? <>Read off the ladder for this line, so there is no range or tier for it. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Show {f.market} again</button></>
           : <>Showing {picked.market}. <button type="button" className="k-link" onClick={() => setSel({ stat: f.stat, line: Math.floor(f.thr) + 1 })} data-testid={`${testid}-back`}>Show {f.market} again</button></>}
       </p>}
-      <div className="k-fs-head sr-only" aria-hidden="true" style={{ "--tone": f.tier ? `var(--tier-${f.tier.toLowerCase()})` : "var(--text3)" }}>
-        {f.player ? <PlayerAvatar player={f.player} size={52} /> : <Crest team={fx.team} size={52} />}
-        <span className="k-fc-who">
-          {f.player && (
-            <span className="v2-fs-who">
-              {/* The sheet answers one line. Everything else a reader wants next -- another market,
-                  the season, the notes -- lives on the player page, and there was no way to it from
-                  here but the browser's back button. The name is that way. */}
-              {f.player?.id && <Link to={`/player/${f.player.id}`} className="v2-fs-name" data-testid={`${testid}-player-link`}>{f.player.name}</Link>}
-              {f.pos && <span className="v2-pos">{posLabel(f.pos)}</span>}
-              {fx.team && <Link to={`/team/${fx.team.id}`} className="v2-club" onClick={(e) => e.stopPropagation()}><Crest team={fx.team} size={18} /> {fx.team.name}</Link>}
-            </span>
-          )}
-          <small className="k-fs-fx" data-testid={`${testid}-fixture`}>
-            {f.team_iid != null && f.home_iid != null && <span className="v2-nextfx-at">{f.team_iid === f.home_iid ? "Home" : "Away"}</span>}
-            <span className="k-fs-fx-m">{fx.text}</span>{f.kickoff ? <span className="k-fs-fx-t">{timeOf(f.kickoff)}</span> : null}
-          </small>
-        </span>
-        <span className="k-fc-pwrap"><b className="k-fc-p">{pct(f.p)}</b>{rng && <small className="k-fc-range">{rng}</small>}</span>
-      </div>
-      {rng && <p className="k-faint k-small sr-only" data-testid={`${testid}-range-note`}>That range is how sure we are: the wider it is, the less sure the forecast.</p>}
+      {/* Dead markup. `sr-only` hid it from sighted readers and `aria-hidden="true"` hid it from
+          assistive technology, so it rendered for nobody -- while emitting a second copy of
+          `-player-link` and `-fixture`, which SubjectHead above already emits. Two live elements
+          with one testid in one tree makes any selector on them non-deterministic. */}
+      {rng && <p className="k-faint k-small v2-fs-range" data-testid={`${testid}-range-note`}>That range is how sure we are: the wider it is, the less sure the forecast.</p>}
       {/* For a player, the full Quick view, opened on the line being looked at: the reader's next question is
           almost always "what about 2+, or only at home", and that used to mean leaving the sheet (docs/48). */}
       {(f.scope === "player" ? f.player?.id : !isMatchLine(f) && f.scope === "team" ? f.team?.id : null) && (
