@@ -116,6 +116,18 @@ def main():
     nul = db.player_match_stats.count_documents({"pos": {"$ne": "GK"}, "minutes": {"$gt": 0}, "tackles": None})
     check(nul == 0, f"an outfield appearance always carries a tackle count, 0 included ({nul} of {out} null)")
     check(db.player_match_stats.count_documents({"tackles": 0}) > 0, "...and 0 is stored as 0, so the case is actually exercised")
+    # The engine builds a player's rate as his SHARE OF A TEAM TOTAL, so a market can only exist
+    # for a stat whose team total is on the player row. shots, on target and tackles have had one
+    # since the start; goals never did, and it is the market the product wants next.
+    _pg = db.player_match_stats.count_documents({"minutes": {"$gt": 0}})
+    _ng = db.player_match_stats.count_documents({"minutes": {"$gt": 0}, "team_goals": None})
+    check(_ng == 0, f"every player row carries his club's goals for that match ({_ng} of {_pg} missing)")
+    _one = db.player_match_stats.find_one({"minutes": {"$gt": 0}})
+    _tm = db.team_match_stats.find_one({"match_iid": _one["match_iid"], "team_iid": _one["team_iid"]})
+    check(_one["team_goals"] == _tm["goals"], "...and it is the club's own score, not the opponent's")
+    # The backfill is idempotent and refuses when there is nothing to do.
+    _bf = I.fill_team_goals(db, dry_run=True)
+    check(_bf["ok"] is False and "already" in _bf["reason"], "the team-goals backfill has nothing to do on fresh data")
     check(db.team_match_stats.find_one({"poss": {"$lt": 0}}) is None, "no negative values")
     check(I.assign_rounds(db, lg["iid"]) == n_rounds, "rounds = distinct kickoff dates")
 

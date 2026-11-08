@@ -188,6 +188,14 @@ def ingest_match(client: PitchClient, match: dict) -> bool:
                 row[c + "_against"] = o[c]
         db.team_match_stats.update_one({"match_iid": match["iid"], "team_iid": tid}, {"$set": row}, upsert=True)
 
+    # His club's goals in this match, for the player rows below. The engine builds a player's rate
+    # as his SHARE OF A TEAM TOTAL -- `shrunk_rate(ap[s], E=ap["team_"+s] * minutes/90)` -- so a
+    # market can only exist for a stat whose team total is on the player row. shots, on target and
+    # tackles have been there since the start; goals never was, which is one of the things standing
+    # between the provider's `goals` column (mapped, ingested, zero-filled) and a goals market.
+    # Written now rather than with the rest of that work because history has to ACCUMULATE: the
+    # engine reads engine.history_rounds back, and a column added later starts empty.
+    goals_of = {"home": match["hg"], "away": match["ag"]}
     for p in out["players"]:
         tid = iid_of_team.get(p["team_ext_id"])
         if tid is None:
@@ -199,7 +207,7 @@ def ingest_match(client: PitchClient, match: dict) -> bool:
                "league_iid": match["league_iid"], "pos": p["pos"], "pos_raw": p["pos_raw"], "started": p["started"],
                **{c: p[c] for c in (*N.PLAYER_COLS, *N.DERIVED_PLAYER_COLS)},
                "team_shots": out["team_totals"][side]["shots"], "team_sot": out["team_totals"][side]["sot"],
-               "team_tackles": out["team_totals"][side]["tackles"]}
+               "team_tackles": out["team_totals"][side]["tackles"], "team_goals": goals_of[side]}
         db.player_match_stats.update_one({"match_iid": match["iid"], "player_iid": pid}, {"$set": row}, upsert=True)
 
     save_lineups(db, match, out["lineups"], iid_of_team)
@@ -348,6 +356,42 @@ def process_queue(client: PitchClient, max_tasks: int = 1000) -> dict:
 
 
 # ----------------------------------------------------------------- coverage
+def fill_team_goals(db, league_iid: int | None = None, dry_run: bool = True) -> dict:
+    """Backfill `team_goals` on player rows stored before the column existed.
+
+    The engine builds a player's rate as his share of a team total, so a market needs that total on
+    his row. Goals is the one the product most wants next and the only one of the four whose total
+    was never written. This copies it from `team_match_stats.goals`, which is the match score and
+    has always been stored, so nothing is inferred and nothing can be invented.
+
+    Guards, lighter than the other two backfills because the source is a fact rather than an
+    absence: the match must have a stored team row with a goals figure, and a row that already has
+    the column is left alone, so it is idempotent. `dry_run` by default.
+    """
+    q = {"team_goals": None}
+    if league_iid is not None:
+        q["league_iid"] = league_iid
+    todo = db.player_match_stats.count_documents(q)
+    out = {"ok": True, "dry_run": dry_run, "league_iid": league_iid, "candidates": todo, "filled": 0}
+    if not todo:
+        out.update({"ok": False, "reason": "every player row already carries its club's goals"})
+        return out
+    goals = {(t["match_iid"], t["team_iid"]): t.get("goals")
+             for t in db.team_match_stats.find({} if league_iid is None else {"league_iid": league_iid},
+                                               {"_id": 0, "match_iid": 1, "team_iid": 1, "goals": 1})}
+    n = 0
+    for r in db.player_match_stats.find(q, {"_id": 1, "match_iid": 1, "team_iid": 1}):
+        g = goals.get((r["match_iid"], r["team_iid"]))
+        if g is None:
+            continue
+        n += 1
+        if not dry_run:
+            db.player_match_stats.update_one({"_id": r["_id"]}, {"$set": {"team_goals": float(g)}})
+    out["filled"] = n
+    out["no_team_row"] = todo - n
+    return out
+
+
 def fill_player_tackles(db, league_iid: int | None = None, dry_run: bool = True) -> dict:
     """Backfill `tackles` on history ingested while a 0 tackle count was stored as null.
 

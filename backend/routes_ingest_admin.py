@@ -99,6 +99,25 @@ def extras_backfill(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     return {"queued": n}
 
 
+@router.post("/ingest/team-goals/backfill")
+def team_goals_backfill(league_iid: int = 0, dry_run: bool = True, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Fill `team_goals` on player rows stored before the column existed.
+
+    The engine builds a player's rate as his share of a team total, so a player goals market needs
+    his club's goals on his row. Copied from the stored team row, which is the match score.
+
+    Defaults to a DRY RUN. `no_team_row` counts rows whose match has no stored team figure; those
+    are left alone.
+    """
+    import ingest as ING
+    rep = ING.fill_team_goals(db, league_iid or None, dry_run=dry_run)
+    if not dry_run:
+        db.audit_log.insert_one({"actor": user["email"], "action": "ingest.team_goals_backfill",
+                                 "target": f"league={league_iid or 'all'} filled={rep['filled']}",
+                                 "at": datetime.now(timezone.utc)})
+    return rep
+
+
 @router.post("/ingest/tackles/backfill")
 def tackles_backfill(league_iid: int = 0, dry_run: bool = True, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     """Fill `tackles` on history stored while a 0 tackle count was written as null.
