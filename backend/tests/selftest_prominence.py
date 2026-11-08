@@ -132,4 +132,50 @@ check(Q.group_cards([_dull], 0.97, "player", W, "odds", 0.08, PW, "confident")[0
 check(Q.group_cards(MBAPPE, 0.97, "player", W, "odds", 0.0, PW)[0]["fkey"] == d["fkey"],
       "the default lead rule is prominence: nothing moves until the setting is changed")
 
+# ---------------------------------------------------------------- engine.lead_rule = "relevance"
+# "for a player like mbappe, sot and goal come first, before shots. For a defender, tackles comes
+# first. For a midfielder, tackles or shots." That is engine.position_weights, which already says
+# exactly this -- FWD sot 1.5 > shots 1.4 >> tackles 0.5, DEF tackles 1.5 >> shots 0.6 -- and which
+# today decides almost nothing, because it is a multiplier on a comparison it is usually absent
+# from. Choosing the market first is the only way it can act.
+FW = [L("shots", 2.5, 0.58, 0.38, "3+ shots"), L("sot", 0.5, 0.52, 0.50, "1+ shot on target")]
+for f in FW:
+    f["pos"] = "FWD"
+r = Q.group_cards(FW, 0.97, "player", W, "odds", 0.0, PW, "relevance")[0]
+check(r["stat"] == "sot", f"a forward leads on on-target, the market his position rates highest (got {r['stat']})")
+p_ = Q.group_cards(FW, 0.97, "player", W, "odds", 0.0, PW, "prominence")[0]
+check(p_["stat"] == "shots", "...where prominence leads on shots, because the 3+ rung has the lift")
+check(r["best_p"] == p_["best_p"] and len(r["more_lines"]) == len(p_["more_lines"]),
+      "the card holds the same lines; only which one is on its face moves")
+
+DF = [L("shots", 0.5, 0.70, 0.55, "1+ shot"), L("tackles", 1.5, 0.55, 0.52, "2+ tackles")]
+for f in DF:
+    f["pos"] = "DEF"
+check(Q.group_cards(DF, 0.97, "player", W, "odds", 0.0, PW, "relevance")[0]["stat"] == "tackles",
+      "a defender leads on tackles even when his shots line is the likelier one")
+
+# Within the chosen market, the line is still picked by prominence -- relevance chooses the market,
+# not the rung.
+MM = [L("sot", 0.5, 0.80, 0.79, "1+ shot on target"), L("sot", 1.5, 0.55, 0.35, "2+ shots on target")]
+for f in MM:
+    f["pos"] = "FWD"
+check(Q.group_cards(MM, 0.97, "player", W, "odds", 0.0, PW, "relevance")[0]["market"] == "2+ shots on target",
+      "inside the market, the line with the most to say still leads")
+
+# The guards come first, so relevance cannot resurrect a line the product has already ruled out.
+_hi = L("sot", 0.5, 0.99, 0.60, "1+ shot on target"); _hi["pos"] = "FWD"
+_ok = L("shots", 1.5, 0.70, 0.50, "2+ shots"); _ok["pos"] = "FWD"
+check(Q.group_cards([_hi, _ok], 0.97, "player", W, "odds", 0.0, PW, "relevance")[0]["stat"] == "shots",
+      "a market whose only line is above feed_max_p does not win on relevance")
+_dull = L("sot", 0.5, 0.80, 0.79, "1+ shot on target"); _dull["pos"] = "FWD"; _dull["span"] = 0.02
+_live = L("shots", 2.5, 0.58, 0.38, "3+ shots"); _live["pos"] = "FWD"; _live["span"] = 0.31
+check(Q.group_cards([_dull, _live], 0.97, "player", W, "odds", 0.08, PW, "relevance")[0]["stat"] == "shots",
+      "...nor one whose only line reads the same against every opponent")
+
+# One market on the card: nothing to choose, and no rule may drop it.
+solo = [L("tackles", 1.5, 0.61, 0.60, "2+ tackles")]
+solo[0]["pos"] = "FWD"                                   # tackles is this position's WORST market
+check(Q.group_cards(solo, 0.97, "player", W, "odds", 0.0, PW, "relevance")[0]["stat"] == "tackles",
+      "with one market available it leads, however little his position rates it")
+
 print("\nALL PROMINENCE CHECKS PASSED")

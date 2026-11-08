@@ -302,6 +302,17 @@ def prominence(f: dict, weights: dict | None = None, scale: str = "odds", pos_we
 #                 no information, so it is demoted however high it reads. This is docs/46 and it was
 #                 itself a response to a complaint -- "mbappe one shot is not a great insight".
 #   "confident"   lead with the strongest number the card can honestly stand behind.
+#   "relevance"   pick the MARKET first, by what it is worth for his position, and only then the
+#                 line within it. Asked for directly: "for a player like mbappe, sot and goal come
+#                 first, before shots. For a defender, tackles comes first."
+#
+# Why "relevance" needs its own branch rather than a bigger weight. Measured on the demo league,
+# of 117 cards only 11 are a contest the weights can decide: 77 have exactly ONE market available,
+# and on 29 more at least one side has zero lift, so prominence is 0 or group_cards falls through
+# to raw likelihood -- and in BOTH of those the weights multiply nothing. On the 11 that remain,
+# `lift` supplies +118% of the winning margin and the weights -24%, pointing at the runner-up in 7.
+# Squaring the weights moves 3 cards; raising them to the fourth power moves 6. A multiplier cannot
+# reach a comparison it is absent from, so the market has to be chosen before the lines are scored.
 #
 # The reason "confident" is not simply a return to ranking on p -- which is what docs/44 did, and
 # what produced the Mbappe complaint in the first place -- is that the two guards in group_cards now
@@ -316,7 +327,21 @@ def prominence(f: dict, weights: dict | None = None, scale: str = "odds", pos_we
 # Position weights are kept in both rules -- what a market is worth FOR A CENTRE-BACK is true
 # whichever question the lead is answering, and it is the guard that stops a forward's card leading
 # on tackles. Market weights are not: see lead_score.
-LEAD_RULES = ("prominence", "confident")
+LEAD_RULES = ("prominence", "confident", "relevance")
+
+
+def market_score(stat: str, scope: str, pos: str | None,
+                 weights: dict | None, pos_weights: dict | None) -> float:
+    """How much this MARKET is worth for this player, before any line in it is considered.
+
+    `engine.market_weights` x `engine.position_weights`: what the market is worth at all, times
+    what it is worth for someone in his position. For a forward that is on-target 1.4 x 1.5 = 2.10
+    against shots 1.0 x 1.4 = 1.40; for a defender, tackles 1.3 x 1.5 = 1.95 against shots
+    1.0 x 0.6 = 0.60.
+    """
+    w = ((weights or {}).get(scope) or {}).get(stat, 1.0)
+    rel = ((pos_weights or {}).get(pos) or {}).get(stat, 1.0)
+    return float(w) * float(rel)
 
 
 def lead_score(f: dict, rule: str, weights: dict | None = None, scale: str = "odds",
@@ -368,6 +393,13 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
         # docs/56: prefer rungs that could have come out differently against a different opponent. "or lead"
         # is the floor that keeps a card from vanishing when every rung in it is insensitive.
         lead = [f for f in lead if not is_trivial(f, min_span)] or lead
+        # docs/60: choose the MARKET first, then the line inside it. Only meaningful when a card
+        # holds more than one market, so it is a no-op for group="player_market" and for teams.
+        if rule == "relevance":
+            pos = next((f.get("pos") for f in lead if f.get("pos")), None)
+            top = max({f["stat"] for f in lead},
+                      key=lambda st: (market_score(st, lead[0]["scope"], pos, weights, pos_weights), st))
+            lead = [f for f in lead if f["stat"] == top] or lead
         own = [f for f in lead if f.get("is_personal")]
         if own:
             # docs/52: when the entity has its own line there is nothing to choose between -- that line

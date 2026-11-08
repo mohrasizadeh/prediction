@@ -1242,7 +1242,7 @@
     "group": "Engine",
     "public": false,
     "applies_at": "immediately",
-    "help": "prominence | confident. prominence leads with the line that has the most to say, so a near-certainty that is also usual is demoted however high it reads (the default, docs/46). confident leads with the strongest number the card can stand behind. Both sit behind the same two guards: a line above engine.feed_max_p cannot lead while another can, and nor can a rung that reads the same against every opponent in the league. The other lines stay on the card either way, one tap below."
+    "help": "prominence | confident | relevance. prominence leads with the line that has the most to say, so a near-certainty that is also usual is demoted however high it reads (the default, docs/46). confident leads with the strongest number the card can stand behind. relevance picks the MARKET first by what it is worth for the player's position -- on-target before shots for a forward, tackles first for a defender -- and only then the line within it. All three sit behind the same two guards: a line above engine.feed_max_p cannot lead while another can, and nor can a rung that reads the same against every opponent in the league. The other lines stay on the card either way, one tap below."
   },
   {
     "key": "referees.prior_cards",
