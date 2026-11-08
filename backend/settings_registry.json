@@ -1022,6 +1022,16 @@
     "help": "Lines kept per player or team and stat. The lower end decides how ambitious we are willing to get: raise it to drop long shots, lower it to keep them. Of whatever it leaves, the most likely engine.max_lines_per_stat are kept (docs/39, docs/44)."
   },
   {
+    "key": "engine.line_band_by_stat",
+    "label": "Likelihood band, per market",
+    "type": "json",
+    "default": {},
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run",
+    "help": "Overrides the band above for named markets, as scope then stat, e.g. {\"player\": {\"sot\": [0.4, 0.985]}}. Anything unlisted keeps the single band, so {} is today's behaviour. Markets are not equally common: a player taking 1.5 shots a game is 74% to have one and 43% to put one on target, so one floor keeps his shots line and deletes his on-target line. A rare market such as goals (a striker's 1+ is 30-45%) cannot be offered at all under a 0.5 floor -- every rung falls below the band and the whole market is stored as an invisible carrier."
+  },
+  {
     "key": "engine.max_lines_per_stat",
     "group": "Engine",
     "label": "Lines kept per player and stat",

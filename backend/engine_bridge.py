@@ -224,7 +224,33 @@ def label_for(db, scope, stat, thr, labels) -> str:
     return f"{n}+ {one if n == 1 else many}"
 
 
-def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
+def band_for(band, by_stat, scope: str, stat: str):
+    """The likelihood band this market is judged by.
+
+    One band for every market is wrong in a way that decides what the product can offer at all,
+    because the markets are not equally common. Measured with the engine's own distribution
+    (r_player: shots 6.0, on target 5.0), a player taking 1.5 shots a game has P(1+ shot) 0.74 and
+    P(1+ on target) 0.43 -- so a single floor of 0.50 keeps his shots line and deletes his
+    on-target line. On the demo league on-target survives the floor on 12% of player stat-groups
+    against 53% for shots, which is why 77 of 117 cards have only ONE market available to lead and
+    no amount of reweighting can change which one it is (docs/46, engine.position_weights).
+
+    It also decides which markets can EXIST. A 1+ goal line for an elite striker is 30-45%, so
+    under a 0.50 floor every rung of a goals ladder falls below the band, the whole group becomes
+    an invisible carrier, and the market the owner most wants for a forward would ship as nothing
+    at all. The same is true of anything else rare: assists, a defender's goal, a red card.
+
+    `by_stat` is scope -> stat -> [lo, hi], the same shape as engine.market_weights and
+    engine.position_weights. Anything unlisted keeps engine.line_band, so an empty dict is exactly
+    today's behaviour.
+    """
+    b = ((by_stat or {}).get(scope) or {}).get(stat)
+    if not b:
+        b = band
+    return float(b[0]), float(b[1])
+
+
+def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = None) -> list[dict]:
     """Automatic lines (docs/25): per player (or team) and stat, keep only lines whose likelihood sits inside `band`,
     and of those the `max_lines` **most likely**.
 
@@ -237,13 +263,16 @@ def select_lines(docs: list[dict], band, max_lines: int) -> list[dict]:
     Ambition is now the band's job: `engine.line_band`'s lower end decides how far down the ladder we are willing
     to go, and this keeps the likeliest of whatever that leaves. The whole ladder is still stored on every line,
     so the Finder can still answer any threshold the band excluded.
+
+    The band is per MARKET, not one for all of them: see `band_for` above. A group is one
+    (scope, team, player, stat), so each group is judged by its own market's band.
     """
-    lo, hi = float(band[0]), float(band[1])
     groups: dict = {}
     for d in docs:
         groups.setdefault((d["scope"], d["team_iid"], d.get("player_iid"), d["stat"]), []).append(d)
     out = []
-    for g in groups.values():
+    for key, g in groups.items():
+        lo, hi = band_for(band, by_stat, key[0], key[3])
         personal = [d for d in g if d.get("is_personal")]
         if personal:
             # docs/52: the band was a way of guessing where a line is worth reading. When the entity has
@@ -425,6 +454,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
                                                          # match, so a gate on the chance to FEATURE never catches him
     auto_lines = bool(S.get(db, "engine.auto_lines"))
     line_band = S.get(db, "engine.line_band"); max_lines = int(S.get(db, "engine.max_lines_per_stat"))
+    band_by_stat = S.get(db, "engine.line_band_by_stat")       # per-market floors; {} = one band for all
     earned = S.get(db, "engine.tier_mode") == "earned"
     rec = TI.Record(db, min_n=int(S.get(db, "engine.earned_min_n")), k=float(S.get(db, "engine.earned_prior_k"))) if earned else None
     anchor = bool(S.get(db, "engine.player_anchor")); anchor_min = int(S.get(db, "engine.anchor_min_games"))
@@ -570,7 +600,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "expected_usual": (float(f.expected_usual) if f.expected_usual is not None else None)})
         docs += goal_lines
         if auto_lines:
-            docs = select_lines(docs, line_band, max_lines)
+            docs = select_lines(docs, line_band, max_lines, band_by_stat)
         for d in docs:   # an admin's Hide survives the next run
             if d["fkey"] in kept:
                 d.update(kept[d["fkey"]], hidden=True)

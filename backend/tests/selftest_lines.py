@@ -69,6 +69,31 @@ check(len(none_kept) == 1 and none_kept[0].get("carrier") and none_kept[0].get("
 tie = [{"scope": "player", "team_iid": 1, "player_iid": 8, "stat": "sot", "thr": t, "p": 0.8} for t in (0.5, 1.5)]
 check([d["thr"] for d in B.select_lines(tie, [0.5, 0.99], 1)] == [1.5], "of two equally likely lines, the more ambitious is kept")
 
+# --- the band is per MARKET, because the markets are not equally common ------------------------
+# A player taking 1.5 shots a game is 74% to have one and 43% to put one on target, so a single
+# floor keeps his shots line and deletes his on-target line -- measured on the demo league,
+# on-target survives the 0.5 floor on 12% of player stat-groups against 53% for shots, which is
+# why most cards have only one market available to lead whatever engine.position_weights says.
+# And a rare market cannot be offered at all: a striker's 1+ goal is 30-45%, every rung of a goals
+# ladder falls below 0.5, and the whole market is stored as an invisible carrier.
+_sot = [{"scope": "player", "team_iid": 1, "player_iid": 5, "stat": "sot", "thr": t, "p": p_}
+        for t, p_ in ((0.5, 0.43), (1.5, 0.18), (2.5, 0.06))]
+_sh = [{"scope": "player", "team_iid": 1, "player_iid": 5, "stat": "shots", "thr": t, "p": p_}
+       for t, p_ in ((0.5, 0.74), (1.5, 0.45), (2.5, 0.20))]
+_one = B.select_lines(_sot + _sh, [0.5, 0.985], 3)
+check([d["stat"] for d in _one if not d.get("carrier")] == ["shots"],
+      "one band for all: his on-target market is a carrier and only shots can lead")
+_per = B.select_lines(_sot + _sh, [0.5, 0.985], 3, {"player": {"sot": [0.4, 0.985]}})
+_vis = sorted(d["stat"] for d in _per if not d.get("carrier"))
+check(_vis == ["shots", "sot"], f"a floor of 0.4 for on-target puts the market on the card ({_vis})")
+check(all(d["p"] >= 0.5 for d in _per if not d.get("carrier") and d["stat"] == "shots"),
+      "...and shots keeps its own band: the override is per market, not a global loosening")
+check(B.band_for([0.5, 0.985], {"player": {"sot": [0.4, 1.0]}}, "team", "sot") == (0.5, 0.985),
+      "scope is part of the key: a player override does not move the team market")
+check(B.band_for([0.5, 0.985], {}, "player", "sot") == (0.5, 0.985)
+      and B.band_for([0.5, 0.985], None, "player", "sot") == (0.5, 0.985),
+      "an empty override is exactly today's behaviour")
+
 print("[tiers]")
 from core import tier
 check(tier(0.82, 0.72, False) == "Watch" and tier(0.82, 0.72, True) == "Strong", "the tier rule itself is unchanged")
