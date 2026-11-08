@@ -87,6 +87,60 @@ Expect it to take a while: it refits the whole engine many times. Start with one
 |---|---|---|---|---|---|---|---|
 | | | | | | | | *not run yet: needs the production database* |
 
+### Are we underconfident at the top? (measured 2026-11-08)
+
+A document arguing for a "corrected quant model" claimed an engine of this shape understates high
+player lines badly -- 41% where the true number is 56% -- and validated that by matching a
+bookmaker's implied price. The validation is worthless: a price carries the margin and is shaded by
+where money landed, so fitting to it inherits both, and every correction the document proposed
+happened to point the same way, toward its target. Four of its five steps are already in this engine
+and the fifth is here in a stronger form (`core.py` negative binomial with fitted dispersion,
+`recency_weights` exponential decay, per-90 exposure, opponent, venue and possession as learned GLM
+coefficients rather than three multiplied factors, and a separate availability model instead of
+zero-inflation).
+
+But the claim underneath it is falsifiable, so it was tested:
+`scripts/measure/high_band_calibration.py`.
+
+**On the simulated league, walked forward, every prediction out of sample, the engine as it ships:**
+
+| band | n | we said | happened | gap | z |
+|---|---|---|---|---|---|
+| 70-80% | 418 | 74.7% | 78.0% | +3.3p | 1.54 |
+| 80-90% | 330 | 84.8% | 90.0% | **+5.2p** | 2.62 |
+| 90-100% | 192 | 93.3% | 92.2% | −1.2p | −0.65 |
+| **high (>=80%)** | 522 | 88.0% | 90.8% | **+2.8p** | 2.01 |
+
+Clustered 95% interval for the high-band gap, resampling whole player-matches: **+0.2p to +5.6p**.
+It excludes zero, so there is a real underconfidence at the top -- about three points, not the
+fifteen the document asserted.
+
+**The cause is the fixed dispersion, and the switch to fix it already exists.** `r_player` ships as
+guesses made before any data existed (shots 6, on target 5, tackles 10). Assuming MORE overdispersion
+than is really there spreads probability mass away from the mean in both directions, which pushes
+P(X >= k) DOWN for a line that sits below the mean -- and a high-likelihood line is exactly a line
+below the mean. That predicts underconfidence concentrated in the 80-90% band and fading by 90%+,
+which is the shape in the table. Re-running with `engine.fit_player_r` on:
+
+| band | n | we said | happened | gap | z |
+|---|---|---|---|---|---|
+| 80-90% | 329 | 85.2% | 85.7% | +0.5p | 0.27 |
+| **high (>=80%)** | 633 | 89.1% | 88.5% | **−0.6p** | −0.51 |
+
+Clustered interval **−3.4p to +2.0p**: the bias is gone.
+
+Three things this does and does not establish.
+
+* It is the SIMULATOR. It shows the mechanism is real and that the switch addresses it. It does not
+  show what your own matches do. Run `python scripts/measure/high_band_calibration.py --mongo <uri>`
+  to read `forecast_outcomes` and get the real answer.
+* **The A/B gate would not have caught this.** `engine_ab.py` scores log-likelihood, which trades
+  sharpness against calibration; a three-point bias at the top can fail a z >= 2.0 likelihood gate
+  and still be a bias worth removing. Calibration is a different question and needs this test.
+* The selection floor works AGAINST the finding. Only rungs at or above 50% are published, and a rung
+  whose mean was overestimated is likelier to clear that floor, which biases the measurement toward
+  looking overconfident. The underconfidence survives it.
+
 **Do not fill this in from the demo database.** That league is simulated. It has no position-specific defensive
 behaviour, so `opp_pos` is noise there and the gate correctly throws it out; and its expected goals are derived
 from its goals, so `xg_blend` looks good for a circular reason. Only your own matches decide.
