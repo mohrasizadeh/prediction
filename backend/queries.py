@@ -143,7 +143,8 @@ def match_detail(db, match_iid: int) -> dict | None:
     return {"match": m, "home": teams[m["home_iid"]], "away": teams[m["away_iid"]], "events": ev,
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
             "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"),
-                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights")),
+                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"),
+                                                  S.get(db, "engine.lead_rule")),
             "styles": styles, "starters": lu,
             "referee": RF.for_match(db, m),
             "predicted": [] if lu else predicted_xi(db, fc, (m["home_iid"], m["away_iid"])),
@@ -291,6 +292,48 @@ def prominence(f: dict, weights: dict | None = None, scale: str = "odds", pos_we
     return float(w) * float(rel) * lift(f, scale) * stake
 
 
+# How a card chooses which of its lines to lead with. `prominence` above is one answer; this is the
+# switch between it and the other one.
+#
+# Reported: "lead with better, higher percentages and better forecasts". Both answers are defensible
+# and they are answering different questions, which is why this is a setting and not a fix:
+#
+#   "prominence"  lead with what is most WORTH SAYING. A near-certainty that is also usual carries
+#                 no information, so it is demoted however high it reads. This is docs/46 and it was
+#                 itself a response to a complaint -- "mbappe one shot is not a great insight".
+#   "confident"   lead with the strongest number the card can honestly stand behind.
+#
+# The reason "confident" is not simply a return to ranking on p -- which is what docs/44 did, and
+# what produced the Mbappe complaint in the first place -- is that the two guards in group_cards now
+# do that work independently of the score. `max_p` keeps a line above engine.feed_max_p from leading
+# while any other line can, and is_trivial keeps a rung that reads the same against every opponent
+# in the league from leading while any other line can. Mbappe's 1+ shot moves about 4 points across
+# the league's defences against 32 for his 5+ rung, so the triviality gate demotes it before this
+# function is ever consulted. What is left to choose between is lines that COULD have come out
+# differently tonight, and picking the likeliest of those is a different thing from picking the
+# likeliest line on the card.
+#
+# Position weights are kept in both rules -- what a market is worth FOR A CENTRE-BACK is true
+# whichever question the lead is answering, and it is the guard that stops a forward's card leading
+# on tackles. Market weights are not: see lead_score.
+LEAD_RULES = ("prominence", "confident")
+
+
+def lead_score(f: dict, rule: str, weights: dict | None = None, scale: str = "odds",
+               pos_weights: dict | None = None) -> float:
+    if rule == "confident":
+        # POSITION weight yes, MARKET weight no, and the difference is the rule's whole meaning.
+        # engine.position_weights is a correctness guard -- it is what stops a forward's card
+        # leading on tackles -- so it belongs in any rule. engine.market_weights says which market
+        # is more INTERESTING, which is the question "prominence" is for; left in here it rates
+        # on-target at 1.4 against shots at 1.0 and leads with "1+ on target 78%" over "1+ shot
+        # 95%", outvoting seventeen points of likelihood. A rule that does that is not a confidence
+        # rule.
+        rel = ((pos_weights or {}).get(f.get("pos")) or {}).get(f.get("stat"), 1.0)
+        return float(rel) * float(f.get("p") or 0.0)
+    return prominence(f, weights, scale, pos_weights)
+
+
 def _card_key(f: dict, group: str):
     base = (f["match_iid"], f["scope"], f["team_iid"], f.get("player_iid"))
     if group == "line":
@@ -301,10 +344,12 @@ def _card_key(f: dict, group: str):
 
 
 def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weights: dict | None = None, scale: str = "odds",
-                min_span: float = 0.0, pos_weights: dict | None = None) -> list[dict]:
+                min_span: float = 0.0, pos_weights: dict | None = None, rule: str = "prominence") -> list[dict]:
     """One card per player (or team) per match, per market when `group` is "player_market" (docs/46).
 
-    The line that leads is the one with the most to say -- `prominence` above -- not the highest percentage.
+    The line that leads is chosen by `lead_score` above: with engine.lead_rule "prominence" (the
+    default) the one with the most to say, with "confident" the strongest number the card can stand
+    behind. Both sit behind the same two guards below, which is what makes the second one safe.
     The rest go into `more_lines`, most likely first, so what is near-certain is still one glance away and still
     available to a combo. Lines above `max_p` never lead while another line can (docs/25).
 
@@ -327,16 +372,18 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
         if own:
             # docs/52: when the entity has its own line there is nothing to choose between -- that line
             # is the question worth asking about it, and the neighbours exist only to answer follow-ups.
-            head = max(own, key=lambda f: (prominence(f, weights, scale, pos_weights), f["p"], f["thr"]))
+            head = max(own, key=lambda f: (lead_score(f, rule, weights, scale, pos_weights), f["p"], f["thr"]))
             card = dict(head)
             card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos")}
                                          for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
             card["best_p"] = max(f["p"] for f in g)
             out.append(card)
             continue
-        best = max(prominence(f, weights, scale, pos_weights) for f in lead)
-        # nothing in this group is saying anything unusual: fall back to the likeliest, as before
-        head = (max(lead, key=lambda f: (prominence(f, weights, scale, pos_weights), f["p"], f["thr"])) if best > 0
+        best = max(lead_score(f, rule, weights, scale, pos_weights) for f in lead)
+        # Nothing in this group is saying anything unusual: fall back to the likeliest, as before.
+        # Under "confident" the score is already the likelihood, so this never fires -- it is the
+        # "prominence" rule's escape hatch for a group where every line has zero lift.
+        head = (max(lead, key=lambda f: (lead_score(f, rule, weights, scale, pos_weights), f["p"], f["thr"])) if best > 0
                 else max(lead, key=lambda f: (f["p"], f["thr"])))
         card = dict(head)
         card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos")}
@@ -426,7 +473,7 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     pos_weights = S.get(db, "engine.position_weights")
     if grp in ("player", "player_market"):
         fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")), grp, weights,
-                         scale, float(S.get(db, "engine.min_span")), pos_weights)
+                         scale, float(S.get(db, "engine.min_span")), pos_weights, S.get(db, "engine.lead_rule"))
     key = FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"])
     fc.sort(key=lambda f: key(f, weights, scale, pos_weights))
     fc = fc[:limit]
@@ -1130,7 +1177,8 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
         _with_teams(db, [nxt])
     return {"player": p, "team": team, "next_match": nxt,
             "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"),
-                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"))}
+                                                  S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"),
+                                                  S.get(db, "engine.lead_rule"))}
 
 
 # -------------------------------------------------------------- Team page
@@ -1155,7 +1203,8 @@ def team_detail(db, team_iid: int, now=None) -> dict | None:
     # match page's Forecasts tab had.
     _decorate(db, fc)
     cards = group_cards(fc, float(S.get(db, "engine.feed_max_p")), "team", S.get(db, "engine.market_weights"),
-                        S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"))
+                        S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"),
+                        S.get(db, "engine.lead_rule"))
     nxt = _with_teams(db, nxt)
     # The same MatchRow draws a win/draw/loss bar and a named line on the league page and two bare
     # club names here, because those two fields were never attached to this fixture list.

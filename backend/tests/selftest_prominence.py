@@ -100,4 +100,36 @@ c = Q.group_cards(cap, 0.97, "player", W)[0]
 check(c["market"] == "2+ shots", "a line above feed_max_p still never leads while another line can")
 check(Q.group_cards([cap[0]], 0.97, "player", W)[0]["market"] == "1+ shot", "...but it leads when it is all there is")
 
+# ---------------------------------------------------------------- engine.lead_rule = "confident"
+# Asked: "lead with better, higher percentages and better forecasts." Both answers are defensible
+# and they answer different questions, so it is a setting. What makes "confident" safe -- and not a
+# return to docs/44, whose ranking on raw p produced the complaint at the top of this file -- is
+# that the two guards below do their work BEFORE either score is consulted.
+C = dict(rule="confident")
+m = Q.group_cards(MBAPPE, 0.97, "player", W, "odds", 0.0, PW, "confident")[0]
+check(m["market"] == "1+ shot", "confident leads with the strongest number when nothing is gating it")
+d = Q.group_cards(MBAPPE, 0.97, "player", W, "odds", 0.0, PW, "prominence")[0]
+check(d["market"] != m["market"], f"...and prominence does not: it leads on {d['market']!r}")
+check(m["best_p"] == d["best_p"], "the card holds the same lines either way; only the lead moves")
+check(len(m["more_lines"]) == len(d["more_lines"]) == len(MBAPPE) - 1,
+      "nothing is deleted by the choice of lead")
+
+# Guard 1: a near-certainty above feed_max_p still cannot lead, whatever the rule says about it.
+check(Q.group_cards(cap, 0.97, "player", W, "odds", 0.0, PW, "confident")[0]["market"] == "2+ shots",
+      "confident still obeys feed_max_p: 99% does not lead while another line can")
+
+# Guard 2: the triviality gate. This is the one that answers the Mbappe complaint under the new
+# rule -- his 1+ shot barely moves across the league's defences, so it is demoted on insensitivity
+# rather than on its percentage, and the confident rule never gets to see it.
+_dull = L("shots", 0.5, 0.95, 0.93, "1+ shot"); _dull["span"] = 0.03
+_live = L("shots", 2.5, 0.58, 0.38, "3+ shots"); _live["span"] = 0.31
+t = Q.group_cards([_dull, _live], 0.97, "player", W, "odds", 0.08, PW, "confident")[0]
+check(t["market"] == "3+ shots", "confident still obeys min_span: an insensitive rung cannot lead")
+check(Q.group_cards([_dull], 0.97, "player", W, "odds", 0.08, PW, "confident")[0]["market"] == "1+ shot",
+      "...but it leads when it is all the card has, so no card is ever hidden by the gate")
+
+# The default is unchanged, which is the whole point of shipping it as a switch.
+check(Q.group_cards(MBAPPE, 0.97, "player", W, "odds", 0.0, PW)[0]["fkey"] == d["fkey"],
+      "the default lead rule is prominence: nothing moves until the setting is changed")
+
 print("\nALL PROMINENCE CHECKS PASSED")

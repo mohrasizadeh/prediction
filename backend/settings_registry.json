@@ -1225,6 +1225,16 @@
     "help": "A line above this never leads a card while the same player or team has another line; it still shows inside the card. Set it at the display cap to let near-certain lines lead (docs/39)."
   },
   {
+    "key": "engine.lead_rule",
+    "label": "Which line leads a card",
+    "type": "enum",
+    "default": "prominence",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "prominence | confident. prominence leads with the line that has the most to say, so a near-certainty that is also usual is demoted however high it reads (the default, docs/46). confident leads with the strongest number the card can stand behind. Both sit behind the same two guards: a line above engine.feed_max_p cannot lead while another can, and nor can a rung that reads the same against every opponent in the league. The other lines stay on the card either way, one tap below."
+  },
+  {
     "key": "referees.prior_cards",
     "group": "Engine",
     "label": "Referees: prior (cards)",
