@@ -89,8 +89,12 @@ def combine(docs: list[dict], key: str = "p", factors=(1.0, 1.11, 1.19, 1.25)) -
     matches multiply plainly. Stretching the within-match correction across matches would inflate the number for a
     dependence that is not there.
 
-    One line is not a combination: it is returned as it is, so the builder never changes a number you were
-    already looking at."""
+    One line is not a combination, so it skips the cap and the pre-lineup correction and comes back at its own
+    chance. "Its own chance" is NOT the number on the card: the card says "if he plays" (docs/27), and a combo
+    asks whether the thing happens AT ALL, which for a player means he has to play first. So a 41% card on a
+    player who is 85% to start comes back as 35%, and the sheet shows the card's 41% beside it and says why.
+    Reported once from a screenshot where the headline read 41% and the row under it read 35%; selftest_combo
+    pins all three numbers together now, because the two can only ever disagree by being a bug."""
     by_match: dict = {}
     for f in docs:
         by_match.setdefault(f.get("match_iid"), []).append(f)

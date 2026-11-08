@@ -3,6 +3,7 @@
 // POST /api/combo/estimate; nothing here does probability maths.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { DISCLAIMER } from "./copy";
+import { fontStack, tokens } from "./theme";
 
 const KEY = "combo.open";
 const Ctx = createContext(null);
@@ -86,28 +87,33 @@ export const comboText = (est, label) => [
 
 // The share card, drawn on a canvas (no network, no photos): 1080 x auto PNG blob.
 export function drawCard(est, label, when) {
+  // The colours were six hex literals from the Midnight palette, which stopped being the brand two
+  // redesigns ago -- the same fault Share.jsx had. They come from the live palette now (lib/theme),
+  // so this card follows Site Studio and the reader's light or dark mode (docs/60).
+  const t = tokens();
+  const face = fontStack("heading");
   const W = 1080, pad = 64, rowH = 112, H = 360 + est.lines.length * rowH + 220;
   const c = document.createElement("canvas"); c.width = W; c.height = H;
   const g = c.getContext("2d");
-  const grad = g.createLinearGradient(0, 0, W, H); grad.addColorStop(0, "#171d36"); grad.addColorStop(1, "#0f1424");
+  const grad = g.createLinearGradient(0, 0, W, H); grad.addColorStop(0, t.surface1); grad.addColorStop(1, t.bg);
   g.fillStyle = grad; g.fillRect(0, 0, W, H);
-  const font = (w, s) => { g.font = `${w} ${s}px Inter, "Plus Jakarta Sans", system-ui, sans-serif`; };
-  g.fillStyle = "#7C83FF"; g.beginPath(); g.arc(pad + 22, pad + 22, 22, 0, 7); g.fill();
-  g.fillStyle = "#E9EEF7"; font(700, 34); g.textBaseline = "middle"; g.fillText("Forecast", pad + 62, pad + 22);
-  g.fillStyle = "#A3AFC6"; font(600, 28); g.textAlign = "right"; g.fillText(when || "", W - pad, pad + 22); g.textAlign = "left";
-  g.fillStyle = "#E9EEF7"; font(800, 68); g.fillText(label || "Your combo", pad, 190);
-  g.fillStyle = "#A3AFC6"; font(500, 30); g.fillText(`${est.lines.length} lines · forecast${est.state === "pre" ? " before lineups" : ""}`, pad, 250);
+  const font = (w, s) => { g.font = `${w} ${s}px ${face}`; };
+  g.fillStyle = t.brand; g.beginPath(); g.arc(pad + 22, pad + 22, 22, 0, 7); g.fill();
+  g.fillStyle = t.text; font(700, 34); g.textBaseline = "middle"; g.fillText("Forecast", pad + 62, pad + 22);
+  g.fillStyle = t.text3; font(600, 28); g.textAlign = "right"; g.fillText(when || "", W - pad, pad + 22); g.textAlign = "left";
+  g.fillStyle = t.text; font(800, 68); g.fillText(label || "Your combo", pad, 190);
+  g.fillStyle = t.text3; font(500, 30); g.fillText(`${est.lines.length} line${est.lines.length === 1 ? "" : "s"} · forecast${est.state === "pre" ? " before lineups" : ""}`, pad, 250);
   let y = 320;
   est.lines.forEach((l) => {
-    g.strokeStyle = "rgba(255,255,255,.1)"; g.beginPath(); g.moveTo(pad, y); g.lineTo(W - pad, y); g.stroke();
-    g.fillStyle = "#E9EEF7"; font(700, 38); g.textAlign = "left"; g.fillText(`${l.player?.name || l.team?.name} · ${l.market}`, pad, y + rowH / 2);
+    g.strokeStyle = t.border; g.beginPath(); g.moveTo(pad, y); g.lineTo(W - pad, y); g.stroke();
+    g.fillStyle = t.text; font(700, 38); g.textAlign = "left"; g.fillText(`${l.player?.name || l.team?.name} · ${l.market}`, pad, y + rowH / 2);
     font(700, 44); g.textAlign = "right"; g.fillText(`${Math.round(l.chance * 100)}%`, W - pad, y + rowH / 2); g.textAlign = "left";
     y += rowH;
   });
-  g.strokeStyle = "rgba(255,255,255,.18)"; g.beginPath(); g.moveTo(pad, y + 8); g.lineTo(W - pad, y + 8); g.stroke();
-  g.fillStyle = "#A3AFC6"; font(700, 26); g.fillText("ALL TOGETHER", pad, y + 56);
-  g.fillStyle = "#E9EEF7"; font(800, 120); g.fillText(`${Math.round(est.combined * 100)}%`, pad, y + 140);
+  g.strokeStyle = t.border; g.beginPath(); g.moveTo(pad, y + 8); g.lineTo(W - pad, y + 8); g.stroke();
+  g.fillStyle = t.text3; font(700, 26); g.fillText("ALL TOGETHER", pad, y + 56);
+  g.fillStyle = t.text; font(800, 120); g.fillText(`${Math.round(est.combined * 100)}%`, pad, y + 140);
   g.textAlign = "right"; font(700, 40); g.fillText(est.plain, W - pad, y + 130); g.textAlign = "left";
-  g.fillStyle = "#8A96AE"; font(500, 24); g.fillText(DISCLAIMER, pad, H - 48);
+  g.fillStyle = t.text3; font(500, 24); g.fillText(DISCLAIMER, pad, H - 48);
   return new Promise((res) => c.toBlob(res, "image/png"));
 }

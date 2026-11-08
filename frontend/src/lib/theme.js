@@ -25,6 +25,15 @@ const VAR = {
   up: "--up", down: "--down",
 };
 
+/** The site's own type stack, for a canvas (which cannot use a CSS variable). */
+export function fontStack(which = "heading") {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(`--font-${which}`).trim();
+    if (v) return v;
+  } catch { /* no document */ }
+  return "system-ui, sans-serif";
+}
+
 /** The palette in use right now, in the mode the reader is actually looking at. */
 export function tokens(el) {
   const out = { ...FALLBACK };

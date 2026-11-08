@@ -47,6 +47,27 @@ check(e["range"]["lo"] <= e["combined"] <= e["range"]["hi"] and e["weakest"] == 
 check(e["plain"] == "About 1 in 3" and CB.plain(0.62) == "About 6 in 10" and CB.plain(0.2) == "About 1 in 5" and CB.plain(0.96) == "Very likely", "plain words for the number")
 check(est(a, b, t, key="fkey")["combined"] == e["combined"], "stable keys give the same answer as ids")
 
+print("[one line on a player who might not play]")
+# Reported from a screenshot: the sheet led with the card's 41% while the row under it read 35%, and
+# the sentence between them said the 41% already counted the 85% chance he plays. Two numbers for
+# one question, and the explanation matched neither. Every number on that sheet has to answer the
+# SAME question -- "will this happen at all" -- which for a player means he has to play first.
+solo = F(14, "player", 1, 9, "shots", 3.5, 0.41, play=0.85, state="pre", lo=0.32, hi=0.51)
+one = est(solo)
+check(abs(one["combined"] - 0.41 * 0.85) < 1e-4, f"one line: the headline counts the chance he plays ({one['combined']} = .41 x .85)")
+check(abs(one["lines"][0]["chance"] - one["combined"]) < 1e-9,
+      "...and the row under it is the same number, because it is the same question")
+check(one["lines"][0]["p"] == 0.41 and one["lines"][0]["p_play"] == 0.85,
+      "...with the card's own 'if he plays' number kept beside it, so the sheet can explain the difference")
+check(abs(one["range"]["lo"] - 0.32 * 0.85) < 1e-4 and abs(one["range"]["hi"] - 0.51 * 0.85) < 1e-4,
+      "...and the range is scaled too, rather than left at the card's")
+check(one["range"]["lo"] <= one["combined"] <= one["range"]["hi"], "...the range still brackets the number")
+# A line that already counts the chance to play (a card line) must NOT be multiplied again (docs/36 H6).
+solo2 = F(15, "player", 1, 10, "yellow_cards", 0.5, 0.30, play=0.85, state="pre")
+db.forecasts.update_one({"id": solo2["id"]}, {"$set": {"p_basis": "all"}})
+solo2["p_basis"] = "all"
+check(abs(est(solo2)["combined"] - 0.30) < 1e-4, "a line that already counts playing is not multiplied by it twice")
+
 print("[before lineups: the tested correction]")
 p1 = F(10, "player", 1, 3, "shots", 0.5, 0.80, play=0.90, state="pre", badge="likely")
 p2 = F(10, "player", 2, 5, "shots", 0.5, 0.75, play=0.90, state="pre", badge="likely")
