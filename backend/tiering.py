@@ -174,6 +174,18 @@ def _sig(z):
     return float(1 / (1 + np.exp(-z)))
 
 
+def anchor_shift_rate(p, emp, n, K, w_max) -> float:
+    """The log-odds shift toward a rate that is already computed, with `n` games of weight behind it.
+
+    Split out so the record can be counted two ways and blended one way (docs/62): flat whole games,
+    or the same games weighted by how recent they are, in which case `emp` is the weighted share and
+    `n` is the EFFECTIVE sample size rather than a count of rows.
+    """
+    emp = min(max(float(emp), 1e-4), 1 - 1e-4)
+    w = min(w_max, n / (n + K))
+    return w * (_logit(emp) - _logit(p))
+
+
 def anchor_shift(p, k, n, K, w_max) -> float:
     """The log-odds shift this player's own record implies for the model's chance `p`.
 
@@ -185,9 +197,7 @@ def anchor_shift(p, k, n, K, w_max) -> float:
     range around it, and the usual game it is compared against. Applying it to the first two and not
     the third is what made `edge` a mixture of a fixture effect and this correction (docs/61).
     """
-    emp = (k + 1) / (n + 2)
-    w = min(w_max, n / (n + K))
-    return w * (_logit(emp) - _logit(p))
+    return anchor_shift_rate(p, (k + 1) / (n + 2), n, K, w_max)
 
 
 def shift_one(v, d, cap):

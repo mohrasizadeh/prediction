@@ -123,6 +123,10 @@ class Forecast:
     p_usual: float | None = None        # the same line from his/the team's own normalised average, before this opponent
     rec_k: int | None = None            # games (of his last rec_n played) in which he beat this line
     rec_n: int | None = None
+    # The same record, weighted by how recent each game was (docs/62). `rec_k`/`rec_n` stay the flat
+    # whole-game pair the card prints; these two are what the anchor should blend toward.
+    rec_rate: float | None = None       # recency-weighted share of those games that beat the line
+    rec_neff: float | None = None       # effective games behind that share (Kish)
     thr_personal: float | None = None   # this entity's OWN 50% line for this stat (docs/52): the count it clears
                                         # about half the time in its usual game. The headline rung.
     expected_usual: float | None = None # the count it manages in its usual game, against an average opponent
@@ -1155,6 +1159,23 @@ class SoccerEngine:
                         lo, hi = np.percentile(pdraw, [10, 90])
                         last = ap[s].values[-10:]
                         last40 = ap[s].values[-40:]
+                        # docs/62: the same forty appearances, weighted by how recent they are.
+                        # The flat count beside this one is kept for DISPLAY -- "19 of his last 20"
+                        # has to stay a pair of whole games a reader can check against the strip --
+                        # but as an input to the number it was the one layer in the engine that did
+                        # not decay at all: a game thirty-nine appearances ago counted as much as
+                        # last week's, at up to 40% of the final number.
+                        # n_eff is Kish's effective sample size, (sum w)^2 / sum w^2, NOT sum w:
+                        # the anchor's own weight is n/(n+K), so using the raw weight total would
+                        # claim more games behind the rate than the weighting actually leaves.
+                        _w40 = recency_weights(len(last40), self.player_hl) if len(last40) else None
+                        if _w40 is not None and float(_w40.sum()) > 0:
+                            _cl = (last40 > thr).astype(float)
+                            _sw, _sw2 = float(_w40.sum()), float((_w40 * _w40).sum())
+                            rec_rate = float((_w40 * _cl).sum() / _sw)
+                            rec_neff = float(_sw * _sw / _sw2) if _sw2 > 0 else None
+                        else:
+                            rec_rate = rec_neff = None
                         p_raw = float((last > thr).mean()) if len(last) else 0.5
                         p_base = float(np.sum(probs * nb_sf(k, mus_b, self.r_player[s])))
                         lo, hi = float(lo), float(hi)
@@ -1180,6 +1201,7 @@ class SoccerEngine:
                                             rotation=rot[team][0], rotation_why=rot[team][1],
                                             p_play_usual=usual_ps.get(pid), p_usual=p_base,
                                             rec_k=int((last40 > thr).sum()), rec_n=int(len(last40)),
+                                            rec_rate=rec_rate, rec_neff=rec_neff,
                                             thr_personal=thr_own, span=span, span_lo=s_lo, span_hi=s_hi,
                                             p_start=float(ps_start),
                                             starts_recent=info.get("starts_recent"),

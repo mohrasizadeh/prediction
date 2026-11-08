@@ -47,4 +47,43 @@ p2 = TI.shift_one(pm2, TI.anchor_shift(pm2, 30, 40, 30, 0.4), 0.985)
 pu2 = TI.shift_one(pu, TI.anchor_shift(pm2, 30, 40, 30, 0.4), 0.985)
 check(p2 - pu2 > 0.05, f"a genuine fixture effect still shows ({(p2 - pu2) * 100:+.1f} pts)")
 
+# ---------------------------------------------------------------- the record fades too (docs/62)
+# His own record over 40 appearances is blended into every number at up to 40% of it, and those
+# forty games used to count EQUALLY -- the one layer in the engine that did not decay. A game from
+# a year ago weighed as much as last week's, which is most of why his last ten games were worth
+# about a third of his number.
+from core import recency_weights
+import numpy as np
+
+# a player who was poor and is now good: the same 40 games, two ways of counting them
+old_half = [0] * 20
+new_half = [1] * 20
+games = np.array(old_half + new_half, float)          # oldest first, as the engine stores them
+k, n = int(games.sum()), len(games)
+w = recency_weights(n, 20.0)
+rate_w = float((w * games).sum() / w.sum())
+neff = float(w.sum() ** 2 / (w * w).sum())
+check(abs(k / n - 0.5) < 1e-9, "flat: a player who was poor then good reads as exactly average")
+check(rate_w > 0.62, f"weighted: the same forty games read as {rate_w:.0%}, because the good half is the recent half")
+check(neff < n, f"and fewer games stand behind it ({neff:.0f} of {n}), so it is not also claiming more certainty")
+
+d_flat = TI.anchor_shift(0.50, k, n, 30.0, 0.4)
+emp_w = (rate_w * neff + 1.0) / (neff + 2.0)
+d_wtd = TI.anchor_shift_rate(0.50, emp_w, neff, 30.0, 0.4)
+check(abs(d_flat) < 1e-6, "flat: the record moves his number not at all -- it averaged his two halves away")
+check(d_wtd > 0.15, f"weighted: it pulls him up, because that is what he has been doing lately (shift {d_wtd:+.2f})")
+p_flat, p_wtd = TI.shift_one(0.50, d_flat, 0.985), TI.shift_one(0.50, d_wtd, 0.985)
+check(p_wtd - p_flat > 0.03, f"worth {(p_wtd - p_flat) * 100:+.1f} points on the card")
+
+# the reverse case must work too, or it is not a weighting, it is a thumb on the scale
+rev = np.array(new_half + old_half, float)            # good then poor
+rate_r = float((w * rev).sum() / w.sum())
+d_rev = TI.anchor_shift_rate(0.50, (rate_r * neff + 1.0) / (neff + 2.0), neff, 30.0, 0.4)
+check(d_rev < -0.15, f"a player who WAS good and now is not is pulled down by the same amount ({d_rev:+.2f})")
+
+# and the two paths agree when every game is the same, which is the only case they must
+flatline = np.ones(40)
+rate_f = float((w * flatline).sum() / w.sum())
+check(abs(rate_f - 1.0) < 1e-9, "a player who cleared it every time reads as 1.0 either way")
+
 print("ok")

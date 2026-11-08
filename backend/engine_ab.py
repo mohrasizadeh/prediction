@@ -45,6 +45,10 @@ VARIANTS = {
     "player_hl_8": ({"player_hl": 8.0}, "engine.player_half_life = 8"),
     "all": ({"script_v2": True, "fit_player_r": True, "opp_pos_k": 20.0, "xg_blend": 0.5, "sot_opp": True}, "(all five)"),
 }
+# `engine.anchor_recency` is deliberately NOT a variant here. This runner scores `expected` -- the
+# mean the engine predicts -- and the record anchor moves `p`, after the engine has returned, in
+# engine_bridge. A variant for it would run, report a z, and the z would be about nothing. It is
+# measured against scored outcomes instead: scripts/measure/anchor_recency.py (docs/62).
 PLAYER_STATS = ("shots", "sot", "tackles")
 
 

@@ -461,6 +461,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
     rec = TI.Record(db, min_n=int(S.get(db, "engine.earned_min_n")), k=float(S.get(db, "engine.earned_prior_k"))) if earned else None
     anchor = bool(S.get(db, "engine.player_anchor")); anchor_min = int(S.get(db, "engine.anchor_min_games"))
     anchor_k = float(S.get(db, "engine.anchor_k")); anchor_w = float(S.get(db, "engine.anchor_max_w")); p_cap = float(S.get(db, "engine.p_cap"))
+    anchor_rec = bool(S.get(db, "engine.anchor_recency"))
     pmap = CAL.current(db)         # raw likelihood -> the percentage people see (docs/21); None = off
     lgdoc = db.leagues.find_one({"iid": league_iid}, {"_id": 0}) or {"iid": league_iid}
     lctx = MC.league_context(db, lgdoc, now) if S.get(db, "engine.match_context") else {}   # results form and stakes (docs/22)
@@ -535,7 +536,15 @@ def run_league(db, league_iid: int, now=None) -> dict:
             # starts, so for a substitute it pulled a short-minutes chance far above the model (docs/36 H9).
             anchor_d = 0.0
             if anchor and gate_badge in ("confirmed", "likely") and f.rec_n is not None and f.rec_n >= anchor_min:
-                anchor_d = TI.anchor_shift(p, f.rec_k, f.rec_n, anchor_k, anchor_w)
+                # docs/62: his record, counted the way everything else in the engine counts -- with
+                # the recent games worth more. The flat version was the one layer that did not decay
+                # at all, at up to 40% of the number, which is most of what held recent form down.
+                if anchor_rec and f.rec_rate is not None and f.rec_neff is not None:
+                    # the smoothing the flat path gets from (k+1)/(n+2), applied to the weighted share
+                    emp = (f.rec_rate * f.rec_neff + 1.0) / (f.rec_neff + 2.0)
+                    anchor_d = TI.anchor_shift_rate(p, emp, f.rec_neff, anchor_k, anchor_w)
+                else:
+                    anchor_d = TI.anchor_shift(p, f.rec_k, f.rec_n, anchor_k, anchor_w)
                 p = TI.shift_one(p, anchor_d, p_cap)
                 lo = TI.shift_one(lo, anchor_d, p_cap)
                 hi = TI.shift_one(hi, anchor_d, p_cap)
@@ -593,7 +602,10 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "player_iid": int(f.player) if f.player is not None else None, "pos": f.pos,
                          "stat": f.stat, "thr": float(f.thr), "market": label_for(db, f.scope, f.stat, f.thr, labels),
                          "expected": float(f.expected), "p": float(p), "lo": float(lo), "hi": float(hi),
-                         "p_model": float(f.p), "p_pre_anchor": float(p_pre_anchor), "rec_k": f.rec_k, "rec_n": f.rec_n, "state": state, "calibration": (pmap or {}).get("version"),
+                         "p_model": float(f.p), "p_pre_anchor": float(p_pre_anchor), "rec_k": f.rec_k, "rec_n": f.rec_n,
+                         # docs/62: the same record weighted by recency, stored whether or not the switch
+                         # is on, so the two anchors can be compared on settled results later.
+                         "rec_rate": f.rec_rate, "rec_neff": f.rec_neff, "anchor_d": float(anchor_d), "state": state, "calibration": (pmap or {}).get("version"),
                          "p_play": float(f.p_play), "lineup_confirmed": confirmed, "lineup_badge": badge,
                          # docs/59: the record the badge was read off, so it can be checked and shown
                          "starts_recent": f.starts_recent, "club_recent": f.club_recent,
