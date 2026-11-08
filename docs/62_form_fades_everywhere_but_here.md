@@ -108,21 +108,60 @@ earlier matches only, walking forward. Log loss, lower better, with a bootstrap 
 Every interval on those five excludes zero, and both directions are monotonic in the half-life:
 shorter is steadily better for availability and steadily worse for output.
 
+## And then on the engine's own markets (2026-11-08)
+
+The obvious objection to the table above is that none of those targets is a market this engine
+sells. So: per-player per-match shots, shots on target and tackles, scraped from FBref and published
+for reuse by `JaseZiv/worldfootballR_data` (release `fb_advanced_match_stats`), Premier League.
+Tackles run 2017-08 to 2025-09 (83,515 appearances, 1,675 players); shots and on target cover
+2024-08 to 2025-09 (8,464 appearances). Both tables carry minutes, so a player who appeared and did
+nothing is a zero rather than a missing row. Same method, same clustered bootstrap.
+`scripts/measure/recency_on_shots_and_tackles.py`.
+
+| line | n | flat | hl 20 | hl 12 | hl 8 | hl 5 |
+|---|---|---|---|---|---|---|
+| 1+ shot | 3,753 | 0.5983 | **+0.0019** | **+0.0026** | +0.0027 | +0.0012 |
+| 2+ shots | 3,753 | 0.4700 | **+0.0012** | +0.0013 | +0.0007 | −0.0020 |
+| 3+ shots | 3,753 | 0.3099 | +0.0006 | +0.0002 | −0.0013 | **−0.0060** |
+| 1+ on target | 3,753 | 0.5005 | +0.0004 | +0.0001 | −0.0010 | **−0.0045** |
+| 2+ on target | 3,753 | 0.2177 | −0.0006 | **−0.0020** | **−0.0047** | **−0.0119** |
+| 1+ tackle | 70,014 | 0.5830 | **+0.0018** | **+0.0015** | −0.0001 | **−0.0049** |
+| 2+ tackles | 70,014 | 0.5481 | **+0.0014** | +0.0008 | **−0.0013** | **−0.0068** |
+| 3+ tackles | 70,014 | 0.3926 | +0.0004 | **−0.0008** | **−0.0036** | **−0.0106** |
+| **pooled** | **228,807** | **0.5006** | **+0.0012** | +0.0005 | **−0.0016** | **−0.0072** |
+
+Bold is an interval excluding zero. The shape is unmistakable: **half-life 20 is the optimum, and
+it is what the engine already ships.** Weighting at 20 beats a flat window by a hair; every shorter
+half-life is worse, and worse the shorter it gets.
+
+### What that means for the question that was asked
+
+The owner's intuition — the last five, the last ten, weigh them more — is **right about whether a
+player is available and wrong about what he does.** Both on real football, both out of sample:
+
+| | half-life 20 | half-life 8 |
+|---|---|---|
+| does he start | **+0.0198** | **+0.0390** |
+| does he play 60 minutes | **+0.0132** | **+0.0258** |
+| shots, on target, tackles (pooled) | +0.0012 | −0.0016 |
+
+Availability responds to recency by a factor of ten to thirty. Output barely responds at 20 and
+degrades below it. A role change is a fact about now; a hot run of shots is mostly noise.
+
 ### What that means for `engine.anchor_recency`
 
-**Leave it off.** The anchor blends toward a player's record on *shots, on target and tackles* —
-performance counts. On the closest analogues this data can supply, recency weighting makes those
-predictions **worse**, and worse faster the shorter the half-life. The mechanism this setting
-implements is real, and it is pointed at the wrong record.
+**On, at the shipped half-life, and only there.** Measured on the markets it actually serves it is
+worth +0.0012 of log loss pooled over 228,807 predictions, with the interval excluding zero. That is
+a real gain and a small one — about a fifth of a percent — and it exists only at half-life 20.
+Pair it with a shorter half-life and it turns negative.
 
-That is the honest outcome of building it: the switch exists, it is measured, and the measurement
-says do not use it here. It stays in the codebase because the measurement could change on shots
-themselves, and because `rec_rate`/`rec_neff` are now stored either way.
+So the default is now true, and `engine.player_half_life` must stay at 20. The earlier reading of
+this page said leave it off; that was written before shots and tackles could be tested, from
+analogues (goals, cards, saves) that turn out to behave differently from the markets themselves.
 
-This also vindicates the original design. A flat forty-game record is not an oversight — for an
-output count it is **better** than fading, because a hot run in goals or cards is mostly noise and
-a longer window is a better estimate of the rate underneath. The engine was right and the reasoning
-for it had simply never been written down.
+The original design still comes out well. A flat forty-game record was close to right: the best
+weighting found anywhere in this exercise beats it by a fifth of a percent, and most of the
+alternatives are worse than it. Whoever chose a long window was not being careless.
 
 ### Where the win actually is
 

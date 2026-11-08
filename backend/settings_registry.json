@@ -813,11 +813,11 @@
     "key": "engine.anchor_recency",
     "label": "Weight a player's record by how recent it is",
     "type": "bool",
-    "default": false,
+    "default": true,
     "group": "Engine",
     "public": false,
     "applies_at": "next_engine_run",
-    "help": "His own record over his last 40 appearances is blended into every number, at up to 40% of it. Off, those forty games count equally, so a game from a year ago weighs as much as last week's -- the only layer in the engine that does not fade. On, they fade at the player half-life, like everything else, which raises what his last ten games are worth from about a third of the number to nearly half. Measure it with engine_ab.py before switching it on."
+    "help": "His own record over his last 40 appearances is blended into every number, at up to 40% of it. Off, those forty games count equally, so a game from a year ago weighs as much as last week's -- the only layer in the engine that does not fade. On, they fade at the player half-life, like everything else, which raises what his last ten games are worth from about a third of the number to nearly half. Measured on 228,807 real Premier League appearances (docs/62): worth about a fifth of a percent of log loss at the shipped half-life of 20, and WORSE at any shorter one. If you shorten engine.player_half_life, turn this off."
   },
   {
     "key": "engine.player_half_life",
