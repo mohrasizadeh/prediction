@@ -2,7 +2,8 @@
 
 Proves: automatic lines differ by player and team (no single "12+ shots / 5+ corners" for everyone) and stay inside
 the likelihood band; labels are built for any line; likely starters can be Solid or Strong before the lineup, others
-say "Watch until lineups are out"; every forecast carries its usual number and the lift over it, total goals included; player lines are \"if he plays\" with a lineup badge; the feed ranks by
+say "Watch until lineups are out"; every forecast carries its usual number and the lift over it, total goals included; player lines are \"if he plays\" with a lineup badge, and that badge is read off how many of his club's last matches he
+started rather than off a chance-to-play gate he could never reach (docs/59); the feed ranks by
 that lift, never leads with a near-certain line, and the old order is one setting away; team averages are recency-
 weighted, opponent-judged and capped; one wild match moves a referee's normalised number far less than his plain
 average; the match page carries the referee line; the daily job writes referee_stats.
@@ -125,8 +126,12 @@ wrong = [(r["p"], r["tier"], r["lineup_badge"]) for r in pre
 check(not wrong, f"Strong and Solid are read off the number shown, not off a discounted one: {wrong[:3]}")
 check(any(r["tier"] in ("Strong", "Solid") for r in plain) or not plain,
       "a player whose lineup is not settled can still reach Solid on his number alone")
-badges = {r["lineup_badge"] for r in pre if r["tier"] in ("Strong", "Solid")}
-check(len(badges) >= 2 or len(pre) < 20, f"the tier does not sort players by lineup badge ({badges})")
+# This used to look for BOTH badges among the Solid and Strong rows. Since docs/59 the badge is
+# read off the player's record of starting, and almost every published regular is correctly
+# "likely", so finding one badge there no longer means the tier is sorting on it -- the test could
+# only fail for the right reason by accident. The guarantee itself is checked twice instead: the
+# line above (a player the lineup gate does not pass still reaches Solid) and the docs/59 section
+# below, which runs the league with the badge rule off and on and compares every tier.
 # A whitelist of exact sentences needs editing every time a note is added, which is how it missed the one docs/48
 # introduced ("Solid once the lineup is confirmed", on a line held back by the chance to play rather than by the
 # lineup rule). Match the shapes instead.
@@ -169,10 +174,130 @@ print('[player lines are "if he plays", with a lineup badge (docs/27)]')
 pl_rows = [r for r in rows if r["scope"] == "player"]
 check(all(r["p_basis"] == "played" for r in pl_rows) and all(r["p_basis"] == "all" and r["lineup_badge"] is None for r in rows if r["scope"] == "team"),
       "player forecasts are marked 'if he plays'; team forecasts are not")
-check(all(r["lineup_badge"] == ("likely" if r["p_play"] >= 0.85 else "unsure") for r in pl_rows), "badge before lineups: Likely lineup at 85%+ chance to play, else Not sure")
+# docs/59: the badge is read off his record of starting. The share is a necessary condition for
+# "Likely lineup" and a sufficient one for "Lineup not sure" -- a stated doubt or a run of missed
+# club matches can only ever lower it, never raise it -- so both directions are checked here.
+_share = float(S.get(db, "engine.starter_start_share"))
+_rec = [r for r in pl_rows if r["lineup_badge"] in ("likely", "unsure")]
+check(_rec and all(r.get("club_recent") for r in _rec),
+      f"every pre-lineup player card carries the record its badge was read off ({len(_rec)} of them)")
+check(all(r["starts_recent"] / r["club_recent"] >= _share for r in _rec if r["lineup_badge"] == "likely"),
+      f"badge before lineups: Likely lineup only once he has started {_share:.0%} of his club's last matches")
+check(all(r["lineup_badge"] == "unsure" for r in _rec if r["starts_recent"] / r["club_recent"] < _share),
+      "...and a player who started fewer than that is always Lineup not sure")
 check(all(r["p_play"] >= 0.5 for r in pl_rows), "a player unlikely to play gets no card")
 check(all(r["lineup_badge"] in ("likely", "unsure", "confirmed", "bench") for r in pl_rows),
       "every player line carries a lineup badge, which is where the start question is answered")
+
+print("[Likely lineup is read off his record of starting (docs/59)]")
+# The badge used to be `p_play >= engine.likely_starter_p` (0.85), and that gate was unreachable.
+# `p_play` comes from the absence model, whose input is a recency-weighted start rate with a
+# Laplace prior: at half-life 12 sum(w) converges to 17.83, so ps <= 18.83/19.83 = 0.9496 even for
+# a player who started EVERY game, and ABSENCE_START turns that into p_play <= 0.8812. The gate
+# therefore sat at 96% of the achievable maximum and asked for about 97.6% of recent games started.
+# Measured on this demo league 48 hours out: 43 of 85 player cards read "Lineup not sure", among
+# them a player who had started NINE of his club's last ten and three who had started all ten.
+#
+# So the badge now asks what the owner asked for, and what the ten-game strip under it already
+# shows: of his club's last N matches, what share did he start.
+SB = B.starter_badge
+def sb(k, n, missed=0, doubtful=False, enabled=True, fallback="unsure"):
+    return SB(k, n, missed, doubtful, enabled=enabled, share=0.6, max_missed=1, fallback=fallback)
+check(sb(6, 10) == "likely" and sb(8, 10) == "likely" and sb(10, 10) == "likely",
+      "started 6 or more of his club's last 10: Likely lineup")
+check(sb(5, 10, fallback="likely") == "unsure" and sb(2, 10, fallback="likely") == "unsure",
+      "started 5 of 10 or fewer: Lineup not sure -- a rotation player, whatever the old gate said")
+check(sb(10, 10, missed=1) == "likely" and sb(10, 10, missed=2, fallback="likely") == "unsure",
+      "one missed club match is ordinary rotation; a run of two is how an unannounced absence looks")
+check(sb(10, 10, doubtful=True, fallback="likely") == "unsure",
+      "the feed or the admin says Doubtful: Lineup not sure, however good the record")
+check(sb(2, 10, enabled=True, fallback="likely") == "unsure" and sb(2, 10, enabled=False, fallback="likely") == "likely",
+      "setting off: the old chance-to-play rule comes back, untouched")
+# A record we cannot READ is never an answer. It falls back to the old gate, both ways, because
+# "no record" must not quietly mean "every player in this league is a doubt" -- which is the trap
+# the unmapped `minutes` key has already sprung twice (see engine_bridge.build_frames).
+for _k, _n in ((None, None), (None, 10), (0, 0), (3, 0), (3, None)):
+    check(sb(_k, _n, fallback="likely") == "likely" and sb(_k, _n, fallback="unsure") == "unsure",
+          f"no readable record ({_k} of {_n}): the badge falls back to the chance-to-play gate, both ways")
+
+# ...and the engine is what decides whether the record is readable, from the DATA it holds.
+_ms2, _tg2, _pg2, _ap2, _diag2 = B.build_frames(db, lg["iid"], int(S.get(db, "engine.history_rounds")))
+_as_of2 = int(_ms2["round"].max()) + 1
+def _record(pgx, apx=None):
+    e = B.configure_engine(db)
+    e.fit(_ms2, _tg2, pgx, _as_of2, appearances=_ap2 if apx is None else apx)
+    return {int(pid): (i.get("starts_recent"), i.get("club_recent")) for pid, i in e.pl.items()}
+_base = _record(_pg2)
+check(_base and all(n and k is not None for k, n in _base.values()),
+      f"the demo league has a readable start record for all {len(_base)} players")
+# A signing has no record of the matches played before he arrived, so the window starts at his
+# first appearance for the club. Without that, a player who joined four matches ago and started
+# every one of them reads 4 of 10 and is called a doubt for his first two months.
+_w10 = sorted(_ms2["round"].unique())[-10:]
+_ever = next(pid for pid, (k, n) in sorted(_base.items()) if (k, n) == (10, 10))
+_cut = (_pg2["player"] == _ever) & (_pg2["round"].isin(_w10[:4]))
+_ncut = (_ap2["player"] == _ever) & (_ap2["round"].isin(_w10[:4]))
+_signing = _record(_pg2[~_cut].copy(), _ap2[~_ncut].copy())
+check(_signing[_ever] == (6, 6),
+      f"a player first seen four matches into the window is judged on those six, not charged for the four before he arrived: {_signing[_ever]}")
+check(all(_signing[pid] == _base[pid] for pid in _base if pid != _ever),
+      "...and trimming changes nothing for everyone who was there all along, so absences still count against them")
+# `provider.pitchapi.player_keys.minutes.key` ships as null. The badge is read off STARTS exactly
+# so that an unmapped minutes column cannot reach it. Prove it: all-null and all-zero minutes.
+_null = _pg2.copy(); _null["minutes"] = np.nan
+_zero = _pg2.copy(); _zero["minutes"] = 0.0
+check(_record(_null) == _base, "minutes all null (unmapped provider key): every start record unchanged, not blank")
+check(_record(_zero) == _base, "minutes all zero (mapped but never sent): every start record unchanged, not blank")
+# `started` is the column the badge DOES read, and it comes from the lineups endpoint, so a league
+# without that coverage reports eleven substitutes a side. That has to read as "no record" -- the
+# same shape of bug as the unmapped minutes key, one column over.
+_nolu = _pg2.copy(); _nolu["started"] = 0
+check(all(k is None and n is None for k, n in _record(_nolu).values()),
+      "lineups not covered (started never set): no readable record, so the badge falls back rather than calling the whole league a doubt")
+_gap = _pg2[~_pg2["round"].isin(sorted(_ms2["round"].unique())[-10:])].copy()
+check(all(k is None and n is None for k, n in _record(_gap).values()),
+      "a provider gap over the whole window: no readable record, again a fallback and not a league of doubts")
+# And the outer guard that means the badge is never even asked: a league whose minutes column is
+# empty is skipped before any forecast is written.
+_saved = [(d["match_iid"], d["player_iid"], d.get("minutes"))
+          for d in db.player_match_stats.find({}, {"match_iid": 1, "player_iid": 1, "minutes": 1})]
+db.player_match_stats.update_many({}, {"$set": {"minutes": None}})
+_blank = B.build_frames(db, lg["iid"], int(S.get(db, "engine.history_rounds")))
+check(_blank[4]["blank_columns"] == ["minutes"] and len(_blank[2]) == 0,
+      "a league with no minutes at all is caught upstream, by name, and writes no player forecast")
+for _mi, _pi, _v in _saved:
+    db.player_match_stats.update_one({"match_iid": _mi, "player_iid": _pi}, {"$set": {"minutes": _v}})
+
+# The whole league, with the rule off and on. The badge is a DISPLAY signal: the tier grades the
+# percentage alone (tiering.py), engine.min_p_play still decides on the chance to play whether a
+# card exists at all, and neither may move when the badge does.
+S.put(db, "engine.starter_from_record", False)
+B.run_league(db, lg["iid"], now=now)
+_off = {r["fkey"]: r for r in db.forecasts.find({"scope": "player"}, {"_id": 0, "contrib": 0})}
+S.put(db, "engine.starter_from_record", True)
+B.run_league(db, lg["iid"], now=now)
+_on = {r["fkey"]: r for r in db.forecasts.find({"scope": "player"}, {"_id": 0, "contrib": 0})}
+check(set(_off) == set(_on), f"the same cards exist either way: {len(_off)} off, {len(_on)} on")
+check(all(_off[k]["tier"] == _on[k]["tier"] for k in _off), "...with the same tier on every one of them")
+check(all(_off[k]["tier_basis"] == _on[k]["tier_basis"] and _off[k]["tier_note"] == _on[k]["tier_note"] for k in _off),
+      "...the same tier basis and the same note")
+check(all(abs(_off[k]["p"] - _on[k]["p"]) < 1e-12 and abs(_off[k]["p_play"] - _on[k]["p_play"]) < 1e-12 for k in _off),
+      "...and the same percentage and chance to play: only the badge moved")
+_pre = [k for k in _off if _off[k]["state"] == "pre"]
+check(not [k for k in _pre if _off[k]["lineup_badge"] == "likely" and _on[k]["lineup_badge"] == "unsure"],
+      "no player the old gate called a likely starter is demoted by his record")
+_moved = [k for k in _pre if _off[k]["lineup_badge"] == "unsure" and _on[k]["lineup_badge"] == "likely"]
+check(_moved and all(_on[k]["starts_recent"] / _on[k]["club_recent"] >= float(S.get(db, "engine.starter_start_share"))
+                     for k in _moved),
+      f"{len(_moved)} lines move to Likely lineup, every one of them a player who starts for his club")
+_still = [k for k in _pre if _on[k]["lineup_badge"] == "unsure"]
+check(all(_on[k]["starts_recent"] / _on[k]["club_recent"] < float(S.get(db, "engine.starter_start_share"))
+          for k in _still),
+      f"{len(_still)} lines stay Lineup not sure, every one a player who starts well under half for his club")
+check(len(_still) < len([k for k in _pre if _off[k]["lineup_badge"] == "unsure"]) / 2,
+      "pre-lineup doubt is no longer the majority verdict: "
+      f"{len([k for k in _pre if _off[k]['lineup_badge'] == 'unsure'])} of {len(_pre)} -> {len(_still)} of {len(_pre)}")
+
 S.put(db, "engine.condition_on_play", False)
 B.run_league(db, lg["iid"], now=now)
 old_rows = {r["fkey"]: r for r in db.forecasts.find({"scope": "player"}, {"_id": 0, "contrib": 0})}

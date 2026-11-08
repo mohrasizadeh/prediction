@@ -139,6 +139,16 @@ class Forecast:
                                         # the opponent is actually worth: "against the meanest 58%, the leakiest 79%".
     p_start: float | None = None        # his chance to START (docs/55). p_play is the chance to feature, which is
                                         # near 1 for a regular substitute, so a gate on p_play does not catch him.
+    # docs/59: his RECORD of starting, which is what the lineup badge is really asking about.
+    # `starts_recent` of his club's last `club_recent` matches -- the CLUB's fixtures, so that
+    # absences count against him, from his first appearance for them, so that a new signing is not
+    # charged for the matches played before he arrived. None = no readable record (see fit): the
+    # badge then falls back to the chance-to-play gate rather than calling him a doubt on missing
+    # data.
+    starts_recent: int | None = None
+    club_recent: int | None = None
+    missed_recent: int | None = None    # his club's most recent matches he has missed, in a row
+    doubtful: bool = False              # flagged doubtful by the injury feed or the admin
 
 
 # Availability (docs/22). A player who has not featured in his club's last matches is often injured, suspended or
@@ -147,6 +157,12 @@ class Forecast:
 # Held-out gain in log loss per player-game: starts +0.138 (z +38), plays +0.165 (z +41), every league.
 ABSENCE_START = (-0.107, 0.719, -1.238, -0.791, -0.356, -1.065)
 ABSENCE_PLAY = (1.043, 0.288, -1.219, -0.642, -0.363, -1.036)
+
+# docs/59: how many starters a club's match row must average before the `started` flag is believed
+# enough to read a start record off it. A real eleven gives 10 or 11 here (goalkeepers are usually
+# excluded by engine.exclude_positions). Well under that means the lineups endpoint is not covered
+# for this league, not that the club fielded a team of substitutes.
+MIN_STARTERS_SEEN = 7.0
 
 
 # Match context on expected goals (docs/22). Poisson coefficients on top of team strength, fitted walk-forward on
@@ -240,6 +256,7 @@ class SoccerEngine:
         self.absence = True                         # availability model (missed recent matches); docs/22
         self.match_context = True                   # results form and stakes on expected goals; docs/22
         self.likely_starter_p = None                # chance to play at or above this = treated as a starter, full minutes
+        self.start_window = 10                      # docs/59: club matches the start RECORD is read over (0 = off)
         self.norm_blend = 0.5                       # weight of the normalised team average in team_norm stats
         self.start_model = None                     # context.StartModel, set by set_start_model()
         self.start_on = False                       # applied only when its walk-forward gate passed
@@ -527,6 +544,8 @@ class SoccerEngine:
             ap = appearances[appearances["round"] < as_of]
             for (pid, team), g in ap.groupby(["player", "team"]):
                 played[(int(pid), int(team))] = set(g["game_id"])
+        n_win = int(self.start_window or 0)          # docs/59: the start-record window, in club matches
+        own, club_starts, club_win = {}, {}, {}
         for pid, info in self.pl.items():
             tgl = team_games.get(info["team"], [])
             mine = played.get((int(pid), int(info["team"])))
@@ -538,6 +557,50 @@ class SoccerEngine:
                     break
                 missed += 1
             info["missed"] = missed
+            # docs/59: and his record of STARTING over the same window -- see below.
+            g_own = info["g"][info["g"]["team"] == info["team"]]
+            st = dict(zip(g_own["game_id"].astype(int), g_own["started"].astype(int)))
+            w0 = tgl[-n_win:] if n_win > 0 else []
+            club_starts[info["team"]] = club_starts.get(info["team"], 0) + sum(
+                1 for gid in w0 if st.get(int(gid), 0) == 1)
+            first = next((i for i, gid in enumerate(w0) if gid in mine), None)
+            w = w0[first:] if first is not None else []
+            own[pid] = (sum(1 for gid in w if st.get(int(gid), 0) == 1), len(w))
+            club_win[info["team"]] = len(w0)
+
+        # docs/59: his recent record of STARTING, which is what the lineup badge asks about.
+        #
+        # Counted over his CLUB's last `start_window` matches, not over his own appearances. The two
+        # are different and only the first answers the question: a player who missed five of the
+        # club's last ten and started the five he played started 100% of his appearances and 50% of
+        # his club's games. Measured on the demo league, the appearance share passes 84 of 85 player
+        # cards at 0.5 and 81 at 0.6 -- it cannot tell a regular from a stand-in, because the games
+        # that would have told them apart are exactly the ones it leaves out.
+        #
+        # `starts_recent` is None when there is no record worth reading, and None means "fall back
+        # to the chance-to-play gate", never "unsure". Three cases:
+        #   * fewer than half the window of club matches on record at all (early season);
+        #   * a window whose rows carry far too few starters. `started` comes from the LINEUPS
+        #     endpoint (normalize.normalize_match: `p["started"] = p["ext_id"] in started`), so a
+        #     league without that coverage reports eleven substitutes a side -- and a badge keyed
+        #     on it would quietly call every player in the league a doubt. That is the same shape
+        #     of bug as the unmapped `minutes` key, one column over, so it is guarded here rather
+        #     than left to be discovered in production;
+        #   * fewer than half the window of club matches since he ARRIVED. The window is trimmed to
+        #     start at his first appearance for the club, because a signing has no record of the
+        #     matches played before he was there and counting them as games he did not start would
+        #     call every new arrival a doubt for his first two months. Trimming changes nothing for
+        #     a player who has been at the club all along, which is almost everyone, so absences
+        #     still count against him.
+        min_games = max(3, (n_win + 1) // 2)
+        for pid, info in self.pl.items():
+            k, n = own.get(pid, (0, 0))
+            n_club = club_win.get(info["team"], 0)
+            seen = club_starts.get(info["team"], 0) / n_club if n_club else 0.0
+            ok = n_club >= min_games and seen >= MIN_STARTERS_SEEN and n >= min_games
+            info["starts_recent"] = int(k) if ok else None
+            info["club_recent"] = int(n) if ok else None
+
         self.squads = {}
         for pid, info in self.pl.items():
             self.squads.setdefault(info["team"], {})[pid] = info
@@ -1111,6 +1174,10 @@ class SoccerEngine:
                                             rec_k=int((last40 > thr).sum()), rec_n=int(len(last40)),
                                             thr_personal=thr_own, span=span, span_lo=s_lo, span_hi=s_hi,
                                             p_start=float(ps_start),
+                                            starts_recent=info.get("starts_recent"),
+                                            club_recent=info.get("club_recent"),
+                                            missed_recent=int(info.get("missed", 0)),
+                                            doubtful=bool(info.get("doubtful")),
                                             expected_usual=(mu_usual_p / max(float(pplay), 1e-3)) if self.cond_play else mu_usual_p))
         mh, ma = (1.0, 1.0)
         if self.match_context and match_ctx:

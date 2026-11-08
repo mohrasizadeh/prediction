@@ -1042,6 +1042,46 @@
     "help": "Before lineups, a player with at least this chance to play can be Solid or Strong. On 2015/16 data, pre-lineup Strong for these players came true 83% of the time, Solid 71% (docs/25). 1.0 = only confirmed lineups."
   },
   {
+    "key": "engine.starter_from_record",
+    "group": "Engine",
+    "label": "Likely lineup from his record of starting",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "ON: before the eleven is published, the \"Likely lineup\" badge is read off how many of his club's last matches the player STARTED (the two settings below). OFF: the old rule, chance to play at or above \"Likely starter\". The old rule could not reach its own gate -- the chance to play is capped near 0.88 by the absence model, so 0.85 asked for about 97.6% of recent games started, and on the demo league 48 hours out 43 of 85 player cards read \"Lineup not sure\", one of them a player who had started nine of his club's last ten. This setting changes the BADGE only: the tier still grades the percentage alone and \"Hide players unlikely to play\" still works on the chance to play."
+  },
+  {
+    "key": "engine.starter_record_n",
+    "group": "Engine",
+    "label": "Likely lineup: club matches to look at",
+    "type": "int",
+    "default": 10,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "How many of the CLUB's most recent matches the start record is read over. The club's fixtures, not the player's appearances: a player who missed five of the last ten and started the five he played started 100% of his appearances and half of his club's games, and only the second number says whether he is a regular. Ten matches is what the card already draws under his name. The window starts at his first appearance for the club, so a new signing is not charged for the matches played before he arrived. A club with fewer than half this many matches on record, a player with fewer than half of them since he arrived, or a league whose lineups are not covered has no readable record, and falls back to the chance-to-play rule instead of being called a doubt."
+  },
+  {
+    "key": "engine.starter_start_share",
+    "group": "Engine",
+    "label": "Likely lineup: share of those matches he started",
+    "type": "number",
+    "default": 0.6,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "Start this share of the club's recent matches and the badge reads \"Likely lineup\". \"Likely\" is a more-likely-than-not call, so the honest floor is 0.5; 0.6 -- six of the last ten -- clears it with a margin. Measured on the demo league: 0.5 and 0.6 differ by one card, and every player left at \"Lineup not sure\" by 0.6 had started five or fewer of his club's last ten. 1.0 = only a player who started every one of them."
+  },
+  {
+    "key": "engine.starter_max_missed",
+    "group": "Engine",
+    "label": "Likely lineup: club matches he may have just missed",
+    "type": "int",
+    "default": 1,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "A player who has missed more than this many of his club's LATEST matches in a row is \"Lineup not sure\" whatever his record before that, because a run of absences is how an injury or a suspension looks in the data before anyone tells us. One missed match is ordinary rotation. The same count drives the absence model (docs/22). A player the feed or the admin marks Doubtful is \"Lineup not sure\" too, regardless of this."
+  },
+  {
     "key": "engine.condition_on_play",
     "group": "Engine",
     "label": "Player lines: \"if he plays\"",

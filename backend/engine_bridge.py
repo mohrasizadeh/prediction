@@ -151,7 +151,45 @@ def configure_engine(db) -> E.SoccerEngine:
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
     eng.likely_starter_p = float(S.get(db, "engine.likely_starter_p"))   # likely starters get full minutes, no chance-to-play discount
+    eng.start_window = int(S.get(db, "engine.starter_record_n"))         # docs/59: club matches the start record is read over
     return eng
+
+
+# ------------------------------------------------------- lineup badge (docs/59)
+# "Likely lineup" vs "Lineup not sure" before the eleven is published.
+#
+# It used to be `p_play >= engine.likely_starter_p` (0.85), and that gate was unreachable in
+# practice. `p_play` comes from the absence model, whose input is a recency-weighted start rate with
+# a Laplace prior: with a half-life of 12, sum(w) converges to 17.83, so ps <= 18.83/19.83 = 0.9496
+# even for a player who has started EVERY game, and ABSENCE_START turns that ceiling into
+# p_play <= 0.8812. A 0.85 gate therefore sits at 96% of the achievable maximum and asks for
+# ps >= 0.9286, which is about 97.6% of recent games started. Measured on the demo league 48 hours
+# out, 43 of the 85 player cards read "Lineup not sure", and of the 35 the record promotes, 8 were
+# players who had STARTED NINE of their club's last ten matches and 3 had started all ten -- held
+# back by a p_play of 0.84 against a gate of 0.85, on a scale whose maximum is 0.88.
+#
+# So the badge is read off the record instead, which is what the owner asked for and what a reader
+# can check against the ten-game strip right below it: of his club's last N matches, what share did
+# he start. The scale reaches 1.0, so a threshold in the middle of it means what it says.
+#
+# The badge is a DISPLAY signal and nothing else. The tier grades `p` alone (see tiering.py), and
+# `engine.min_p_play` still decides whether a card exists at all, on `p_play` -- both are left
+# exactly as they were, which is why `gate_badge` below is kept and used for them.
+def starter_badge(starts_recent, club_recent, missed_recent, doubtful, *,
+                  enabled: bool, share: float, max_missed: int, fallback: str) -> str:
+    """-> "likely" | "unsure" for a player whose eleven is not published yet.
+
+    `fallback` is the old chance-to-play answer, returned whenever the record cannot decide. A
+    missing record NEVER means "unsure": a league whose provider keys are unmapped would otherwise
+    badge every player in it a doubt, which is the trap the unmapped `minutes` key already sprang
+    twice (see build_frames). `starts_recent is None` is the engine saying so -- too few club
+    matches to judge, or a `started` column with no starters in it.
+    """
+    if not enabled or not club_recent or starts_recent is None:
+        return fallback
+    if doubtful or int(missed_recent or 0) > int(max_missed):
+        return "unsure"          # a doubt the feed has stated, or a run of missed club matches
+    return "likely" if float(starts_recent) / float(club_recent) >= float(share) else "unsure"
 
 
 def enabled_markets(db, league_iid: int) -> dict:
@@ -378,6 +416,10 @@ def run_league(db, league_iid: int, now=None) -> dict:
     strong = tuple(S.get(db, "engine.tier_strong")); solid = tuple(S.get(db, "engine.tier_solid"))
     labels = S.get(db, "copy.market_labels")
     likely_gate = float(S.get(db, "engine.likely_starter_p"))
+    # docs/59: the lineup badge is read off his record of starting, not off `p_play`
+    from_record = bool(S.get(db, "engine.starter_from_record"))
+    rec_share = float(S.get(db, "engine.starter_start_share"))
+    rec_missed = int(S.get(db, "engine.starter_max_missed"))
     min_play = float(S.get(db, "engine.min_p_play")); cond = bool(S.get(db, "engine.condition_on_play"))
     min_start = float(S.get(db, "engine.min_p_start"))   # docs/55: a regular substitute features in nearly every
                                                          # match, so a gate on the chance to FEATURE never catches him
@@ -440,30 +482,39 @@ def run_league(db, league_iid: int, now=None) -> dict:
             p_pre_anchor = p
             # Lineup badge (docs/27). A player's percentage is "if he plays"; whether he plays is the badge.
             #   confirmed: in the announced eleven   bench: lineup out, he is not in it
-            #   likely:    chance to play >= likely_starter_p before lineups (Solid and Strong allowed)
-            #   unsure:    anything else (Watch at most)
+            #   likely:    a regular starter by his recent record (docs/59; starter_badge above)
+            #   unsure:    anything else
+            #
+            # `gate_badge` is the OLD answer, `p_play >= likely_starter_p`. Everything that is not
+            # the badge still reads it, unchanged and deliberately: the card's existence
+            # (engine.min_p_play, engine.min_p_start), the record anchor that moves the percentage,
+            # and the legacy non-earned tier. Only the badge -- the words under the player's name --
+            # is decided by the record.
             if f.scope == "team":
-                badge = None
+                badge = gate_badge = None
             elif state == "lineup":
-                badge = "confirmed" if float(f.p_play) >= 0.999 else "bench"
+                badge = gate_badge = "confirmed" if float(f.p_play) >= 0.999 else "bench"
             else:
-                badge = "likely" if float(f.p_play) >= likely_gate else "unsure"
+                gate_badge = "likely" if float(f.p_play) >= likely_gate else "unsure"
+                badge = starter_badge(f.starts_recent, f.club_recent, f.missed_recent, f.doubtful,
+                                      enabled=from_record, share=rec_share, max_missed=rec_missed,
+                                      fallback=gate_badge)
             # His own record counts (docs/32), but only when he is expected to start: the record comes mostly from
             # starts, so for a substitute it pulled a short-minutes chance far above the model (docs/36 H9).
-            if anchor and badge in ("confirmed", "likely") and f.rec_n is not None and f.rec_n >= anchor_min:
+            if anchor and gate_badge in ("confirmed", "likely") and f.rec_n is not None and f.rec_n >= anchor_min:
                 p, lo, hi = TI.anchor(p, lo, hi, f.rec_k, f.rec_n, anchor_k, anchor_w, p_cap)
-            if cond and badge == "unsure" and float(f.p_play) < min_play:
+            if cond and gate_badge == "unsure" and float(f.p_play) < min_play:
                 continue                                         # rarely plays: no card, however high the "if he plays" number
             # docs/55: measured over 165 players, the median chance to feature is 0.93 in every class, including
             # fringe players whose chance to start is 0.41 -- so min_p_play lets them through and their card is then
             # built from a 46-minute blend and shown beside a strip of starts. This gate asks the right question.
-            if min_start > 0 and badge == "unsure" and f.p_start is not None and float(f.p_start) < min_start:
+            if min_start > 0 and gate_badge == "unsure" and f.p_start is not None and float(f.p_start) < min_start:
                 continue
             # docs/52: is this the entity's own half-way line, or one of the neighbours kept for the Finder?
             is_own = f.thr_personal is not None and abs(float(f.thr) - float(f.thr_personal)) < 1e-9
             p_usual_raw = CAL.apply(pmap, f.p_usual, state, f.scope) if f.p_usual is not None else None
-            solid_ok = badge in (None, "confirmed", "likely")
-            basis = {None: "team", "confirmed": "lineup", "likely": "likely_starter"}.get(badge, "pre")
+            solid_ok = gate_badge in (None, "confirmed", "likely")
+            basis = {None: "team", "confirmed": "lineup", "likely": "likely_starter"}.get(gate_badge, "pre")
             if earned:                                           # docs/31: the label is earned from the number shown and our results
                 t, tier_note = TI.assign(db, rec, {"p": p, "lo": lo, "hi": hi, "scope": f.scope, "stat": f.stat,
                                                    "p_play": float(f.p_play), "lineup_badge": badge,
@@ -472,7 +523,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
             else:
                 t = tier(p, lo, solid_ok, strong=strong, solid=solid)
                 t_full = tier(p, lo, True, strong=strong, solid=solid)
-                tier_note = ("On the bench: Watch only" if badge == "bench" else "Watch until lineups are out") if (not solid_ok and t_full != t) else None
+                tier_note = ("On the bench: Watch only" if gate_badge == "bench" else "Watch until lineups are out") if (not solid_ok and t_full != t) else None
             # docs/52: with personal lines on, only the entity's own rung is a forecast worth grading. The
             # neighbours exist so the Finder can answer "what about 2+?" -- they are not insights, and if they
             # keep a tier the feed falls back to them the moment the entity's own line has nothing to say,
@@ -497,6 +548,8 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "expected": float(f.expected), "p": float(p), "lo": float(lo), "hi": float(hi),
                          "p_model": float(f.p), "p_pre_anchor": float(p_pre_anchor), "rec_k": f.rec_k, "rec_n": f.rec_n, "state": state, "calibration": (pmap or {}).get("version"),
                          "p_play": float(f.p_play), "lineup_confirmed": confirmed, "lineup_badge": badge,
+                         # docs/59: the record the badge was read off, so it can be checked and shown
+                         "starts_recent": f.starts_recent, "club_recent": f.club_recent,
                          "p_basis": "played" if (cond and f.scope == "player") else "all", "tier": t,
                          "tier_basis": basis, "tier_note": tier_note,
                          "p_usual": p_usual, "edge": (float(p) - p_usual) if p_usual is not None else 0.0,

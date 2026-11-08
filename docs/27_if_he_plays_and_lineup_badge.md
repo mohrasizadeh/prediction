@@ -45,6 +45,15 @@ The number is accurate, so **before lineups we ship it with no correction map**.
 
 ## 2. Lineup badge
 
+> **The `likely` / `unsure` rule below is superseded by `59_likely_lineup_from_his_record.md`.**
+> `p_play >= engine.likely_starter_p` could not be met: the absence model caps `p_play` at 0.8812,
+> so a gate at 0.85 asked for about 97.6% of recent games started and badged half the regular
+> starters in a league "Lineup not sure". The badge is now read off how many of his club's last ten
+> matches he started. `confirmed`, `bench` and `null` are unchanged, and so is everything else in
+> this document. The "Tiers allowed" column was already superseded by
+> `58_the_tier_grades_the_number.md`: the tier grades the percentage alone and does not read the
+> badge.
+
 Field on each forecast: `lineup_badge`.
 
 | Value | When | Card text | Tiers allowed |
