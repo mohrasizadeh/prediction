@@ -1,4 +1,4 @@
-# 37. Engine upgrades: five candidates and how to decide on them
+# 37. Engine upgrades: six candidates and how to decide on them
 
 Written 2026-11-01. Four changes to the forecast engine are built and shipped **off**. Each one is switched on only
 if it beats what you run today, on your own matches, by the project's usual margin. The script that decides is
@@ -10,7 +10,7 @@ for the result, opponent concession in every team total, a player share with a m
 isotonic calibration and earned tiers. Several of its ideas we have already tested and rejected on real data
 (tactical style layers, formation shape, rotation on team totals: docs/18). What it had that we did not is below.
 
-## 1. The five candidates
+## 1. The six candidates
 
 | Setting | What it adds | Why it might help |
 |---|---|---|
@@ -18,6 +18,7 @@ isotonic calibration and earned tiers. Several of its ideas we have already test
 | `engine.fit_player_r` | Works out how much a player's count bounces around its average from your own results. | Today those numbers are fixed guesses (shots 6, on target 5, tackles 10) set before any real data existed. They set the width of every player percentage. |
 | `engine.opp_pos_k` | What this opponent lets players in that position do, as a factor on each player's share. | The team total already knows the opponent. It does not know that this opponent is soft against wide players and hard against strikers. This is the cheap version of a full-back-versus-winger matchup. |
 | `engine.xg_blend` | A second Dixon-Coles fitted on expected goals, blended into the match chances. | Goals are few and swingy. Expected goals say more about how good a side is with the same number of matches. Our feed carries team expected goals. |
+| `engine.player_half_life` | A separate half-life for the PLAYER layer, in matches. 0 inherits `engine.half_life_rounds`. | One parameter was governing two things that move at different speeds: the team GLM's row weights (`engine.py:493`) and the player rate posterior (`:1083`). A club's attack is a squad and a system and changes across a season; a player's rate changes when he switches flank, loses the set pieces or gets a new manager. Twenty matches was chosen for the first and silently inherited by the second. |
 | `engine.sot_against` | On-target measured against what the opponent concedes **on target**, in place of what they concede in shots. | On-target is the one market with no opponent of its own: `TEAM_DIMS` has pairs for shots, corners and tackles but not for `sot`, so it borrows the shots pair. A defence that gives up 15 shots a game reads the same whether they fly on target or are blocked, and a goalkeeper who saves everything is invisible. The column has been ingested all along and the team page already draws it as "On target against". |
 
 ### What each one does to the maths
@@ -89,6 +90,23 @@ Expect it to take a while: it refits the whole engine many times. Start with one
 **Do not fill this in from the demo database.** That league is simulated. It has no position-specific defensive
 behaviour, so `opp_pos` is noise there and the gate correctly throws it out; and its expected goals are derived
 from its goals, so `xg_blend` looks good for a circular reason. Only your own matches decide.
+
+#### `engine.player_half_life`: a null the simulator was always going to produce
+
+Measured, 120 simulated matches, refit every 4 rounds. The team layers came back byte-identical,
+which is the check that the split is scoped to the player layer only.
+
+| variant | player shots | player on target | player tackles |
+|---|---|---|---|
+| 12 matches | −0.0001 (z −0.35) | +0.0000 (z +0.15) | +0.0000 (z +0.10) |
+| 8 matches | −0.0005 (z −0.61) | −0.0000 (z −0.04) | −0.0002 (z −0.22) |
+
+This league **cannot** pass it. `simulate.py:61` draws each player a `skill_shots` once, at league
+creation, and `:141` allocates every match from that same fixed weight — a simulated player's rate
+never moves. There is no switching flank, no losing the set pieces, no new manager, which are the
+phenomena a shorter half-life exists to track. Where nothing drifts, forgetting faster can only add
+noise, and the slightly negative scores are exactly that. Untested, not disproven. Run
+`python backend/engine_ab.py --only player_hl_12,player_hl_8` on real leagues, where form moves.
 
 #### `engine.sot_against`: what the demo said, and why it cannot settle it
 

@@ -200,6 +200,7 @@ class SoccerEngine:
                  style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None, cond_play=False,
                  minutes_floor=0.0,
                  ratings_blend=0.0, script_v2=False, fit_player_r=False, opp_pos_k=0.0, xg_blend=0.0, sot_against=False,
+                 player_half_life=0.0,
                  personal_lines=False, personal_spread=1):
         self.interactions = interactions
         # Player lines are "if he plays" (docs/27). His chance to play is shown as a lineup badge, not folded into the percentage.
@@ -247,6 +248,13 @@ class SoccerEngine:
             TEAM_THR.setdefault(st_, list(EXTRA_THR.get(st_, [])))
         self.lineup_l2 = lineup_l2
         self.hl = half_life_rounds
+        # A PLAYER'S form and a CLUB's strength do not move at the same speed, and one half-life was
+        # governing both. A club's attack is a property of a squad and a system and changes over a
+        # season; a player's rate changes when he switches flank, loses the set pieces or gets a new
+        # manager -- which is a handful of matches, not twenty. `self.hl` keeps the team GLM's row
+        # weights; this governs the player layer alone. 0 means "the same as the team", which is
+        # exactly today's behaviour.
+        self.player_hl = float(player_half_life) or float(half_life_rounds)
         self.k = style_k
         self.min_round = min_round
         self.n_draws = n_draws
@@ -638,7 +646,7 @@ class SoccerEngine:
                     continue
                 counts = ap[st].values.astype(float)
                 E = (ap["team_" + st] * ap["minutes"] / 90.0).values.astype(float)
-                w_ = recency_weights(len(ap), self.hl)
+                w_ = recency_weights(len(ap), self.player_hl)
                 base = self.rho[st].get(info["pos"])
                 if base is None or not np.isfinite(base):
                     continue
@@ -1080,7 +1088,7 @@ class SoccerEngine:
                 for pid, info in squad.items():
                     g = info["g"]; ap = g[g["minutes"] > 0]
                     E = (ap["team_" + s] * ap["minutes"] / 90.0).values
-                    post[pid] = shrunk_rate(ap[s].values, E, self.rho[s][info["pos"]], self.player_prior.get(s, 40.0), self.hl)
+                    post[pid] = shrunk_rate(ap[s].values, E, self.rho[s][info["pos"]], self.player_prior.get(s, 40.0), self.player_hl)
                     # what this opponent allows to his position (docs/37). The shares are renormalised below, so the
                     # team total does not change: this only moves the count between the players on the pitch.
                     opp_pos_f[pid] = self._opp_pos_factor(s, Y, info["pos"]) if self.opp_pos_k > 0 else 1.0

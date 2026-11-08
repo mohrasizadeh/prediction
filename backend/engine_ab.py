@@ -41,6 +41,8 @@ VARIANTS = {
     "opp_pos": ({"opp_pos_k": 20.0}, "engine.opp_pos_k"),
     "xg_blend": ({"xg_blend": 0.5}, "engine.xg_blend"),
     "sot_against": ({"sot_opp": True}, "engine.sot_against"),
+    "player_hl_12": ({"player_hl": 12.0}, "engine.player_half_life = 12"),
+    "player_hl_8": ({"player_hl": 8.0}, "engine.player_half_life = 8"),
     "all": ({"script_v2": True, "fit_player_r": True, "opp_pos_k": 20.0, "xg_blend": 0.5, "sot_opp": True}, "(all five)"),
 }
 PLAYER_STATS = ("shots", "sot", "tackles")

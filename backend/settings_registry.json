@@ -770,6 +770,16 @@
     "help": ""
   },
   {
+    "key": "engine.player_half_life",
+    "label": "Player form half-life (matches)",
+    "type": "number",
+    "default": 0,
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "How fast a player's own rate forgets, in matches. 0 means use the team half-life above, which is how it has always worked. A club's attack is a squad and a system and changes over a season; a player's rate changes when he switches flank, loses the set pieces or gets a new manager, which is a handful of matches. Lower means his last few games count for more. Switch off 0 only after engine_ab.py passes it."
+  },
+  {
     "key": "engine.strength_decay",
     "group": "Engine",
     "label": "How fast old results fade (team strength)",

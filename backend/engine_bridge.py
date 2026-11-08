@@ -146,7 +146,9 @@ def configure_engine(db) -> E.SoccerEngine:
                          opp_pos_k=float(S.get(db, "engine.opp_pos_k") or 0.0),
                          xg_blend=float(S.get(db, "engine.xg_blend") or 0.0),
                          # on-target measured against what the opponent concedes ON TARGET
-                         sot_against=bool(S.get(db, "engine.sot_against")))
+                         sot_against=bool(S.get(db, "engine.sot_against")),
+                         # 0 = the same half-life as the team layer, which is how it has always been
+                         player_half_life=float(S.get(db, "engine.player_half_life") or 0.0))
     eng.r_player = dict(S.get(db, "engine.r_player"))      # fit_player_r replaces these during fit() when it is on
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
