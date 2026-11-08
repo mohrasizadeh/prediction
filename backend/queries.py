@@ -70,18 +70,20 @@ def fixtures_for_date(db, day: str, tz_offset_min: int = 0, league_iids=None) ->
         {"$match": {"match_iid": {"$in": [m["iid"] for m in ms]}, **NOT_HIDDEN, "tier": {"$in": ["Strong", "Solid"]}}},
         {"$group": {"_id": "$match_iid", "n": {"$sum": 1}}}])}
     lgs = _names(db, "leagues", [m["league_iid"] for m in ms])
-    best = _best_line(db, [m["iid"] for m in ms], S.get(db, "engine.market_weights"),
-                      S.get(db, "engine.lift_scale"), S.get(db, "engine.position_weights"))
+    best = _best_lines(db, [m["iid"] for m in ms], S.get(db, "engine.market_weights"),
+                       S.get(db, "engine.lift_scale"), S.get(db, "engine.position_weights"))
     for m in ms:
         m["home"], m["away"] = teams.get(m["home_iid"]), teams.get(m["away_iid"])
         m["league"] = lgs.get(m["league_iid"])
         m["probs"] = probs.get(m["iid"]); m["insight_count"] = counts.get(m["iid"], 0)
-        m["best_line"] = best.get(m["iid"])
+        lines = best.get(m["iid"]) or []
+        m["best_lines"] = lines
+        m["best_line"] = lines[0] if lines else None
     return ms
 
 
-def _best_line(db, match_iids: list[int], weights=None, scale: str = "odds", pos_weights=None) -> dict:
-    """The single line most worth saying out loud in each match (docs/redesign/v2 CRITIQUE section 1).
+def _best_lines(db, match_iids: list[int], weights=None, scale: str = "odds", pos_weights=None, limit: int = 3) -> dict:
+    """The few lines most worth saying out loud in each match (docs/redesign/v2 CRITIQUE section 1).
 
     The fixture row carried `insight_count`, and a count is not a value: every match has a similar
     number of lines, so "14 insights" never helped a reader choose which fixture to open. This gives
@@ -96,7 +98,7 @@ def _best_line(db, match_iids: list[int], weights=None, scale: str = "odds", pos
     rows = list(db.forecasts.find(
         {"match_iid": {"$in": match_iids}, **NOT_HIDDEN, "tier": {"$in": ["Strong", "Solid"]}},
         {"_id": 0, "id": 1, "match_iid": 1, "scope": 1, "stat": 1, "market": 1, "p": 1, "p_usual": 1,
-         "is_personal": 1, "span": 1, "player_iid": 1, "team_iid": 1, "edge": 1, "pos": 1}))
+         "is_personal": 1, "span": 1, "player_iid": 1, "team_iid": 1, "edge": 1, "pos": 1, "tier": 1}))
     if not rows:
         return {}
     pl = _names(db, "players", [r["player_iid"] for r in rows if r.get("player_iid")])
@@ -107,15 +109,39 @@ def _best_line(db, match_iids: list[int], weights=None, scale: str = "odds", pos
     done = {o["forecast_id"]: bool(o.get("reached"))
             for o in db.forecast_outcomes.find({"forecast_id": {"$in": [r.get("id") for r in rows if r.get("id")]}},
                                                {"_id": 0, "forecast_id": 1, "reached": 1})}
-    out: dict = {}
+    # One line per match was right while the row only PREDICTED: a reader picking a fixture needs one
+    # reason, not three. A finished row is a different object -- the answers are known, and showing
+    # one of them throws away the other nineteen we were right or wrong about. So a match carries a
+    # few, ranked the same way the feed ranks them, and the row decides how many to draw.
+    #
+    # Never two lines about the same player or club: three Haaland rungs are one fact repeated, and
+    # the second and third would push out the two other subjects the match actually has.
+    ranked: dict = {}
     for r in rows:
-        cur = out.get(r["match_iid"])
-        if cur is None or prominence(r, weights, scale, pos_weights) > cur[0]:
-            who = (pl.get(r["player_iid"]) or {}).get("name") if r.get("player_iid") else (tm.get(r["team_iid"]) or {}).get("name")
-            out[r["match_iid"]] = (prominence(r, weights, scale, pos_weights), {"who": who, "market": r.get("market"),
-                                                    "p": float(r.get("p") or 0),
-                                                    "reached": done.get(r.get("id"))})
-    return {k: v[1] for k, v in out.items()}
+        who = (pl.get(r["player_iid"]) or {}).get("name") if r.get("player_iid") else (tm.get(r["team_iid"]) or {}).get("name")
+        ranked.setdefault(r["match_iid"], []).append((
+            prominence(r, weights, scale, pos_weights),
+            ("p", r.get("player_iid")) if r.get("player_iid") else ("t", r.get("team_iid")),
+            {"who": who, "market": r.get("market"), "p": float(r.get("p") or 0),
+             "tier": r.get("tier"), "reached": done.get(r.get("id"))}))
+    out: dict = {}
+    for iid, items in ranked.items():
+        items.sort(key=lambda x: -x[0])
+        seen, keep = set(), []
+        for _score, ent, line in items:
+            if ent in seen:
+                continue
+            seen.add(ent)
+            keep.append(line)
+            if len(keep) >= limit:
+                break
+        out[iid] = keep
+    return out
+
+
+def _best_line(db, match_iids: list[int], weights=None, scale: str = "odds", pos_weights=None) -> dict:
+    """The single most prominent line per match, kept under its old name for callers that want one."""
+    return {k: v[0] for k, v in _best_lines(db, match_iids, weights, scale, pos_weights, limit=1).items() if v}
 
 
 # ------------------------------------------------------------------ Match

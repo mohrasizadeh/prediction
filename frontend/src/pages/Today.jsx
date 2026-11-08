@@ -80,6 +80,10 @@ function Row({ m }) {
   const p = m.probs;
   const fin = m.status === "final" && hs != null && as != null;
   const lead = (mine, other) => ((fin || live) && mine > other ? " is-win" : fin && mine < other ? " is-lose" : "");
+  // Three once the answers are known, one while the row is still a forecast and the reader is only
+  // choosing which match to open.
+  const all = m.best_lines?.length ? m.best_lines : (m.best_line ? [m.best_line] : []);
+  const lines = (fin ? all.slice(0, 3) : all.slice(0, 1)).filter((b) => b?.market);
   return (
     <li>
       <Link to={`/match/${m.id}`} className={`td-row${live ? " is-live" : ""}${off ? " is-off" : ""}`} data-testid={`today-row-${m.id}`}>
@@ -92,17 +96,27 @@ function Row({ m }) {
         <span className="td-bar">{p && !fin && !off ? <WdlBar home={p.p_home} draw={p.p_draw} away={p.p_away} homeName={m.home?.name} awayName={m.away?.name} testid={`today-wdl-${m.id}`} /> : !p && !fin && !off ? <small className="k-faint">No forecast yet</small> : null}</span>
         {/* CRITIQUE section 1: this said "14 insights", and a count is not a value -- every fixture
             has a similar number, so the chip never helped a reader choose which match to open. It
-            now names the one line most worth reading in that match, which is what the reader is
-            actually deciding between. */}
-        {m.best_line?.market && !off ? (
-          /* Once the match is over, the chip stops predicting and reports. Showing "82%" beside a
-             final score is the one case where we know the answer and decline to give it. */
-          <span className={"td-ins" + (m.best_line.reached === true ? " is-hit" : m.best_line.reached === false ? " is-miss" : "")}
-                data-testid={`today-insights-${m.id}`}>
-            <b>{m.best_line.who}</b> {m.best_line.market}{" "}
-            {m.best_line.reached == null
-              ? <em>{Math.round((m.best_line.p || 0) * 100)}%</em>
-              : <em>{m.best_line.reached ? "happened" : "did not"}</em>}
+            now names the lines most worth reading in that match, which is what the reader is
+            actually deciding between.
+
+            A finished row is a different object from an upcoming one. Upcoming, one line is right:
+            the reader wants ONE reason to open this match rather than the next. Finished, the
+            answers are known, and showing one of twenty we were right or wrong about throws away
+            the product's whole argument at the moment it can be made -- so a result carries up to
+            three, each saying whether it happened. The marks are a tick and a dash as well as a
+            colour, because colour never carries the meaning on its own (docs/03). */}
+        {lines.length && !off ? (
+          <span className={"td-ins-set" + (fin ? " is-done" : "")} data-testid={`today-insights-${m.id}`}>
+            {lines.map((b, i) => (
+              <span key={i} className={"td-ins" + (b.reached === true ? " is-hit" : b.reached === false ? " is-miss" : "")}
+                    data-testid={`today-ins-${m.id}-${i}`}>
+                {b.reached != null && <Icon name={b.reached ? "check" : "minus"} size={13} />}
+                <b>{b.who}</b> {b.market}{" "}
+                {b.reached == null
+                  ? <em>{Math.round((b.p || 0) * 100)}%</em>
+                  : <em>{b.reached ? "happened" : "did not"}</em>}
+              </span>
+            ))}
           </span>
         ) : m.insight_count > 0 && !off ? (
           <span className="td-ins" data-testid={`today-insights-${m.id}`}>{m.insight_count} line{m.insight_count === 1 ? "" : "s"}</span>

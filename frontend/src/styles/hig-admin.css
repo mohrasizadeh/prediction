@@ -79,7 +79,12 @@
   border-bottom: .5px solid var(--a-sep); background: transparent; }
 .a-table td, .a-mini-table td, .st-table td { border-bottom: .5px solid var(--a-sep); }
 .a-table tr:hover td { background: var(--a-fill); }
-.a-table-wrap { border: 0; border-radius: 12px; overflow: hidden; background: var(--surface1); }
+/* `overflow: hidden` here was meant to make the radius clip the table, and it also switched off
+   horizontal scrolling for EVERY wide admin table -- this file loads after admin.css, so it beat
+   both `.a-table-wrap{overflow-x:auto}` and `.a-matrix{overflow:auto}`. The coverage matrix and
+   the SportAPI fixture table had columns that simply could not be reached. `auto` clips to the
+   radius in exactly the same way and scrolls when there is something to scroll to. */
+.a-table-wrap { border: 0; border-radius: 12px; overflow: auto; background: var(--surface1); }
 
 /* ---------- Chips, badges and tags: capsules, word in the text colour */
 .a-chip, .a-badge, .a-tag, .ah-tag, .a-pub-state, .a-flags span, .av-state, .a-log-status, .p-tag {

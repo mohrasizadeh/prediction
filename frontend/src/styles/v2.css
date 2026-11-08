@@ -1979,3 +1979,33 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .header-row { min-width: 0; }
 .header-actions { min-width: 0; }
 .header-actions .btn { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 40. The fixture row once the answers are known -------------------------------------
+   Two complaints, one shape. The score sat at the far right of the row because the teams column was
+   `minmax(0, 1fr)` and ate every spare pixel, so a reader's eye crossed an empty third of the row
+   to join "Leeds United" to "1". And a finished row showed ONE of the twenty lines we were right or
+   wrong about, which is the product's argument thrown away at the moment it can be made.
+
+   The score now hugs the names (the teams column sizes to content; the slack goes to the lines),
+   and a result carries up to three. */
+.td-row { grid-template-columns: 84px minmax(0, auto) 36px minmax(0, 1fr); }
+.td-ins-set { grid-area: ins; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; min-width: 0; }
+.td-ins-set .td-ins { min-width: 0; display: inline-flex; align-items: center; gap: 6px; }
+/* Stacked once the row is reporting, so three lines read as a list rather than a sentence. */
+.td-ins-set.is-done { flex-direction: column; align-items: flex-end; gap: 4px; }
+
+/* Happened and did not happen, in the palette's own two answers -- never colour alone: each one
+   carries a mark and the word as well (docs/03). `up` and `text3` are both measured against the
+   surface in both modes, so neither is the pale-on-pale that an accent would be in light mode. */
+.td-ins.is-hit { background: color-mix(in srgb, var(--up) 15%, transparent); border-color: color-mix(in srgb, var(--up) 55%, var(--border)); color: var(--up); }
+.td-ins.is-hit em, .td-ins.is-hit b { color: var(--up); }
+.td-ins.is-hit .ico { color: var(--up); }
+.td-ins.is-miss { background: color-mix(in srgb, var(--text3) 12%, transparent); border-color: color-mix(in srgb, var(--text3) 35%, var(--border)); color: var(--text3); }
+.td-ins.is-miss em, .td-ins.is-miss b { color: var(--text3); }
+.td-ins.is-miss .ico { color: var(--text3); }
+
+@media (max-width: 720px) {
+  .td-row { grid-template-columns: 70px minmax(0, 1fr) 30px; }
+  .td-ins-set { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; flex-direction: row; flex-wrap: wrap; }
+  .td-ins-set.is-done { flex-direction: row; align-items: center; }
+}

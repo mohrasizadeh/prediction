@@ -319,4 +319,27 @@ check(not ref["ok"] and "does not map" in ref["reason"] and ref["goals"] == 0,
       "with the column unmapped the backfill refuses rather than writing zeros over the whole league")
 S.put(db, "provider.pitchapi.player_keys", keys, "selftest")
 
+# ---------------------------------------------------------------- the fixture row's lines
+# A row used to carry one line, which is right while it is still a FORECAST: the reader wants one
+# reason to open this match rather than the next. Once the match is over the answers are known, and
+# showing one of the twenty we were right or wrong about throws the argument away at the moment it
+# can be made. So a match carries a few, and never two about the same player or club.
+_m = db.matches.find_one({"status": "scheduled"})
+_rows = Q.fixtures_for_date(db, _m["kickoff"].date().isoformat(), 0)
+_r = next(x for x in _rows if x["iid"] == _m["iid"])
+check(len(_r["best_lines"]) <= 3 and len(_r["best_lines"]) >= 1, f"a fixture carries up to three lines (got {len(_r['best_lines'])})")
+check(_r["best_line"] == _r["best_lines"][0], "best_line is still the first of them, for callers that want one")
+_who = [b["who"] for b in _r["best_lines"]]
+check(len(_who) == len(set(_who)), f"never two lines about the same subject ({_who})")
+check(all(b.get("tier") in ("Strong", "Solid") for b in _r["best_lines"]), "every line carries its tier, so the row can grade them")
+check(all(b["reached"] is None for b in _r["best_lines"]), "while the match is ahead, nothing claims to have happened")
+# play it out and grade the answers
+db.matches.update_one({"iid": _m["iid"]}, {"$set": {"status": "final", "hg": 2, "ag": 1}})
+for _i, _f in enumerate(db.forecasts.find({"match_iid": _m["iid"], "is_current": True})):
+    db.forecast_outcomes.insert_one({"forecast_id": _f["id"], "fkey": _f["fkey"], "reached": _i % 2 == 0, "player_played": True})
+_r2 = next(x for x in Q.fixtures_for_date(db, _m["kickoff"].date().isoformat(), 0) if x["iid"] == _m["iid"])
+check(all(b["reached"] in (True, False) for b in _r2["best_lines"]),
+      "once it is over every line says whether it happened, rather than what we expected")
+check(len(_r2["best_lines"]) == len(_r["best_lines"]), "a finished row keeps its lines: the run only clears matches it forecast again")
+
 print("\nALL QUERY CHECKS PASSED")
