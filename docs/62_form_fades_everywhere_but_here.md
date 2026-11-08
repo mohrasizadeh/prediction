@@ -163,7 +163,40 @@ The original design still comes out well. A flat forty-game record was close to 
 weighting found anywhere in this exercise beats it by a fifth of a percent, and most of the
 alternatives are worse than it. Whoever chose a long window was not being careless.
 
-### Where the win actually is
+### Where the win actually is — and it is now taken
+
+`engine.py` built the lineup record as a **flat** count: `starts_recent` over the club's last
+`engine.starter_record_n` (10) matches, read by `starter_badge` as
+`starts_recent / club_recent >= engine.starter_start_share` (0.6).
+
+Sweeping the half-life on that question, over the same 59,644 real appearances:
+
+| half-life | gain on "does he start" |
+|---|---|
+| 20 | +0.0198 |
+| 12 | +0.0298 |
+| 8 | +0.0390 |
+| 5 | +0.0484 |
+| **4** | **+0.0511** |
+| 3 | +0.0518 |
+| 2 | +0.0453 (turns over) |
+
+Pooled with "does he play 60 minutes", the peak is at **4** (+0.0393), with 3 and 5 statistically
+indistinguishable from it. That is about **a tenth of the flat log loss** — the largest measured
+gain anywhere in this engine, and roughly thirty times what recency is worth on the output markets.
+
+`engine.starter_half_life` ships at **4**. 0 restores the flat count exactly.
+
+The case it fixes, pinned in `selftest_anchor.py`: two players who both started **5 of the club's
+last 10**. One started the recent five — he has just come into the side, and his weighted record
+reads 70%, clearing the 60% bar: **Likely lineup**. The other started the old five and has been
+dropped; his reads 30%: **Lineup not sure**. The flat count scored both at exactly 50% and called
+them the same thing.
+
+The whole-game pair is untouched. "Started 7 of the club's last 10" stays two numbers a reader can
+count, and it is still the fallback whenever the weighted share is unavailable.
+
+### The earlier reading of this section
 
 `engine.py` builds the lineup record as a **flat** count: `info["starts_recent"] = int(k)` over the
 club's last `n_win` matches, and `starter_badge` reads `starts_recent / club_recent >= share`. The

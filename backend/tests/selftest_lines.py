@@ -311,14 +311,35 @@ check(all(abs(_off[k]["p"] - _on[k]["p"]) < 1e-12 and abs(_off[k]["p_play"] - _o
 _pre = [k for k in _off if _off[k]["state"] == "pre"]
 check(not [k for k in _pre if _off[k]["lineup_badge"] == "likely" and _on[k]["lineup_badge"] == "unsure"],
       "no player the old gate called a likely starter is demoted by his record")
+_bar = float(S.get(db, "engine.starter_start_share"))
+# docs/62: the badge is decided on the share the engine actually used, which is the RECENCY-WEIGHTED
+# one when engine.starter_half_life is set and the flat pair otherwise. These two checks used to
+# read the flat ratio, and that stopped being the rule the badge follows.
+def _share(k):
+    r = _on[k]
+    return float(r["starts_share"]) if r.get("starts_share") is not None else r["starts_recent"] / r["club_recent"]
+def _flat(k):
+    return _on[k]["starts_recent"] / _on[k]["club_recent"]
+
 _moved = [k for k in _pre if _off[k]["lineup_badge"] == "unsure" and _on[k]["lineup_badge"] == "likely"]
-check(_moved and all(_on[k]["starts_recent"] / _on[k]["club_recent"] >= float(S.get(db, "engine.starter_start_share"))
-                     for k in _moved),
+check(_moved and all(_share(k) >= _bar for k in _moved),
       f"{len(_moved)} lines move to Likely lineup, every one of them a player who starts for his club")
 _still = [k for k in _pre if _on[k]["lineup_badge"] == "unsure"]
-check(all(_on[k]["starts_recent"] / _on[k]["club_recent"] < float(S.get(db, "engine.starter_start_share"))
-          for k in _still),
-      f"{len(_still)} lines stay Lineup not sure, every one a player who starts well under half for his club")
+check(all(_share(k) < _bar for k in _still),
+      f"{len(_still)} lines stay Lineup not sure, every one of them under the bar on the record the badge reads")
+
+# And the point of weighting it: the two records disagree, and the disagreement is the finding.
+# A player who has started 6 of his club's last 10 but not the RECENT ones is drifting out of the
+# side, and the flat count cannot tell him from one who is drifting into it.
+_drift = [k for k in _still if _flat(k) >= _bar]
+check(all(_share(k) < _bar <= _flat(k) for k in _drift),
+      f"{len(_drift)} lines are a doubt despite a flat record at or above the bar, because the recent matches were not starts")
+if _drift:
+    _k = _drift[0]
+    check(_on[_k]["starts_share"] is not None and _on[_k]["starts_recent"] == 6 and _on[_k]["club_recent"] == 10,
+          f"...e.g. started 6 of the club's last 10, but weighted that reads {_share(_k):.0%}, under the {_bar:.0%} bar")
+check(all(_on[k].get("starts_share") is not None for k in _pre if _on[k].get("club_recent")),
+      "every readable record carries the weighted share beside the countable pair")
 check(len(_still) < len([k for k in _pre if _off[k]["lineup_badge"] == "unsure"]) / 2,
       "pre-lineup doubt is no longer the majority verdict: "
       f"{len([k for k in _pre if _off[k]['lineup_badge'] == 'unsure'])} of {len(_pre)} -> {len(_still)} of {len(_pre)}")

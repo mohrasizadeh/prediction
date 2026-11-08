@@ -148,7 +148,10 @@ def configure_engine(db) -> E.SoccerEngine:
                          # on-target measured against what the opponent concedes ON TARGET
                          sot_against=bool(S.get(db, "engine.sot_against")),
                          # 0 = the same half-life as the team layer, which is how it has always been
-                         player_half_life=float(S.get(db, "engine.player_half_life") or 0.0))
+                         player_half_life=float(S.get(db, "engine.player_half_life") or 0.0),
+                         # docs/62: whether a manager picks him is a fact about NOW, and the measured
+                         # optimum is a four-match half-life. 0 restores the flat count.
+                         starter_half_life=float(S.get(db, "engine.starter_half_life") or 0.0))
     eng.r_player = dict(S.get(db, "engine.r_player"))      # fit_player_r replaces these during fit() when it is on
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
@@ -178,7 +181,7 @@ def configure_engine(db) -> E.SoccerEngine:
 # `engine.min_p_play` still decides whether a card exists at all, on `p_play` -- both are left
 # exactly as they were, which is why `gate_badge` below is kept and used for them.
 def starter_badge(starts_recent, club_recent, missed_recent, doubtful, *,
-                  enabled: bool, share: float, max_missed: int, fallback: str) -> str:
+                  enabled: bool, share: float, max_missed: int, fallback: str, weighted=None) -> str:
     """-> "likely" | "unsure" for a player whose eleven is not published yet.
 
     `fallback` is the old chance-to-play answer, returned whenever the record cannot decide. A
@@ -191,7 +194,12 @@ def starter_badge(starts_recent, club_recent, missed_recent, doubtful, *,
         return fallback
     if doubtful or int(missed_recent or 0) > int(max_missed):
         return "unsure"          # a doubt the feed has stated, or a run of missed club matches
-    return "likely" if float(starts_recent) / float(club_recent) >= float(share) else "unsure"
+    # `weighted` is the same window with the recent club matches worth more (docs/62). Measured on
+    # 59,644 real Premier League appearances it predicts the next start about a tenth of a log loss
+    # better than the flat share, which is the largest measured gain anywhere in this engine. The
+    # flat pair stays the fallback and stays what the card prints.
+    got = float(weighted) if weighted is not None else float(starts_recent) / float(club_recent)
+    return "likely" if got >= float(share) else "unsure"
 
 
 def enabled_markets(db, league_iid: int) -> dict:
@@ -531,7 +539,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
                 gate_badge = "likely" if float(f.p_play) >= likely_gate else "unsure"
                 badge = starter_badge(f.starts_recent, f.club_recent, f.missed_recent, f.doubtful,
                                       enabled=from_record, share=rec_share, max_missed=rec_missed,
-                                      fallback=gate_badge)
+                                      fallback=gate_badge, weighted=f.starts_share)
             # His own record counts (docs/32), but only when he is expected to start: the record comes mostly from
             # starts, so for a substitute it pulled a short-minutes chance far above the model (docs/36 H9).
             anchor_d = 0.0
@@ -609,6 +617,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "p_play": float(f.p_play), "lineup_confirmed": confirmed, "lineup_badge": badge,
                          # docs/59: the record the badge was read off, so it can be checked and shown
                          "starts_recent": f.starts_recent, "club_recent": f.club_recent,
+                         # the weighted share the badge actually used (docs/62); the pair above stays
+                         # the countable record the card prints
+                         "starts_share": f.starts_share,
                          "p_basis": "played" if (cond and f.scope == "player") else "all", "tier": t,
                          "tier_basis": basis, "tier_note": tier_note,
                          "p_usual": p_usual, "edge": (float(p) - p_usual) if p_usual is not None else 0.0,

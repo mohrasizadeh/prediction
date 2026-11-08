@@ -810,6 +810,16 @@
     "help": "The size limit for a video in the Media library. Video is stored in one-megabyte pieces and served a piece at a time, so a long file costs reads rather than one huge row. Mail clients do not play video at all; the library hands you a poster image and a link for that."
   },
   {
+    "key": "engine.starter_half_life",
+    "label": "How fast an old start fades (club matches)",
+    "type": "number",
+    "default": 4,
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "The lineup badge reads his record of starting over the club's last few matches. 0 counts those matches equally, which is how it worked before. A number fades them: a match this many club games ago counts half. Measured on 59,644 real Premier League appearances (docs/62) the weighted record predicts the next start about a tenth of a log loss better than a flat one, peaking near 4 and still clearly ahead at 3 and 5. This is the largest measured gain in the engine; whether a manager picks a player is a fact about now."
+  },
+  {
     "key": "engine.anchor_recency",
     "label": "Weight a player's record by how recent it is",
     "type": "bool",

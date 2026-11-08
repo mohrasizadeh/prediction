@@ -2,6 +2,8 @@
 import testkit as K
 from testkit import check
 import tiering as TI
+import numpy as np
+from core import recency_weights
 
 a = lambda p, k, n, **kw: TI.anchor(p, p - .05, min(p + .04, .99), k, n, kw.get("K", 30), kw.get("w", .4), kw.get("cap", .985))
 p, lo, hi = a(.93, 40, 40); check(p > .93 and p <= .985, "a star who cleared 40 of 40 moves up from 93%")
@@ -85,5 +87,37 @@ check(d_rev < -0.15, f"a player who WAS good and now is not is pulled down by th
 flatline = np.ones(40)
 rate_f = float((w * flatline).sum() / w.sum())
 check(abs(rate_f - 1.0) < 1e-9, "a player who cleared it every time reads as 1.0 either way")
+
+# ---------------------------------------------------------------- the lineup record fades too
+# The largest measured gain in the engine (docs/62): whether a manager picks him is a fact about
+# NOW, and a recency-weighted start record beats a flat one by about a tenth of its log loss over
+# 59,644 real Premier League appearances. The badge threshold is a share, so what has to change is
+# the share -- not the whole-game pair the card prints.
+import engine_bridge as B
+
+flat_pair = (5, 10)          # started 5 of the club's last 10, so a flat share of exactly 0.50
+SHARE = 0.6
+kw = dict(enabled=True, share=SHARE, max_missed=1, fallback="unsure")
+check(B.starter_badge(*flat_pair, 0, False, **kw) == "unsure",
+      "flat: 5 of the last 10 is under the 60% bar, so he is a doubt")
+# same ten matches, but he started the recent ones: 0,0,0,0,0,1,1,1,1,1 weighted at half-life 4
+w = recency_weights(10, 4.0)
+seq = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1], float)      # oldest first, as the engine orders them
+wshare = float((w * seq).sum() / w.sum())
+check(wshare > SHARE, f"weighted: the same ten read {wshare:.0%}, because he started the recent five")
+check(B.starter_badge(*flat_pair, 0, False, weighted=wshare, **kw) == "likely",
+      "...so a man who has just come into the side is a likely starter, not a doubt")
+# and the other way: he started the OLD five and has been dropped
+wshare2 = float((w * seq[::-1]).sum() / w.sum())
+check(wshare2 < SHARE, f"the man who has been dropped reads {wshare2:.0%}, not 50%")
+check(B.starter_badge(*flat_pair, 0, False, weighted=wshare2, **kw) == "unsure",
+      "...and stays a doubt, which the flat count could not tell apart from the first man")
+# the flat pair is still what decides when weighting is off, and None still means "no record"
+check(B.starter_badge(*flat_pair, 0, False, weighted=None, **kw) == "unsure",
+      "with no weighted share the flat pair decides, exactly as before")
+check(B.starter_badge(None, 10, 0, False, weighted=0.9, **kw) == "unsure",
+      "no record still falls back, whatever the weighted share says")
+check(B.starter_badge(*flat_pair, 5, False, weighted=0.95, **kw) == "unsure",
+      "a run of missed club matches still wins over any share")
 
 print("ok")

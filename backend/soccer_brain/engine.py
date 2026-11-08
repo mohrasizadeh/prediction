@@ -150,6 +150,9 @@ class Forecast:
     # badge then falls back to the chance-to-play gate rather than calling him a doubt on missing
     # data.
     starts_recent: int | None = None
+    # The same record weighted by recency (docs/62). None when the flat pair is None, or when
+    # engine.starter_half_life is 0, in which case the badge uses the flat pair as it always has.
+    starts_share: float | None = None
     club_recent: int | None = None
     missed_recent: int | None = None    # his club's most recent matches he has missed, in a row
     doubtful: bool = False              # flagged doubtful by the injury feed or the admin
@@ -204,7 +207,7 @@ class SoccerEngine:
                  style_half_life=None, style_opp_adjust=(), style_cap_q=None, player_prior=None, cond_play=False,
                  minutes_floor=0.0,
                  ratings_blend=0.0, script_v2=False, fit_player_r=False, opp_pos_k=0.0, xg_blend=0.0, sot_against=False,
-                 player_half_life=0.0,
+                 player_half_life=0.0, starter_half_life=0.0,
                  personal_lines=False, personal_spread=1):
         self.interactions = interactions
         # Player lines are "if he plays" (docs/27). His chance to play is shown as a lineup badge, not folded into the percentage.
@@ -259,6 +262,8 @@ class SoccerEngine:
         # weights; this governs the player layer alone. 0 means "the same as the team", which is
         # exactly today's behaviour.
         self.player_hl = float(player_half_life) or float(half_life_rounds)
+        # 0 keeps the flat count the start record has always been (docs/62).
+        self.starter_hl = float(starter_half_life or 0.0)
         self.k = style_k
         self.min_round = min_round
         self.n_draws = n_draws
@@ -557,7 +562,7 @@ class SoccerEngine:
             for (pid, team), g in ap.groupby(["player", "team"]):
                 played[(int(pid), int(team))] = set(g["game_id"])
         n_win = int(self.start_window or 0)          # docs/59: the start-record window, in club matches
-        own, club_starts, club_win = {}, {}, {}
+        own, club_starts, club_win, own_share = {}, {}, {}, {}
         for pid, info in self.pl.items():
             tgl = team_games.get(info["team"], [])
             mine = played.get((int(pid), int(info["team"])))
@@ -578,6 +583,17 @@ class SoccerEngine:
             first = next((i for i, gid in enumerate(w0) if gid in mine), None)
             w = w0[first:] if first is not None else []
             own[pid] = (sum(1 for gid in w if st.get(int(gid), 0) == 1), len(w))
+            # docs/62: the same window, with the recent club matches worth more. Whether a manager
+            # picks him is a fact about now -- he has been dropped, or he has come into the side --
+            # and measured on 59,644 real Premier League appearances a recency-weighted start record
+            # beats a flat one by about a tenth of its log loss, peaking around a four-match
+            # half-life. That is ten to thirty times the gain recency is worth on what a player DOES
+            # once he is picked, which is why it is applied here and only lightly there.
+            if self.starter_hl and w:
+                sq = np.array([1.0 if st.get(int(gid), 0) == 1 else 0.0 for gid in w])
+                ww = recency_weights(len(sq), float(self.starter_hl))
+                sw = float(ww.sum())
+                own_share[pid] = float((ww * sq).sum() / sw) if sw > 0 else None
             club_win[info["team"]] = len(w0)
 
         # docs/59: his recent record of STARTING, which is what the lineup badge asks about.
@@ -612,6 +628,9 @@ class SoccerEngine:
             ok = n_club >= min_games and seen >= MIN_STARTERS_SEEN and n >= min_games
             info["starts_recent"] = int(k) if ok else None
             info["club_recent"] = int(n) if ok else None
+            # The weighted share travels beside the whole-game pair, never instead of it: the card
+            # prints "started 7 of the club's last 10", which has to stay two countable numbers.
+            info["starts_share"] = own_share.get(pid) if ok else None
 
         self.squads = {}
         for pid, info in self.pl.items():
@@ -1206,6 +1225,7 @@ class SoccerEngine:
                                             p_start=float(ps_start),
                                             starts_recent=info.get("starts_recent"),
                                             club_recent=info.get("club_recent"),
+                                            starts_share=info.get("starts_share"),
                                             missed_recent=int(info.get("missed", 0)),
                                             doubtful=bool(info.get("doubtful")),
                                             expected_usual=(mu_usual_p / max(float(pplay), 1e-3)) if self.cond_play else mu_usual_p))
