@@ -82,7 +82,64 @@ So the weighted anchor alone is a modest move. Getting a player's last ten games
 number needs the half-life shortened as well, and that is the lever docs/37 already added and has
 never been able to test.
 
-## What cannot be measured here, and why
+## Measured on real football (2026-11-08), and the answer is split
+
+Five Premier League seasons of per-player per-match records, from the openly published Fantasy
+Premier League dataset. 220,812 out-of-sample predictions: every match predicted from that player's
+earlier matches only, walking forward. Log loss, lower better, with a bootstrap clustered on
+**player** so one man's forty appearances are not counted as forty independent facts.
+`scripts/measure/recency_on_real_football.py`.
+
+**Where recency LOSES — what a player does in a match:**
+
+| target | n | flat | half-life 20 | half-life 8 |
+|---|---|---|---|---|
+| 1+ goal | 31,827 | 0.2966 | −0.0007 **worse** | −0.0044 **worse** |
+| 1+ card | 31,827 | 0.3881 | −0.0004 | −0.0030 **worse** |
+| 3+ saves (GK) | 2,290 | 0.6887 | −0.0003 | −0.0038 **worse** |
+
+**Where recency WINS — whether a player is available:**
+
+| target | n | flat | half-life 20 | half-life 8 | half-life 5 |
+|---|---|---|---|---|---|
+| 60+ minutes | 95,224 | 0.3836 | **+0.0132** | **+0.0258** | **+0.0311** |
+| starts | 59,644 | 0.3941 | **+0.0198** | **+0.0390** | **+0.0484** |
+
+Every interval on those five excludes zero, and both directions are monotonic in the half-life:
+shorter is steadily better for availability and steadily worse for output.
+
+### What that means for `engine.anchor_recency`
+
+**Leave it off.** The anchor blends toward a player's record on *shots, on target and tackles* —
+performance counts. On the closest analogues this data can supply, recency weighting makes those
+predictions **worse**, and worse faster the shorter the half-life. The mechanism this setting
+implements is real, and it is pointed at the wrong record.
+
+That is the honest outcome of building it: the switch exists, it is measured, and the measurement
+says do not use it here. It stays in the codebase because the measurement could change on shots
+themselves, and because `rec_rate`/`rec_neff` are now stored either way.
+
+This also vindicates the original design. A flat forty-game record is not an oversight — for an
+output count it is **better** than fading, because a hot run in goals or cards is mostly noise and
+a longer window is a better estimate of the rate underneath. The engine was right and the reasoning
+for it had simply never been written down.
+
+### Where the win actually is
+
+`engine.py` builds the lineup record as a **flat** count: `info["starts_recent"] = int(k)` over the
+club's last `n_win` matches, and `starter_badge` reads `starts_recent / club_recent >= share`. The
+"starts" row above *is that question*, measured: weighting it by recency is worth **+0.0198 at
+half-life 20 and +0.0390 at half-life 8**, over 59,644 predictions.
+
+So the recency idea belongs on the **availability** side — whether he plays and for how long, where
+a role change is a fact about now — and not on the output side, where it is noise. That is the next
+change worth making, and unlike the anchor it already has its evidence.
+
+## What the simulated league cannot measure, and why
+
+### The demo
+
+
 
 `scripts/measure/anchor_recency.py` reports the mechanical effect: on the demo, 46% of lines move by
 more than half a point, and where recent form disagrees with the whole window the new number follows
@@ -97,5 +154,8 @@ Nothing says the new numbers are **better**. Two reasons, both structural:
   `expected`, the mean the engine predicts, and the anchor moves `p` afterwards in `engine_bridge`.
   A variant would run, report a z, and the z would be about nothing.
 
-The real answer needs settled forecasts from a league where form moves. `rec_rate` and `rec_neff`
-are now stored for exactly that, and the script takes `--mongo`.
+Those two limits are why the question went to real football instead, in the section above. The
+demo scripts stay because they measure what the change DOES, which is still worth knowing; they just
+cannot say whether it is right. `rec_rate` and `rec_neff` are stored on every forecast either way,
+so once a few hundred shots lines have settled the anchor can be tested on the market it actually
+serves, with `--mongo`.
