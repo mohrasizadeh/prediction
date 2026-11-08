@@ -15,12 +15,16 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends
+import datetime as dt
+
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 import admin_queries as AQ
+import ad_plan as AP
 import ads as AD
 import deps as D
+import settings_store as S
 import site_studio as SS
 import textguard
 
@@ -69,6 +73,25 @@ class Design(BaseModel):
 @router.get("")
 def overview(user=Depends(perm("site.read")), db=Depends(D.get_db)):
     return {"catalogue": AD.catalogue(), "brand": brand_kit(db), "designs": AD.listing(db)}
+
+
+@router.get("/day")
+def day(date: str = Query("", max_length=10), tz: int = Query(0, ge=-900, le=900),
+        count: int = Query(0, ge=0, le=AP.MAX_COUNT), user=Depends(perm("site.read")), db=Depends(D.get_db)):
+    """The batch for one day. With no date, TOMORROW -- the owner posts the night before, so a post
+    has the evening and the morning to earn its reach."""
+    if not date:
+        local = dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=tz)
+        date = (local.date() + dt.timedelta(days=1)).isoformat()
+    try:
+        dt.date.fromisoformat(date)
+    except ValueError:
+        raise D.err(400, "BAD_DATE", "Use a date like 2026-11-09.")
+    n = count or int(S.get(db, "ads.daily_count") or AP.DEFAULT_COUNT)
+    out = AP.plan(db, date, tz, n)
+    if not out["ads"]:
+        out["next_day"] = AP.next_day_with_fixtures(db, date, tz)
+    return out
 
 
 @router.post("")

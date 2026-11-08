@@ -217,7 +217,7 @@ export function run(ctx, games, line, shown, x, y, w, h, p, fam, { down, label }
   const nh = (floor - top) * Math.min(need, vmax) / vmax;
   rr(ctx, bx, floor - nh, bw, nh, Math.min(bw * 0.28, 14)); ctx.stroke();
   ctx.restore();
-  ctx.fillStyle = p.accent; ctx.textAlign = "center";
+  ctx.fillStyle = p.ink || p.accent; ctx.textAlign = "center";
   ctx.font = font(fam, 800, Math.min(bw * 0.46, 26));
   ctx.fillText(shown || "", bx + bw / 2, floor - nh - 12);
   // the line the strip is about

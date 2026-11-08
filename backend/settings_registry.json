@@ -770,6 +770,26 @@
     "help": ""
   },
   {
+    "key": "ads.daily_count",
+    "label": "Ads prepared each day",
+    "type": "number",
+    "default": 20,
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "How many ads the builder has waiting for tomorrow's matches. They are built when you open the screen, not stored, so changing this changes the next batch."
+  },
+  {
+    "key": "ads.record_min_n",
+    "label": "Smallest record an ad may quote",
+    "type": "number",
+    "default": 150,
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "A league-and-market slice of the record needs at least this many scored forecasts before an ad may quote it. A high percentage from forty forecasts is luck, not a record, and an image is the worst place to make that claim. The sample size is printed on the ad either way."
+  },
+  {
     "key": "media.max_image_kb",
     "label": "Largest image (KB)",
     "type": "number",

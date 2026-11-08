@@ -113,3 +113,74 @@ the toggle that removes it does not exist.
 The owner types the hook. `textguard.require_clean` scans a saved design the same way it scans a
 popup or an e-mail template, and the builder refuses to save what the server would refuse. The words
 are in docs/03 and the list is `backend/textguard.py`.
+
+## 3. Twenty ads waiting for you (added 2026-11-08)
+
+The owner posts the night before, so the builder opens on **Post tomorrow**: a batch built for the
+next day's fixtures, because a post needs the evening and the morning to earn its reach.
+`backend/ad_plan.py` decides what each ad says; the browser still draws it.
+
+### The date, not "tonight"
+
+Every kicker is the fixture's date — `SUN 9 NOV`. An ad posted the night before is read the next
+morning, so "tonight" is already wrong by the time anyone sees it, and wrong again for every reader
+in another time zone.
+
+### Variety is the actual problem
+
+Twenty ads pulled naively off the feed are twenty forwards with a shots line, because that is what
+the feed ranks highest, and an account that posts that looks like one post twenty times. So the
+plan spends slots rather than taking a top-twenty:
+
+* no player twice; at most two ads per club
+* leagues and markets round-robin, so on-target, tackles and corners each get their turn and a
+  smaller league is not crowded out by the richest one
+* templates and sizes rotate, light and dark alternate
+* **the famous go first inside those constraints**, because a name a reader knows is what earns the
+  click. Fame is measured, not listed: season goals, assists, shots and minutes for a player, season
+  goals and shots for a club, normalised per league. A hand-kept list of big clubs goes stale the
+  first time somebody is promoted.
+
+The recipe is five cards, four runs, two tables, two fixtures, two club-stat ads, two record ads,
+two questions and one ask, scaled to the number requested (`ads.daily_count`, default 20). A slot
+that cannot be filled — no record yet, no club stats — is topped up with another forecast, because
+nineteen with a gap is not an answer to "I want twenty".
+
+### Square and vertical only
+
+`SIZES` in the planner is square, portrait and story. A landscape ad is for a link preview, not a
+feed. The manual builder still offers landscape and wide for exactly that.
+
+### Instagram's interface is part of the canvas
+
+A story and a reel are the same 1080×1920 file, and the reel is the harsher of the two: the profile
+row takes the top, and the caption, audio strip and button column take far more of the bottom than a
+story does. `SAFE` in `sizes.js` therefore insets story content by 260 at the top and 420 at the
+bottom; `paint()` fills the **whole** frame with the background and then moves into that box, so the
+image still bleeds edge to edge while nothing it has to say is covered. The preview can draw the
+covered bands on top, as a guide; the download is always re-painted clean.
+
+### Light mode had to be fixed before it could ship
+
+Sprout `#A9FF9B` on Chalk `#F4F7F3` is about **1.3:1**. The first light-mode ads put the big
+percentage in it, which was a pale smear. The fix is not to drop the brand colour but to pick, from
+the brand's own colours, the one that passes on this background, and only then to darken it:
+
+* `p.ink` — anything accent-coloured that is **words**, held to 4.5:1 (WCAG 1.4.3)
+* `p.accent` — bars, buttons, the meter, held to 3:1 (WCAG 1.4.11, because the run bars carry
+  meaning and are not decoration)
+* `p.onAccent` — what sits on that fill, held to 4.5:1 against it
+
+On the Forest palette this resolves to Sprout in dark mode and Forest `#034737` in light, which is
+what a designer would have picked by hand — the difference is that it is now true for whatever
+palette the owner switches to. Measured in the browser: fourteen pairs, both modes, all pass; light
+ink went from 1.3:1 to **9.92:1**.
+
+### What a record ad may claim
+
+A record ad is refused unless its league-and-market slice has `ads.record_min_n` scored forecasts
+behind it (default 150) **and** we were calibrated on it — the gap between what we said and what
+happened must be within 12 points. A 97% from forty forecasts is luck, and an image is the worst
+place to make that claim. What survives is phrased the way the track record page phrases it — "we
+said 84%, it happened 86% of the time, over 1,840 forecasts" — never as a win rate, which is not
+what this product measures and not a phrase its own word rules allow.

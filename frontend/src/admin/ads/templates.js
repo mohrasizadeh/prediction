@@ -61,7 +61,7 @@ function claimBox(ctx, c, d, p, t, x, y, w, h) {
   const px = x + 40 * t.s, pw = w - 80 * t.s;
   ctx.textAlign = "left"; ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 28 * t.s);
   ctx.fillText(D.fit(ctx, c.market || "", pw * 0.55), px, y + 62 * t.s);
-  ctx.textAlign = "right"; ctx.fillStyle = p.accent;
+  ctx.textAlign = "right"; ctx.fillStyle = p.ink;
   ctx.font = D.font(t.heading, 800, Math.min(110 * t.s, h * 0.45));
   ctx.fillText(pct(c.p), x + w - 40 * t.s, y + 104 * t.s);
   const rng = band(c.lo, c.hi);
@@ -79,7 +79,6 @@ function claimBox(ctx, c, d, p, t, x, y, w, h) {
 function card(ctx, W, H, p, t, d) {
   const c = d.card || {};
   const pad = W * 0.072, inner = W - pad * 2;
-  D.backdrop(ctx, W, H, p);
   const kick = (d.text.kicker || "Forecast").toUpperCase();
   const foot = footRoom(W, H);
   const runLabel = d.text.subhead || `His last ${(c.run || []).filter((g) => g && g.v != null).length}, and this match`;
@@ -87,7 +86,7 @@ function card(ctx, W, H, p, t, d) {
 
   if (isWide(W, H)) {
     const colW = (inner - 48 * t.s) / 2;
-    ctx.fillStyle = p.accent; ctx.textAlign = "left"; ctx.font = D.font(t.heading, 800, 24 * t.s);
+    ctx.fillStyle = p.ink; ctx.textAlign = "left"; ctx.font = D.font(t.heading, 800, 24 * t.s);
     ctx.fillText(kick, pad, pad + 20 * t.s);
     const top = pad + 52 * t.s;
     const ph = Math.min(colW * 0.42, (H - top - foot) * 0.46);
@@ -105,7 +104,7 @@ function card(ctx, W, H, p, t, d) {
     const avail = H - pad * 1.05 - foot;
     const gap = D.spread(avail, [headH, claimH, runMax], 34 * t.s);
     let y = pad * 1.05;
-    ctx.fillStyle = p.accent; ctx.textAlign = "left"; ctx.font = D.font(t.heading, 800, 26 * t.s);
+    ctx.fillStyle = p.ink; ctx.textAlign = "left"; ctx.font = D.font(t.heading, 800, 26 * t.s);
     ctx.fillText(kick, pad, y + 24 * t.s);
     y += 52 * t.s;
     cardHead(ctx, c, d, p, t, pad, y, inner, ph);
@@ -124,7 +123,6 @@ function card(ctx, W, H, p, t, d) {
 function run(ctx, W, H, p, t, d) {
   const c = d.card || {};
   const pad = W * 0.072, inner = W - pad * 2;
-  D.backdrop(ctx, W, H, p);
   const foot = footRoom(W, H);
   const kick = (d.text.kicker || "The last ten").toUpperCase();
   const label = d.text.subhead || "Each bar is one game. The dashed column is this match.";
@@ -133,7 +131,7 @@ function run(ctx, W, H, p, t, d) {
   if (isWide(W, H)) {
     const colW = inner * 0.34;
     let y = pad;
-    ctx.textAlign = "left"; ctx.fillStyle = p.accent; ctx.font = D.font(t.heading, 800, 24 * t.s);
+    ctx.textAlign = "left"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 24 * t.s);
     ctx.fillText(kick, pad, y + 22 * t.s);
     y += 56 * t.s;
     ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, 60 * t.s);
@@ -144,7 +142,7 @@ function run(ctx, W, H, p, t, d) {
     D.run(ctx, c.run, c.thr, pct(c.p), rx, pad + 14 * t.s, W - pad - rx, H - foot - (pad + 14 * t.s), p, t.body, { down: downward, label });
   } else {
     let y = pad * 1.1;
-    ctx.textAlign = "left"; ctx.fillStyle = p.accent; ctx.font = D.font(t.heading, 800, 26 * t.s);
+    ctx.textAlign = "left"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 26 * t.s);
     ctx.fillText(kick, pad, y + 24 * t.s);
     y += 62 * t.s;
     ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, 86 * t.s);
@@ -167,10 +165,9 @@ function table(ctx, W, H, p, t, d) {
   const ratio = H / W;
   const want = wide ? 8 : ratio > 1.4 ? 8 : ratio > 1.1 ? 6 : 5;
   const rows = (d.cards || []).slice(0, want);
-  D.backdrop(ctx, W, H, p);
   const foot = footRoom(W, H);
   let y = pad * 1.05;
-  ctx.textAlign = "left"; ctx.fillStyle = p.accent; ctx.font = D.font(t.heading, 800, 26 * t.s);
+  ctx.textAlign = "left"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 26 * t.s);
   ctx.fillText((d.text.kicker || "Tonight").toUpperCase(), pad, y + 24 * t.s);
   y += 52 * t.s;
   ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, (wide ? 56 : 68) * t.s);
@@ -199,7 +196,7 @@ function table(ctx, W, H, p, t, d) {
     ctx.fillText(D.fit(ctx, shortName(c.player?.name) || c.team?.name || "", textW), nx, cy - 4 * t.s);
     ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, Math.min(rh * 0.2, 26 * t.s));
     ctx.fillText(D.fit(ctx, [c.market, c.opp?.name && `vs ${c.opp.name}`].filter(Boolean).join("  ·  "), textW), nx, cy + Math.min(rh * 0.22, 30 * t.s));
-    ctx.textAlign = "right"; ctx.fillStyle = p.accent; ctx.font = D.font(t.heading, 800, Math.min(rh * 0.42, 54 * t.s));
+    ctx.textAlign = "right"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, Math.min(rh * 0.42, 54 * t.s));
     ctx.fillText(pct(c.p), rx + colW - 26 * t.s, cy + Math.min(rh * 0.14, 18 * t.s));
   });
   D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
@@ -209,7 +206,6 @@ function table(ctx, W, H, p, t, d) {
 function fixture(ctx, W, H, p, t, d) {
   const c = d.card || {};
   const pad = W * 0.072, inner = W - pad * 2;
-  D.backdrop(ctx, W, H, p);
   const foot = footRoom(W, H);
   const wide = isWide(W, H);
   const cd = Math.min(W * (wide ? 0.2 : 0.3), 300 * t.s, (H - foot) * 0.34);
@@ -241,7 +237,7 @@ function fixture(ctx, W, H, p, t, d) {
     ctx.fillText(d.text.kicker || "Leading forecast", pad + 36 * t.s, by + 48 * t.s);
     ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, 38 * t.s);
     ctx.fillText(D.fit(ctx, `${shortName(c.player?.name) || c.team?.name || ""} · ${c.market}`, inner * 0.6), pad + 36 * t.s, by + 102 * t.s);
-    ctx.textAlign = "right"; ctx.fillStyle = p.accent; ctx.font = D.font(t.heading, 800, 72 * t.s);
+    ctx.textAlign = "right"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 72 * t.s);
     ctx.fillText(pct(c.p), W - pad - 36 * t.s, by + 100 * t.s);
   }
   D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
@@ -252,9 +248,8 @@ function fixture(ctx, W, H, p, t, d) {
 // underneath, which is the whole pitch for the Finder in one image.
 function finder(ctx, W, H, p, t, d) {
   const pad = W * 0.082, inner = W - pad * 2;
-  D.backdrop(ctx, W, H, p);
   let y = pad * 1.2;
-  ctx.textAlign = "left"; ctx.fillStyle = p.accent; ctx.font = D.font(t.heading, 800, 26 * t.s);
+  ctx.textAlign = "left"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 26 * t.s);
   ctx.fillText((d.text.kicker || "Forecast Finder").toUpperCase(), pad, y + 24 * t.s);
   y += 86 * t.s;
   // the question, set big, with the brand accent swiped behind the part it turns on
@@ -267,7 +262,7 @@ function finder(ctx, W, H, p, t, d) {
   y += 64 * t.s;
   const names = (d.cards || []).slice(0, 4).map((c) => shortName(c.player?.name) || c.team?.name).filter(Boolean);
   if (d.text.stat_value) {
-    ctx.fillStyle = p.accent; ctx.font = D.font(t.heading, 800, 120 * t.s);
+    ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 120 * t.s);
     ctx.fillText(d.text.stat_value, pad, y + 100 * t.s);
     y += 136 * t.s;
   }
@@ -285,10 +280,9 @@ function finder(ctx, W, H, p, t, d) {
 // ---------------------------------------------------------------- 6. one number
 function stat(ctx, W, H, p, t, d) {
   const pad = W * 0.082, inner = W - pad * 2;
-  D.backdrop(ctx, W, H, p);
   ctx.textAlign = "center";
   const mid = H * 0.44;
-  ctx.fillStyle = p.accent; ctx.font = D.font(t.heading, 800, Math.min(W * 0.34, 380 * t.s));
+  ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, Math.min(W * 0.34, 380 * t.s));
   ctx.fillText(D.fit(ctx, d.text.stat_value || "72%", inner), W / 2, mid);
   ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, 56 * t.s);
   let y = D.block(ctx, d.text.headline || "", W / 2, mid + 80 * t.s, inner, { lineHeight: 66 * t.s, lines: 3, align: "center" });
@@ -302,14 +296,10 @@ function stat(ctx, W, H, p, t, d) {
 // ---------------------------------------------------------------- 7. headline, and 8. cover
 function headline(ctx, W, H, p, t, d, big) {
   const pad = W * 0.082, inner = W - pad * 2;
-  ctx.fillStyle = p.bg; ctx.fillRect(0, 0, W, H);
-  const g = ctx.createLinearGradient(0, H, W, 0);
-  g.addColorStop(0, D.alpha(p.accent, 0.3)); g.addColorStop(0.6, D.alpha(p.brand, 0.14)); g.addColorStop(1, D.alpha(p.bg, 0));
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   ctx.textAlign = "left";
   let y = H * (big ? 0.3 : 0.34);
   if (d.text.kicker) {
-    ctx.fillStyle = p.accent; ctx.font = D.font(t.heading, 800, 28 * t.s);
+    ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 28 * t.s);
     ctx.fillText(d.text.kicker.toUpperCase(), pad, y);
     y += 56 * t.s;
   }
@@ -336,15 +326,99 @@ function headline(ctx, W, H, p, t, d, big) {
   D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
+// ---------------------------------------------------------------- 9. a club's own numbers
+// Not a forecast: the evidence a reader can check. For and against, side by side, because a club
+// that takes eight corners and concedes two is a different story from one that trades them.
+function teamstat(ctx, W, H, p, t, d) {
+  const ts = d.teamStat || {};
+  const pad = W * 0.072, inner = W - pad * 2;
+  const foot = footRoom(W, H);
+  let y = pad * 1.05;
+  ctx.textAlign = "left"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 26 * t.s);
+  ctx.fillText((d.text.kicker || "").toUpperCase(), pad, y + 24 * t.s);
+  y += 56 * t.s;
+  const cd = Math.min(96 * t.s, W * 0.1);
+  D.chip(ctx, d.images.team, pad + cd / 2, y + cd / 2, cd, p);
+  ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, 58 * t.s);
+  ctx.fillText(D.fit(ctx, ts.team?.name || "", inner - cd - 28 * t.s), pad + cd + 28 * t.s, y + cd * 0.62);
+  y += cd + 18 * t.s;
+  ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 28 * t.s);
+  ctx.fillText(D.fit(ctx, [ts.league_name, `last ${ts.games} matches`, ts.opp?.name && `next: ${ts.opp.name}`].filter(Boolean).join("  ·  "), inner), pad, y + 26 * t.s);
+  y += 64 * t.s;
+  const rows = (ts.stats || []).slice(0, 4);
+  const avail = H - y - foot;
+  const rh = Math.min(avail / Math.max(rows.length, 1), 230 * t.s);
+  rows.forEach((r, i) => {
+    const ry = y + i * rh;
+    D.card(ctx, pad, ry, inner, rh - 14 * t.s, 24, p.surface1, p.border);
+    const cy = ry + (rh - 14 * t.s) / 2;
+    ctx.textAlign = "left"; ctx.fillStyle = p.text2; ctx.font = D.font(t.body, 600, Math.min(rh * 0.2, 30 * t.s));
+    ctx.fillText(r.label, pad + 32 * t.s, cy + 8 * t.s);
+    // for
+    ctx.textAlign = "right"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, Math.min(rh * 0.34, 48 * t.s));
+    ctx.fillText(r.avg.toFixed(1), pad + inner * 0.68, cy + 12 * t.s);
+    ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, Math.max(20 * t.s, Math.min(rh * 0.14, 26 * t.s)));
+    ctx.fillText("made", pad + inner * 0.68, cy + 38 * t.s);
+    if (r.against != null) {
+      ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, Math.min(rh * 0.34, 48 * t.s));
+      ctx.fillText(r.against.toFixed(1), pad + inner - 32 * t.s, cy + 12 * t.s);
+      ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, Math.max(20 * t.s, Math.min(rh * 0.14, 26 * t.s)));
+      ctx.fillText("faced", pad + inner - 32 * t.s, cy + 38 * t.s);
+    }
+  });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+}
+
+// ---------------------------------------------------------------- 10. how we did
+// Phrased as calibration, never as a score: "we said 84%, it happened 86%" is the honest shape of
+// the answer (queries.py track_record), and the sample size is on the image because a percentage
+// without one is not a record.
+function record(ctx, W, H, p, t, d) {
+  const r = d.record || {};
+  const pad = W * 0.082, inner = W - pad * 2;
+  const foot = footRoom(W, H);
+  let y = pad;
+  ctx.textAlign = "left"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 26 * t.s);
+  ctx.fillText((d.text.kicker || "Our record").toUpperCase(), pad, y + 24 * t.s);
+  y += 50 * t.s;
+  if (d.images.league) { D.chip(ctx, d.images.league, pad + 34 * t.s, y + 34 * t.s, 68 * t.s, p); }
+  ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, 50 * t.s);
+  y = D.block(ctx, d.text.headline || "", pad + (d.images.league ? 86 * t.s : 0), y + 46 * t.s, inner - (d.images.league ? 86 * t.s : 0), { lineHeight: 56 * t.s, lines: 2 });
+  const mid = y + (H - foot - y) * 0.36;
+  ctx.textAlign = "center";
+  ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, Math.min(W * 0.3, 320 * t.s));
+  ctx.fillText(d.text.stat_value || "", W / 2, mid);
+  ctx.fillStyle = p.text2; ctx.font = D.font(t.body, 600, 32 * t.s);
+  let yy = D.block(ctx, d.text.subhead || "", W / 2, mid + 56 * t.s, inner, { lineHeight: 42 * t.s, lines: 3, align: "center" });
+  if (r.n) {
+    ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 24 * t.s);
+    ctx.fillText(`${Number(r.n).toLocaleString()} forecasts scored after the match`, W / 2, yy + 44 * t.s);
+  }
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+}
+
 export const TEMPLATES = {
-  card, run, table, fixture, finder, stat,
+  card, run, table, fixture, finder, stat, teamstat, record,
   quote: (ctx, W, H, p, t, d) => headline(ctx, W, H, p, t, d, false),
   cover: (ctx, W, H, p, t, d) => headline(ctx, W, H, p, t, d, true),
+  // A question and an ask are the same composition as a headline. They are separate ids because the
+  // planner fills slots by id, and because "curiosity" and "cta" are what the owner calls them.
+  curiosity: (ctx, W, H, p, t, d) => headline(ctx, W, H, p, t, d, false),
+  cta: (ctx, W, H, p, t, d) => headline(ctx, W, H, p, t, d, false),
+};
+
+// Which background goes under each template. Drawn full-bleed by paint() BEFORE the safe-area
+// inset, so a story still fills the frame while its content stays clear of Instagram's interface.
+export const BG = {
+  card: "wash", run: "wash", table: "wash", fixture: "wash", finder: "wash", teamstat: "wash", record: "wash",
+  stat: "wash", quote: "brand", cover: "brand", curiosity: "brand", cta: "brand",
 };
 
 /** The images a template needs, so the page can fetch them before it draws. */
-export function needed(template, dcard, cards, logo) {
+export function needed(template, dcard, cards, logo, extra) {
   const out = { logo };
+  if (template === "teamstat") out.team = extra?.teamStat?.team?.image || null;
+  if (template === "record") out.league = extra?.record?.league_image || null;
   if (template === "table") out.rows = (cards || []).map((c) => c.player?.image || c.team?.image || null);
   if (dcard) {
     out.player = dcard.player?.image || null;

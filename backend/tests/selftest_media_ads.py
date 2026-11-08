@@ -111,4 +111,97 @@ with TestClient(srv.app) as owner:
           "both tools sit under Marketing")
     check(mk["media"]["route"] == "/admin/media", "the Images route is unchanged, so an old bookmark still lands")
 
+    # ------------------------------------------------------------ the batch for tomorrow
+    import ad_plan as AP
+    import datetime as _dt
+
+# ---------------------------------------------------------------- the batch for tomorrow
+    tomorrow = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=1))
+    day = tomorrow.date().isoformat()
+    ko = tomorrow.replace(hour=19, minute=0, second=0, microsecond=0)
+
+    # three leagues, four clubs each, with enough players and markets for the planner to vary
+    LGS = [(9001, "Premier League"), (9002, "La Liga"), (9003, "Serie A")]
+    STATS = ["shots", "sot", "tackles"]
+    for lid, lname in LGS:
+        db.leagues.update_one({"iid": lid}, {"$set": {"iid": lid, "id": f"l{lid}", "ext_id": f"x-l{lid}", "name": lname}}, upsert=True)
+    pid = tid = mid = 9000
+    for lid, _ in LGS:
+        for t in range(4):
+            tid += 1
+            db.teams.update_one({"iid": tid}, {"$set": {"iid": tid, "id": f"t{tid}", "ext_id": f"x-t{tid}", "name": f"Club {tid}", "league_iid": lid}}, upsert=True)
+        for m in range(2):
+            mid += 1
+            home, away = tid - 3 + m * 2, tid - 2 + m * 2
+            db.matches.update_one({"iid": mid}, {"$set": {"iid": mid, "id": f"m{mid}", "ext_id": f"x-m{mid}", "league_iid": lid, "home_iid": home, "away_iid": away,
+                                   "kickoff": ko, "status": "scheduled"}}, upsert=True)
+            for k in range(6):
+                pid += 1
+                team = home if k < 3 else away
+                db.players.update_one({"iid": pid}, {"$set": {"iid": pid, "id": f"p{pid}", "ext_id": f"x-p{pid}", "name": f"Player {pid}", "team_iid": team, "pos": "FWD"}}, upsert=True)
+                # season volume, which is how the planner knows who is famous
+                for g in range(8):
+                    db.player_match_stats.insert_one({"player_iid": pid, "team_iid": team, "league_iid": lid,
+                                                      "match_iid": 900 + g, "kickoff": ko - _dt.timedelta(days=7 * (g + 1)),
+                                                      "minutes": 90, "goals": pid % 5, "assists": 1,
+                                                      "shots": 3, "sot": 1, "tackles": 2})
+                for si, st in enumerate(STATS):
+                    db.forecasts.insert_one({
+                        "id": f"f{pid}{si}", "fkey": f"k{pid}-{st}", "is_current": True, "hidden": False, "carrier": False,
+                        "scope": "player", "stat": st, "thr": 1.5, "p": 0.6 + (pid % 7) * 0.04, "lo": 0.55, "hi": 0.9,
+                        "tier": "Strong" if si == 0 else "Solid", "market": f"2+ {st}", "kickoff": ko,
+                        "league_iid": lid, "match_iid": mid, "team_iid": team, "opp_iid": away if team == home else home,
+                        "player_iid": pid, "pos": "FWD", "run": [{"v": 2, "m": 90}] * 10})
+            db.team_match_stats.insert_many([
+                {"team_iid": home, "league_iid": lid, "match_iid": 900 + g, "kickoff": ko, "opp_iid": away, "home": True,
+                 "goals": 2, "shots": 14, "shots_against": 9, "sot": 5, "sot_against": 3,
+                 "corners": 6, "corners_against": 4, "tackles": 15, "tackles_against": 16} for g in range(8)])
+
+    plan = AP.plan(db, day, 0, 20)
+    ads = plan["ads"]
+    check(len(ads) == 20, f"the batch is the twenty that were asked for (got {len(ads)})")
+    check(plan["kicker"] == ko.strftime("%a %-d %b").upper() and "TONIGHT" not in plan["kicker"],
+          f"every ad is kicked by the DATE, not 'tonight' ({plan['kicker']})")
+    check(all(a["size"] in ("square", "portrait", "story") for a in ads), "square and vertical only; no landscape in the batch")
+    check({a["mode"] for a in ads} == {"dark", "light"}, "both light and dark are in the batch")
+    check(len({a["template"] for a in ads}) >= 4, "at least four kinds of ad, not twenty of one")
+    keys = [k for a in ads for k in a["fkeys"] if a["template"] in ("card", "run")]
+    players = [k.split("-")[0] for k in keys]
+    check(len(players) == len(set(players)), "no player carries two ads of his own")
+    stats = {k.split("-", 1)[1] for k in keys if "-" in k}
+    check(len(stats) >= 2, f"the batch spreads across markets, not just shots ({sorted(stats)})")
+    lgs = {db.forecasts.find_one({"fkey": k})["league_iid"] for k in keys}
+    check(len(lgs) >= 2, f"the batch spreads across leagues ({sorted(lgs)})")
+    check(all(a["kicker"] == plan["kicker"] for a in ads), "the date is on every ad in the batch")
+
+    # The honesty guard on a record ad. Three slices, three outcomes: too small, well calibrated,
+    # and a slice we were simply wrong about. Only the middle one may become an image.
+    def outcome(tag, i, league, stat, p_, hit):
+        db.forecast_outcomes.insert_one({"forecast_id": f"o-{tag}{i}", "fkey": f"o-{tag}{i}", "league_iid": league,
+                                         "stat": stat, "scope": "player", "tier": "Strong", "p": p_,
+                                         "reached": hit, "player_played": True})
+    for i in range(60):
+        outcome("small", i, 9001, "shots", 0.8, True)
+    for i in range(200):
+        outcome("good", i, 9002, "sot", 0.85, i % 7 != 0)          # said 85, happened 86
+    for i in range(200):
+        outcome("bad", i, 9003, "tackles", 0.9, i % 3 != 0)        # said 90, happened 67
+    sl = AP.record_slices(db, 150)
+    got = {(x["league_iid"], x["stat"]) for x in sl}
+    check((9001, "shots") not in got, "a slice with sixty forecasts behind it is too small to put on an ad")
+    check((9003, "tackles") not in got, "a slice we were wrong about is never an ad, however high the percentage")
+    good = next((x for x in sl if (x["league_iid"], x["stat"]) == (9002, "sot")), None)
+    check(good and good["n"] == 200 and 0.84 <= good["actual"] <= 0.88,
+          "a well-calibrated slice is offered, with its sample size, so the ad can print it")
+
+    # over HTTP, with the default date being tomorrow
+    r = admin.get("/api/admin/ads/day", params={"tz": 0, "count": 12})
+    j = r.json()
+    check(r.status_code == 200 and j["day"] == day and len(j["ads"]) == 12, "the day route defaults to tomorrow and honours the count")
+    check(len(j["cards"]) > 0 and all("image" in (c.get("player") or {}) or c.get("player") is None for c in j["cards"][:3]),
+          "the cards travel with the batch, so the browser draws without a second call")
+    check(analyst.get("/api/admin/ads/day").status_code == 403, "an analyst cannot open the batch")
+    check(admin.get("/api/admin/ads/day", params={"date": "not-a-date"}).status_code == 400, "a bad date is refused")
+
+
 print("\nALL MEDIA AND AD CHECKS PASSED")

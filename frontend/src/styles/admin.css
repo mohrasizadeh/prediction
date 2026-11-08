@@ -372,3 +372,17 @@
 .ad-saved { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .ad-saved li { display: grid; gap: 6px; padding: 14px; }
 .a-page .k-link { background: none; border: 0; padding: 0; color: var(--brand); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+
+/* The batch for tomorrow (docs/60 section 3). Twenty 1080px canvases on one screen, so each tile is
+   small and the aspect ratio comes from the canvas itself -- square, portrait and story side by side. */
+.ad-day { display: grid; gap: 16px; }
+.ad-day-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); align-items: start; }
+.ad-day-item { display: grid; gap: 6px; padding: 10px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface1); }
+.ad-day-item.on { border-color: var(--brand); }
+.ad-day-item canvas { width: 100%; height: auto; display: block; border-radius: 10px; background: var(--surface2); }
+.ad-day-item small { text-transform: capitalize; font-size: 12px; }
+.ad-day-pick { display: grid; gap: 8px; cursor: pointer; position: relative; }
+.ad-day-pick input { position: absolute; top: 8px; left: 8px; z-index: 1; width: 22px; height: 22px; accent-color: var(--brand); }
+.ad-day-item:not(.on) canvas { opacity: .42; }
+.ad-guide { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text2); min-height: 36px; }
+.a-card-head input[type="date"] { min-height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font: inherit; }

@@ -13,7 +13,7 @@ import { Empty } from "../components/States";
 import Icon from "../components/Icon";
 import { Card, Chip, DataState, PageHead, when } from "./parts";
 import { SIZES } from "./ads/sizes";
-import { blobOf, buildData, ensureFonts, paint, saveZip, shareOrSave, slug } from "./ads/render";
+import { blobOf, buildData, ensureFonts, paint, safeOverlay, saveZip, shareOrSave, slug } from "./ads/render";
 
 const pct = (x) => (x == null ? "–" : `${Math.round(x * 100)}%`);
 const PREVIEW_W = 420;
@@ -44,7 +44,7 @@ function useBrandFonts(brand) {
 
 /** One canvas, repainted whenever anything it reads changes. Drawn at the size's real pixels and
  *  shown at CSS width, so what is on screen is what downloads. */
-function Preview({ design, brand, card, cards, mode, accent, fontsReady, onCanvas }) {
+function Preview({ design, brand, card, cards, mode, accent, fontsReady, onCanvas, guide }) {
   const ref = useRef(null);
   const [err, setErr] = useState("");
   useEffect(() => {
@@ -56,12 +56,15 @@ function Preview({ design, brand, card, cards, mode, accent, fontsReady, onCanva
         if (!live || !ref.current) return;
         paint(ref.current, { design, brand, data, mode, accent });
         onCanvas?.(ref.current);
+        // The guide is drawn AFTER onCanvas hands the canvas over, so a download taken from it is
+        // the clean image: what is shaded here is the app's furniture, not part of the ad.
+        if (guide) safeOverlay(ref.current, design.size);
         setErr("");
       } catch (e) { if (live) setErr(sayError(e)); }
     })();
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(design), brand, card?.fkey, (cards || []).map((c) => c.fkey).join(","), mode, accent, fontsReady]);
+  }, [JSON.stringify(design), brand, card?.fkey, (cards || []).map((c) => c.fkey).join(","), mode, accent, fontsReady, guide]);
   const s = SIZES[design.size] || SIZES.square;
   return (
     <div className="ad-stage" data-testid="ad-preview">
@@ -69,6 +72,37 @@ function Preview({ design, brand, card, cards, mode, accent, fontsReady, onCanva
       {!fontsReady && <small className="muted">Loading the site typeface…</small>}
       {err && <p className="form-error" role="alert">{err}</p>}
     </div>
+  );
+}
+
+// The batch for tomorrow (docs/60 section 3). The server decides WHAT each ad says -- which player,
+// which market, which league, so that twenty ads are not twenty forwards with a shots line -- and
+// this draws them. Rendering twenty 1080px canvases at once is what the preview grid is for, so
+// each tile paints at a thumbnail size and only the download re-paints at full resolution.
+function DayAd({ ad, brand, byKey, cards, fontsReady, onPick, picked }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      if (!ref.current || !brand) return;
+      const card = (ad.fkeys || []).map((k) => byKey[k]).filter(Boolean)[0] || null;
+      const many = (ad.fkeys || []).map((k) => byKey[k]).filter(Boolean);
+      const data = await buildData({ design: ad, brand, card, cards: many.length ? many : cards, mode: ad.mode });
+      if (!live || !ref.current) return;
+      paint(ref.current, { design: ad, brand, data, mode: ad.mode, accent: ad.accent });
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ad, brand, fontsReady]);
+  const s = SIZES[ad.size] || SIZES.square;
+  return (
+    <li className={"ad-day-item" + (picked ? " on" : "")} data-testid={`ad-day-${ad.template}-${ad.size}`}>
+      <label className="ad-day-pick">
+        <input type="checkbox" checked={picked} onChange={onPick} aria-label={`Include this ${ad.template} ad`} />
+        <canvas ref={ref} width={s.w} height={s.h} style={{ aspectRatio: `${s.w} / ${s.h}` }} />
+      </label>
+      <small className="muted">{ad.template} · {ad.size} · {ad.mode}</small>
+    </li>
   );
 }
 
@@ -82,9 +116,15 @@ export default function Ads() {
   const [editing, setEditing] = useState(null);       // saved design id being replaced
   const [busy, setBusy] = useState("");
   const [gone, setGone] = useState(null);
-  const [tab, setTab] = useState("build");
+  const [tab, setTab] = useState("day");
   const canvasRef = useRef(null);
+  const tz = -new Date().getTimezoneOffset();
+  const [dayDate, setDayDate] = useState("");
+  const dayQ = useApi(tab === "day" ? "/admin/ads/day" : null, { tz, ...(dayDate ? { date: dayDate } : {}) });
+  const [skip, setSkip] = useState({});
+  const [showSafe, setShowSafe] = useState(true);
 
+  const d0 = q.data || {};
   const brand = q.data?.brand;
   const cat = q.data?.catalogue;
   const fontsReady = useBrandFonts(brand);
@@ -105,11 +145,40 @@ export default function Ads() {
   // Seed the first template once the catalogue is in, so the screen opens on something drawn.
   useEffect(() => { if (cat && !design.headline && !design.kicker) setDesign((d) => ({ ...d, ...SEED[d.template] })); }, [cat]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const dayCards = useMemo(() => dayQ.data?.cards || [], [dayQ.data]);
+  const byKey = useMemo(() => Object.fromEntries(dayCards.map((c) => [c.fkey, c])), [dayCards]);
+  const dayAds = (dayQ.data?.ads || []).filter((_, i) => !skip[i]);
+
+  // Every ad in the batch, re-painted at full resolution, in one zip. The preview tiles are
+  // thumbnails; nothing downloaded is ever an upscale of one.
+  const downloadDay = async () => {
+    setBusy("day");
+    try {
+      const off = document.createElement("canvas");
+      const blobs = [];
+      for (const ad of dayAds) {
+        const card = (ad.fkeys || []).map((k) => byKey[k]).filter(Boolean)[0] || null;
+        const many = (ad.fkeys || []).map((k) => byKey[k]).filter(Boolean);
+        // eslint-disable-next-line no-await-in-loop
+        const data = await buildData({ design: ad, brand: dayQ.data.brand || q.data.brand, card, cards: many.length ? many : dayCards, mode: ad.mode });
+        paint(off, { design: ad, brand: q.data.brand, data, mode: ad.mode, accent: ad.accent });
+        // eslint-disable-next-line no-await-in-loop
+        blobs.push(await blobOf(off));
+      }
+      await saveZip(blobs.filter(Boolean), `ads-${dayQ.data.day}`);
+      toast(`${blobs.length} ads saved as a zip`);
+    } catch (e) { toast(sayError(e), "err"); } finally { setBusy(""); }
+  };
+
   const file = `${slug(design.name || design.template)}-${design.size}`;
   const exportOne = async (how) => {
     setBusy(how);
     try {
-      const blob = await blobOf(canvasRef.current);
+      // Re-painted clean: the preview may be carrying the safe-area guide.
+      const off = document.createElement("canvas");
+      const data = await buildData({ design, brand: d0.brand, card: one, cards: many, mode });
+      paint(off, { design, brand: d0.brand, data, mode, accent: design.accent });
+      const blob = await blobOf(off);
       if (!blob) throw new Error("The browser could not make the image.");
       const r = await shareOrSave(blob, `${file}.png`, design.headline || brand?.name || "Ad");
       if (r !== "cancelled") toast(r === "shared" ? "Shared" : "Image saved");
@@ -169,8 +238,44 @@ export default function Ads() {
       <PageHead title="Ad builder" testid="ads-head"
         lead="Your palette, your typeface, your crests, and the product's own numbers. Pick a claim, pick a size, download the image. Nothing is posted anywhere."
         actions={<Tabs value={tab} onChange={setTab} testid="ads-tabs"
-          tabs={[{ id: "build", label: "Build" }, { id: "saved", label: `Saved${q.data?.designs?.length ? ` (${q.data.designs.length})` : ""}` }]} />} />
-      <DataState q={q}>{(d) => (tab === "saved" ? (
+          tabs={[{ id: "day", label: "Post tomorrow" }, { id: "build", label: "Build one" }, { id: "saved", label: `Saved${q.data?.designs?.length ? ` (${q.data.designs.length})` : ""}` }]} />} />
+      <DataState q={q}>{(d) => (tab === "day" ? (
+        <div className="ad-day" data-testid="ads-day">
+          <Card title={dayQ.data ? `${dayQ.data.count} ads for ${dayQ.data.kicker}` : "Building the batch…"} testid="ad-day-head"
+                actions={<span className="a-inline-actions">
+                  <input type="date" value={dayDate || (dayQ.data?.day || "")} onChange={(e) => setDayDate(e.target.value)} aria-label="Match day" data-testid="ad-day-date" />
+                  <button className="btn btn--primary btn--sm" disabled={!!busy || !dayAds.length} onClick={downloadDay} data-testid="ad-day-zip">
+                    <Icon name="download" size={16} />{busy === "day" ? "Rendering…" : `Download ${dayAds.length} as a zip`}</button>
+                </span>}>
+            {dayQ.error && <p className="form-error" role="alert">{sayError(dayQ.error)}</p>}
+            {dayQ.loading && <p className="muted">Picking players, markets and leagues…</p>}
+            {dayQ.data && !dayQ.data.ads.length && (
+              <p className="muted" data-testid="ad-day-empty">
+                No forecasts for {dayQ.data.day}.{" "}
+                {dayQ.data.next_day
+                  ? <button className="k-link" onClick={() => setDayDate(dayQ.data.next_day)}>The next match day is {dayQ.data.next_day}.</button>
+                  : "Run the engine, or pick another date."}
+              </p>
+            )}
+            {dayQ.data?.ads?.length > 0 && (
+              <p className="muted" data-testid="ad-day-mix">
+                {dayQ.data.cards.length} forecasts across {dayQ.data.leagues.length} leagues and {dayQ.data.markets.length} markets.
+                No player appears twice and no club more than twice. Square and vertical only; a story keeps its content
+                clear of the app's own buttons. Untick anything you do not want before the zip.
+              </p>
+            )}
+          </Card>
+          {dayQ.data?.ads?.length > 0 && (
+            <ul className="ad-day-grid" data-testid="ad-day-grid">
+              {dayQ.data.ads.map((ad, i) => (
+                <DayAd key={`${ad.template}-${i}`} ad={ad} brand={d.brand} byKey={byKey} cards={dayCards}
+                       fontsReady={fontsReady} picked={!skip[i]}
+                       onPick={() => setSkip((x) => ({ ...x, [i]: !x[i] }))} />
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : tab === "saved" ? (
         !d.designs.length ? <Empty icon="image" testid="ads-empty">No saved ads yet. Build one and press Save.</Empty> : (
           <ul className="ad-saved" data-testid="ads-saved">
             {d.designs.map((x) => (
@@ -260,7 +365,11 @@ export default function Ads() {
           <div className="ad-side">
             <Card title="Preview" testid="ad-preview-card"
                   actions={<Chip tone="brand" testid="ad-px">{SIZES[design.size]?.w} x {SIZES[design.size]?.h}</Chip>}>
-              <Preview design={design} brand={d.brand} card={one} cards={many} mode={mode} accent={design.accent} fontsReady={fontsReady} onCanvas={(c) => { canvasRef.current = c; }} />
+              <Preview design={design} brand={d.brand} card={one} cards={many} mode={mode} accent={design.accent} fontsReady={fontsReady} guide={showSafe} onCanvas={(c) => { canvasRef.current = c; }} />
+              {(design.size === "story") && (
+                <label className="ad-guide"><input type="checkbox" checked={showSafe} onChange={(e) => setShowSafe(e.target.checked)} data-testid="ad-safe" />
+                  Show what Instagram covers</label>
+              )}
               <div className="ad-actions">
                 <button className="btn btn--primary btn--sm" disabled={!!busy} onClick={() => exportOne("save")} data-testid="ad-download">
                   <Icon name="download" size={16} />{busy === "save" ? "Making the image…" : "Download PNG"}</button>
