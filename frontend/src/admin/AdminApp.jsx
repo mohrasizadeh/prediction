@@ -25,6 +25,7 @@ import Engine from "./Engine";
 import { Coupons, Payments, Revenue, Subscriptions } from "./Money";
 import { Campaigns, EmailLog, Suppressions, Templates } from "./Email";
 import Media from "./Media";
+import Ads from "./Ads";
 import Popups from "./Popups";
 import Newsletter from "./Newsletter";
 import Integrations from "./Integrations";
@@ -38,13 +39,13 @@ const SCREENS = { dashboard: AdminHome, needs: Needs, analytics: Analytics, user
   studio: Studio, pages: Content, inbox: Inbox, announcements: Announcements, plans: Plans, leagues: Leagues, jobs: Jobs, engine: Engine,
   feeds: Feeds, pitchapi: PitchAPI, sportapi: SportAPI,
   subscriptions: Subscriptions, payments: Payments, coupons: Coupons, revenue: Revenue, templates: Templates, suppressions: Suppressions, campaigns: Campaigns,
-  popups: Popups, newsletter: Newsletter, integrations: Integrations, email_log: EmailLog, media: Media };
+  popups: Popups, newsletter: Newsletter, integrations: Integrations, email_log: EmailLog, media: Media, ads: Ads };
 // A tabbed screen owns the routes below its own, so a link to one tab works and Back leaves the screen.
 const WITH_TABS = { analytics: "analytics/:tab", pitchapi: "data/pitchapi/:tab" };
 // Screens that were folded into a tabbed one. An old bookmark or an in-app link still lands in the right place.
 const MOVED = [["stats", "/admin/analytics/overview"], ["data/cache", "/admin/data/pitchapi/usage"],
   ["data/quality", "/admin/data/pitchapi/quality"], ["data/explorer", "/admin/data/pitchapi/explorer"]];
-const SHORT = { "Site Studio": "Studio", "E-mail list": "List", "Blocked addresses": "Blocked", "Football data feeds": "Feeds", Announcements: "News" };
+const SHORT = { "Site Studio": "Studio", "Ad builder": "Ads", "E-mail list": "List", "Blocked addresses": "Blocked", "Football data feeds": "Feeds", Announcements: "News" };
 
 export function useAdminShell() {
   const [s, setS] = useState({ data: null, error: null, loading: true });

@@ -26,11 +26,13 @@ import copy
 import hashlib
 import hmac
 import json
+import os
 import re
 import time
 import uuid
 from datetime import datetime, timezone
 
+from bson.binary import Binary
 from pymongo import ReturnDocument
 
 import security
@@ -41,6 +43,11 @@ SECTIONS = ("brand", "theme", "buttons", "nav", "footer", "seo", "cookies", "hom
 KEEP_VERSIONS = 50
 MAX_ASSET_BYTES = 512 * 1024
 MAX_ASSETS = 100
+# Video is held in `site_asset_chunks`, not on the asset row. A Mongo document cannot pass 16 MB
+# whatever we decide, and a video that fitted would still have to be read whole to serve a seek.
+# 1 MB pieces: a Range request reads the pieces it touches and nothing else (docs/60).
+CHUNK_BYTES = 1024 * 1024
+MAX_VIDEO_BYTES = 25 * 1024 * 1024
 
 
 class SiteError(Exception):
@@ -852,9 +859,16 @@ def public_config(db, draft: bool = False) -> dict:
     }
 
 
-# ----------------------------------------------------------------------------- images the owner uploads
+# ----------------------------------------------------------------------------- files the owner uploads
+# Images keep their bytes on the asset row, exactly as they always have. Video goes to
+# `site_asset_chunks` (docs/60). `kind` on the row says which, so one address serves both.
 _MAGIC = ((b"\x89PNG\r\n\x1a\n", "image/png"), (b"\xff\xd8\xff", "image/jpeg"), (b"GIF87a", "image/gif"), (b"GIF89a", "image/gif"),
           (b"\x00\x00\x01\x00", "image/x-icon"))
+# A video header is not at byte 0. MP4 and its relatives put a four-byte box length first and then
+# "ftyp", so the brand after that names the format; WebM is Matroska, whose EBML magic IS at 0.
+_FTYP = {b"mp4": "video/mp4", b"iso": "video/mp4", b"avc": "video/mp4", b"M4V": "video/mp4",
+         b"dash": "video/mp4", b"qt  ": "video/quicktime"}
+VIDEO_MIMES = ("video/mp4", "video/webm", "video/quicktime")
 
 
 def sniff(data: bytes) -> str | None:
@@ -863,43 +877,118 @@ def sniff(data: bytes) -> str | None:
             return mime
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
+    return sniff_video(data)
+
+
+def sniff_video(data: bytes) -> str | None:
+    if data[:4] == b"\x1a\x45\xdf\xa3":                      # EBML: WebM and Matroska
+        return "video/webm"
+    if data[4:8] == b"ftyp":
+        brand = data[8:12]
+        return _FTYP.get(brand) or _FTYP.get(brand[:3]) or "video/mp4"
     return None
 
 
+def kind_of(mime: str) -> str:
+    return "video" if str(mime).startswith("video/") else "image"
+
+
+def _cap(db, kind: str) -> int:
+    """The size limit for this kind, from settings, falling back to the constants above."""
+    if kind == "video":
+        mb = S.get(db, "media.max_video_mb") or 0
+        return int(float(mb) * 1024 * 1024) if mb else MAX_VIDEO_BYTES
+    kb = S.get(db, "media.max_image_kb") or 0
+    return int(float(kb) * 1024) if kb else MAX_ASSET_BYTES
+
+
+def limits(db) -> dict:
+    # `max_bytes` is kept under its old name: the Images screen read it before video existed.
+    return {"max_bytes": _cap(db, "image"), "max_image_bytes": _cap(db, "image"), "max_video_bytes": _cap(db, "video"),
+            "max_files": MAX_ASSETS, "video_mimes": list(VIDEO_MIMES)}
+
+
+def asset_abs_url(aid: str) -> str:
+    """The whole address, scheme and host included. A relative one is broken in every e-mail client."""
+    base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:3000").rstrip("/")
+    return f"{base}/api/site/assets/{aid}"
+
+
+def _out(r: dict) -> dict:
+    return {"id": r["_id"], "url": f"/api/site/assets/{r['_id']}", "abs_url": asset_abs_url(r["_id"]), "name": r["name"],
+            "mime": r["mime"], "kind": r.get("kind") or kind_of(r["mime"]), "bytes": r["bytes"],
+            "at": r.get("at"), "by": r.get("by")}
+
+
 def save_asset(db, actor: str, name: str, data: bytes) -> dict:
-    if len(data) > MAX_ASSET_BYTES:
-        raise ValueError("Images are limited to 512 KB. Resize it first.")
     mime = sniff(data)
     if not mime:
-        raise ValueError("Use a PNG, JPEG, GIF, WebP or ICO image. SVG files are not accepted.")
+        raise ValueError("Use a PNG, JPEG, GIF, WebP or ICO image, or an MP4 or WebM video. SVG files are not accepted.")
+    kind = kind_of(mime)
+    cap = _cap(db, kind)
+    if len(data) > cap:
+        one = f"{cap // (1024 * 1024)} MB" if cap >= 1024 * 1024 else f"{cap // 1024} KB"
+        raise ValueError(f"A {kind} is limited to {one}. " + ("Shorten or re-encode it first." if kind == "video" else "Resize it first."))
     if db.site_assets.count_documents({}) >= MAX_ASSETS:
-        raise ValueError("Image library is full (100). Delete one first.")
+        raise ValueError(f"The library is full ({MAX_ASSETS} files). Delete one first.")
     aid = uuid.uuid4().hex
-    db.site_assets.insert_one({"_id": aid, "name": re.sub(r"[^\w.\- ]", "_", name)[:80], "mime": mime, "data": data, "bytes": len(data),
-                               "sha256": hashlib.sha256(data).hexdigest(), "by": actor, "at": utcnow()})
+    row = {"_id": aid, "name": re.sub(r"[^\w.\- ]", "_", name)[:80] or "file", "mime": mime, "kind": kind, "bytes": len(data),
+           "sha256": hashlib.sha256(data).hexdigest(), "by": actor, "at": utcnow()}
+    if kind == "video":
+        # The chunks go in BEFORE the row, so a failure half way leaves orphans a later delete can
+        # clear rather than a row that serves a truncated file.
+        parts = [data[k:k + CHUNK_BYTES] for k in range(0, len(data), CHUNK_BYTES)]
+        if parts:
+            db.site_asset_chunks.insert_many([{"aid": aid, "n": n, "data": Binary(part)} for n, part in enumerate(parts)])
+        row["chunks"] = len(parts)
+    else:
+        row["data"] = Binary(data)
+    db.site_assets.insert_one(row)
     db.audit_log.insert_one({"actor": actor, "action": "site.asset_upload", "target": aid, "at": utcnow()})
-    return {"id": aid, "url": f"/api/site/assets/{aid}", "mime": mime, "bytes": len(data), "name": name[:80]}
+    return _out(row)
 
 
 def get_asset(db, aid: str) -> dict | None:
     return db.site_assets.find_one({"_id": aid})
 
 
+def asset_bytes(db, a: dict, start: int = 0, end: int | None = None) -> bytes:
+    """Bytes `start` to `end` inclusive. For a chunked video only the pieces the range touches are read."""
+    total = int(a.get("bytes") or 0)
+    end = total - 1 if end is None else min(int(end), total - 1)
+    if end < start or total == 0:
+        return b""
+    if not a.get("chunks"):
+        return bytes(a.get("data") or b"")[start:end + 1]
+    first, last = start // CHUNK_BYTES, end // CHUNK_BYTES
+    rows = list(db.site_asset_chunks.find({"aid": a["_id"], "n": {"$gte": first, "$lte": last}}, {"_id": 0, "n": 1, "data": 1}))
+    buf = b"".join(bytes(r["data"]) for r in sorted(rows, key=lambda r: r["n"]))
+    off = start - first * CHUNK_BYTES
+    return buf[off:off + (end - start + 1)]
+
+
 def list_assets(db) -> list[dict]:
-    return [{"id": r["_id"], "url": f"/api/site/assets/{r['_id']}", "name": r["name"], "mime": r["mime"], "bytes": r["bytes"], "at": r["at"], "by": r["by"]}
-            for r in db.site_assets.find({}, {"data": 0}).sort("at", -1)]
+    return [_out(r) for r in db.site_assets.find({}, {"data": 0}).sort("at", -1)]
 
 
 def asset_in_use(db, aid: str) -> bool:
+    """Anywhere the address can have been pasted. The id alone is searched, because the owner may
+    have pasted the absolute address into an e-mail and the relative one into a page."""
     url = f"/api/site/assets/{aid}"
     texts = [json.dumps(get_draft(db)["data"]), json.dumps(get_live(db)["data"])]
     if any(url in t for t in texts):
         return True
-    return db.popups.count_documents({"$or": [{"content.image": url}]}) > 0 if "popups" in db.list_collection_names() else False
+    have = set(db.list_collection_names())
+    for coll, fields in (("popups", ("content.image",)), ("email_templates", ("html",)), ("content_pages", ("body",)),
+                         ("announcements", ("body",)), ("ad_designs", ("logo",))):
+        if coll in have and db[coll].count_documents({"$or": [{f: {"$regex": re.escape(aid)}} for f in fields]}, limit=1):
+            return True
+    return False
 
 
 def delete_asset(db, actor: str, aid: str) -> None:
     if asset_in_use(db, aid):
-        raise ValueError("This image is used by the site or a popup. Replace it there first.")
+        raise ValueError("This file is used by the site, a popup, an e-mail template, a page or an ad. Replace it there first.")
     db.site_assets.delete_one({"_id": aid})
+    db.site_asset_chunks.delete_many({"aid": aid})
     db.audit_log.insert_one({"actor": actor, "action": "site.asset_delete", "target": aid, "at": utcnow()})

@@ -770,6 +770,26 @@
     "help": ""
   },
   {
+    "key": "media.max_image_kb",
+    "label": "Largest image (KB)",
+    "type": "number",
+    "default": 512,
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "The size limit for an image in the Media library. An image this big is held on one database row, so there is no point raising it far."
+  },
+  {
+    "key": "media.max_video_mb",
+    "label": "Largest video (MB)",
+    "type": "number",
+    "default": 25,
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "The size limit for a video in the Media library. Video is stored in one-megabyte pieces and served a piece at a time, so a long file costs reads rather than one huge row. Mail clients do not play video at all; the library hands you a poster image and a link for that."
+  },
+  {
     "key": "engine.player_half_life",
     "label": "Player form half-life (matches)",
     "type": "number",

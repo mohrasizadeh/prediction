@@ -38,6 +38,11 @@ MODULES = [
     ("announcements", "Announcements", "Marketing", "flag", "/admin/announcements", ("content.write",)),
     ("campaigns", "Campaigns", "Marketing", "send", "/admin/campaigns", ("email.write",)),
     ("newsletter", "E-mail list", "Marketing", "list", "/admin/newsletter", ("email.read",)),
+    # Both new in docs/60. Media sat under Website as "Images" while its only reader was Site Studio;
+    # an e-mail or an ad needs the same library, and that is marketing work, so it moved here and
+    # took video with it. The route is unchanged, so an old bookmark still lands.
+    ("ads", "Ad builder", "Marketing", "image", "/admin/ads", ("site.read",)),
+    ("media", "Media", "Marketing", "film", "/admin/media", ("site.read",)),
 
     # The group already says E-mail, so the labels do not repeat it.
     ("templates", "Templates", "E-mail", "copy", "/admin/email/templates", ("email.read",)),
@@ -52,7 +57,6 @@ MODULES = [
 
     ("studio", "Site Studio", "Website", "palette", "/admin/studio", ("site.read",)),
     ("pages", "Pages", "Website", "file-text", "/admin/pages", ("content.write",)),
-    ("media", "Images", "Website", "image", "/admin/media", ("site.read",)),
 
     ("settings", "Settings", "System", "settings", "/admin/settings", ("settings.read",)),
     ("keys", "Keys", "System", "key", "/admin/keys", ("settings.read",)),

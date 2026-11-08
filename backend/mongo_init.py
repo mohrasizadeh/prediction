@@ -181,6 +181,9 @@ def ensure_indexes(db) -> list[str]:
     # ---- site studio, popups, newsletter, integrations, alerts ---------------------------------
     ix("site_versions", [("v", DESC)], unique=True)
     ix("site_assets", [("at", DESC)])
+    ix("site_assets", [("kind", ASC), ("at", DESC)])
+    ix("site_asset_chunks", [("aid", ASC), ("n", ASC)], unique=True)
+    ix("ad_designs", [("at", DESC)])
     ix("popups", [("status", ASC), ("priority", DESC)])
     ix("popups", [("ab.group", ASC)], sparse=True)
     ix("popup_stats", [("popup_id", ASC), ("day", ASC)], unique=True)

@@ -69,13 +69,40 @@ def site_config(request: Request, preview: Optional[str] = None, db=Depends(D.ge
     return Response(body, media_type="application/json", headers={"ETag": etag, "Cache-Control": "public, max-age=30, stale-while-revalidate=300"})
 
 
+# Public on purpose: this address is what an e-mail, a page or a popup points at (docs/60). Writing
+# needs `site.write`; reading needs nothing, or the file would not load in anyone's mail client.
+_ASSET_HEAD = {"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff",
+               "Content-Security-Policy": "default-src 'none'; sandbox", "Content-Disposition": "inline",
+               "Accept-Ranges": "bytes"}
+
+
 @public.get("/site/assets/{aid}")
-def site_asset(aid: str, db=Depends(D.get_db)):
+def site_asset(aid: str, request: Request, db=Depends(D.get_db)):
     a = SS.get_asset(db, aid) if re.fullmatch(r"[0-9a-f]{32}", aid) else None
     if not a:
-        raise D.err(404, "NOT_FOUND", "No such image.")
-    return Response(bytes(a["data"]), media_type=a["mime"], headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff",
-                                                                      "Content-Security-Policy": "default-src 'none'; sandbox", "Content-Disposition": "inline"})
+        raise D.err(404, "NOT_FOUND", "No such file.")
+    total = int(a.get("bytes") or 0)
+    etag = '"' + str(a.get("sha256", ""))[:16] + '"'
+    head = {**_ASSET_HEAD, "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=head)
+    # A video needs byte ranges: without them a browser cannot seek, and Safari will not start the
+    # file at all. One range only -- multipart/byteranges buys nothing a player asks for.
+    rng = (request.headers.get("range") or "").strip()
+    m = re.fullmatch(r"bytes=(\d*)-(\d*)", rng) if rng else None
+    if m and total:
+        lo, hi = m.group(1), m.group(2)
+        if not lo:                                           # "bytes=-500": the last 500 bytes
+            start, end = max(0, total - int(hi or 0)), total - 1
+        else:
+            start, end = int(lo), (int(hi) if hi else total - 1)
+        if start >= total or start > end:
+            return Response(status_code=416, headers={**head, "Content-Range": f"bytes */{total}"})
+        end = min(end, total - 1)
+        part = SS.asset_bytes(db, a, start, end)
+        return Response(part, status_code=206, media_type=a["mime"],
+                        headers={**head, "Content-Range": f"bytes {start}-{end}/{total}", "Content-Length": str(len(part))})
+    return Response(SS.asset_bytes(db, a), media_type=a["mime"], headers=head)
 
 
 @public.get("/popups")
@@ -283,7 +310,7 @@ class AssetBody(BaseModel):
 
 @admin.get("/site/assets")
 def assets(user=Depends(perm("site.read")), db=Depends(D.get_db)):
-    return {"assets": SS.list_assets(db), "max_bytes": SS.MAX_ASSET_BYTES}
+    return {"assets": SS.list_assets(db), **SS.limits(db)}
 
 
 @admin.post("/site/assets")
@@ -296,6 +323,21 @@ def asset_upload(body: AssetBody, user=Depends(perm("site.write")), db=Depends(D
         return SS.save_asset(db, user["email"], body.name, raw)
     except ValueError as e:
         raise D.err(400, "BAD_IMAGE", str(e))
+
+
+@admin.put("/media/upload")
+async def media_upload(request: Request, name: str = Query("file", max_length=80), user=Depends(perm("site.write")), db=Depends(D.get_db)):
+    """The file as the raw request body. The JSON route above stays for Site Studio and the tests, but
+    base64 costs a third more body for every byte, which is the difference between a logo and a video."""
+    data = await request.body()
+    if not data:
+        raise D.err(400, "EMPTY", "That file was empty.")
+    try:
+        out = SS.save_asset(db, user["email"], name, data)
+    except ValueError as e:
+        raise D.err(400, "BAD_FILE", str(e))
+    AQ.audit(db, user, "site.asset_upload", out["id"])
+    return out
 
 
 @admin.delete("/site/assets/{aid}")

@@ -35,8 +35,9 @@ import settings_store as S
 
 SAFE = ("GET", "HEAD", "OPTIONS")
 ORIGIN_EXEMPT = ("/api/webhooks/", "/api/jobs/tick", "/api/jobs/live", "/api/email/unsubscribe")     # no browser cookie involved
-# the image upload sends a base64 JSON body (512 KB image = about 700 KB); everything else uses security.max_body_kb
-BIG_BODY = {"/api/admin/site/assets": 900 * 1024}
+# The image route sends a base64 JSON body (512 KB image = about 700 KB). /api/admin/media/upload
+# sends the file itself, so its cap is the video cap plus a little room (docs/60).
+BIG_BODY = {"/api/admin/site/assets": 900 * 1024, "/api/admin/media/upload": 32 * 1024 * 1024}
 RATE_EXEMPT = ("/api/webhooks/", "/api/jobs/tick", "/api/jobs/live", "/api/media/")
 _cache: dict = {"at": 0.0, "cfg": None}
 
@@ -100,7 +101,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         response, exc_text = None, None
         if api:
             cl = request.headers.get("content-length")
-            cap = BIG_BODY.get(path, 0) if method == "POST" else 0
+            # Was POST-only. /api/admin/media/upload is a PUT, because the body IS the file and
+            # there is nothing to post around it, so a PUT measured against security.max_body_kb
+            # would have refused every video before the route was reached.
+            cap = BIG_BODY.get(path, 0) if method in ("POST", "PUT") else 0
             if cl and cl.isdigit() and int(cl) > max(cap, int(c["security.max_body_kb"]) * 1024):
                 response = _err(413, "TOO_LARGE", "That request is too large.", rid)
             elif method not in SAFE and not path.startswith(ORIGIN_EXEMPT) and not _origin_ok(request, c["security.allowed_origins"]):

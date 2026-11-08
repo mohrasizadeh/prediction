@@ -35,6 +35,7 @@ import routes_cron
 import routes_images
 import routes_live
 import routes_me
+import routes_ads
 import routes_site
 import security_mw
 import settings_store as S
@@ -58,6 +59,7 @@ app.include_router(routes_data_admin.router)
 app.include_router(routes_ingest_admin.router)
 app.include_router(routes_cron.router)
 app.include_router(routes_me.router)
+app.include_router(routes_ads.router)
 
 
 def set_db(db) -> None:

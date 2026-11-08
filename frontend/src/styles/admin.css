@@ -325,3 +325,50 @@
 .av-name { display: grid; min-width: 0; } .av-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .av-row select, .av-row input, #root [data-testid="av-club"] { min-height: 40px; padding: 0 10px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font: inherit; min-width: 0; }
 @media (max-width: 768px) { .av-row { grid-template-columns: 1fr 1fr; } .av-name { grid-column: 1 / -1; } }
+
+/* Media library and ad builder (docs/60). The media grid itself is in growth.css; these are the
+   parts the rewrite added: a wider tile (an address has to be readable), video, and the snippet. */
+.media-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.media-thumb video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.media-url { display: block; padding: 6px 8px; border-radius: 8px; background: var(--surface2); font-size: 11px; overflow-wrap: anywhere; }
+.media-embed { display: grid; gap: 8px; margin-top: 6px; }
+.media-embed pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font-size: 12px; }
+.media-embed .btn { justify-self: start; }
+.a-notes { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--text2); }
+.a-notes b { color: var(--text); }
+
+.ad-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 480px); gap: 16px; align-items: start; }
+.ad-controls, .ad-side { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.ad-side { position: sticky; top: 12px; }
+@media (max-width: 1024px) { .ad-grid { grid-template-columns: minmax(0, 1fr); } .ad-side { position: static; order: -1; } }
+
+.ad-tpl { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.ad-tpl-btn { display: grid; gap: 4px; width: 100%; text-align: left; padding: 12px 14px; min-height: 44px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--surface1); color: var(--text); cursor: pointer; }
+.ad-tpl-btn b { font-size: 14px; } .ad-tpl-btn small { color: var(--text2); font-size: 12px; line-height: 1.45; }
+.ad-tpl-btn:hover { border-color: var(--border-strong); }
+.ad-tpl-btn.on { border-color: var(--c-brand, var(--brand)); background: color-mix(in srgb, var(--brand) 12%, var(--surface1)); }
+.ad-tpl-btn.on b { color: var(--text); }
+
+.ad-sizes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.ad-sizes .k-chip { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; }
+.ad-sizes .k-chip.on { background: var(--brand); border-color: var(--brand); color: var(--on-brand, #fff); }
+.ad-accent { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; font-size: 13px; color: var(--text2); }
+.ad-accent input[type="color"] { width: 44px; height: 36px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: none; }
+
+.ad-pickers { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 420px; overflow: auto; }
+.ad-pick-btn { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 10px; align-items: center; width: 100%; text-align: left;
+  min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface1); color: var(--text); cursor: pointer; }
+.ad-pick-btn b { grid-column: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad-pick-btn small { grid-column: 1; grid-row: 2; color: var(--text3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad-pick-btn em { grid-column: 2; grid-row: 1 / span 2; font-family: var(--font-num); font-weight: 800; font-style: normal; font-size: 16px; }
+.ad-pick-btn .ico { grid-column: 3; grid-row: 1 / span 2; color: var(--brand); }
+.ad-pick-btn.on { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, var(--surface1)); }
+
+.ad-stage { display: grid; gap: 8px; justify-items: center; }
+.ad-stage canvas { max-width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); }
+.ad-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ad-saved { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.ad-saved li { display: grid; gap: 6px; padding: 14px; }
+.a-page .k-link { background: none; border: 0; padding: 0; color: var(--brand); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
