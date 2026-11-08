@@ -507,7 +507,19 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
     if venue in ("home", "away"): m["home"] = venue == "home"
     if scope == "player":
         if started: m["started"] = True
-        if min_minutes: m["minutes"] = {"$gte": min_minutes}
+    # A GAME HE DID NOT PLAY IN IS NOT ONE OF "HIS LAST TEN GAMES".
+    #
+    # Reported: a player missed one match through injury, kept a perfect run either side of it, and
+    # the Finder said his streak was two. ingest.py writes a row for every player the provider
+    # returns and an unused substitute comes back with `minutes: 0` -- and the stat is then
+    # zero-filled, because a 0 from a player who was on the pitch is a real 0. The window read that
+    # row as a game he played and failed, so one absence cut a run of ten down to two.
+    #
+    # The test is `minutes == 0` and NOT `minutes > 0`, which is the version that looks right and
+    # would be a far worse bug: `provider.pitchapi.player_keys.minutes.key` ships unset, so where
+    # minutes is unmapped every row holds None and requiring an appearance would empty the Finder
+    # for the whole league. Excluding what we know is a non-appearance is safe either way.
+        m["minutes"] = {"$gte": min_minutes} if min_minutes else {"$ne": 0}
         if positions: m["pos"] = {"$in": list(positions)}
     # One projected sub-document per game instead of one number. The strip drew ten filled-or-empty
     # squares because that is all this returned: `$push` took the scalar and dropped the minutes,
@@ -947,7 +959,9 @@ def player_history(db, player_iid: int, last_n: int = 20, venue: str | None = No
     m = {"player_iid": player_iid}
     if venue in ("home", "away"): m["home"] = venue == "home"
     if started: m["started"] = True
-    if min_minutes: m["minutes"] = {"$gte": min_minutes}
+    # The same rule as the Finder's window, for the same reason: the ten-game strip on the player
+    # page drew a 0 for a match he was not involved in. See finder().
+    m["minutes"] = {"$gte": min_minutes} if min_minutes else {"$ne": 0}
     rows = list(db.player_match_stats.find(m, {"_id": 0}).sort("kickoff", -1).limit(last_n))
     opp = _names(db, "teams", [r["opp_iid"] for r in rows])
     reached = {}

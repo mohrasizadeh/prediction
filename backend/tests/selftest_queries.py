@@ -78,6 +78,34 @@ if _v:
     db.players.update_one({"iid": _v["id"]}, {"$set": {"team_iid": _old}})
 
 # The strip draws the games, so the games have to be on the row.
+# --- a missed match does not break a run -------------------------------------------------------
+# Reported: a player missed one game through injury, kept a perfect run either side of it, and the
+# Finder said his streak was two. ingest writes a row for every player the provider returns and an
+# unused substitute comes back with minutes 0, whose stat is then zero-filled -- a real 0 from a
+# player who was on the pitch. The window counted it as a game he played and failed.
+_P, _T, _O, _L = 777001, 777002, 777003, 777004
+db.teams.insert_many([{"iid": _T, "id": "sk1", "ext_id": "skx1", "name": "Streak FC"},
+                      {"iid": _O, "id": "sk2", "ext_id": "skx2", "name": "Rivals"}])
+db.players.insert_one({"iid": _P, "id": "skp", "ext_id": "skpx", "name": "Ever Present", "team_iid": _T, "pos": "FWD"})
+for _i in range(12):
+    _ko = now - dt.timedelta(days=7 * (_i + 1))
+    _row = {"match_iid": 777100 + _i, "player_iid": _P, "team_iid": _T, "opp_iid": _O, "league_iid": _L,
+            "kickoff": _ko, "home": True, "pos": "FWD", "started": True, "minutes": 90.0, "shots": 2.0}
+    if _i == 2:                                   # injured: in the squad list, never came on
+        _row.update({"minutes": 0.0, "started": False, "shots": 0.0})
+    db.player_match_stats.insert_one(_row)
+_sk = next((x for x in Q.finder(db, "run", "shots", 1, last_n=10, now=now) if x["id"] == _P), None)
+check(_sk and _sk["run"] == 10, f"a match he did not play in does not break the run ({_sk['run'] if _sk else 'no row'} of 10)")
+check(_sk and _sk["games"] == 10 and _sk["reached"] == 10,
+      "...and the window reaches back to ten games he actually played")
+# The guard has to be "not a known non-appearance", never "a known appearance": the provider's
+# minutes key ships unset, so where it is unmapped every row holds None and requiring minutes > 0
+# would empty the Finder for the entire league.
+db.player_match_stats.update_many({"player_iid": _P}, {"$set": {"minutes": None}})
+_un = next((x for x in Q.finder(db, "run", "shots", 1, last_n=10, now=now) if x["id"] == _P), None)
+check(_un is not None, "a league whose minutes are not mapped still returns players")
+db.player_match_stats.delete_many({"player_iid": _P})
+
 _g = next((x for x in Q.finder(db, "form", "shots", 1, last_n=10, now=now) if x.get("gs")), None)
 check(_g and len(_g["gs"]) == _g["games"], "finder carries the games it counted, not just ten booleans")
 check(_g and all("minutes" in x for x in _g["gs"]), "every game says the minutes -- a low figure in 20 minutes is not a quiet game")
