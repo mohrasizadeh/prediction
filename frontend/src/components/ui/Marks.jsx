@@ -77,7 +77,6 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
   // stored on every entry and drawn nowhere. For a player the minutes keep the row, because
   // "81', 79', 23'" is the thing that decides whether the figure beside it means anything.
   const slot = (g) => (g.m != null ? `${Math.round(g.m)}'` : g.home == null ? "" : g.home ? "H" : "A");
-  const venues = known.some((g) => g.m == null && g.home != null);
   // Where he played, that day. `pos` is on every player_match_stats row and was drawn nowhere in
   // the product -- and it is the biggest confounder in a tackles or a shots run: four tackles from
   // a centre-back and four from a wide forward are not the same evidence.
@@ -86,7 +85,6 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
   // one position the caption says it once instead. The counting tools draw it every time; drawing
   // what varies is the same rule the rest of this product follows.
   const posns = known.map((g) => g.pos).filter(Boolean);
-  const onePos = posns.length === known.length && new Set(posns).size === 1 ? posns[0] : null;
   const showPos = new Set(posns).size > 1;
   // Venue, for a player. It was in `run` all along and sighted readers never saw it, because this
   // column's one text slot was already holding the minutes. An away game is marked and a home game
@@ -124,7 +122,12 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
             one of those always exists. Stated here it is evidence under a forecast, not a
             headline, and it never chooses which line the card shows.
             Suppressed when it equals the count above, because then it is the same fact twice. */}
-        {streak >= 3 && streak !== cleared && <span className="v2-cr-more">{streak} in a row</span>}
+        {/* Cut in docs/61 along with the hint and "all at FWD". The strip's caption was carrying
+            four things, three of which a reader in a grid of twenty never used: the streak (which
+            this comment already argues is a counting tool's trick, and which is suppressed half the
+            time anyway, so nothing depended on it), the position when it never varied (already in
+            the subject line directly above), and a LEGEND -- printed once per card, twenty times
+            per screen, to explain a graphic that the grid can explain once above itself. */}
         {/* The same question over a longer window: is this a hot run, or is he simply like this?
             Only when the window is actually longer than the strip, or it restates the count. */}
         {/* Cut in v8. rec_k/rec_n are an INPUT to the number above them: engine_bridge.py:386
@@ -137,8 +140,7 @@ export function CardRun({ games = [], line, pct: shown, opp, down, who = "his", 
             for the forecast. */}
         {/* A club has no minutes, so that row is empty and the hint described a line that is not
             drawn. Say only what is there. */}
-        {onePos && <span className="v2-cr-pos1">all at {onePos}</span>}
-        <span className="v2-cr-hint">{known.some((g) => g.m != null) ? `minutes above${showPos ? ", position" : ""}, opponent below (@ away)` : venues ? "home or away above, opponent below" : "opponent below"}</span>
+
       </p>
     </div>
   );

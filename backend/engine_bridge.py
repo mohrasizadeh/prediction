@@ -533,8 +533,12 @@ def run_league(db, league_iid: int, now=None) -> dict:
                                       fallback=gate_badge)
             # His own record counts (docs/32), but only when he is expected to start: the record comes mostly from
             # starts, so for a substitute it pulled a short-minutes chance far above the model (docs/36 H9).
+            anchor_d = 0.0
             if anchor and gate_badge in ("confirmed", "likely") and f.rec_n is not None and f.rec_n >= anchor_min:
-                p, lo, hi = TI.anchor(p, lo, hi, f.rec_k, f.rec_n, anchor_k, anchor_w, p_cap)
+                anchor_d = TI.anchor_shift(p, f.rec_k, f.rec_n, anchor_k, anchor_w)
+                p = TI.shift_one(p, anchor_d, p_cap)
+                lo = TI.shift_one(lo, anchor_d, p_cap)
+                hi = TI.shift_one(hi, anchor_d, p_cap)
             if cond and gate_badge == "unsure" and float(f.p_play) < min_play:
                 continue                                         # rarely plays: no card, however high the "if he plays" number
             # docs/55: measured over 165 players, the median chance to feature is 0.93 in every class, including
@@ -545,6 +549,17 @@ def run_league(db, league_iid: int, now=None) -> dict:
             # docs/52: is this the entity's own half-way line, or one of the neighbours kept for the Finder?
             is_own = f.thr_personal is not None and abs(float(f.thr) - float(f.thr_personal)) < 1e-9
             p_usual_raw = CAL.apply(pmap, f.p_usual, state, f.scope) if f.p_usual is not None else None
+            # His usual game moves by the SAME shift his chance did (docs/61). The anchor is a
+            # statement about the player -- "he clears this more often than the model thinks" -- and
+            # it is just as true of an ordinary night as of this one. Moving `p` and not `p_usual`
+            # made `edge` the fixture effect PLUS the whole anchor, and `edge` is what the departure
+            # chip prints and what `_departure_tier` grades. Measured on 653 player cards before the
+            # fix: the anchor moved 78% of them, was 84% of the departure shown on those (median),
+            # was larger than the fixture effect on 53%, and REVERSED THE SIGN on 27% -- a card
+            # reading "above his usual" when the fixture said below. In log-odds the shift now
+            # cancels exactly in the difference, so what is left is the fixture and nothing else.
+            if p_usual_raw is not None and anchor_d:
+                p_usual_raw = TI.shift_one(p_usual_raw, anchor_d, p_cap)
             solid_ok = gate_badge in (None, "confirmed", "likely")
             basis = {None: "team", "confirmed": "lineup", "likely": "likely_starter"}.get(gate_badge, "pre")
             if earned:                                           # docs/31: the label is earned from the number shown and our results
@@ -756,6 +771,12 @@ def score_finished(db) -> int:
                                          "thr": f["thr"], "actual": float(actual), "reached": bool(actual > f["thr"]),
                                          "p_model": f.get("p_model", f["p"]), "state": f.get("state"),
                                          "player_played": played, "p_basis": f.get("p_basis", "all"), "p_play": f.get("p_play"),
+                                         # docs/61: which grading system this row's tier came from. Without it the
+                                         # record mixes personal lines (graded on the GAP from usual, and sitting at
+                                         # about 50% by construction) with ordinary lines (graded on the NUMBER, and
+                                         # at 80%+ to be Solid) in one Strong/Solid/Watch bucket, and the published
+                                         # figure is then a statement about neither.
+                                         "is_personal": bool(f.get("is_personal")),
                                          # The departure is the quantity the feed is ranked on and the
                                          # one the card leads with ("usually 58%, tonight -6 pts"), and
                                          # it was the one thing never carried into the record -- so

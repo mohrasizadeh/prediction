@@ -432,7 +432,10 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
             # is the question worth asking about it, and the neighbours exist only to answer follow-ups.
             head = max(own, key=lambda f: (lead_score(f, rule, weights, scale, pos_weights), f["p"], f["thr"]))
             card = dict(head)
-            card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos")}
+            # `span` travels with each rung (docs/61): the card names its strongest line on the face
+            # now, and the only honest way to do that is to say in the same breath why it is not the
+            # headline -- which is the span, how far the line moves across the league's defences.
+            card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos", "span")}
                                          for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
             card["best_p"] = max(f["p"] for f in g)
             out.append(card)
@@ -444,7 +447,7 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
         head = (max(lead, key=lambda f: (lead_score(f, rule, weights, scale, pos_weights), f["p"], f["thr"])) if best > 0
                 else max(lead, key=lambda f: (f["p"], f["thr"])))
         card = dict(head)
-        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos")}
+        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos", "span")}
                                      for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
         # the best percentage anywhere in the card, so a "show me 90%+" filter can see past the lead line
         card["best_p"] = max(f["p"] for f in g)
@@ -974,9 +977,15 @@ def track_record(db, league_iid=None, min_n: int = 300, stat=None, scope=None) -
     not_played = db.forecast_outcomes.count_documents({**q, "player_played": False})
     if len(rows) < min_n:
         return {"ready": False, "scored": len(rows), "needed": min_n, "not_played": not_played}
+    # docs/61: tiers are reported over ORDINARY lines only. A personal line's badge grades the gap
+    # from that player's usual game, not the number, and those lines sit at about 50% by
+    # construction -- so pooling them with lines that had to clear 80% to be Solid produced a
+    # "record on Solid forecasts" that described neither population. Rows stored before the flag
+    # existed have no `is_personal` and are counted as ordinary, which is what they were.
+    ordinary = [r for r in rows if not r.get("is_personal")]
     tiers = {}
     for t in ("Strong", "Solid", "Watch"):
-        g = [r for r in rows if r["tier"] == t]
+        g = [r for r in ordinary if r["tier"] == t]
         if g:
             tiers[t] = {"n": len(g), "stated": sum(r["p"] for r in g) / len(g), "actual": sum(r["reached"] for r in g) / len(g)}
     bins = []
@@ -1004,7 +1013,10 @@ def track_record(db, league_iid=None, min_n: int = 300, stat=None, scope=None) -
     high = ({"n": len(hg), "from": hi_p, "stated": sum(r["p"] for r in hg) / len(hg),
              "actual": sum(r["reached"] for r in hg) / len(hg)} if len(hg) >= 30 else None)
     return {"ready": True, "scored": len(rows), "tiers": tiers, "bins": bins, "since": since,
-            "overall": overall, "high": high, "not_played": not_played}
+            "overall": overall, "high": high, "not_played": not_played,
+            # What the tier figures above are computed over, so the page can say so rather than
+            # imply the tiers cover everything we published.
+            "tiers_scope": {"counted": len(ordinary), "left_out": len(rows) - len(ordinary)}}
 
 
 # --------------------------------------------------------------------- Search

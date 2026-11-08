@@ -174,11 +174,29 @@ def _sig(z):
     return float(1 / (1 + np.exp(-z)))
 
 
-def anchor(p, lo, hi, k, n, K, w_max, cap):
-    """His own record counts. The model's chance and his hit rate over his last n games are blended on the log-odds scale:
-    weight n/(n+K), never above w_max. The hit rate is smoothed ((k+1)/(n+2)) so 40 of 40 is 97.6%, not 100%.
-    The range moves by the same amount. The result never goes above `cap`. Applies to "if he plays" player lines."""
+def anchor_shift(p, k, n, K, w_max) -> float:
+    """The log-odds shift this player's own record implies for the model's chance `p`.
+
+    Blend weight n/(n+K), never above w_max; the share is smoothed ((k+1)/(n+2)) so 40 of 40 is
+    97.6%, not 100%.
+
+    Returned on its own because the shift is a statement about the PLAYER, not about the fixture, so
+    everything that describes the same player has to move by it together -- his chance tonight, the
+    range around it, and the usual game it is compared against. Applying it to the first two and not
+    the third is what made `edge` a mixture of a fixture effect and this correction (docs/61).
+    """
     emp = (k + 1) / (n + 2)
     w = min(w_max, n / (n + K))
-    d = w * (_logit(emp) - _logit(p))
-    return min(_sig(_logit(p) + d), cap), min(_sig(_logit(lo) + d), cap), min(_sig(_logit(hi) + d), cap)
+    return w * (_logit(emp) - _logit(p))
+
+
+def shift_one(v, d, cap):
+    """One probability moved by a log-odds shift, held under `cap`."""
+    return min(_sig(_logit(v) + d), cap)
+
+
+def anchor(p, lo, hi, k, n, K, w_max, cap):
+    """His own record counts. `p`, and the range around it, move by the shift above. Applies to
+    "if he plays" player lines. The caller must move his usual game by the same shift."""
+    d = anchor_shift(p, k, n, K, w_max)
+    return shift_one(p, d, cap), shift_one(lo, d, cap), shift_one(hi, d, cap)

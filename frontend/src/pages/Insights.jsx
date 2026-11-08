@@ -197,6 +197,16 @@ export function Insights() {
                 <span className="k-faint k-small">{timeOf(g.kickoff)}</span>
                 <Link className="k-link" to={`/match/${g.rows[0].match_id || g.rows[0].match_iid}`}>Match page</Link>
               </header>
+              {/* One legend for the grid, not one per card (docs/61). The strip's key was printed
+                  under every card -- twenty times on this screen -- to explain a graphic that only
+                  needs explaining once. And the column of percentages does not descend, because the
+                  feed is ordered on how much a line has to say rather than on its size; a reader
+                  running down a column of numbers that does not descend concludes the sort is
+                  broken, so the screen says what it is sorted by. */}
+              <p className="v2-run-key" data-testid={`ins-key-${g.key}`}>
+                Ordered by how unlike their usual game this is, not by the biggest number. Under each strip:
+                minutes above, opponent below (@ away).
+              </p>
               <div className="fgrid ins-grid">{g.rows.map((f) => <ForecastCard key={f.id} f={f} showTime={false} track={track} testid={`ins-card-${f.id}`} />)}</div>
             </section>
           ))}

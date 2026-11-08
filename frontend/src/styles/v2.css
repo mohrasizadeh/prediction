@@ -2009,3 +2009,37 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   .td-ins-set { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; flex-direction: row; flex-wrap: wrap; }
   .td-ins-set.is-done { flex-direction: row; align-items: center; }
 }
+
+/* ---------- 41. The card says one thing (docs/61) --------------------------------------------
+   Five problems, measured, all in this block.
+
+   1. The headline rendered at 1.75rem because `.v2-fch-p .k-fc-p` (0-2-0) beat the 46px rule
+      below it. The number a reader came for was barely larger than the player's name.
+   2. The range sat at 11px in --text3 under a 28px --text number: a 2.5:1 size drop plus two
+      steps of colour, so a glancing reader never saw the card's own uncertainty. On four of the
+      five cards reviewed the finding was SMALLER than the band around it, which is the single
+      most decision-relevant fact on the screen and was the least legible thing on it.
+   3. The market -- the thing the percentage is about -- was lighter and smaller than the name.
+   4. `+8 pts` carried a saturated fill at >=8 and a hairline at 7, inventing a category boundary
+      the model does not have between two adjacent cards.
+   5. Four right-aligned marks stacked in the right gutter (number, range, badge, chip) with no
+      stated relationship, which is the mechanism that made the badge read as a grade of the number. */
+.v2-fch-p .k-fc-p { font-size: 2.25rem; }
+.v2-fch-p .k-fc-range { font-size: .8125rem; color: var(--text2); font-variation-settings: "wdth" 92; }
+.k-fc-market { font-size: 1.0625rem; font-weight: 600; color: var(--text); }
+
+/* The verdict: the sentence, then the badge it belongs to. One row, reading order, left to right. */
+.v2-cmp { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.v2-verdict { flex: 1 1 auto; min-width: 0; font-size: .8125rem; color: var(--text2); line-height: 1.45; }
+.v2-verdict b { color: var(--text); font-weight: 700; }
+.v2-verdict i { font-style: normal; margin-right: 4px; }
+.v2-verdict.is-up i { color: var(--up); }
+.v2-verdict.is-down i { color: var(--down); }
+.v2-cmp .k-tier { margin-left: auto; flex: 0 0 auto; }
+
+/* The strongest line the card holds, named, with the reason it is not the headline. */
+.v2-alt { margin: 8px 0 0; font-size: .8125rem; color: var(--text2); line-height: 1.45; }
+.v2-alt b { color: var(--text); font-weight: 700; }
+
+/* One legend for the whole grid, not one per card. */
+.v2-run-key { margin: 0 0 10px; font-size: .75rem; color: var(--text3); }

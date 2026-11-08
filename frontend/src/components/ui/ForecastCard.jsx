@@ -13,6 +13,10 @@ import { useCombo } from "../../lib/combo";
 import Icon from "../Icon";
 
 // Lineup badge (docs/27): a player's percentage is "if he plays"; whether he plays is this badge.
+// engine.min_span's default (docs/56): a line whose likelihood moves less than six points between
+// the league's leakiest and meanest defence is saying something about the league, not about tonight.
+const DULL_SPAN = 0.06;
+
 const BADGE = { confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" };
 
 export const fixtureOf = (f, teams = {}, homeIid) => {
@@ -89,8 +93,11 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
   // against; without p_usual the claim sentence has nothing to say and the strip would be decoration.
   const run = !f.p_display && (f.run || []).filter((g) => g && g.v != null).length >= 3 ? f.run : null;
   const dir = f.p_usual == null ? "" : f.p >= f.p_usual ? "is-up" : "is-down";
-  const DEP_BIG = 8;   // points above or below usual before the chip takes the accent
-  const dep = f.p_usual == null ? null : Math.round((f.p - f.p_usual) * 100);
+    const dep = f.p_usual == null ? null : Math.round((f.p - f.p_usual) * 100);
+  // Does the likely range sit clear of their usual, or still reach it? This is exactly the
+  // Strong/Solid test in backend/tiering._departure_tier, said on the card instead of left for the
+  // reader to work out by holding "43 to 64" against "48".
+  const clears = f.p_usual == null || f.lo == null || f.hi == null ? null : (f.lo > f.p_usual || f.hi < f.p_usual);
   const shown = f.p_display || pct(f.p);
   const rng = f.p_display ? null : range(f.lo, f.hi);          // docs/03 §4.4: show the band with the number
   const tk = track?.[f.fkey];
@@ -107,8 +114,7 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
           <span className="k-fc-pwrap v2-fch-p"><b className="k-fc-p" data-testid={`${id}-p`}>{shown}</b>
             {rng && <small className="k-fc-range" data-testid={`${id}-range`}>{rng}</small>}</span>
         </header>
-        <div className="k-fc-line"><span className="k-fc-market">{f.market}</span>
-          <span className="k-fc-tier"><TierBadge tier={f.tier} testid={`${id}-tier`} />{f.tier_note && <small className="k-fc-note" data-testid={`${id}-tier-note`}>{f.tier_note}</small>}</span></div>
+        <div className="k-fc-line"><span className="k-fc-market">{f.market}</span></div>
         {/* The claim, in the words a person would use. docs/redesign/v2 CRITIQUE: the hero slot ranks
             cards, and p cannot rank them -- "3+ shots 34%" and "1+ shot 93%" answer different
             questions, so the same big number means something different on every card. The departure
@@ -120,27 +126,33 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
             10 there -- it read as the card contradicting itself. They are both real; they are not
             the same measurement, so they no longer share a word. This is "Usual". The strip is
             "Last 10". */}
-        {f.p_usual != null && <div className="v2-cmp" data-testid={`${id}-cmp`}>
-          <span className="v2-cmp-u">Usual <b>{pct(f.p_usual)}</b></span>
-          {/* This said "his average 4.8", and it is not an average of anything he has done
-              (docs/redesign/v3/audit/METRICS.md §4.2) -- it is the count his usual game implies for
-              this line. So the label invited the reader to check it against the strip's own numbers
-              (2, 1, 3, 2, 4, 4, 1, 6, 4, 10 -- mean 3.7) and find the card wrong about itself.
-              `expected`, the count expected against THIS opponent, was stored on every forecast and
-              drawn nowhere. With the two side by side the pair is the headline restated in counts,
-              counted the same way the strip underneath counts. */}
-          {/* Cut in v8. Three faults at once: it restates the headline comparison in a third
-              unit; "usually 13.5" invites the reader to average the ten numbers in the strip
-              below, which give 11.8, because expected_usual is a model quantity conditioned on
-              playing and not the mean of any games on screen; and "tonight" is false on every
-              card for a fixture days away, which is most of the Insights page. */}
-          {/* v8: the accent is only earned by a departure big enough to be the reason to read this
-              card. Painting every one of them mint put twenty mint pills on one Insights screen,
-              which is the wallpaper the rule was written to prevent -- the chip then meant "this
-              card has a number", not "look here". DEP_BIG is in points, not a ratio, because the
-              reader is comparing it against the other chips on the page, not against its own line. */}
-          {dep != null && <b className={"v2-cmp-d " + dir + (Math.abs(dep) >= DEP_BIG ? " is-big" : "")} data-testid={`${id}-dep`}>{dep > 0 ? "+" : ""}{dep} pts</b>}
-        </div>}
+        {/* THE VERDICT (docs/61). This row was four marks saying one thing: the badge, its note,
+            `Usual 48%` and a `+8 pts` pill -- and the badge sat beside the PERCENTAGE while grading
+            something else entirely, so a reader bound the two and read "57% Watch" next to "56%
+            Solid" as the product contradicting itself. Measured across 200 cards, the badge and the
+            number it sat next to correlated +0.09: on a player card the badge was, to a reader,
+            noise attached to the wrong quantity.
+            It is one sentence now, and the badge sits with the gap it actually grades. Nothing is
+            lost: the usual is still printed, the gap is still in points, and the Strong/Solid
+            distinction -- does the likely range clear their usual, or still reach it -- is said in
+            words instead of left for the reader to derive from `43 to 64` against `48`. */}
+        {(f.tier || (f.p_usual != null && dep != null)) && (
+          <div className="v2-cmp" data-testid={`${id}-cmp`}>
+            {f.p_usual != null && dep != null ? (
+              <span className={"v2-verdict " + dir} data-testid={`${id}-dep`}>
+                <i aria-hidden="true">{dep > 0 ? "\u25b2" : dep < 0 ? "\u25bc" : "\u2013"}</i>
+                <b>{Math.abs(dep)} {Math.abs(dep) === 1 ? "point" : "points"}</b> {dep >= 0 ? "above" : "below"}{" "}
+                {f.scope === "player" ? "his" : "their"} usual <b>{pct(f.p_usual)}</b>
+                {clears != null && <> &middot; {clears ? "clear of it" : "the likely range still reaches it"}</>}
+              </span>
+            ) : <span />}
+            <TierBadge tier={f.tier} testid={`${id}-tier`} />
+          </div>
+        )}
+        {/* The record notes survive: "Similar lines happened 71% of the time" is our own measured record and
+            is not said anywhere else. The DEPARTURE note is dropped, because the sentence above now
+            says the same thing in the same breath as the gap it is about. */}
+        {f.tier_note && !f.is_personal && <small className="k-fc-note" data-testid={`${id}-tier-note`}>{f.tier_note}</small>}
         {tk && tk.state !== "unknown" && <div className="lv-row"><Track t={tk} id={id} /></div>}
         {/* v2 (docs/redesign/v2/PLAN.md): this was a filled meter, and a filled meter says "this number
             is big" -- the one thing a reader must not conclude, because a big number is exactly what a
@@ -176,12 +188,23 @@ export function ForecastCard({ f, teams, homeIid, showTime = true, testid, track
             {f.p_start != null && f.p_start < 0.8 && <> · he starts {pct(f.p_start)} of the time</>}
           </small>
         )}
-        {f.reasons?.[0] && <p className="k-fc-why">{f.reasons[0]}</p>}
+        {/* The strongest line the card holds, NAMED, with the reason it is not the headline (docs/61).
+            The footer used to tease `up to 94%`: a bigger number, no market, no explanation, in the
+            smallest text on the card. Both readers we tested called that burying the good one, and
+            27% of cards lead with something lower than they hold. Leading on prominence is right --
+            a line that barely moves against any defence is a fact about the league, not a forecast
+            -- but the card has to say so out loud rather than hint at it. `span` is how far the line
+            moves across the league's defences, which is the whole argument. */}
+        {topMore?.market && (
+          <p className="v2-alt" data-testid={`${id}-alt`}>
+            {f.scope === "player" ? "His" : "Their"} likeliest line here is <b>{topMore.market}</b> at <b>{pct(topMore.p)}</b>
+            {topMore.span != null && Math.abs(topMore.span) < DULL_SPAN ? " \u2014 much the same against any defence." : "."}
+          </p>
+        )}
       </button>
       {(more.length > 0 || lineup || f.fkey || (showTime && f.kickoff)) && (
         <footer className="k-fc-foot">
-          {more.length > 0 ? <button type="button" className="k-link" aria-expanded={open} onClick={() => setOpen(!open)} data-testid={`${id}-more`}>{open ? "Hide other lines" : `+${more.length} more line${more.length === 1 ? "" : "s"}`}
-            {!open && topMore && <em className="v2-more-top" data-testid={`${id}-more-top`}>up to {pct(topMore.p)}</em>}</button> : <span />}
+          {more.length > 0 ? <button type="button" className="k-link" aria-expanded={open} onClick={() => setOpen(!open)} data-testid={`${id}-more`}>{open ? "Hide other lines" : `+${more.length} more line${more.length === 1 ? "" : "s"}`}</button> : <span />}
           <span className="k-fc-foot-r">{lineup && <span className={`k-tag${sure ? " k-tag--up" : ""}${muted ? " k-tag--muted" : ""}`} data-testid={`${id}-badge`}>{lineup}</span>}
             {showTime && f.kickoff && <small className="k-fc-date" data-testid={`${id}-date`}>{timeOf(f.kickoff)}</small>}
             {/* Every rung under "+N more lines" could be kept and the headline line -- the one the
