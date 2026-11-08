@@ -364,7 +364,11 @@ def brain_status(db) -> dict:
              "version": (pmap or {}).get("version"), "source": "own" if own else ("default" if pmap else "off"),
              "created_at": (own or {}).get("created_at"), "test_logloss": (own or {}).get("test_logloss"),
              "team_shrink": (pmap or {}).get("team_shrink"),
+             # Two different counts, and the screen used to show only the first, which is how it came
+             # to read "23,846 of 5,000" while still serving the shipped map. `scored` is everything
+             # we have graded; `eligible` is what a refit may actually learn from (calibration.eligible).
              "scored": db.forecast_outcomes.count_documents({"p_model": {"$ne": None}, "state": {"$in": ["pre", "lineup"]}}),
+             "eligible": len(CAL.eligible(db)),
              "needed": int(S.get(db, "engine.calib_min_scored")),
              "last_refit": (db.job_runs.find_one({"job": "calibration"}, {"_id": 0, "result": 1, "started_at": 1}, sort=[("started_at", -1)]) or None)}
     return {"gates": list(gates.values()), "calibration": calib,

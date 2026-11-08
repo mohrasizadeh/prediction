@@ -26,7 +26,29 @@ function Calibration({ d, reload }) {
   const askSwitch = (key, value, what) => setSw({ key, value, what });
   return (
     <Card title="Percentages and factors" testid="brain-calibration" actions={<Chip tone={c.enabled ? "up" : "warn"} testid="brain-calibration-source">{c.source === "own" ? "Own map" : c.source === "default" ? "Default map" : "Off"}</Chip>}>
-      <p className="a-muted small">The map turns the engine's raw likelihood into the percentage people see. Version in use: <b data-testid="brain-calibration-version">{c.version || "none"}</b>. A weekly refit from our own results is kept only if it beats the current map ({num(c.scored)} of {num(c.needed)} scored forecasts so far).</p>
+      <p className="a-muted small">The map turns the engine's raw likelihood into the percentage people see. Version in use: <b data-testid="brain-calibration-version">{c.version || "none"}</b>. A weekly refit from our own results is kept only if it beats the current map on the newest 30%.</p>
+      {/* Two counts, because they are two different things and showing only the first read as
+          "23,846 of 5,000" -- a progress bar past its own target, beside a screen still serving the
+          shipped map. `eligible` is what a refit may actually learn from: with "if he plays" on, the
+          older all-in rows and the non-appearances do not qualify however many there are (docs/27). */}
+      <p className="a-muted small" data-testid="brain-calibration-progress">
+        {num(c.scored)} forecasts scored. <b>{num(c.eligible)}</b> of them can train a map, against the {num(c.needed)} needed
+        {c.eligible >= c.needed ? " — enough." : ` — ${num(Math.max(0, c.needed - (c.eligible || 0)))} to go.`}
+      </p>
+      {/* The answer to "so why am I still on the shipped map" was already in this payload and drawn
+          nowhere. Without it the screen cannot tell "never ran" from "ran and the new map lost". */}
+      {c.last_refit && (
+        <p className="a-muted small" data-testid="brain-calibration-last">
+          Last refit {when(c.last_refit.started_at)}: {
+            {off: "turned off, so nothing was fitted.",
+             waiting: "not enough eligible results yet.",
+             kept_current: "a new map was fitted and did not beat the one in use, so it was thrown away.",
+             updated: "a new map won and is now in use."}[c.last_refit.result?.status] || (c.last_refit.result?.status || "no result recorded.")
+          }
+          {c.last_refit.result?.candidate != null && ` (new ${c.last_refit.result.candidate}, current ${c.last_refit.result.current}; lower is better)`}
+        </p>
+      )}
+      {!c.last_refit && <p className="a-muted small" data-testid="brain-calibration-never">The weekly refit has not run yet.</p>}
       {c.test_logloss && <p className="a-muted small">Last refit test: new {c.test_logloss.new} vs previous {c.test_logloss.previous} ({when(c.created_at)})</p>}
       <Switch label="Show calibrated percentages" checked={!!c.enabled} onChange={(v) => askSwitch("engine.calibration", v, "the calibration map")} testid="brain-sw-calibration" />
       <Switch label="Absences count" hint="Players who missed recent matches are less likely to play" checked={!!e["engine.absence_model"]} onChange={(v) => askSwitch("engine.absence_model", v, "the availability model")} testid="brain-sw-absence" />
