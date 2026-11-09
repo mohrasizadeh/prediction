@@ -222,7 +222,11 @@ def normalize_match(match: dict, stats_data, players_data, lineups_data, setting
     totals = {}
     for side in ("home", "away"):
         ext = match[side + "_ext"]
-        totals[side] = {c: _sum_team(pl, ext, c) for c in ("shots", "sot", "tackles")}
+        # A player market can only exist for a stat whose TEAM total is on the player row, because
+        # the engine builds a player's rate as his share of it. fouls_committed and
+        # goal_involvements join the original three for that reason (docs/70).
+        totals[side] = {c: _sum_team(pl, ext, c)
+                        for c in ("shots", "sot", "tackles", "fouls_committed", "goal_involvements")}
         if ts[side]["tackles"] is None:
             ts[side]["tackles"] = totals[side]["tackles"]
         if ts[side]["sot"] is None:

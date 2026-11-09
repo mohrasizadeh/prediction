@@ -41,6 +41,17 @@ log = logging.getLogger("engine")
 NO_COVERAGE_MARKETS = ("team.goals",)
 TEAM_REQUIRED = ["shots", "sot", "corners", "tackles", "poss", "shots_against", "corners_against", "tackles_against"]
 PLAYER_REQUIRED = ["minutes", "shots", "sot", "tackles", "team_shots", "team_sot", "team_tackles"]
+# A market needs BOTH its own column and its team total before the engine can fit it. fouls and
+# goal involvements are new, so on any league whose history predates them the columns are empty --
+# and an empty column must drop the MARKET, never the rows (dropna on it would delete every
+# appearance in the league and take the three working markets with it).
+# Which markets the league currently being run actually has data for. Filled by build_frames,
+# read by configure_engine, which runs after it.
+MARKETS_WITH_DATA: set[str] = set()
+PLAYER_MARKET_COLS = {"shots": ("shots", "team_shots"), "sot": ("sot", "team_sot"),
+                      "tackles": ("tackles", "team_tackles"),
+                      "fouls_committed": ("fouls_committed", "team_fouls_committed"),
+                      "goal_involvements": ("goal_involvements", "team_goal_involvements")}
 
 
 # ------------------------------------------------------------------ frames
@@ -94,6 +105,18 @@ def build_frames(db, league_iid: int, history_rounds: int):
     # one unfilled settings field away at all times, and until now its only symptom was a league
     # with no player forecasts and a run marked "done".
     blank = [c for c in PLAYER_REQUIRED if c not in pg.columns or pg[c].isna().mean() > 0.99]
+    # docs/70: fouls and goal involvements were added after some leagues were ingested, so their
+    # columns are empty there until history accumulates. Which markets THIS league can support is
+    # recorded rather than applied, because configure_engine owns the final list and runs after
+    # this; a market must also never reach the dropna below, which would delete every appearance in
+    # the league and take the three working markets down with it.
+    MARKETS_WITH_DATA.clear()
+    for mkt, (own, team) in PLAYER_MARKET_COLS.items():
+        missing = [c for c in (own, team) if c not in pg.columns or pg[c].isna().mean() > 0.99]
+        if missing:
+            log.info("engine: market %r has no data in this league (%s)", mkt, ", ".join(missing))
+        else:
+            MARKETS_WITH_DATA.add(mkt)
     pg = pg.dropna(subset=[c for c in PLAYER_REQUIRED if c in pg.columns])
     pg = pg.merge(ms[["game_id", "round"]], on="game_id")
     pg["started"] = pg["started"].astype(int)
@@ -121,6 +144,15 @@ def configure_engine(db) -> E.SoccerEngine:
     pk, tk = ("engine.player_ladder", "engine.team_ladder") if auto else ("engine.player_thresholds", "engine.team_thresholds")
     E.PLAYER_THR.clear(); E.PLAYER_THR.update({k: list(v) for k, v in S.get(db, pk).items()})
     E.TEAM_THR.clear(); E.TEAM_THR.update({k: list(v) for k, v in S.get(db, tk).items()})
+    # The final market list, computed from the CANONICAL one every time rather than by narrowing
+    # whatever the last league left behind -- PLAYER_STATS is module state and run_league is a
+    # per-league loop, so filtering in place meant a market dropped for one league stayed dropped
+    # for every league after it, and could never grow back. Three conditions, in one place:
+    #   the engine can fit it  AND  the owner asked for it  AND  this league has the data.
+    # A key in the ladder for a market the engine does not model is dropped, not guessed at --
+    # which is how `goals` in the ladder could look configured and quietly produce nothing.
+    avail = MARKETS_WITH_DATA if MARKETS_WITH_DATA else set(E.ALL_PLAYER_STATS)   # empty = frames not built (tests)
+    E.PLAYER_STATS[:] = [s_ for s_ in E.ALL_PLAYER_STATS if s_ in E.PLAYER_THR and s_ in avail]
     eng = E.SoccerEngine(interactions=S.get(db, "engine.interactions"),
                          lineup=False,                                   # LOCKED off: see 03_rules_and_compliance.md
                          half_life_rounds=float(S.get(db, "engine.half_life_rounds")),
@@ -228,6 +260,11 @@ def enabled_markets(db, league_iid: int) -> dict:
 
 
 STAT_LABEL = {"shots": ("shot", "shots"), "sot": ("shot on target", "shots on target"), "tackles": ("tackle", "tackles"),
+              # docs/70. "goal involvement" is the honest noun for goals+assists: it is ONE event
+              # counted once, not two probabilities added -- a player who scores often also assists,
+              # and adding the marginals would double-count that overlap. The column has been
+              # ingested and backfilled since normalize.DERIVED_PLAYER_COLS; this only names it.
+              "fouls_committed": ("foul", "fouls"), "goal_involvements": ("goal or assist", "goals or assists"),
               "corners": ("corner", "corners"), "fouls": ("foul", "fouls"), "yellow": ("yellow card", "yellow cards"),
               "goals": ("goal", "goals"), "match_goals": ("goal", "goals")}
 

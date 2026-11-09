@@ -207,7 +207,13 @@ def ingest_match(client: PitchClient, match: dict) -> bool:
                "league_iid": match["league_iid"], "pos": p["pos"], "pos_raw": p["pos_raw"], "started": p["started"],
                **{c: p[c] for c in (*N.PLAYER_COLS, *N.DERIVED_PLAYER_COLS)},
                "team_shots": out["team_totals"][side]["shots"], "team_sot": out["team_totals"][side]["sot"],
-               "team_tackles": out["team_totals"][side]["tackles"], "team_goals": goals_of[side]}
+               "team_tackles": out["team_totals"][side]["tackles"], "team_goals": goals_of[side],
+               # docs/70. Two more team totals, for the same reason team_goals was written: a market
+               # cannot exist for a stat whose team total is missing from the player row, and a
+               # column added later starts EMPTY -- the engine reads engine.history_rounds back, so
+               # these have to accumulate before either market can be switched on.
+               "team_fouls_committed": out["team_totals"][side]["fouls_committed"],
+               "team_goal_involvements": out["team_totals"][side]["goal_involvements"]}
         db.player_match_stats.update_one({"match_iid": match["iid"], "player_iid": pid}, {"$set": row}, upsert=True)
 
     save_lineups(db, match, out["lineups"], iid_of_team)
@@ -446,6 +452,44 @@ def fill_player_tackles(db, league_iid: int | None = None, dry_run: bool = True)
         return out
     if not dry_run and nulls:
         db.player_match_stats.update_many({**q, "tackles": None}, {"$set": {"tackles": 0.0}})
+    return out
+
+
+def fill_player_team_totals(db, league_iid: int | None = None, dry_run: bool = True) -> dict:
+    """Backfill team_fouls_committed and team_goal_involvements on history (docs/70).
+
+    The engine builds a player's rate as his SHARE OF A TEAM TOTAL, so a market cannot exist for a
+    stat whose team total is missing from the player row. Those two columns began being written
+    with this change, which means every row ingested before it has them empty -- and the engine
+    reads `engine.history_rounds` back, so both markets would be dropped as having no data until a
+    season's worth of new matches had accumulated.
+
+    Nothing here calls the provider. Both totals are sums over player rows the database already
+    holds, so this is a read and a write over existing history and costs no quota.
+    """
+    q = {}
+    if league_iid is not None:
+        q["league_iid"] = league_iid
+    out = {"ok": True, "dry_run": dry_run, "league_iid": league_iid, "matches": 0, "rows": 0, "skipped_no_source": 0}
+    for key in db.player_match_stats.aggregate([{"$match": q}, {"$group": {"_id": {"m": "$match_iid", "t": "$team_iid"}}}]):
+        mid, tid = key["_id"]["m"], key["_id"]["t"]
+        rows = list(db.player_match_stats.find({"match_iid": mid, "team_iid": tid},
+                                               {"_id": 1, "fouls_committed": 1, "goal_involvements": 1}))
+        out["matches"] += 1
+        set_ = {}
+        for col, dest in (("fouls_committed", "team_fouls_committed"), ("goal_involvements", "team_goal_involvements")):
+            vals = [r[col] for r in rows if r.get(col) is not None]
+            # No source values at all means the market was never ingested for this league. Writing a
+            # 0 would be inventing a fact -- the same error normalize.players exists to avoid -- so
+            # the column is left empty and the market is dropped for that league instead.
+            if vals:
+                set_[dest] = float(sum(vals))
+        if not set_:
+            out["skipped_no_source"] += 1
+            continue
+        if not dry_run:
+            db.player_match_stats.update_many({"match_iid": mid, "team_iid": tid}, {"$set": set_})
+        out["rows"] += len(rows)
     return out
 
 

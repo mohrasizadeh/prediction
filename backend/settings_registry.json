@@ -959,7 +959,7 @@
     },
     "public": false,
     "applies_at": "next_engine_run",
-    "help": ""
+    "help": "Which lines the engine publishes per player market. engine.auto_lines decides WHICH of these two is live -- the ladder when it is on (the default), the thresholds when it is off. A market named here that the engine cannot fit is dropped, not guessed at; the markets it can fit are shots, sot, tackles, fouls_committed and goal_involvements."
   },
   {
     "key": "engine.team_thresholds",
@@ -1018,7 +1018,7 @@
     },
     "public": false,
     "applies_at": "next_engine_run",
-    "help": "Every line the engine scores for players when automatic lines are on. 2.5 = 3+. Tackles start at 2+: almost every outfield player makes 1 tackle, so it says little."
+    "help": "Which lines the engine publishes per player market. engine.auto_lines decides WHICH of these two is live -- the ladder when it is on (the default), the thresholds when it is off. A market named here that the engine cannot fit is dropped, not guessed at; the markets it can fit are shots, sot, tackles, fouls_committed and goal_involvements."
   },
   {
     "key": "engine.team_ladder",
@@ -1099,7 +1099,7 @@
     "group": "Engine",
     "public": false,
     "applies_at": "next engine run",
-    "help": "Overrides the band above for named markets, as scope then stat, e.g. {\"player\": {\"sot\": [0.4, 0.985]}}. Anything unlisted keeps the single band, so {} is today's behaviour. Markets are not equally common: a player taking 1.5 shots a game is 74% to have one and 43% to put one on target, so one floor keeps his shots line and deletes his on-target line. A rare market such as goals (a striker's 1+ is 30-45%) cannot be offered at all under a 0.5 floor -- every rung falls below the band and the whole market is stored as an invisible carrier."
+    "help": "A likelihood band per market, overriding engine.line_band. Goal involvements sit near 40% for even the best forwards, so without an entry here every rung falls under the 0.5 floor and the market ships as nothing. Fouls need no entry: they clear the standard band."
   },
   {
     "key": "engine.max_lines_per_stat",
@@ -1396,11 +1396,13 @@
     "default": {
       "shots": 6.0,
       "sot": 5.0,
-      "tackles": 10.0
+      "tackles": 10.0,
+      "fouls_committed": 6.0,
+      "goal_involvements": 3.0
     },
     "public": false,
     "applies_at": "next_engine_run",
-    "help": ""
+    "help": "Negative-binomial dispersion per player market: var = mu + mu^2/r, so a LOWER r means more clustering. Replaced from the data when engine.fit_player_r is on."
   },
   {
     "key": "engine.absence_model",

@@ -38,7 +38,12 @@ import context as CX
 from ratings import RatingsModel, HALF as R_HALF, LAM as R_LAM
 
 STATS = ["shots", "sot", "corners", "tackles"]
-PLAYER_STATS = ["shots", "sot", "tackles"]
+# The markets the player layer fits and forecasts. It is a LIST and not derived from PLAYER_THR's
+# keys because a stat can only be fitted when its column and its team total are both in the frame;
+# engine_bridge.configure_engine narrows this to what the data actually carries, so a market named
+# in the settings but missing from the feed is dropped rather than raising mid-run (docs/70).
+ALL_PLAYER_STATS = ["shots", "sot", "tackles", "fouls_committed", "goal_involvements"]
+PLAYER_STATS = list(ALL_PLAYER_STATS)   # narrowed per run; restored from ALL_ at the start of each
 PLAYER_THR = {"shots": [0.5, 1.5], "sot": [0.5], "tackles": [1.5, 2.5]}
 TEAM_THR = {"corners": [4.5], "shots": [11.5]}
 
@@ -48,7 +53,13 @@ OWN_I = [0, 2, 6, 4]   # shots_for, corners_for, poss, tackles_for
 OPP_I = [1, 3, 6, 5]   # shots_against, corners_against, poss, tackles_against
 TEAM_DIMS = {"shots": (0, 1), "corners": (2, 3), "tackles": (4, 5)}
 
-DEFAULT_R_PLAYER = {"shots": 6.0, "sot": 5.0, "tackles": 10.0}
+# Negative-binomial dispersion per market: var = mu + mu^2/r, so a LOWER r means more clustering.
+# A rare, bursty event clusters harder than a routine one -- a player either gets involved in a
+# goal or he does not, where shots arrive steadily -- hence 3.0 for involvements against 6.0 for
+# shots. `fit_player_r` replaces all of these from the data when it is on, which is the point of
+# these being a starting value rather than a claim.
+DEFAULT_R_PLAYER = {"shots": 6.0, "sot": 5.0, "tackles": 10.0,
+                    "fouls_committed": 6.0, "goal_involvements": 3.0}
 # Prior strength of a player's share of his team's total, in team-stat units (docs/25: tackles 80 beat 40, z +5.1;
 # shots and on target are best at 40).
 DEFAULT_PLAYER_PRIOR = {"shots": 40.0, "sot": 40.0, "tackles": 40.0}
@@ -543,7 +554,15 @@ class SoccerEngine:
         # `rho90`, the positional per-90 mean, was computed here only to shrink the player's own
         # baseline toward. That baseline is now built from the same posterior and the same team
         # total as his forecast, so nothing reads it any more.
-        for s in PLAYER_STATS:
+        # The markets THIS frame can support. A market needs its own column and its team total, and
+        # neither is guaranteed: fouls and goal involvements were added to the engine after some
+        # leagues were ingested, and a caller that builds its own frame (the A/B runner, the
+        # simulator, a test) has no reason to carry columns for markets it is not studying. The
+        # engine fits what it is given rather than crashing on what it is not -- the alternative is
+        # a KeyError in the middle of a league run, which is how this was found.
+        self.player_stats = [s for s in PLAYER_STATS
+                             if s in pgp.columns and ("team_" + s) in pgp.columns]
+        for s in self.player_stats:
             E = pgp["team_" + s] * pgp["minutes"] / 90.0
             self.rho[s] = (pgp.groupby("pos")[s].sum() / E.groupby(pgp["pos"]).sum()).to_dict()
         self.pl = {}
@@ -657,7 +676,7 @@ class SoccerEngine:
             the spread includes the team-total error a real forecast carries. Scoring against the actual total
             would hide that and leave the engine too confident.
         Too few rows, or no predicted totals, and the current value stays."""
-        for st in PLAYER_STATS:
+        for st in self.player_stats:
             pred = self.mu_fit.get(st) or {}
             if not pred:
                 continue
@@ -699,7 +718,7 @@ class SoccerEngine:
         self.opp_pos = {}
         if "opp" not in pgp.columns:
             return
-        for st in PLAYER_STATS:
+        for st in self.player_stats:
             rho = self.rho[st]
             exp = pgp["pos"].map(rho).astype(float) * pgp["team_" + st].astype(float) * pgp["minutes"].astype(float) / 90.0
             df = pd.DataFrame({"opp": pgp["opp"].values, "pos": pgp["pos"].values,
@@ -1104,7 +1123,10 @@ class SoccerEngine:
 
             # ---- player markets
             squad = self.squads.get(team, {})
-            for s in PLAYER_STATS:
+            # Only markets that were FITTED, for the same reason fit() narrows: a market whose
+            # columns the frame never carried has no rho, no posterior and no mu, so walking it
+            # here would fail on the first lookup instead of simply not being published.
+            for s in self.player_stats:
                 post = {}
                 rate = {}
                 opp_pos_f = {}

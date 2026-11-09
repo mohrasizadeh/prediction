@@ -140,6 +140,28 @@ def tackles_backfill(league_iid: int = 0, dry_run: bool = True, user=Depends(per
     return rep
 
 
+@router.post("/ingest/team-totals/backfill")
+def team_totals_backfill(league_iid: int = 0, dry_run: bool = True, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Fill team_fouls_committed / team_goal_involvements on history (docs/70).
+
+    Run this ONCE before switching on the fouls or goal-involvement markets. The engine builds a
+    player's rate as his share of a team total, so without these columns both markets are dropped
+    as having no data until a season of new matches has accumulated.
+
+    Calls the provider zero times: both totals are sums over player rows already stored. Defaults
+    to a DRY RUN; pass dry_run=false to apply. `skipped_no_source` counts team-matches where the
+    source column was never ingested -- those are left empty rather than filled with a 0, because a
+    0 there would claim nobody in the league ever committed a foul.
+    """
+    import ingest as ING
+    rep = ING.fill_player_team_totals(db, league_iid or None, dry_run=dry_run)
+    if not dry_run:
+        db.audit_log.insert_one({"actor": user["email"], "action": "ingest.team_totals_backfill",
+                                 "target": f"league={league_iid or 'all'} matches={rep['matches']} rows={rep['rows']}",
+                                 "at": datetime.now(timezone.utc)})
+    return rep
+
+
 @router.post("/ingest/goals/backfill")
 def goals_backfill(league_iid: int = 0, dry_run: bool = True, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     """Fill goals / assists / goal_involvements on history ingested before they were zero-filled.
