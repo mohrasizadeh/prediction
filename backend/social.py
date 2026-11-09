@@ -89,7 +89,8 @@ def _check_media(kind: str, media: list[str]) -> list[str]:
 
 
 def queue(db, actor: str, *, platform: str, kind: str, media: list[str], caption: str,
-          scheduled_at: datetime, design_id: str | None = None, note: str = "") -> dict:
+          scheduled_at: datetime, design_id: str | None = None, note: str = "",
+          fkeys: list[str] | None = None) -> dict:
     """Put one post in the queue as a draft. Nothing leaves the building until it is approved."""
     if platform not in PLATFORMS:
         raise SocialError(f"Unknown platform {platform!r}.")
@@ -100,6 +101,12 @@ def queue(db, actor: str, *, platform: str, kind: str, media: list[str], caption
     doc = {"_id": "sp_" + secrets.token_hex(8), "platform": platform, "kind": kind,
            "media": _check_media(kind, media), "caption": _check_caption(caption),
            "scheduled_at": scheduled_at, "status": "draft", "design_id": design_id, "note": note,
+           # Which forecasts this image is ABOUT. The post itself does not need them -- Instagram
+           # gets a PNG and a caption -- but the match-day e-mail does: it reuses the day's already
+           # rendered card as its header graphic, and it should reuse the one about a player the
+           # e-mail is actually naming (docs/69, waitlist_mail.header_image). Without this the
+           # best it could do is "whatever was queued first today".
+           "fkeys": [str(k)[:120] for k in (fkeys or [])][:12],
            # one-time bearer for the callback: the tool proves which post it is reporting on
            # without this app having to trust anything else about the request.
            "callback_token": secrets.token_urlsafe(18),

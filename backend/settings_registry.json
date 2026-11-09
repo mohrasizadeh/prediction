@@ -3092,5 +3092,35 @@
     "public": true,
     "applies_at": "immediately",
     "help": "The browse hub: leagues, clubs and the directory pages under it."
+  },
+  {
+    "key": "waitlist.email_enabled",
+    "label": "Send the waitlist match-day e-mail",
+    "type": "boolean",
+    "default": false,
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "The three strongest forecasts, once on every day that has football, to everyone who signed up on /waitlist. Needs e-mail and marketing e-mail on, and a postal address in the footer."
+  },
+  {
+    "key": "waitlist.email_hour",
+    "label": "Hour the waitlist e-mail goes out",
+    "type": "int",
+    "default": 9,
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Local hour, 0 to 23. It goes out on the first job run at or after this hour, and only once a day."
+  },
+  {
+    "key": "waitlist.email_tz_offset_min",
+    "label": "Local time offset for the waitlist e-mail (minutes)",
+    "type": "int",
+    "default": 0,
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Minutes from UTC, used for the send hour, the date in the subject and the kick-off times in the e-mail. Toronto in winter is -300."
   }
 ]

@@ -133,6 +133,22 @@ DEFAULTS = {
         "subject": "Confirm your sign-up for {{brand}}",
         "html": "<p>Hi,</p><p>Someone (we hope you) asked for the {{brand}} e-mail list. Press the button to say yes. If it was not you, do nothing and you will not hear from us.</p><p><a href=\"{{link}}\" style=\"{{button}}\">Yes, add me</a></p><p>The link works for 3 days.</p>",
         "text": "Someone (we hope you) asked for the {{brand}} e-mail list. To say yes, open:\n{{link}}\nIf it was not you, do nothing and you will not hear from us.\nThe link works for 3 days."},
+    # docs/69. Both are `marketing`: the only consent behind them is a sign-up form, so they
+    # respect the opt-out, carry the postal address and the one-click unsubscribe, and count
+    # against the daily cap. The match-day body is built by waitlist_mail and arrives under an
+    # `_html` name (see render) because it is a table of real forecasts, not a sentence.
+    "waitlist_welcome": {"category": "marketing", "vars": ["name", "link", "count"],
+        "subject": "You are on the list. Here is what you will get.",
+        "html": "<p>Hi {{name}},</p><p>You are on the {{brand}} list. From the next match day, you will get our <strong>{{count}} strongest forecasts</strong> every day there is football &mdash; and nothing on the days there is not.</p>"
+                "<p>What that means, briefly. We model every player in every fixture we cover, then publish only the lines the model is most sure about. Each one shows the number, how likely we think it is, and the ten games behind it. After the match we score it and keep the result, whichever way it went.</p>"
+                "<p>So the e-mail you get is not a tip sheet. It is three numbers, with their reasons, that you can check the next morning.</p>"
+                "<p><a href=\"{{link}}\" style=\"{{button}}\">See the record so far</a></p>"
+                "<p>If this is not what you expected, the unsubscribe link below works in one click and we will not write again.</p>",
+        "text": "Hi {{name}},\n\nYou are on the {{brand}} list. From the next match day you will get our {{count}} strongest forecasts every day there is football, and nothing on the days there is not.\n\nWe model every player in every fixture we cover, then publish only the lines the model is most sure about. Each one shows the number, how likely we think it is, and the ten games behind it. After the match we score it and keep the result, whichever way it went.\n\nSee the record so far: {{link}}\n\nIf this is not what you expected, the unsubscribe link below works in one click."},
+    "waitlist_matchday": {"category": "marketing", "vars": ["name", "date", "link", "count", "rows_html", "rows_text"],
+        "subject": "{{date}}: our {{count}} strongest forecasts",
+        "html": "<p>Hi {{name}},</p><p>The {{count}} lines we are most sure about for {{date}}. Each one is scored after the match.</p>{{rows_html}}<p style=\"padding-top:18px\"><a href=\"{{link}}\" style=\"{{button}}\">See all of today's forecasts</a></p>",
+        "text": "Hi {{name}},\n\nThe {{count}} lines we are most sure about for {{date}}. Each one is scored after the match.\n\n{{rows_text}}\n\nSee all of today's forecasts: {{link}}"},
     "admin_alert": {"category": "transactional", "vars": ["text", "link"],
         "subject": "Alert from {{brand}}: something needs a look",
         "html": "<p>{{text}}</p><p><a href=\"{{link}}\" style=\"{{button}}\">Open the admin</a></p><p>You get this because you are on the team. Change it under Account > Notifications.</p>",
@@ -156,7 +172,24 @@ def esc(v) -> str:
 
 
 def render(tpl: str, vars: dict, escape: bool) -> str:
-    return _VAR.sub(lambda m: (esc if escape else str)(vars.get(m.group(1), "")) if m.group(1) != "button" else BUTTON, tpl)
+    """Fill {{name}} placeholders. Two names are special, and both are closed sets:
+
+      * `{{button}}` is the inline button style, so a template author never pastes a hex code;
+      * a name ending in `_html` is inserted RAW, for a block the app built itself -- the match-day
+        e-mail's three forecasts are a table, and a table that arrives escaped is an e-mail full of
+        visible angle brackets (docs/69).
+
+    Raw insertion is safe only because the value comes from code, never from a form. The one
+    builder that uses it (waitlist_mail) escapes every field it reads out of the database before it
+    puts it in, for exactly this reason. Nothing admin-typed is ever passed under an `_html` name.
+    """
+    def one(m):
+        k = m.group(1)
+        if k == "button":
+            return BUTTON
+        v = vars.get(k, "")
+        return str(v) if (k.endswith("_html") or not escape) else esc(v)
+    return _VAR.sub(one, tpl)
 
 
 def get_template(db, key: str) -> dict:
@@ -395,7 +428,7 @@ def handle_resend_event(db, event: dict, svix_id: str) -> str:
 
 
 # ----------------------------------------------------------------------------- campaigns
-SEGMENTS = ("all", "free", "paid", "newsletter", "everyone")
+SEGMENTS = ("all", "free", "paid", "newsletter", "waitlist", "everyone")
 
 
 def _list_member(email: str) -> dict:
@@ -420,11 +453,17 @@ def segment_users(db, segment: str):
         for r in db.newsletter.find({"status": "confirmed"}, {"email": 1}):
             if r["email"] not in seen:
                 yield _list_member(r["email"])
+    if segment == "waitlist":
+        # docs/69: the people who signed up on /waitlist, not everyone on the list. They were
+        # promised a specific thing, so a campaign aimed at them should not also reach the footer
+        # form's subscribers -- and the name they gave is used to address it.
+        import waitlist_mail as WL
+        yield from WL.members(db)
 
 
 def create_campaign(db, subject: str, html: str, segment: str, actor: str) -> str:
     if segment not in SEGMENTS:
-        raise ValueError("Segment: all, free, paid, newsletter or everyone.")
+        raise ValueError("Segment: " + ", ".join(SEGMENTS[:-1]) + " or " + SEGMENTS[-1] + ".")
     if not (1 <= len(subject) <= 150) or _BAD_HTML.search(html) or len(html) > 50000:
         raise ValueError("Subject 1 to 150 characters; no scripts in the body.")
     textguard.require_clean("Campaign", [subject, html])

@@ -20,7 +20,16 @@ import settings_store as S
 from cached_fetch import BreakerOpen, BudgetExhausted, PitchClient, Unauthorized, utcnow
 
 LOCK_MINUTES = 5
-MANUAL = {"reference_sync", "fixtures_sync", "results_sync", "backfill", "engine", "alerts", "digest", "images", "referees"}
+MANUAL = {"reference_sync", "fixtures_sync", "results_sync", "backfill", "engine", "alerts", "digest", "images", "referees", "waitlist_mail"}
+
+
+def _waitlist_due(db, now) -> bool:
+    """waitlist_mail.due, imported lazily: the module pulls in queries and the emailer, and a tick
+    on a day with the e-mail switched off should not pay for either."""
+    if not S.get(db, "waitlist.email_enabled"):
+        return False
+    import waitlist_mail as WL
+    return WL.due(db, now)
 
 
 def _lock(db, now) -> bool:
@@ -147,6 +156,13 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
         if left() and ("follow_alerts" in forced or _due_every(db, "follow_alerts", timedelta(minutes=2), now)):
             import follow_alerts as FA
             if _run(db, "follow_alerts", lambda: FA.run(db, now), now) is not None: out["ran"].append("follow_alerts")
+        if left() and ("waitlist_mail" in forced or _waitlist_due(db, now)):
+            # docs/69: the three strongest forecasts, once on a day that has football. `due` owns
+            # both conditions -- the local hour has come, and today has no completed send -- and
+            # send_matchday marks the day itself in `waitlist_sends`, so a send started here and
+            # one started from the admin screen count exactly the same.
+            import waitlist_mail as WL
+            if _run(db, "waitlist_mail", lambda: WL.send_matchday(db, now=now), now) is not None: out["ran"].append("waitlist_mail")
         if left() and ("alerts" in forced or _due_every(db, "alerts", timedelta(minutes=15), now)):
             import alerts as AL
             if _run(db, "alerts", lambda: AL.run(db, now), now) is not None: out["ran"].append("alerts")

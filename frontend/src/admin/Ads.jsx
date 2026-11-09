@@ -206,7 +206,9 @@ export default function Ads() {
         // Spread past the listed times rather than stacking: ad 5 of 4 slots goes to the next day's
         // first slot, not on top of ad 1.
         const dayOffset = Math.floor(i / times.length);
-        items.push({ media: [up.abs_url], caption: ad.caption || "", kind: "post",
+        // fkeys travel with the post so the match-day e-mail can use the card about a player it
+        // is actually naming as its header graphic (docs/69). Instagram never sees them.
+        items.push({ media: [up.abs_url], caption: ad.caption || "", kind: "post", fkeys: ad.fkeys || [],
                      scheduled_at: `${addDays(dayQ.data.day, dayOffset)}T${t}:00` });
       }
       const r = await post("/admin/social/batch", items);

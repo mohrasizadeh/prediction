@@ -85,6 +85,18 @@ def _confirmed_side_effects(db, email: str, source: str) -> None:
         INT.emit(db, "newsletter.subscribed", {"source": source}, email=email)
     except Exception:                                       # a broken integration must never break a sign-up
         pass
+    # docs/69: the waitlist page promises three forecasts every match day, so the first e-mail has
+    # to say that back, now, rather than leaving the reader to wonder until the next fixture. It is
+    # sent only for that source -- the footer form asked for something else -- and a failure here
+    # is logged by the emailer, never raised: an e-mail that did not go out must not undo a
+    # confirmed opt-in the reader has already seen succeed.
+    if source == "waitlist":
+        try:
+            import waitlist_mail as WL
+            row = db.newsletter.find_one({"email": email}, {"name": 1}) or {}
+            WL.send_welcome(db, email, row.get("name") or "")
+        except Exception:
+            pass
 
 
 def unsubscribed(db, email: str) -> None:

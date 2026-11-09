@@ -32,6 +32,7 @@ class NewPost(BaseModel):
     scheduled_at: datetime
     design_id: str | None = None
     note: str = ""
+    fkeys: list[str] = Field(default_factory=list)
 
 
 class EditPost(BaseModel):
@@ -70,7 +71,7 @@ def create(body: NewPost, user=Depends(perm("site.write")), db=Depends(D.get_db)
     try:
         return SOC.queue(db, user["email"], platform=body.platform, kind=body.kind, media=body.media,
                          caption=body.caption, scheduled_at=body.scheduled_at,
-                         design_id=body.design_id, note=body.note)
+                         design_id=body.design_id, note=body.note, fkeys=body.fkeys)
     except SOC.SocialError as e:
         raise _bad(e)
 
@@ -81,6 +82,7 @@ class BatchItem(BaseModel):
     scheduled_at: datetime
     kind: str = "post"
     design_id: str | None = None
+    fkeys: list[str] = Field(default_factory=list)
 
 
 @admin.post("/batch")
@@ -95,7 +97,8 @@ def batch(items: list[BatchItem] = Body(default_factory=list), user=Depends(perm
     for i, it in enumerate(items[:60]):
         try:
             made.append(SOC.queue(db, user["email"], platform="instagram", kind=it.kind, media=it.media,
-                                  caption=it.caption, scheduled_at=it.scheduled_at, design_id=it.design_id))
+                                  caption=it.caption, scheduled_at=it.scheduled_at, design_id=it.design_id,
+                                  fkeys=it.fkeys))
         except SOC.SocialError as e:
             failed.append({"index": i, "error": str(e)})
     return {"queued": len(made), "posts": made, "failed": failed}

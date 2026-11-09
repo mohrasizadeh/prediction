@@ -445,3 +445,9 @@
 .pg-text small { font-size: 12.5px; color: var(--text3); line-height: 1.45; }
 .pg-row .switch-row { flex: 0 0 auto; }
 .pg-row .switch-text { display: none; }
+
+/* docs/69: the match-day e-mail, rendered rather than described, on the E-mail list screen. The
+   frame is the real body in a sandboxed iframe, so what the owner approves is what a reader gets.
+   560px is the layout's own max width, so the preview is not a narrower reflow of it. */
+.wl-frame { display: block; width: 100%; max-width: 592px; height: 680px; margin: 12px 0 0;
+            border: 1px solid var(--border); border-radius: 12px; background: #fff; }

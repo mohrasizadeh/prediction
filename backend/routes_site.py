@@ -469,6 +469,31 @@ def nl_remove(body: EmailBody, user=Depends(perm("email.write")), db=Depends(D.g
     return {"ok": True}
 
 
+# ============================================================================= ADMIN: waitlist e-mail
+@admin.get("/newsletter/waitlist")
+def wl_preview(user=Depends(perm("email.read")), db=Depends(D.get_db)):
+    """What the match-day e-mail would look like right now, built from today's real forecasts.
+
+    Rendered rather than described, because the one thing the owner needs to see before switching
+    this on is the actual three and whether the header graphic found a card (docs/69).
+    """
+    import waitlist_mail as WL
+    return WL.preview(db)
+
+
+@admin.post("/newsletter/waitlist/send")
+def wl_send(user=Depends(perm("email.write")), db=Depends(D.get_db)):
+    """Send today's e-mail now, without waiting for the hour.
+
+    It is NOT a second e-mail: the per-address idempotency key is the day, so pressing this after
+    the job has already run reports duplicates and sends nothing.
+    """
+    import waitlist_mail as WL
+    out = WL.send_matchday(db)
+    AQ.audit(db, user, "waitlist.send", f"{out.get('sent', 0)} sent")
+    return out
+
+
 # ============================================================================= ADMIN: integrations
 @admin.get("/integrations")
 def integrations_overview(user=Depends(perm("integrations.read")), db=Depends(D.get_db)):
