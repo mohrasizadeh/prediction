@@ -16,12 +16,22 @@ function styleEl(id) {
   return el;
 }
 
+// Writing a <style> element's textContent replaces its rules, and the browser then restyles and
+// repaints the WHOLE document -- even when the text it was given is byte-for-byte what was already
+// there. This config is revalidated every 60 seconds, so doing it unconditionally was a visible
+// flash of the entire screen every minute on a phone, plus a re-layout of every font. Write only
+// on a real change.
+function setRules(id, text) {
+  const el = styleEl(id);
+  if (el.textContent !== text) el.textContent = text;
+}
+
 function applyCss(cfg) {
-  styleEl("site-theme").textContent = cfg?.theme?.css || "";
+  setRules("site-theme", cfg?.theme?.css || "");
   const fonts = (cfg?.theme?.fonts || [])
     .filter((f) => /^\/fonts\/[a-z0-9-]+\.woff2$/.test(f.url || ""))
     .map((f) => `@font-face{font-family:'${String(f.family).replace(/'/g, "")}';src:url(${f.url}) format('woff2');font-weight:${f.weight || "100 900"};font-display:${f.display || "swap"};}`);
-  styleEl("site-fonts").textContent = fonts.join("\n");
+  setRules("site-fonts", fonts.join("\n"));
 }
 
 const systemMode = () => (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
@@ -41,7 +51,10 @@ export function SiteProvider({ children }) {
   const load = useCallback(async () => {
     try {
       const c = await get("/site/config", preview ? { preview } : undefined);
-      setCfg(c);
+      // Keep the OLD object when nothing changed. A fresh object every 60 seconds re-runs the
+      // [cfg] effects and re-renders every consumer of this context -- the whole site -- to
+      // arrive at the same pixels. Most minutes the config has not changed at all.
+      setCfg((old) => (old && JSON.stringify(old) === JSON.stringify(c) ? old : c));
       setFailed(false);
     } catch {
       setFailed(true);
@@ -65,7 +78,12 @@ export function SiteProvider({ children }) {
     setPref(mode);
   }, []);
 
-  const value = { cfg, ready: !!cfg || failed, failed, preview: !!cfg?.preview, pref, setTheme, reload: load };
+  // Memoised for the same reason: a new context value re-renders every consumer, and this one sits
+  // above the router.
+  const value = useMemo(
+    () => ({ cfg, ready: !!cfg || failed, failed, preview: !!cfg?.preview, pref, setTheme, reload: load }),
+    [cfg, failed, pref, setTheme, load]
+  );
   return createElement(SiteCtx.Provider, { value }, children);
 }
 
