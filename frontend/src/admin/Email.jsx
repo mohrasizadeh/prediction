@@ -132,7 +132,7 @@ export function Campaigns() {
       <Drawer open={open} onClose={() => setOpen(false)} title="New campaign" wide testid="camp-drawer" footer={<button className="btn btn--primary" disabled={!f.subject || !f.html} onClick={create} data-testid="camp-save">Save draft</button>}>
         <div className="a-form">
           <Field label="Subject" value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} testid="camp-subject" />
-          <Field label="Who" as="select" value={f.segment} onChange={(e) => setF({ ...f, segment: e.target.value })} testid="camp-segment"><option value="all">Everyone who opted in</option><option value="free">Free members</option><option value="paid">Paying members</option></Field>
+          <Field label="Who" as="select" value={f.segment} onChange={(e) => setF({ ...f, segment: e.target.value })} testid="camp-segment" hint="A member is someone with an account; the e-mail list is people who only gave an address."><option value="all">Members who opted in</option><option value="free">Free members</option><option value="paid">Paying members</option><option value="newsletter">E-mail list, no account</option><option value="waitlist">Waitlist sign-ups only</option><option value="everyone">Members and the e-mail list</option></Field>
           <Field label="HTML body" as="textarea" rows={10} value={f.html} onChange={(e) => setF({ ...f, html: e.target.value })} testid="camp-html" />
           <FormError error={err} />
         </div>
