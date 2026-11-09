@@ -332,6 +332,15 @@ check(_r["best_line"] == _r["best_lines"][0], "best_line is still the first of t
 _who = [b["who"] for b in _r["best_lines"]]
 check(len(_who) == len(set(_who)), f"never two lines about the same subject ({_who})")
 check(all(b.get("tier") in ("Strong", "Solid") for b in _r["best_lines"]), "every line carries its tier, so the row can grade them")
+# The row names a player; it must also be able to SHOW him. _names already resolves the stored
+# picture through attach_images and this dropped it one line later, which is why the fixture row
+# was the only surface in the app that could not draw a face while Most likely and the combo
+# builder both did -- from the very same lookup.
+check(all(b.get("who_kind") in ("player", "team") for b in _r["best_lines"]),
+      "every line says whether its subject is a player or a club -- a crest and a portrait are "
+      "not the same shape, and the name alone cannot tell them apart")
+check(all("who_image" in b and "who_id" in b for b in _r["best_lines"]),
+      "...and carries the picture and the id, so the row can draw the face and link it")
 check(all(b["reached"] is None for b in _r["best_lines"]), "while the match is ahead, nothing claims to have happened")
 # play it out and grade the answers
 db.matches.update_one({"iid": _m["iid"]}, {"$set": {"status": "final", "hg": 2, "ag": 1}})

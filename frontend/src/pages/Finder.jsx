@@ -194,13 +194,22 @@ export default function Finder() {
   const have = fm.data?.markets?.[f.scope] || null;
   // Which lines the forecast can actually answer for this stat. Not every ladder starts at 1:
   // tackles starts at "2+", so "1+ tackles" is a question the engine has no rung for, for anyone.
-  const canLine = fm.data?.lines?.[f.scope]?.[f.stat] || null;
+  const fmLines = fm.data?.lines || null;
+  const canLine = fmLines?.[f.scope]?.[f.stat] || null;
   const lineMin = canLine ? canLine[0] : 1;
-  const lineMax = canLine ? canLine[canLine.length - 1] : 6;
-  // Only forecast mode is constrained. "1+ tackle in 6 of his last 10" is a perfectly good
-  // question about history, and clamping it would take away an answer we do have.
+  // A club and a player do not count the same things to the same numbers. The player shots ladder
+  // runs 1..6; the TEAM shots ladder runs 7..23, because a side takes a dozen shots in a match and
+  // "2+ shots, 99%" is not a forecast. The ceiling here was a hard `Math.min(6, lineMax)` written
+  // when only players had markets, and it did not merely trim the team range -- it inverted it.
+  // For team shots nLo became 7 and nHi 6, so the stepper's floor sat ABOVE its ceiling and the
+  // market could not be asked for at all. Team corners and shots on target were cut off at 6 the
+  // same way. The ladder the scope actually has is the only thing that should bound this.
+  const lineMax = canLine ? canLine[canLine.length - 1] : (f.scope === "team" ? 25 : 6);
+  // Only forecast mode is constrained to rungs. "1+ tackle in 6 of his last 10" is a perfectly
+  // good question about history, and clamping it would take away an answer we do have -- but the
+  // ceiling still has to clear what a club does, or the same cut-off returns through the back door.
   const nLo = f.mode === "likelihood" ? lineMin : 1;
-  const nHi = f.mode === "likelihood" ? Math.min(6, lineMax) : 6;
+  const nHi = f.mode === "likelihood" ? lineMax : Math.max(6, lineMax);
   const all = f.scope === "team" ? [...TEAM_STATS, ...(f.mode === "likelihood" ? MATCH_STATS : [])] : STATS.filter((s) => s.id !== "minutes");
   const pool = f.mode !== "likelihood" ? all : have ? all.filter((s) => have.includes(s.id)) : all.filter((s) => s.core);
   // And when the reader's stat is not one of them, say so instead of swapping it for shots behind
@@ -215,6 +224,16 @@ export default function Finder() {
   const set = (patch) => {
     const n = { ...f, ...patch };
     if (!(n.scope === "team" ? [...TEAM_STATS, ...MATCH_STATS] : STATS).some((s) => s.id === n.stat)) n.stat = "shots";
+    // Switching Players -> Teams used to reset the STAT if it did not exist for clubs and leave the
+    // NUMBER untouched, so the sentence read "teams with 2+ shots" -- a line every side in the
+    // league clears, and one no team ladder holds a rung for. Carry the number into the new
+    // subject's ladder instead: keep it where it still makes sense, pull it to the nearest rung
+    // where it does not. Forecast mode only, for the reason given at nLo above.
+    const lad = n.mode === "likelihood" ? fmLines?.[n.scope]?.[n.stat] : null;
+    if (lad && lad.length) {
+      const lo = lad[0], hi = lad[lad.length - 1], cur = Number(n.n);
+      if (!Number.isFinite(cur) || cur < lo || cur > hi) n.n = String(Math.min(Math.max(cur || lo, lo), hi));
+    }
     setRes({ rows: null, err: null, busy: false });
     setSp(Object.fromEntries(Object.entries(n).filter(([k, v]) => v !== "" && DEF[k] !== v)), { replace: true });
   };

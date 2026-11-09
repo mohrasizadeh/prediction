@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
-import { Crest, LeagueMark } from "../components/Media";
+import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
 import Icon from "../components/Icon";
 import { useTitle } from "../components/Football";
@@ -88,11 +88,28 @@ function Row({ m }) {
     <li>
       <Link to={`/match/${m.id}`} className={`td-row${live ? " is-live" : ""}${off ? " is-off" : ""}`} data-testid={`today-row-${m.id}`}>
         <span className="td-time"><StatusCell m={m} live={live} /></span>
-        <span className="td-teams">
-          <span className={lead(hs, as)}><Crest team={m.home} size={24} /><span className="td-name">{m.home?.name}</span></span>
-          <span className={lead(as, hs)}><Crest team={m.away} size={24} /><span className="td-name">{m.away?.name}</span></span>
+        {/* Home, crest, score, crest, away -- the shape every score service uses, and the one a
+            reader already knows how to read. It replaces two stacked lines with the score in a
+            column of its own: that arrangement made the row twice as tall as it needed to be and
+            left the two numbers reading as a column of singles rather than as "2-3".
+            The alignment rule from the grid below still holds, and is in fact stronger here --
+            the centre three cells are FIXED, so the score sits at the same x on every row and the
+            two names share whatever is left. */}
+        <span className="td-teams" aria-label={started ? `${m.home?.name} ${hs}, ${m.away?.name} ${as}` : `${m.home?.name} against ${m.away?.name}`}>
+          <span className={"td-side td-side--h" + lead(hs, as)}>
+            <span className="td-name">{m.home?.name}</span><Crest team={m.home} size={22} />
+          </span>
+          {started ? (
+            <span className="td-scores" data-testid={`today-score-${m.id}`}>
+              <b className="td-sc" data-testid={`today-live-${m.id}`}>{hs}</b>
+              <span className="td-dash" aria-hidden="true">&ndash;</span>
+              <b className="td-sc" data-testid={`today-away-score-${m.id}`}>{as}</b>
+            </span>
+          ) : <span className="td-scores td-scores--pre" aria-hidden="true">v</span>}
+          <span className={"td-side td-side--a" + lead(as, hs)}>
+            <Crest team={m.away} size={22} /><span className="td-name">{m.away?.name}</span>
+          </span>
         </span>
-        {started ? <span className="td-scores" aria-label={`${hs} to ${as}`}><b className="td-sc" data-testid={`today-live-${m.id}`}>{hs}</b><b className="td-sc" data-testid={`today-away-score-${m.id}`}>{as}</b></span> : <span className="td-scores" aria-hidden="true" />}
         <span className="td-bar">{p && !fin && !off ? <WdlBar home={p.p_home} draw={p.p_draw} away={p.p_away} homeName={m.home?.name} awayName={m.away?.name} testid={`today-wdl-${m.id}`} /> : !p && !fin && !off ? <small className="k-faint">No forecast yet</small> : null}</span>
         {/* CRITIQUE section 1: this said "14 insights", and a count is not a value -- every fixture
             has a similar number, so the chip never helped a reader choose which match to open. It
@@ -111,6 +128,14 @@ function Row({ m }) {
               <span key={i} className={"td-ins" + (b.reached === true ? " is-hit" : b.reached === false ? " is-miss" : "")}
                     data-testid={`today-ins-${m.id}-${i}`}>
                 {b.reached != null && <Icon name={b.reached ? "check" : "minus"} size={13} />}
+                {/* The face of whoever the claim is about. Most likely and the combo builder have
+                    always drawn it from this very lookup; the fixture row was the one surface that
+                    named a player it could not show, because _best_lines kept the name and dropped
+                    the picture. A club line wears its crest, a player line a round portrait --
+                    both fall back to a shield or initials on their own. */}
+                {b.who_kind === "player"
+                  ? <PlayerAvatar player={{ id: b.who_id, name: b.who, image: b.who_image }} size={18} />
+                  : <Crest team={{ name: b.who, image: b.who_image }} size={18} />}
                 <span className="td-ins-claim"><b>{b.who}</b><i>{b.market}</i></span>
                 {/* The likelihood NEVER disappears. It used to be replaced by the verdict the
                     moment the match ended, which deleted the claim at exactly the point it became

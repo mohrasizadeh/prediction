@@ -112,11 +112,17 @@ export default function Leagues() {
   const [edit, setEdit] = useState(null);
   const [zones, setZones] = useState(null);
   const [filter, setFilter] = useState("");
+  // A full refresh brings back every league PitchAPI covers -- hundreds of them, nearly all off.
+  // Search alone cannot answer "which have I actually switched on", which is the question asked
+  // every time after the first.
+  const [only, setOnly] = useState("all");
   const sync = async () => { await post("/admin/jobs/run?job=reference_sync"); toast("League list refresh queued"); };
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (notMounted(q.error)) return <div className="a-page" data-testid="admin-leagues"><PageHead title="Leagues" lead="Switch leagues on and pick seasons to backfill." /><MissingRoutes /></div>;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
-  const list = q.data.leagues.filter((l) => (l.name + " " + (l.country_code || "")).toLowerCase().includes(filter.toLowerCase()));
+  const list = q.data.leagues
+    .filter((l) => (only === "all" ? true : only === "on" ? l.enabled : !l.enabled))
+    .filter((l) => (l.name + " " + (l.country_code || "")).toLowerCase().includes(filter.toLowerCase()));
   const on = q.data.leagues.filter((l) => l.enabled).length;
   return (
     <div className="a-page" data-testid="admin-leagues">
@@ -128,7 +134,15 @@ export default function Leagues() {
         <Card><Empty icon="trophy" testid="leagues-empty">No leagues yet. Save the PitchAPI key in Keys, then use Refresh league list (one call) or run GET /v1/leagues in the Endpoint explorer.</Empty></Card>
       ) : (
         <>
-          <div className="a-filters"><div className="a-search"><Icon name="search" size={18} /><input type="search" placeholder="Search leagues or country" aria-label="Search leagues" value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="leagues-search" /></div></div>
+          <div className="a-filters">
+            <div className="a-search"><Icon name="search" size={18} /><input type="search" placeholder="Search leagues or country" aria-label="Search leagues" value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="leagues-search" /></div>
+            <div className="a-seg" role="group" aria-label="Show">
+              {[["all", `All ${q.data.leagues.length}`], ["on", `On ${on}`], ["off", `Off ${q.data.leagues.length - on}`]].map(([id, label]) => (
+                <button key={id} type="button" aria-pressed={only === id}
+                        onClick={() => setOnly(id)} data-testid={`leagues-only-${id}`}>{label}</button>
+              ))}
+            </div>
+          </div>
           {list.length === 0 ? <Empty>No league matches.</Empty> : <div className="a-key-grid">{list.map((l) => <LeagueCard key={l.iid} lg={l} budget={q.data.budget} daily={q.data.daily_calls_per_league} perMatch={q.data.calls_per_match} onEdit={setEdit} onZones={setZones} onChanged={q.reload} />)}</div>}
         </>
       )}

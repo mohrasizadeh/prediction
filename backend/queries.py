@@ -146,7 +146,12 @@ def _best_lines(db, match_iids: list[int], weights=None, scale: str = "odds", po
     # the second and third would push out the two other subjects the match actually has.
     ranked: dict = {}
     for r in rows:
-        who = (pl.get(r["player_iid"]) or {}).get("name") if r.get("player_iid") else (tm.get(r["team_iid"]) or {}).get("name")
+        # The subject, not just its name. _names already resolves the stored picture through
+        # attach_images, and this threw it away one line later -- so the fixture row was the only
+        # surface in the app that named a player without being able to show him, while Most likely
+        # and the combo builder both draw his face from the very same lookup.
+        subj = ((pl.get(r["player_iid"]) if r.get("player_iid") else tm.get(r["team_iid"])) or {})
+        who = subj.get("name")
         # No outcome row at all means NOT GRADED YET, which the page draws differently from a miss.
         # `reached` must therefore stay None rather than collapsing to False.
         o = done.get(r.get("id"))
@@ -155,6 +160,11 @@ def _best_lines(db, match_iids: list[int], weights=None, scale: str = "odds", po
             ("p", r.get("player_iid")) if r.get("player_iid") else ("t", r.get("team_iid")),
             {"who": who, "market": r.get("market"), "p": float(r.get("p") or 0),
              "tier": r.get("tier"),
+             # Enough for the row to draw a face and link it. `kind` travels because a club line
+             # wears a crest and a player line a round portrait, and the row cannot tell them
+             # apart from the name alone.
+             "who_kind": "player" if r.get("player_iid") else "team",
+             "who_id": subj.get("id"), "who_image": subj.get("image"),
              "reached": None if o is None else bool(o.get("reached")),
              "actual": None if o is None else o.get("actual")}))
     out: dict = {}

@@ -20,8 +20,9 @@
 .td-row:hover { background: var(--surface2); }
 .td-row.is-live { background: color-mix(in srgb, var(--down) 7%, transparent); }
 .td-time { display: grid; gap: 2px; font-variant-numeric: tabular-nums; } .td-time small { color: var(--text3); font-size: 12px; }
-.td-teams { display: grid; gap: 6px; min-width: 0; }
-.td-teams > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.td-teams { display: grid; min-width: 0; align-items: center; column-gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 22px 46px 22px minmax(0, 1fr); }
+.td-teams > span.td-side { display: contents; }
 .td-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .td-sc { font-variant-numeric: tabular-nums; }
 .td-ins { font-size: 13px; font-weight: 700; color: var(--brand); padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, var(--brand) 12%, transparent); white-space: nowrap; }
@@ -88,14 +89,17 @@
 .td-teams > span.is-lose .td-name, .td-teams > span.is-lose .td-sc { font-weight: 500; color: var(--text3); }
 
 /* Doc 30: Today rows. Time, teams, score column, insight chip; the win/draw/loss bar sits under the teams. */
-.td-row { grid-template-columns: 84px minmax(0, 1fr) 36px auto; grid-template-areas: "time teams score ins" ". bar bar ins"; row-gap: 8px; min-height: 84px; }
-.td-time { grid-area: time; } .td-teams { grid-area: teams; } .td-scores { grid-area: score; } .td-bar { grid-area: bar; min-width: 0; } .td-ins { grid-area: ins; }
+.td-row { grid-template-columns: 84px minmax(0, 1fr) auto; grid-template-areas: "time teams ins" ". bar ins"; row-gap: 8px; min-height: 84px; }
+/* The score lives INSIDE the teams block now, so there is no score column to name -- leaving one
+   behind would hold open an empty 36px track in every row. */
+.td-time { grid-area: time; } .td-teams { grid-area: teams; } .td-bar { grid-area: bar; min-width: 0; } .td-ins { grid-area: ins; }
 .td-bar:empty { display: none; }
 /* `.td-ins { align-self: center }` lived here. align-self on an item beats align-items on its
    container unconditionally, so it overrode `.td-ins-set.is-done { align-items: flex-end }`
    (v2.css) and centred every chip in a 1fr column -- white on both sides, no two right edges
    agreeing. That was the whole of the ragged-chip symptom. The set owns the alignment now. */
-.td-scores { display: grid; gap: 6px; justify-items: end; align-self: stretch; align-content: center; }
+.td-scores { display: inline-flex; align-items: baseline; justify-content: center; gap: 3px;
+  white-space: nowrap; font-variant-numeric: tabular-nums; }
 .td-scores .td-sc { font-size: 18px; line-height: 24px; font-weight: 800; }
 .td-teams > span { min-height: 24px; }
 .td-teams > span.is-win .td-name { font-weight: 800; }
@@ -107,7 +111,8 @@
 .td-min .k-livedot { flex: none; }
 .td-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 @media (max-width: 720px) {
-  .td-row { grid-template-columns: 64px minmax(0, 1fr) 28px; grid-template-areas: "time teams score" "time bar bar" "ins ins ins"; gap: 6px 10px; }
+  .td-row { grid-template-columns: 64px minmax(0, 1fr); grid-template-areas: "time teams" "time bar" "ins ins"; gap: 6px 10px; }
+  .td-teams { grid-template-columns: minmax(0, 1fr) 20px 42px 20px minmax(0, 1fr); column-gap: 6px; }
   /* `margin-left: 74px` lived on this rule. It was written when a row carried ONE chip and the
      margin aligned it under the teams column; every inner chip now carries `.td-ins` too, so a
      finished row applied it three times inside a 1fr column and pushed the document into

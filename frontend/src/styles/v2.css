@@ -2132,16 +2132,37 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
    The teams column CAPS at 240px and the slack goes to the lines, so a score hugs the names
    instead of sitting a third of a row from them. */
 .td-list .td-row { display: grid; align-items: center;
-  grid-template-columns: 76px minmax(0, 240px) 34px minmax(0, 1fr);
-  grid-template-areas: "time teams score ins";
+  /* 460, not the old 240. Stacked, each name had the whole teams column to itself; side by side
+     they split it, so the same cap would truncate far more than the old layout did. The chip band
+     has the width to give -- its figures are pinned to the row's right edge either way. */
+  grid-template-columns: 76px minmax(0, 460px) minmax(0, 1fr);
+  grid-template-areas: "time teams ins";
   column-gap: 20px; row-gap: 0; min-height: 0; padding: 14px 16px; border-radius: 0;
   transition: background-color .15s ease; }
 .td-list li + li { border-top: 1px solid var(--border); }
 .td-list .td-row:hover { background: var(--td-hover); }
 .td-list .td-row.is-live { background: color-mix(in srgb, var(--down) 6%, var(--surface1)); }
-.td-row .td-teams { grid-area: teams; display: grid; gap: 6px; min-width: 0; }
-.td-row .td-teams > span { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 24px; }
-.td-row .td-scores { grid-area: score; display: grid; gap: 6px; justify-items: end; align-content: center; }
+/* 42.2b Home, crest, SCORE, crest, away -- one horizontal block (the shape every score service
+   uses, and the one a reader already knows). It replaces two stacked name lines with the score in
+   a column of its own, which made the row twice as tall as it needed to be and left "2" and "3"
+   reading as a column of singles rather than as "2-3".
+   Section 42's alignment rule still holds and is in fact stronger here: the teams block is itself
+   a grid whose CENTRE THREE CELLS ARE FIXED, so the score sits at the same x in every row of a
+   group and the two names share whatever is left, each ellipsising on its own side. The row width
+   decides the layout; the longest club name never does. */
+.td-row .td-teams { grid-area: teams; display: grid; min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 22px 46px 22px minmax(0, 1fr);
+  align-items: center; column-gap: 8px; row-gap: 0; }
+/* `display: contents` so the crest and the name become cells of the teams grid directly. The
+   side span stays in the markup because the win/lose rules below hang off it. */
+.td-row .td-teams > span.td-side { display: contents; }
+.td-row .td-side--h .td-name { text-align: right; }
+.td-row .td-side--a .td-name { text-align: left; }
+.td-row .td-scores { display: inline-flex; align-items: baseline; justify-content: center;
+  gap: 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.td-row .td-dash { text-decoration: none; color: var(--text3); font-weight: 500; }
+.td-row .td-scores--pre { color: var(--text3); font-weight: 500; font-size: 13px; }
+
 .td-row .td-time { grid-area: time; }
 
 /* 42.3 type. The score was 18px against a 15px club name -- a 1.20 ratio, which the eye reads as
@@ -2242,8 +2263,8 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 @media (max-width: 720px) {
   .td-group { border-radius: 12px; margin-bottom: 12px; }
   .td-group > .td-ghead { min-height: 48px; padding: 0 14px 0 11px; }
-  .td-list .td-row { grid-template-columns: 58px minmax(0, 1fr) 26px;
-    grid-template-areas: "time teams score" "ins ins ins";
+  .td-list .td-row { grid-template-columns: 58px minmax(0, 1fr);
+    grid-template-areas: "time teams" "ins ins";
     column-gap: 10px; row-gap: 0; padding: 12px 14px; }
   .td-row .td-ins-set { grid-column: 1 / -1; margin-top: 10px; padding-left: 9px;
     --td-fig: 100px; --td-glyph: 15px; }
@@ -2251,6 +2272,7 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   .td-row .td-time b { font-size: 13.5px; }
   .td-row .td-name { font-size: 14.5px; }
   .td-row .td-scores .td-sc { font-size: 19px; line-height: 22px; }
+  .td-row .td-teams { grid-template-columns: minmax(0, 1fr) 20px 42px 20px minmax(0, 1fr); column-gap: 6px; }
   .td-ins-set .td-ins { column-gap: 7px; padding: 4px 8px 4px 5px; min-height: 30px; }
   .td-ins-claim { font-size: 13px; }
   .td-ins-set .td-ins > em { font-size: 12.5px; }
