@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { post } from "../lib/api";
 import { useApi } from "../lib/useApi";
+import { useSite } from "../lib/site";
 import { DISCLAIMER } from "../lib/copy";
 import { sayError } from "../lib/errors";
 import { useTitle } from "../components/Football";
@@ -79,6 +80,14 @@ function Form() {
 }
 
 export default function Waitlist() {
+  // The page's wording, editable by the owner in admin under "Waitlist page". An empty or missing
+  // setting falls back to the text shipped here, so the page never renders a blank heading because
+  // somebody cleared a field.
+  const { cfg } = useSite();
+  const t = (k, fallback) => {
+    const v = cfg?.waitlist?.[k];
+    return typeof v === "string" && v.trim() ? v : fallback;
+  };
   useTitle("Join the waitlist");
   const rec = useApi("/track-record");
   const pf = useApi("/proof", { limit: 8 });
@@ -129,7 +138,7 @@ export default function Waitlist() {
             </svg>
             <span>Forecast</span>
           </Link>
-          <span className="tag">Opening soon — waitlist</span>
+          <span className="tag">{t("tag", "Opening soon — waitlist")}</span>
         </div>
       </header>
 
@@ -138,12 +147,11 @@ export default function Waitlist() {
           <div className="wrap hero-grid">
             <div className="hero-left">
               <p className="kicker" id="kicker" />
-              <h1>We say what a player will do. <span className="said">Then we publish what he did.</span></h1>
-              <p className="lead">
-                A named player, a real line, a number — published before kick-off, scored after the
-                whistle, and left on the site either way. Join the list and we will send you the three
-                we are most confident in, every match day, until we open.
-              </p>
+              <h1>{t("headline", "We say what a player will do.")} <span className="said">{t("headline_em", "Then we publish what he did.")}</span></h1>
+              <p className="lead">{t("lead",
+                "A named player, a real line, a number — published before kick-off, scored after the "
+                + "whistle, and left on the site either way. Join the list and we will send you the three "
+                + "we are most confident in, every match day, until we open.")}</p>
               <Form />
             </div>
             <div className="hero-right"><div id="livecard" /><div className="counters" id="counters" /></div>
@@ -152,12 +160,11 @@ export default function Waitlist() {
 
         <section className="band" id="proof">
           <div className="wrap">
-            <p className="eyebrow">Published, scored, settled</p>
-            <h2>The cards that already happened</h2>
-            <p className="sub">
-              These went out before kick-off and were scored after the whistle. The big number is
-              what we said; the bar under it is what he did, against the line we published.
-            </p>
+            <p className="eyebrow">{t("proof_eyebrow", "Published, scored, settled")}</p>
+            <h2>{t("proof_title", "The cards that already happened")}</h2>
+            <p className="sub">{t("proof_sub",
+              "These went out before kick-off and were scored after the whistle. The big number is "
+              + "what we said; the bar under it is what he did, against the line we published.")}</p>
             {waiting ? <Skeleton shape="card" count={3} testid="wl-proof-loading" />
               : failed ? <ErrorState message="We could not load the scored cards just now." onRetry={retry} testid="wl-proof-error" />
               : <div className="proof-grid" id="proof-grid" />}
@@ -167,8 +174,8 @@ export default function Waitlist() {
 
         <section className="plain" id="engine">
           <div className="wrap">
-            <p className="eyebrow">Inside the engine</p>
-            <h2>Four things a table of averages cannot do</h2>
+            <p className="eyebrow">{t("engine_eyebrow", "Inside the engine")}</p>
+            <h2>{t("engine_title", "Four things a table of averages cannot do")}</h2>
             <p className="sub">
               Every picture below is drawn from tonight&apos;s card at the top of this page — the same
               player, the same line, the same match. This is the machine, not a metaphor for it.
@@ -184,8 +191,8 @@ export default function Waitlist() {
 
         <section className="band" id="record">
           <div className="wrap">
-            <p className="eyebrow">The whole record</p>
-            <h2>What we said, against what happened</h2>
+            <p className="eyebrow">{t("record_eyebrow", "The whole record")}</p>
+            <h2>{t("record_title", "What we said, against what happened")}</h2>
             <p className="sub" id="rec-sub" />
             {waiting ? <Skeleton shape="match" count={3} testid="wl-record-loading" />
               : failed ? null
@@ -200,8 +207,8 @@ export default function Waitlist() {
 
         <section className="plain">
           <div className="wrap">
-            <p className="eyebrow">On purpose</p>
-            <h2>Three things we do that cost us</h2>
+            <p className="eyebrow">{t("costs_eyebrow", "On purpose")}</p>
+            <h2>{t("costs_title", "Three things we do that cost us")}</h2>
             <ul className="hon">
               <li><b>We show the range, not just the number.</b><span>Every forecast carries the spread around it, so you can see the ones we are sure of and the ones we are not.</span></li>
               <li><b>We show nothing under 60%.</b><span>A coin flip dressed as an insight is worse than an empty screen. When there is nothing worth showing, the screen says so.</span></li>
@@ -212,7 +219,7 @@ export default function Waitlist() {
 
         <section className="cta">
           <div className="wrap">
-            <h2>Three forecasts. Every match day. Until we open.</h2>
+            <h2>{t("close_title", "Three forecasts. Every match day. Until we open.")}</h2>
             <p>
               Each one with its range, its lineup word and its last-ten run — the whole card, not
               just a number. Then scored in public, like everything else here.

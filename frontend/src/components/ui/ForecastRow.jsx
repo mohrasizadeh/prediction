@@ -195,6 +195,11 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
   // number on the face of the card.
   const topMore = more.length && f.p != null && more[0].p > f.p ? more[0] : null;
   const mine = f.scope === "player" ? "his" : "their";
+  // The grade of the rung on screen: the engine's per-rung tier, or the line's own where this is
+  // the rung the forecast is about.
+  // The backend keys the ladder with "%g", so 1.5 stays "1.5" and 2.0 becomes "2" -- which is what
+  // String() gives for the Numbers ladderOf() parsed them back into.
+  const rungTier = (n === chosen && f.tier) || (f.ladder_tier || {})[String(rung?.thr)] || null;
   const vs = `${fx.homeFirst ? "vs" : "at"} ${fx.opp?.name || ""}`;
   return (
     <>
@@ -253,8 +258,12 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
               width is the length of the word, so "Solid" and "Watch" put the figures of two rows
               at different x. Measured before this: 651 against 639. The tier still grades the
               number; it just does it from the line below. */}
-          {extras && n === chosen && f.tier && (
-            <span className="lk-tiercell"><TierBadge tier={f.tier} testid={`lk-tier-${f.id}`} /></span>
+          {/* The badge grades the number it sits on, so it follows the rung the reader picked.
+              `ladder_tier` is the engine's own core.tier applied to each rung with the configured
+              cutoffs, so stepping 2+ -> 3+ shows that rung's grade instead of freezing on the lead
+              line's or disappearing. Falls back to the line's own tier for the rung it is about. */}
+          {extras && rungTier && (
+            <span className="lk-tiercell"><TierBadge tier={rungTier} testid={`lk-tier-${f.id}`} /></span>
           )}
         </td>
         <td className="lk-cell-run"><Run games={f.run} n={n} /></td>

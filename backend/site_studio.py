@@ -853,6 +853,11 @@ def public_config(db, draft: bool = False) -> dict:
         # were decorative. A switch that hides nothing is worse than no switch, because the owner
         # believes the page is off.
         "features": {k[len("features."):]: bool(v) for k, v in pub.items() if k.startswith("features.")},
+        # The waitlist page's wording, the same way features.* travel: public settings, prefix
+        # stripped. The page is unauthenticated, so its copy has to arrive with this config rather
+        # than from an admin route -- and it was hard-coded in the component, so the owner could
+        # read it on the live site and change nothing without a deploy.
+        "waitlist": {k[len("waitlist.copy."):]: v for k, v in pub.items() if k.startswith("waitlist.copy.")},
         "popups_enabled": bool(S.get(db, "popups.enabled")),
         "maintenance": {"on": bool(pub.get("features.maintenance")), "message": pub.get("site.maintenance_message", "")},
         "disclaimer": pub.get("copy.disclaimer", textguard.DISCLAIMER),

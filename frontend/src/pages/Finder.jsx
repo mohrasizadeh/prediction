@@ -336,7 +336,11 @@ export default function Finder() {
       </p>
       <div className="fs-actions">
         {!unlimited && <button type="button" className="btn btn--primary" disabled={res.busy || !picked.length || out} onClick={run} data-testid="finder-run">{res.busy ? "Searching…" : !picked.length ? "Pick a league first" : out ? "No searches left today" : "Update results"}</button>}
-        {res.rows && <button type="button" className="btn btn--secondary" onClick={savePreset} data-testid="finder-save-preset">Save this search</button>}
+        {/* A saved question is the SETTINGS, not the answer. This was gated on `res.rows`, so it
+            appeared only after a search had returned -- which reads as "mobile has it and desktop
+            does not" to anyone who runs a search on one and not the other. savePreset only ever
+            serialised the query string, so it never needed results at all. */}
+        {!!picked.length && !noFc && <button type="button" className="btn btn--secondary" onClick={savePreset} data-testid="finder-save-preset">Save this search</button>}
         <button type="button" className="k-link" onClick={() => { setSp({}); setRes({ rows: null, err: null, busy: false }); }} data-testid="finder-reset">Reset</button>
         {cap != null && cap >= 0 && <Meter used={used} cap={cap} visitor={visitor} />}
       </div>

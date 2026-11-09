@@ -387,7 +387,7 @@ def band_for(band, by_stat, scope: str, stat: str):
     return float(b[0]), float(b[1])
 
 
-def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = None) -> list[dict]:
+def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = None, cuts=None) -> list[dict]:
     """Automatic lines (docs/25): per player (or team) and stat, keep only lines whose likelihood sits inside `band`,
     and of those the `max_lines` **most likely**.
 
@@ -429,9 +429,28 @@ def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = 
         # ladder into a KeyError for every one of them.
         band_of = {f"{d['thr']:g}": [round(float(d["lo"]), 4), round(float(d["hi"]), 4)]
                    for d in g if d.get("lo") is not None and d.get("hi") is not None}
+        # And each rung's GRADE. A screen that lets a reader move the line has to move the badge
+        # with it: stepping from a rung at 64% to one at 85% and watching "Solid" stay put, or
+        # vanish, says the badge is about something other than the number it sits on. It is not --
+        # `tier` grades the likelihood and its lower bound, and both are per rung.
+        #
+        # This is the SAME core.tier the lead line is graded by, with the same configured cutoffs,
+        # so the rule lives in one place. It does not touch `tier`, which stays the lead line's own
+        # grade and keeps deciding what the feed may lead with (docs/52) -- this is for display on
+        # a rung the reader chose.
+        st, sl = (cuts or ((0.80, 0.70), (0.65, 0.55)))
+        tier_of = {}
+        for d in g:
+            lo_d = d.get("lo")
+            if lo_d is None:
+                continue
+            t_d = tier(float(d["p"]), float(lo_d), bool(d.get("lineup_confirmed", True)), strong=st, solid=sl)
+            if t_d:
+                tier_of[f"{d['thr']:g}"] = t_d
         for d in keep:
             d["ladder"] = ladder
             d["ladder_band"] = band_of
+            d["ladder_tier"] = tier_of
         if not keep:
             # The docstring above promises "the whole ladder is still stored on every line, so the
             # Finder can still answer any threshold the band excluded" -- true only while at least
@@ -445,7 +464,7 @@ def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = 
             # live_track from the ticker. It publishes nothing new -- it restores the ability to
             # answer a question we already know the answer to.
             c = dict(max(g, key=lambda d: d["p"]))
-            c.update({"ladder": ladder, "ladder_band": band_of, "carrier": True, "tier": None,
+            c.update({"ladder": ladder, "ladder_band": band_of, "ladder_tier": tier_of, "carrier": True, "tier": None,
                       "tier_note": None, "tier_basis": None})
             out.append(c)
         out += keep
@@ -781,7 +800,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "expected_usual": (float(f.expected_usual) if f.expected_usual is not None else None)})
         docs += goal_lines
         if auto_lines:
-            docs = select_lines(docs, line_band, max_lines, band_by_stat)
+            docs = select_lines(docs, line_band, max_lines, band_by_stat, cuts=(strong, solid))
         for d in docs:   # an admin's Hide survives the next run
             if d["fkey"] in kept:
                 d.update(kept[d["fkey"]], hidden=True)

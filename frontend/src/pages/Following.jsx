@@ -102,8 +102,21 @@ function buildFeed(feed, saved) {
     ...saved.filter((r) => r.outcome && r.forecast).map((r) => ({ type: "saved", at: r.forecast.kickoff, ids: [r.forecast.team?.id, r.forecast.player?.id], key: `s${r.fkey}`, f: r.forecast, o: r.outcome })),
   ];
   const now = Date.now();
-  const up = items.filter((i) => utc(i.at) >= now).sort((a, b) => utc(a.at) - utc(b.at));
-  const past = items.filter((i) => utc(i.at) < now).sort((a, b) => utc(b.at) - utc(a.at));
+  // This screen's job is what we SAID and what happened -- not a fixture list. Two things sent it
+  // the other way, and both are here rather than in the row:
+  //
+  // 1. A bare match row and the forecast rows for that same match share a kickoff, so they sorted
+  //    together and the announcement won. If we hold a line for a match, the line is the row; the
+  //    fixture is the thing it is about, not a second entry.
+  const rich = new Set(items.filter((i) => i.type === "forecast" || i.type === "lineup" || i.type === "saved" || i.type === "result")
+                            .map((i) => i.f?.match_id || i.x?.match_id || i.m?.id).filter(Boolean));
+  // 2. `feed.matches` has no horizon, so a followed player's fixtures a fortnight out filled the
+  //    screen -- and the engine has not forecast that far, so every one of them was a row with
+  //    nothing to say. A week is the window in which a fixture is news on its own.
+  const HORIZON = now + 7 * 864e5;
+  const keep = items.filter((i) => i.type !== "match" || (!rich.has(i.m?.id) && utc(i.at) <= HORIZON));
+  const up = keep.filter((i) => utc(i.at) >= now).sort((a, b) => utc(a.at) - utc(b.at));
+  const past = keep.filter((i) => utc(i.at) < now).sort((a, b) => utc(b.at) - utc(a.at));
   return [...up, ...past];
 }
 

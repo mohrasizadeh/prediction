@@ -3155,5 +3155,145 @@
     "public": false,
     "applies_at": "immediately",
     "help": "Minutes from UTC, used for the send hour, the date in the subject and the kick-off times in the e-mail. Toronto in winter is -300."
+  },
+  {
+    "key": "waitlist.copy.tag",
+    "group": "Waitlist page",
+    "label": "Top-right tag",
+    "type": "text",
+    "default": "Opening soon — waitlist",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.headline",
+    "group": "Waitlist page",
+    "label": "Headline",
+    "type": "text",
+    "default": "We say what a player will do.",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.headline_em",
+    "group": "Waitlist page",
+    "label": "Headline, highlighted half",
+    "type": "text",
+    "default": "Then we publish what he did.",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.lead",
+    "group": "Waitlist page",
+    "label": "Opening paragraph",
+    "type": "text",
+    "default": "A named player, a real line, a number — published before kick-off, scored after the whistle, and left on the site either way. Join the list and we will send you the three we are most confident in, every match day, until we open.",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.proof_eyebrow",
+    "group": "Waitlist page",
+    "label": "Proof band: eyebrow",
+    "type": "text",
+    "default": "Published, scored, settled",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.proof_title",
+    "group": "Waitlist page",
+    "label": "Proof band: heading",
+    "type": "text",
+    "default": "The cards that already happened",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.proof_sub",
+    "group": "Waitlist page",
+    "label": "Proof band: paragraph",
+    "type": "text",
+    "default": "These went out before kick-off and were scored after the whistle. The big number is what we said; the bar under it is what he did, against the line we published.",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.engine_eyebrow",
+    "group": "Waitlist page",
+    "label": "Engine band: eyebrow",
+    "type": "text",
+    "default": "Inside the engine",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.engine_title",
+    "group": "Waitlist page",
+    "label": "Engine band: heading",
+    "type": "text",
+    "default": "Four things a table of averages cannot do",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.record_eyebrow",
+    "group": "Waitlist page",
+    "label": "Record band: eyebrow",
+    "type": "text",
+    "default": "The whole record",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.record_title",
+    "group": "Waitlist page",
+    "label": "Record band: heading",
+    "type": "text",
+    "default": "What we said, against what happened",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.costs_eyebrow",
+    "group": "Waitlist page",
+    "label": "Costs band: eyebrow",
+    "type": "text",
+    "default": "On purpose",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.costs_title",
+    "group": "Waitlist page",
+    "label": "Costs band: heading",
+    "type": "text",
+    "default": "Three things we do that cost us",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "waitlist.copy.close_title",
+    "group": "Waitlist page",
+    "label": "Closing heading",
+    "type": "text",
+    "default": "Three forecasts. Every match day. Until we open.",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
   }
 ]
