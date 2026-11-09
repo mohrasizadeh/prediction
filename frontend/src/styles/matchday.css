@@ -189,3 +189,5 @@
    own column. The figure and its tier stack on the hard right edge, as the card's own does. */
 .ins-row-face { display: flex; align-items: center; }
 .ins-row-p { display: grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; }
+
+.mc-fc-group .v2-sec { display: flex; align-items: center; gap: 9px; }

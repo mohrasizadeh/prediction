@@ -15,6 +15,10 @@ import { utc } from "../../lib/time";
 import { Crest, PlayerAvatar } from "../Media";
 import { SaveButton } from "../Actions";
 import { TierBadge } from "./Marks";
+import { LineActions } from "./Subject";
+import { fixtureOf } from "./ForecastCard";
+import { useCombo } from "../../lib/combo";
+import Icon from "../Icon";
 
 const LO = 50;                                   // the bar's fixed scale: every row, every filter
 const RH = 26;                                   // run strip height in px
@@ -155,8 +159,14 @@ function Why({ f, n, p, lo, hi, cleared, played, more = [], topMore = null }) {
   );
 }
 
-export function ForecastRow({ f, open, onToggle, floor, extras = true }) {
+export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, homeIid, track }) {
   const [pick, setPick] = useState(null);
+  const [lines, setLines] = useState(false);
+  const { has, toggle } = useCombo();
+  // Most likely's feed carries `team` and `opp` on every row; a match page's forecasts do not,
+  // and the card resolved them from a teams map it was handed. Dropping that map is what left
+  // this row drawing an empty shield and the bare word "vs" with nobody after it.
+  const fx = fixtureOf(f, teams, homeIid);
   const lad = useMemo(() => ladderOf(f), [f]);
   const chosen = need(f.thr);
   const n = pick ?? chosen;
@@ -171,7 +181,7 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true }) {
   const lu = lineupWords(f);
   const known = (f.run || []).filter((g) => g && g.v != null);
   const cleared = known.filter((g) => g.v >= n).length;
-  const who = f.player?.name || f.team?.name;
+  const who = f.player?.name || fx.team?.name;
   const words = lineWords(f, n);
   const pos = POS[f.pos] || f.pos;
   const ko = f.kickoff ? utc(f.kickoff).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
@@ -185,7 +195,7 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true }) {
   // number on the face of the card.
   const topMore = more.length && f.p != null && more[0].p > f.p ? more[0] : null;
   const mine = f.scope === "player" ? "his" : "their";
-  const fx = `${f.team?.iid === f.home_iid ? "vs" : "at"} ${f.opp?.name || ""}`;
+  const vs = `${fx.homeFirst ? "vs" : "at"} ${fx.opp?.name || ""}`;
   return (
     <>
       <tr className={`${open ? "lk-open " : ""}${under ? "lk-under" : ""}`} data-testid={`lk-row-${f.id}`}>
@@ -197,21 +207,30 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true }) {
             {f.player ? (
               <span className="lk-ava">
                 <PlayerAvatar player={f.player} size={38} />
-                <span className="lk-ava-cr"><Crest team={f.team} size={15} /></span>
+                <span className="lk-ava-cr"><Crest team={fx.team} size={15} /></span>
               </span>
             ) : (
-              <span className="lk-ava lk-ava--club"><Crest team={f.team} size={38} /></span>
+              <span className="lk-ava lk-ava--club"><Crest team={fx.team} size={38} /></span>
             )}
-            <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${f.team?.id}`}>{who}</Link>
+            <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${fx.team?.id}`}>{who}</Link>
             {pos && <span className="lk-pos">{pos}</span>}
           </span>
         </td>
-        <td className="lk-cell-fx lk-fx">{fx}<small>{ko}</small></td>
+        <td className="lk-cell-fx lk-fx">{vs}<small>{ko}</small></td>
         <td className="lk-cell-mk">
           <span className="lk-line">
             <span className="lk-claim">
               {pos && <span className="lk-pos-inline">{pos} · </span>}{words}
-              <span className="lk-fx-inline"> · {fx} {ko}</span>
+              <span className="lk-fx-inline"> · {vs} {ko}</span>
+              {/* The ladder below steps the LINE (2+ shots to 3+); this steps the MARKET (shots to
+                  tackles to fouls). It sits with the market words because that is what it changes,
+                  and because the actions cell cannot hold a fourth control without clipping. */}
+              {extras && more.length > 0 && (
+                <button type="button" className="lk-morebtn" aria-expanded={lines}
+                        onClick={() => setLines(!lines)} data-testid={`lk-more-btn-${f.id}`}>
+                  {lines ? "Fewer markets" : `+${more.length} more market${more.length === 1 ? "" : "s"}`}
+                </button>
+              )}
             </span>
             {/* Only on the rung the forecast is actually about: `p_usual` is that rung's usual, so
                 printing it beside a rung the reader stepped to would compare two different lines. */}
@@ -248,13 +267,39 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true }) {
               {lu.cls !== "none" && <s />}{lu.word}
               {lu.sr && <span className="sr-only">{lu.sr}</span>}
             </span>
+            <span className="lk-acts">
             <button type="button" className="lk-why" aria-expanded={open} onClick={onToggle} data-testid={`lk-why-${f.id}`}>
               Why<span className="sr-only"> {who}, {words}, {p} percent</span> {open ? "▴" : "▾"}
             </button>
+            {/* The card's two controls, which this row lost when it was extracted: follow the
+                line, and put it in a combo. A row that can be read but not kept is a worse row
+                than the card it replaced. */}
             {extras && f.fkey && <SaveButton fkey={f.fkey} />}
+            {extras && f.fkey && f.addable !== false && (
+              <button type="button" className={"lk-add" + (has?.(f.fkey) ? " on" : "")}
+                      aria-pressed={!!has?.(f.fkey)}
+                      aria-label={`${has?.(f.fkey) ? "Remove" : "Add"} ${who} ${f.market} ${has?.(f.fkey) ? "from" : "to"} your combo`}
+                      onClick={() => toggle({ ...f, team: f.team || fx.team })} data-testid={`lk-add-${f.id}`}>
+                <Icon name={has?.(f.fkey) ? "check" : "plus"} size={16} />
+              </button>
+            )}
+            </span>
           </span>
         </td>
       </tr>
+      {lines && (
+        <tr className="lk-whyrow lk-linesrow"><td colSpan={6}>
+          <ul className="k-fc-lines has-act" data-testid={`lk-lines-${f.id}`}>
+            {more.map((x) => (
+              <li key={x.fkey}>
+                <span>{x.market}</span>
+                <b>{pct(x.p)}</b>
+                <LineActions line={x} parent={{ ...f, team: f.team || fx.team }} testid={`lk-lines-${f.id}`} />
+              </li>
+            ))}
+          </ul>
+        </td></tr>
+      )}
       {open && (
         <tr className="lk-whyrow"><td colSpan={6}>
           <Why f={f} n={n} p={p} lo={lo} hi={hi} cleared={cleared} played={known.length} more={more} topMore={topMore} />

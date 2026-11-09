@@ -103,6 +103,10 @@ export function MatchNotes({ d }) {
 
 export function Forecasts({ d, matchId }) {
   const [openRow, setOpenRow] = useState(null);
+  // Without this the row cannot name the opponent or draw either crest: a match page's forecasts
+  // carry team_iid/opp_iid, not the clubs themselves. ForecastCard resolved them from here, and
+  // removing the card made this look unused rather than unwired.
+  const fxTeams = { [d.match.home_iid]: d.home, [d.match.away_iid]: d.away };
   const live = !!d.match.live && fxState(d.match.live) !== "later" && d.match.status !== "postponed";
   // While the match is on, ask every 30 s which lines have happened. This used to stop at half time (docs/42).
   const lt = useApi(live && matchId ? `/matches/${matchId}/live-forecasts` : null, undefined, { every: mLive(d.match) ? 30000 : 0 });
@@ -126,8 +130,12 @@ export function Forecasts({ d, matchId }) {
     // "Both teams" holds the match lines -- total goals, total cards. It is the one market a
     // stranger understands without being taught, it is the only one that needs no statistics feed,
     // and it was rendered third, about 5,600px below the fold, behind twenty-two player cards.
-    ? [["Both teams", rows.filter((f) => f.stat?.startsWith("match_"))], [d.home.name, rows.filter((f) => f.team_iid === d.match.home_iid && !f.stat?.startsWith("match_"))], [d.away.name, rows.filter((f) => f.team_iid === d.match.away_iid && !f.stat?.startsWith("match_"))]]
-    : [...new Set(rows.map((f) => f.stat))].map((s) => [rows.find((f) => f.stat === s)?.market?.replace(/^\d+\+\s*/, "") || s, rows.filter((f) => f.stat === s)]);
+    // Each group carries the club it is about, so the heading can wear its crest: this page named
+    // both clubs and drew neither, which is the one identifier a reader recognises before reading.
+    ? [["Both teams", rows.filter((f) => f.stat?.startsWith("match_")), null],
+       [d.home.name, rows.filter((f) => f.team_iid === d.match.home_iid && !f.stat?.startsWith("match_")), d.home],
+       [d.away.name, rows.filter((f) => f.team_iid === d.match.away_iid && !f.stat?.startsWith("match_")), d.away]]
+    : [...new Set(rows.map((f) => f.stat))].map((s) => [rows.find((f) => f.stat === s)?.market?.replace(/^\d+\+\s*/, "") || s, rows.filter((f) => f.stat === s), null]);
   return (
     <div className="mc-fc" data-testid="match-forecasts">
       {matchId && d.match.status === "scheduled" && cardsOf(d).length > 0 && <div className="cb-buildrow"><BuildForMe matchId={matchId} /><small className="muted">Tap + on a line to start a combo.</small></div>}
@@ -147,14 +155,15 @@ export function Forecasts({ d, matchId }) {
       </div>
       {!cardsOf(d).length ? <EmptyState icon="target" title="No forecasts yet" testid="fc-empty">They appear once the engine has run for this match.</EmptyState>
         : !rows.length ? <EmptyState icon="target" title={tiers.length ? `Nothing in ${tiers.join(" or ")} at ${min}% or more` : `Nothing at ${min}% or more`} testid="fc-none" action={<button type="button" className="btn btn--secondary btn--sm" onClick={() => { setMin(50); setTiers([]); }} data-testid="fc-reset">Show all</button>}>{tiers.length ? "Widen the tier, or lower the minimum likelihood." : "Lower the minimum likelihood."}</EmptyState>
-        : groups.filter(([, xs]) => xs.length).map(([title, xs]) => (
-          <section key={title} className="mc-fc-group"><header className="v2-sec-head"><h2 className="k-sec v2-sec">{title} · {xs.length}</h2></header>
+        : groups.filter(([, xs]) => xs.length).map(([title, xs, club]) => (
+          <section key={title} className="mc-fc-group"><header className="v2-sec-head"><h2 className="k-sec v2-sec">{club && <Crest team={club} size={22} />}{title} · {xs.length}</h2></header>
             {/* The same row Most likely draws, from the shared kit. A grid of cards and this row
                 were two presentations of one object, and the card was on ten surfaces only because
                 the agreed one had never been extracted from that page. */}
             <table className="lk-tbl" data-testid={`match-fc-${title}`}><tbody>
               {xs.map((f) => (
-                <ForecastRow key={f.id} f={f} floor={0} open={openRow === f.id}
+                <ForecastRow key={f.id} f={f} floor={0} teams={fxTeams} homeIid={d.match.home_iid}
+                             track={track} open={openRow === f.id}
                              onToggle={() => setOpenRow(openRow === f.id ? null : f.id)} />
               ))}
             </tbody></table></section>

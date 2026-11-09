@@ -163,7 +163,11 @@
 .lk-lu.is-doubt { color: var(--text2); font-weight: 600; }
 .lk-lu.is-doubt s { border-style: dashed; border-color: var(--down); background: none; }
 .lk-lu.is-none { color: var(--text3); font-weight: 550; }
-.lk-lucell { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+/* The lineup word and the controls share this cell. With three controls instead of one they no
+   longer fit beside "No team news yet", and a table cell does not grow to rescue them -- the add
+   button simply drew past the row's right edge. Wrapping costs a few pixels of row height and
+   clips nothing. */
+.lk-lucell { display: flex; align-items: center; gap: 6px 10px; justify-content: space-between; flex-wrap: wrap; }
 
 /* Why: one tap down. The row answers in two seconds; this answers "why should I believe it",
  * which is where the detail goes without crowding the row. */
@@ -318,3 +322,18 @@
 
 .lk-tiercell { display: block; margin-top: 4px; }
 .lk-tiercell .k-tier { justify-content: flex-end; }
+
+/* The two controls the card had and the extracted row had lost: keep the line, and put it in a
+   combo. They sit in the cell that already holds Why, so the row gains no column. */
+.lk-acts { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+/* NOT the card's .cb-add, which is position:absolute and escapes a table row to whatever is
+   positioned above it -- it left the button floating outside the group entirely. */
+.lk-add { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface1);
+  color: var(--text2); cursor: pointer; flex: none; }
+.lk-add.on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+/* Steps the MARKET, where the ladder steps the line. */
+.lk-morebtn { display: inline-block; margin-left: 6px; padding: 0; border: 0; background: none;
+  color: var(--brand); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+.lk-linesrow .k-fc-lines { margin: 0; }
