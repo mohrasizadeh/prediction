@@ -95,6 +95,8 @@
 
 /* The ladder. Steps run to one beyond his best in the last 10: a fixed 1..6 on every row would
  * print "6+ shots, 1%" down the page, which is dead ink and makes the control feel broken. */
+.lk-steps-phone { display: none; }
+.lk-pos-inline { display: none; }
 .lk-line { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; justify-content: center; }
 .lk-steps { display: inline-flex; background: var(--surface2); border: 1px solid var(--border);
   border-radius: 8px; padding: 2px; gap: 2px; max-width: 100%; }
@@ -201,39 +203,102 @@
 .lk-foot span { display: block; }
 
 /* ---------------------------------------------------------------- phone
- * One DOM, two layouts: the table keeps its semantics and its header stays in the accessibility
- * tree, while the rows reflow to a grid. Rendering a second list instead would mean two copies of
- * every row to keep in step. */
+ * Most of this product's traffic is phones, and the first version of this block was a reflowed
+ * desktop table: measured across eight rows it used 67 distinct left edges, only two of which
+ * every row shared, and the row height flipped between 126 and 140px because "10 of 10" wrapped
+ * to three lines. Four objects on four baselines under every name. It looked like rubble because
+ * it was rubble.
+ *
+ * This is a designed row, not a reflow. Two columns and five bands, identical on every row:
+ *
+ *     64px gutter | the rest
+ *     ------------+------------------------------------------
+ *       93%       | [photo] Erling Haaland            FWD
+ *      89-96%     | |-------------------=====----|   (the bar)
+ *                 | 1+ shot . vs Brentford 20:00
+ *                 | [run strip]  10 of 10          Why v
+ *                 | [1+][2+][3+][4+][5+][6+]        . Starting
+ *
+ * The likelihood sits in a fixed left gutter, so the first thing the eye does is run down a hard
+ * column of numbers before reading a word -- which is what this screen is for. Its range sits
+ * directly beneath it in the same gutter, so the answer and its uncertainty are one object. The
+ * bar gets the full width of the right column instead of 120px, because a bar with no width
+ * cannot say anything. The name has its own line and cannot be crowded, which is what makes
+ * "names never clip" structural rather than lucky.
+ *
+ * One DOM, two layouts. `display: contents` on the likelihood cell lets its figure, bar and
+ * caption be placed independently on the row's grid -- the figure and caption in the gutter, the
+ * bar across the body -- without a second copy of that markup for phones. The table's semantics
+ * are already stood down at this width (the head is visually hidden and the rows are a grid), so
+ * this costs nothing it had not already spent.
+ */
 @media (max-width: 760px) {
   .lk-tbl, .lk-tbl tbody { display: block; }
   .lk-tbl thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .lk-tbl tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) 124px; column-gap: 10px; padding: 12px 14px; }
+  .lk-tbl { border-radius: 0; border-left: 0; border-right: 0; }
+
+  .lk-tbl tbody tr { display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 12px;
+    row-gap: 0; padding: 11px 14px 12px; align-items: center; }
   .lk-tbl tbody tr td { padding: 0; }
   .lk-tbl tbody tr + tr:not(.lk-grp):not(.lk-whyrow) { border-top: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
   .lk-tbl tbody tr + tr:not(.lk-grp):not(.lk-whyrow) td { border-top: 0; }
-  td.lk-cell-who { grid-column: 1; grid-row: 1; }
+
+  /* the gutter: the answer, then its range, top-aligned so they read as one block */
+  td.lk-cell-lk { display: contents; }
+  .lk-lk-top { grid-column: 1; grid-row: 1; height: auto; justify-content: flex-start; align-self: end; }
+  .lk-lk .lk-figure { font-size: 28px; }
+  .lk-rg { grid-column: 1; grid-row: 2; width: auto; margin: 2px 0 0; text-align: left; align-self: start; }
+  .lk-underw { text-align: left; }
+
+  /* the body */
+  td.lk-cell-who { grid-column: 2; grid-row: 1; min-width: 0; }
   td.lk-cell-fx { display: none; }
-  td.lk-cell-mk { grid-column: 1; grid-row: 2; margin-top: 3px; }
-  td.lk-cell-lk { grid-column: 2; grid-row: 1 / span 2; }
-  td.lk-cell-run { grid-column: 1; grid-row: 3; margin-top: 10px; }
-  td.lk-cell-lu { grid-column: 2; grid-row: 3; justify-self: end; align-self: end; margin-top: 10px; }
-  .lk-fx-inline { display: inline; color: var(--text2); }
-  .lk-line { gap: 5px; }
-  /* three steps fit; the rest scroll, with a fade that is set by MEASURING overflow (see
-   * Likely.jsx) -- a fade over a chip that is the last one is a lie about there being more. */
-  .lk-steps { max-width: 128px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
-  .lk-steps.lk-more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent); }
+  .lk-band { grid-column: 2; grid-row: 2; width: auto; margin: 5px 0 0; }
+  td.lk-cell-mk { grid-column: 2; grid-row: 3; margin-top: 7px; }
+  td.lk-cell-run { grid-column: 2; grid-row: 4; margin-top: 8px; }
+  /* Two levels of `display: contents` so the lineup word, the ladder and the Why control can each
+     be placed on the row's own grid. Stacked inside one cell they cost a whole sixth band and ~27px
+     on every row, for no reason other than that the desktop table keeps them in one column. */
+  td.lk-cell-lu { display: contents; }
+  .lk-lucell { display: contents; }
+  .lk-lu { grid-column: 2; grid-row: 1; justify-self: end; align-self: center; }
+  .lk-why { grid-column: 2; grid-row: 4; justify-self: end; align-self: center; margin-top: 8px; padding: 4px 0; }
+  .lk-steps-phone { display: block; grid-column: 2; grid-row: 5; margin: 8px 0 0; }
+
+  /* The name owns its line, so the photo stays full size -- it is no longer competing for the
+     name's width, which is what was cutting names before. (PlayerAvatar writes its size as an
+     inline style, so shrinking it from here would lose to that and spill the initials.) */
+  .lk-who { gap: 9px; }
+  .lk-who .lk-name { flex: 0 1 auto; }
+  /* the position moves into the claim so the lineup word can own the name line's right edge */
+  .lk-pos { display: none; }
+  .lk-pos-inline { display: inline; font-stretch: 80%; font-weight: 700; font-size: 11px;
+    letter-spacing: .04em; color: var(--text3); }
+
+  /* the claim is one line on every row in the set, including "1+ shot on target . at Everton 20:00" */
+  .lk-line { gap: 0; }
+  td.lk-cell-mk .lk-claim { font-size: 13.5px; color: var(--text2); }
+  .lk-fx-inline { display: inline; }
+
+  /* evidence: the strip gets the width it needs because the stepper is no longer beside it */
+  td.lk-cell-run .lk-runwrap { gap: 10px; padding-right: 52px; }
+  td.lk-cell-run .lk-run i { width: 8px; }
+  td.lk-cell-run .lk-runbox { padding-left: 18px; }
+
+  /* the ladder gets its own band, so its width never pushes anything else out of line. Three fit;
+   * the rest scroll, with a fade set by MEASURING overflow (Likely.jsx) -- a fade over a chip that
+   * is the last one is a lie about there being more. */
+  .lk-steps-desk { display: none; }
+  .lk-steps { max-width: 100%; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+  .lk-steps.lk-more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
   .lk-step { scroll-snap-align: center; }
-  .lk-lk { text-align: right; padding: 0; }
-  .lk-lk-top { height: 26px; }
-  .lk-lk .lk-figure { font-size: 26px; }
+
+  /* group headers and the Why tray are full-width blocks, not grid rows */
   .lk-grp, .lk-whyrow { display: block !important; padding: 0 !important; }
   .lk-grp td, .lk-whyrow td { display: block; padding: 7px 14px; }
   .lk-whyrow td { padding: 0 14px 14px; }
   .lk-tbl tbody tr.lk-grp + tr { border-top: 0; }
-  .lk-band, .lk-rg, .lk-axis { width: 120px; }
-  .lk-tbl { border-radius: 0; border-left: 0; border-right: 0; }
   .lk-open td:first-child, .lk-whyrow td { box-shadow: none; }
   .lk-open { box-shadow: inset 3px 0 0 0 var(--brand); }
 }

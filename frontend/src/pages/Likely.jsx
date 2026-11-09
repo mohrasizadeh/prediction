@@ -188,8 +188,11 @@ function Row({ f, open, onToggle, floor }) {
         <td className="lk-cell-fx lk-fx">{fx}<small>{ko}</small></td>
         <td className="lk-cell-mk">
           <span className="lk-line">
-            <span className="lk-claim">{words}<span className="lk-fx-inline"> · {fx} {ko}</span></span>
-            <Steps rows={lad} cur={n} onPick={setPick} label={`How many ${nounFor(f, 2)}`} />
+            <span className="lk-claim">
+              {pos && <span className="lk-pos-inline">{pos} · </span>}{words}
+              <span className="lk-fx-inline"> · {fx} {ko}</span>
+            </span>
+            <span className="lk-steps-desk"><Steps rows={lad} cur={n} onPick={setPick} label={`How many ${nounFor(f, 2)}`} /></span>
           </span>
         </td>
         <td className="lk-cell-lk lk-lk">
@@ -199,6 +202,9 @@ function Row({ f, open, onToggle, floor }) {
         </td>
         <td className="lk-cell-run"><Run games={f.run} n={n} /></td>
         <td className="lk-cell-lu">
+          {/* on a phone the ladder gets its own band here, under the evidence: beside the market
+              words its width changed with the number of rungs, and every object after it moved. */}
+          <span className="lk-steps-phone"><Steps rows={lad} cur={n} onPick={setPick} label={`How many ${nounFor(f, 2)}`} /></span>
           <span className="lk-lucell">
             <span className={`lk-lu is-${lu.cls}`} title={lu.why}>
               {lu.cls !== "none" && <s />}{lu.word}
