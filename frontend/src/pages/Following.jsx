@@ -11,7 +11,7 @@ import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
 import Icon from "../components/Icon";
 import { Tabs, useToast } from "../components/Ui";
 import SearchOverlay from "../components/SearchOverlay";
-import { ForecastCard } from "../components/ui/ForecastCard";
+import { ForecastList } from "../components/ui";
 import { EmptyState, ErrorState, Skeleton, TierBadge } from "../components/ui";
 import { useTitle } from "../components/Football";
 
@@ -180,7 +180,7 @@ function Saved({ q }) {
     <div className="fgrid" data-testid="saved-list">{q.data.items.map((r) => (
       <div key={r.fkey} className="saved-item">
         {r.outcome && <p className="y-out"><Outcome o={r.outcome} />{r.outcome.player_played !== false && r.outcome.actual != null && <span className="k-faint">Final count: {r.outcome.actual}</span>}</p>}
-        {r.forecast ? <ForecastCard f={r.forecast} testid={`saved-card-${r.fkey}`} /> : <p className="card muted">This forecast is finished or replaced.</p>}
+        {r.forecast ? <ForecastList rows={[r.forecast]} testid={`saved-card-${r.fkey}`} /> : <p className="card muted">This forecast is finished or replaced.</p>}
         <button type="button" className="btn btn--ghost btn--sm" onClick={() => drop(r.fkey)} data-testid={`unsave-${r.fkey}`}>Remove</button></div>
     ))}</div>
   );

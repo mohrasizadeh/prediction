@@ -200,7 +200,9 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
   // The backend keys the ladder with "%g", so 1.5 stays "1.5" and 2.0 becomes "2" -- which is what
   // String() gives for the Numbers ladderOf() parsed them back into.
   const rungTier = (n === chosen && f.tier) || (f.ladder_tier || {})[String(rung?.thr)] || null;
-  const vs = `${fx.homeFirst ? "vs" : "at"} ${fx.opp?.name || ""}`;
+  // "vs" with nobody after it is what the match page reported, and six more screens now draw this
+  // row from feeds that do not all carry an opponent. No name, no preposition.
+  const vs = fx.opp?.name ? `${fx.homeFirst ? "vs" : "at"} ${fx.opp.name}` : "";
   return (
     <>
       <tr className={`${open ? "lk-open " : ""}${under ? "lk-under" : ""}`} data-testid={`lk-row-${f.id}`}>

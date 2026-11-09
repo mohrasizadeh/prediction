@@ -10,7 +10,7 @@ import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
 import Icon from "../components/Icon";
 import { useTitle } from "../components/Football";
-import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, Hl, Skeleton, WdlBar, isoDay, useSessionDay } from "../components/ui";
+import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastList, Hl, Skeleton, WdlBar, isoDay, useSessionDay } from "../components/ui";
 import { atHalfTime, isLiveNow as isLive, useLiveLines } from "../lib/live";
 
 const isOff = (m) => m.status === "postponed" || m.status === "cancelled";
@@ -60,7 +60,7 @@ function Top3({ day }) {
       {/* UX_AUDIT decision 9: this was a horizontal carousel inside a page that scrolls down, with the
           second card visibly clipped and nothing else to say more existed. Three items do not need a
           carousel; they need three rows, and then none of them is hidden. */}
-      <div className="fgrid td-top-grid">{best.map((f) => <ForecastCard key={f.id} f={f} track={track} testid={`today-top-${f.id}`} />)}</div>
+      <ForecastList rows={best} track={track} testid="today-top" />
     </section>
   );
 }

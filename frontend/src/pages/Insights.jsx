@@ -9,7 +9,7 @@ import { utc } from "../lib/time";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
 import { useTitle } from "../components/Football";
 import { Crest, PlayerAvatar } from "../components/Media";
-import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard, ProLock, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
+import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastList, ProLock, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
 import { fixtureOf, timeOf } from "../components/ui/ForecastCard";
 
 const MARKETS = [{ id: "shots", label: "Shots", q: { stat: "shots", scope: "player" } }, { id: "sot", label: "On target", q: { stat: "sot" } },
@@ -219,7 +219,7 @@ export function Insights() {
                 Ordered by how unlike their usual game this is, not by the biggest number. Under each strip:
                 minutes above, opponent below (@ away).
               </p>
-              <div className="fgrid ins-grid">{g.rows.map((f) => <ForecastCard key={f.id} f={f} showTime={false} track={track} testid={`ins-card-${f.id}`} />)}</div>
+              <ForecastList rows={g.rows} track={track} testid={`ins-card-${g.key || "g"}`} />
             </section>
           ))}
       {groups.length > shownGroups.length && (

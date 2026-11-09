@@ -11,7 +11,7 @@ import { pct } from "../lib/copy";
 import { Crest, PlayerAvatar } from "../components/Media";
 import Icon from "../components/Icon";
 import { MATCH_STATS, STATS, TEAM_STATS, kickoff, useTitle } from "../components/Football";
-import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastCard, GameStrip, HitStrip, ProLock, RangeSlider, Segmented, Skeleton, isoDay } from "../components/ui";
+import { ChipsRow, DateScroller, EmptyState, ErrorState, ForecastList, GameStrip, HitStrip, ProLock, RangeSlider, Segmented, Skeleton, isoDay } from "../components/ui";
 import { FINDER_STARTS, startChips } from "../lib/finderStarts";
 
 const DEF = { mode: "form", stat: "shots", n: "2", scope: "player", last_n: "10", min: "6", venue: "", positions: "", leagues: "", day: "", gt: "" };
@@ -354,7 +354,7 @@ export default function Finder() {
         : res.err ? <ErrorState message={res.err.message || "The search did not work."} onRetry={run} testid="finder-error" />
         : !res.rows ? <Starts onPick={pickStart} statOf={statOf} />
         : !res.rows.length ? <EmptyState icon="search" title="Nothing meets that line" testid="finder-empty">Try a lower line, a longer window or another league.</EmptyState>
-        : f.mode === "likelihood" ? <div className="fgrid" data-testid="finder-results">{res.rows.map((r) => <ForecastCard key={r.id} f={r} testid={`finder-fc-${r.id}`} />)}</div>
+        : f.mode === "likelihood" ? <ForecastList rows={res.rows} testid="finder-results" />
         : <><ul className="fs-results card" data-testid="finder-results">{res.rows.map((r) => <Row key={r.id} r={r} f={f} canLine={canLine} statLabel={stat.label.toLowerCase()} />)}</ul>
             <p className="fs-count muted small" data-testid="finder-count">
               {res.rows.length >= 100 ? "The first 100. Narrow the search -- a longer window or a higher line -- to see fewer and better."

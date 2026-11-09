@@ -7,7 +7,7 @@ import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { FormPills, MatchRow, STATS, Seg, Select, TEAM_STATS, TacticChip, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
-import { ForecastCard, QuickView } from "../components/ui";
+import { ForecastList, QuickView } from "../components/ui";
 import { SubjectHead } from "../components/ui/Subject";
 import FirstGoal from "../components/FirstGoal";
 
@@ -158,7 +158,7 @@ export default function Team() {
       <section className="card" data-testid="team-next">
         <header className="v2-sec-head v2-sec-head--card"><h2 className="k-sec v2-sec">What we expect next match</h2></header>
         {!d.next.length ? <p className="muted">No upcoming match loaded.</p>
-          : cards.length ? <div className="fgrid">{cards.map((f) => <ForecastCard key={f.id} f={f} teams={nextTeams} homeIid={d.next[0].home_iid} showTime={false} testid={`team-fc-${f.id}`} />)}</div>
+          : cards.length ? <ForecastList rows={cards} teams={nextTeams} homeIid={d.next[0].home_iid} testid="team-fc" />
           : <p className="muted small">No forecasts for this club yet.</p>}
       </section>
       {/* The interrogation the player page has had since it was written, and the club did not:

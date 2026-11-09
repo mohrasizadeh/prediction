@@ -10,7 +10,7 @@ import { pct } from "../lib/copy";
 import { lineWhen } from "../components/ComboHost";
 import Icon from "../components/Icon";
 import { Crest, PlayerAvatar } from "../components/Media";
-import { EmptyState, ErrorState, ForecastCard, Segmented, Skeleton } from "../components/ui";
+import { EmptyState, ErrorState, ForecastList, Segmented, Skeleton } from "../components/ui";
 import { useTitle } from "../components/Football";
 
 const Face = ({ l, size = 28 }) => (l.player ? <PlayerAvatar player={l.player} size={size} /> : <Crest team={l.team} size={size} />);
@@ -104,7 +104,7 @@ function SignedOut() {
         Keeping one for later needs an account.
       </p>
       {q.loading && !q.data ? <Skeleton shape="card" count={3} />
-        : rows.length ? <div className="fgrid">{rows.map((f) => <ForecastCard key={f.id} f={f} testid={`combos-sample-${f.id}`} />)}</div>
+        : rows.length ? <ForecastList rows={rows} testid="combos-sample" />
         : null}
       <p className="v2-more"><Link className="btn btn--secondary" to="/sign-up">Create a free account</Link> <Link className="k-link" to="/insights">See all lines</Link></p>
     </div>
