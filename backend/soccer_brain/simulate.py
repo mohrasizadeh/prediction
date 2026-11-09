@@ -33,6 +33,12 @@ def _schedule(n_teams):
 def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                     star_def=0.07, star_att=0.05):
     rng = np.random.default_rng(seed)
+    # Fouls draw from their OWN stream, created here so it is available while the squads are built.
+    # Taking them from `rng` shifted every later draw and produced a different league for the same
+    # seed -- which broke selftest_lines, a test that asserts something about the shape of the
+    # league and nothing about fouls. A fixture other tests depend on must stay bit-identical when
+    # a column is added to it.
+    rng_f = np.random.default_rng(seed * 7919 + 13)
     T = n_teams
     att = rng.normal(0, 0.22, T); dfn = rng.normal(0, 0.22, T)
     poss = rng.normal(0, 1, T); wide = rng.normal(0, 1, T)
@@ -74,7 +80,11 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 # A narrow spread, deliberately: a squad has no "foul specialists" the way it has
                 # goal specialists, so the market's value has to come from the opponent and the
                 # game rather than from one player being ten times likelier than another.
-                skill_fouls_committed=np.exp(rng.normal(0, 0.25)),
+                skill_fouls_committed=float(np.exp(rng_f.normal(0, 0.25))),
+                # A narrow spread, deliberately: a squad has no "foul specialists" the way it has
+                # goal specialists, so the market's value has to come from the opponent and the
+                # game rather than from one player being ten times likelier than another.
+
                 q_def=1.0 if k in def_stars else rng.normal(0, 0.2),
                 q_att=1.0 if k in att_stars else rng.normal(0, 0.2)))
     squads = {t: [p for p in players if p["team"] == t] for t in range(T)}
@@ -146,18 +156,28 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 # A team's fouls in a match: around eleven, overdispersed, and not a function of
                 # how well the side is playing -- which is what makes it a different signal from
                 # shots rather than a restatement of one.
-                f_tot = int(rng.negative_binomial(8, 8 / (8 + 11.0)))
+                #
+                # Drawn from a SEPARATE generator. Taking these from `rng` shifted every later draw
+                # and silently produced a different league for the same seed, which broke
+                # selftest_lines -- a test that asserts something about the shape of the league,
+                # not about fouls. A fixture other tests depend on must stay bit-identical when a
+                # column is added to it.
+                f_tot = int(rng_f.negative_binomial(8, 8 / (8 + 11.0)))
                 for stat, tot, key in (("shots", side[X]["shots"], "shots"),
                                        ("sot", side[X]["sot"], "shots"),
                                        ("tackles", side[X]["tackles"], "tackles"),
                                        ("goals", g_tot, "goals"),
-                                       ("assists", a_tot, "assists"),
-                                       ("fouls_committed", f_tot, "fouls_committed")):
+                                       ("assists", a_tot, "assists")):
                     w = np.array([base_w[key][p["pos"]] * p["skill_" + key] * minutes[i] / 90.0
                                   for i, p in enumerate(squad)])
                     if stat == "sot":
                         w = w * np.exp(rng.normal(0, 0.1, len(w)))
                     alloc[stat] = rng.multinomial(tot, w / w.sum()) if w.sum() > 0 else np.zeros(len(w), int)
+                # ...and the foul allocation likewise, off the shared stream.
+                wf = np.array([base_w["fouls_committed"][p["pos"]] * p["skill_fouls_committed"] * minutes[i] / 90.0
+                               for i, p in enumerate(squad)])
+                alloc["fouls_committed"] = (rng_f.multinomial(f_tot, wf / wf.sum()) if wf.sum() > 0
+                                            else np.zeros(len(wf), int))
                 for i, p in enumerate(squad):
                     pgs.append(dict(game_id=gid, round=rnd, team=X, opp=Y, player=p["player"],
                                     pos=p["pos"], started=int(i in starters), minutes=minutes[i],
