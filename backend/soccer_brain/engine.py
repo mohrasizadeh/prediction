@@ -117,6 +117,10 @@ class Forecast:
     opp_key_players: list = field(default_factory=list)   # [(player, effect on stat)]
     p_raw: float | None = None
     p_base: float | None = None
+    # docs/66: the mixture this forecast's `p` was integrated over -- (scenario weights, their
+    # means, the dispersion). Filled only when `keep_mixture` is on, so a simulator can draw from
+    # EXACTLY what the closed form summed, rather than from a second model of the same thing.
+    mix: tuple | None = None
     rotation: str = "low"          # "low" | "medium" | "high": how likely the club rests regulars (calendar)
     rotation_why: str = ""         # one plain sentence, empty when low
     p_play_usual: float | None = None   # chance he plays with no calendar pressure (shows the shift)
@@ -217,6 +221,7 @@ class SoccerEngine:
         # --- docs/37 upgrades. Each is OFF by default and ships only if engine_ab.py passes its gate on real data.
         self.script_v2 = bool(script_v2)        # game state: margin, how lopsided, and the tempo of the fixture
         self.fit_player_r = bool(fit_player_r)  # player dispersion fitted from results instead of a fixed guess
+        self.keep_mixture = False               # docs/66: attach each forecast's mixture, for the simulator
         # docs/52: every entity gets its own line, at the count it clears about half the time. Off by default,
         # like every docs/37 upgrade, so engine_ab.py can judge it before it ships.
         self.personal_lines = bool(personal_lines)
@@ -1094,7 +1099,8 @@ class SoccerEngine:
                     p_raw = float((hist[s].values[-10:] > thr).mean()) if hist is not None and len(hist) else 0.5
                     p_base = float(nb_sf(k, np.exp(offs[s]), self.glm[s].r))
                     p_usual = float(nb_sf(k, mu_usual[s], self.glm[s].r))
-                    out.append(Forecast("team", team, opp, s, thr, mu_team[s], p, float(lo), float(hi),
+                    _mix = ((1.0,), (float(mu_team[s]),), float(self.glm[s].r)) if self.keep_mixture else None
+                    out.append(Forecast("team", team, opp, s, thr, mu_team[s], p, float(lo), float(hi), mix=_mix,
                                         contrib=grp[s], reasons=self._reasons(grp[s], s, opp_tac),
                                         opp_tactics=opp_tac, own_tactics=own_tac,
                                         opp_key_players=keys[s], p_raw=p_raw, p_base=p_base,
@@ -1212,7 +1218,9 @@ class SoccerEngine:
                             expected_c = expected / d
                         else:
                             expected_c = expected
-                        out.append(Forecast("player", team, opp, s, thr, expected_c, p, float(lo), float(hi),
+                        _mix = ((tuple(float(x) for x in probs), tuple(float(x) for x in mus), float(self.r_player[s]))
+                                if self.keep_mixture else None)
+                        out.append(Forecast("player", team, opp, s, thr, expected_c, p, float(lo), float(hi), mix=_mix,
                                             player=int(pid), pos=info["pos"], p_play=float(likely_play.get(pid, pplay)),
                                             confirmed=lineups.get(team) is not None, contrib=contrib,
                                             reasons=reasons, opp_tactics=opp_tac, own_tactics=own_tac,
