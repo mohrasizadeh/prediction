@@ -21,7 +21,8 @@ export function paint(proof, track, tonight) {
   // arguments, so two calls with different data cannot leak into each other.
   var PROOF = proof || [], TRACK = track || {}, T = tonight || {};
   var C = {brand:'#034737', strong:'#1B8962', accent:'#A9FF9B', text:'#22281E',
-           text2:'#3C4238', text3:'#62685F', s2:'#EBEEEA', border:'#D3D7D2', border2:'#AAAEA7'};
+           text2:'#3C4238', text3:'#62685F', s2:'#EBEEEA', border:'#D3D7D2', border2:'#AAAEA7',
+           hair:'#E6E9E5', warm:'#FDF8F7', mint:'#E8F4EE'};
   var pc = function(x){ return Math.round(x*100) + '%'; };
   var esc = function(s){ return String(s).replace(/[&<>]/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); };
@@ -52,7 +53,7 @@ export function paint(proof, track, tonight) {
       s += '<rect x="'+x.toFixed(1)+'" y="'+yThr.toFixed(1)+'" width="'+bw.toFixed(1)+
            '" height="'+(base-yThr).toFixed(1)+'" fill="'+C.s2+'"/>';
       s += '<rect x="'+x.toFixed(1)+'" y="'+(base-h).toFixed(1)+'" width="'+bw.toFixed(1)+
-           '" height="'+(h-(base-yThr)).toFixed(1)+'" fill="'+C.accent+'"/>';
+           '" height="'+(h-(base-yThr)).toFixed(1)+'" fill="'+C.strong+'"/>';
       s += '<rect x="'+x.toFixed(1)+'" y="'+(base-h).toFixed(1)+'" width="'+bw.toFixed(1)+
            '" height="'+h.toFixed(1)+'" rx="2" fill="none" stroke="'+C.strong+'" stroke-width="1"/>';
       s += '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(H-3)+'" font-size="10" fill="'+C.text3+
@@ -103,13 +104,17 @@ export function paint(proof, track, tonight) {
       var H = 20, ux = w/steps, bar = actual*ux, xThr = thr*ux;
       var s = '<svg viewBox="0 0 '+w+' '+H+'" role="img" ' +
               'aria-label="the line was ' + thr + '; he recorded ' + actual + '">';
+      /* The bar is the MID-TONE, not the lime. Eight of these stacked down the page made the
+         brightest colour on the screen the background of a measurement rather than the result of
+         one -- and lime next to lime, card after card, is what made the page feel loud and flat at
+         the same time. The ramp per card is now dark tick, mid-tone fill, lime chip. */
       s += '<rect x="0.6" y="3.6" width="'+(w-1.2)+'" height="12.8" rx="3.5" fill="#fff" stroke="'+
-           C.text3+'" stroke-width="1.2"/>';
+           C.hair+'" stroke-width="1.1"/>';
       s += '<rect x="0.6" y="3.6" width="'+(bar-1.2).toFixed(1)+'" height="12.8" rx="3.5" fill="'+
-           C.accent+'" stroke="'+C.strong+'" stroke-width="1.2"/>';
+           C.strong+'"/>';
       for(var i=1;i<actual;i++)
-        s += '<line x1="'+(i*ux).toFixed(1)+'" y1="4.2" x2="'+(i*ux).toFixed(1)+'" y2="15.8" stroke="'+
-             C.strong+'" stroke-width="1" opacity=".45"/>';
+        s += '<line x1="'+(i*ux).toFixed(1)+'" y1="4.2" x2="'+(i*ux).toFixed(1)+'" y2="15.8" stroke="#fff" ' +
+             'stroke-width="1" opacity=".55"/>';
       s += '<line x1="'+xThr.toFixed(1)+'" y1="0" x2="'+xThr.toFixed(1)+'" y2="'+H+
            '" stroke="'+C.brand+'" stroke-width="2.4"/>';
       s += '</svg>';
@@ -166,7 +171,7 @@ export function paint(proof, track, tonight) {
     for(var k2=0;k2<=K;k2++){
       var cx = x0 + slot*(k2+0.5), h = vals[k2]*sc, on = k2 >= 1;
       s += '<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+(base-h).toFixed(1)+'" width="'+bw.toFixed(1)+
-           '" height="'+h.toFixed(1)+'" rx="2" fill="'+(on?C.accent:'#fff')+'" stroke="'+
+           '" height="'+h.toFixed(1)+'" rx="2" fill="'+(on?C.strong:'#fff')+'" stroke="'+
            (on?C.strong:C.text3)+'" stroke-width="'+(on?1:1.3)+'"/>';
       s += '<text x="'+cx.toFixed(1)+'" y="'+(base+16)+'" font-size="11" fill="'+C.text3+
            '" text-anchor="middle">'+k2+'</text>';
@@ -209,7 +214,7 @@ export function paint(proof, track, tonight) {
       s += '<rect x="'+x.toFixed(1)+'" y="'+yThr.toFixed(1)+'" width="'+bw.toFixed(1)+
            '" height="'+(base-yThr).toFixed(1)+'" fill="'+C.s2+'"/>';
       s += '<rect x="'+x.toFixed(1)+'" y="'+(base-h).toFixed(1)+'" width="'+bw.toFixed(1)+
-           '" height="'+(h-(base-yThr)).toFixed(1)+'" fill="'+C.accent+'"/>';
+           '" height="'+(h-(base-yThr)).toFixed(1)+'" fill="'+C.strong+'"/>';
       s += '<rect x="'+x.toFixed(1)+'" y="'+(base-h).toFixed(1)+'" width="'+bw.toFixed(1)+
            '" height="'+h.toFixed(1)+'" rx="2" fill="none" stroke="'+C.strong+'" stroke-width="1.1"/>';
       s += '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(base+15)+'" font-size="10.5" fill="'+C.text3+
@@ -250,7 +255,7 @@ export function paint(proof, track, tonight) {
     var cy = 66, rx = 98, ry = 36, caX = 118, cbX = 242;
     s += '<defs><clipPath id="lensA"><ellipse cx="'+caX+'" cy="'+cy+'" rx="'+rx+'" ry="'+ry+'"/></clipPath></defs>';
     /* 1+ shot */
-    s += '<ellipse cx="'+caX+'" cy="'+cy+'" rx="'+rx+'" ry="'+ry+'" fill="'+C.accent+'" stroke="'+
+    s += '<ellipse cx="'+caX+'" cy="'+cy+'" rx="'+rx+'" ry="'+ry+'" fill="'+C.mint+'" stroke="'+
          C.strong+'" stroke-width="1.4"/>';
     /* 1+ on target */
     s += '<ellipse cx="'+cbX+'" cy="'+cy+'" rx="'+rx+'" ry="'+ry+'" fill="#fff" fill-opacity="0" stroke="'+
@@ -309,7 +314,7 @@ export function paint(proof, track, tonight) {
          '">the number we publish, and the band it sits in</text>';
     /* band */
     s += '<rect x="'+xlo.toFixed(1)+'" y="54" width="'+(xhi-xlo).toFixed(1)+
-         '" height="48" rx="7" fill="'+C.accent+'" stroke="'+C.strong+'" stroke-width="1.4"/>';
+         '" height="48" rx="7" fill="'+C.mint+'" stroke="'+C.strong+'" stroke-width="1.4"/>';
     s += '<line x1="'+xlo.toFixed(1)+'" y1="48" x2="'+xlo.toFixed(1)+'" y2="'+(axisY-2)+
          '" stroke="'+C.strong+'" stroke-width="1.5"/>';
     s += '<line x1="'+xhi.toFixed(1)+'" y1="48" x2="'+xhi.toFixed(1)+'" y2="'+(axisY-2)+

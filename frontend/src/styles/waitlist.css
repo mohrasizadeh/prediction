@@ -4,11 +4,23 @@
  * tokens below are the app's own values pinned rather than inherited, so this page looks the same
  * whoever opens it.
  *
- * THE COLOUR RULE, and it is the whole visual system: GREEN IS THE CLAIM, LIME IS THE OUTCOME.
- * --brand carries what we said; --accent appears only at the moment something landed -- the result
- * strip on a card, the part of a bar that cleared the line, the button. It measures 1.20:1 on
- * white, so it is never a mark or a text colour, only ever a fill under dark text. After two cards
- * the page is legible at a glance because of that one rule.
+ * THE COLOUR RULE: green is the claim, lime is the outcome -- but lime is PUNCTUATION, not
+ * surface. It sat on all eight cards as a full-width strip, which made the brightest thing on the
+ * page the one that was not the point; the percentages are. It is now a chip the size of a word.
+ * It measures 1.20:1 on white, so it is never a mark or a text colour, only a fill under dark text.
+ *
+ * THE RAMP. The page used to hold two colours at opposite ends -- very dark green and acid lime --
+ * with nothing between, which is what made it feel both loud and thin. There are now four steps:
+ *   --brand   #034737  the claim, headings, the big numbers
+ *   --strong  #1B8962  mid-tone marks and rules. 4.37:1 on white, so NEVER small text --
+ *                      large bold numerals and graphics only
+ *   --mint              a tinted ground, --strong at 6%
+ *   --accent  #A9FF9B  the outcome, as a chip
+ *
+ * WARMTH. Everything here is green, which reads cold over a long page, so the section grounds are
+ * warmed from --down rather than from a colour outside the palette: --warm is brick at 3.5%, a
+ * barely-there cream. --down itself stays reserved for the one honest negative on the page, the
+ * band that came in under what we said.
  */
 /* No @font-face here: the app serves its own variable font from the site config, and a second
    declaration pointing at a local file would either 404 or quietly load a second copy. */
@@ -16,6 +28,11 @@
   --brand:#034737; --strong:#1B8962; --accent:#A9FF9B; --down:#A8372B;
   --text:#22281E; --text2:#3C4238; --text3:#62685F;
   --surface2:#EBEEEA; --border:#D3D7D2; --border2:#AAAEA7;
+  /* derived, so every one of these is provably inside the palette */
+  --warm:color-mix(in srgb, #A8372B 3.5%, #fff);
+  --warm2:color-mix(in srgb, #A8372B 7%, #fff);
+  --mint:color-mix(in srgb, #1B8962 6%, #fff);
+  --hair:color-mix(in srgb, #D3D7D2 62%, #fff);
   --font:'Archivo v2',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   color-scheme:light;
 }
@@ -39,7 +56,8 @@ a{color:inherit}
 .mark{display:flex;align-items:center;gap:9px;text-decoration:none;font-weight:800;
   font-size:19px;letter-spacing:-.03em}
 .mark .glyph{width:24px;height:24px;flex:none}
-.top .tag{font-size:12px;font-weight:600;color:var(--brand);background:var(--accent);
+.top .tag{font-size:12px;font-weight:600;color:var(--brand);background:var(--mint);
+  border:1px solid color-mix(in srgb,#1B8962 20%,#fff);
   border-radius:999px;padding:5px 11px;letter-spacing:.02em;white-space:nowrap}
 
 /* ---------- hero ---------- */
@@ -66,7 +84,6 @@ a{color:inherit}
 .kicker b{color:var(--brand)}
 h1{font-size:clamp(34px,8.6vw,62px);letter-spacing:-.035em}
 h1 .said{color:var(--brand)}
-h1 em{font-style:normal;background:var(--accent);padding:0 .08em;border-radius:5px}
 .lead{margin-top:18px;font-size:17px;line-height:1.55;color:var(--text2);max-width:46ch}
 @media(min-width:960px){.lead{font-size:18.5px}}
 
@@ -131,9 +148,13 @@ h1 em{font-style:normal;background:var(--accent);padding:0 .08em;border-radius:5
 
 /* ---------- sections ---------- */
 section{scroll-margin-top:20px}
-.band{background:var(--surface2);margin-top:54px;padding:46px 0}
-.plain{margin-top:56px}
-@media(min-width:960px){.band{margin-top:74px;padding:62px 0}.plain{margin-top:76px}}
+/* Warm grounds rather than the cool grey-green, and more room between sections. The page had
+   four full-bleed bands in a row; alternating a tinted one with white lets each breathe. */
+.band{background:var(--warm);margin-top:68px;padding:56px 0;
+  border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+.band + .plain{margin-top:68px}
+.plain{margin-top:72px}
+@media(min-width:960px){.band{margin-top:96px;padding:76px 0}.plain{margin-top:96px}.band + .plain{margin-top:96px}}
 .eyebrow{font-size:12px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
   color:var(--brand);margin-bottom:11px}
 h2{font-size:clamp(26px,5.6vw,40px);letter-spacing:-.03em}
@@ -143,12 +164,13 @@ h2{font-size:clamp(26px,5.6vw,40px);letter-spacing:-.03em}
 /* ---------- proof grid ---------- */
 .proof-grid{display:grid;gap:10px;margin-top:26px;grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(min-width:960px){.proof-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}}
-.pc{border:1px solid var(--border);border-radius:14px;background:#fff;padding:12px;
+.pc{border:1px solid var(--hair);border-radius:14px;background:#fff;padding:13px;
   display:flex;flex-direction:column;min-width:0}
 @media(min-width:620px){.pc{padding:14px}}
 .pc-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
 .pc-mk{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
-  color:#fff;background:var(--brand);border-radius:5px;padding:4px 7px;white-space:nowrap}
+  color:var(--brand);background:var(--mint);border:1px solid color-mix(in srgb,#1B8962 22%,#fff);
+  border-radius:5px;padding:3px 7px;white-space:nowrap}
 .pc-lg{display:block;font-size:10.5px;color:var(--text3);line-height:1.3;margin-top:2px}
 .pc-name{margin-top:10px;font-size:15.5px;font-weight:700;letter-spacing:-.025em;line-height:1.15}
 @media(min-width:620px){.pc-name{font-size:17px}}
@@ -159,18 +181,20 @@ h2{font-size:clamp(26px,5.6vw,40px);letter-spacing:-.03em}
 .pc-nums span{font-size:11px;color:var(--text3)}
 .pc-strip{margin-top:9px}
 .pc-strip svg,.live-run svg{width:100%;height:auto;display:block}
-.pc-out{margin-top:9px;background:var(--accent);border-radius:8px;padding:7px 9px;
-  font-size:12.5px;font-weight:600;color:var(--brand);display:flex;align-items:center;gap:6px}
+/* a chip, not a strip: it is the full stop at the end of the card, not the card's background */
+.pc-out{margin-top:10px;display:inline-flex;align-items:center;gap:5px;background:var(--accent);
+  border-radius:999px;padding:4px 10px 4px 7px;font-size:12px;font-weight:700;color:var(--brand);
+  align-self:flex-start}
 .pc-out svg{flex:none}
 .foot-note{margin-top:18px;font-size:13px;color:var(--text3);max-width:66ch}
 
 /* ---------- engine ---------- */
 .eng-grid{display:grid;gap:14px;margin-top:28px;grid-template-columns:minmax(0,1fr)}
 @media(min-width:860px){.eng-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}}
-.eng{border:1px solid var(--border);border-radius:16px;background:#fff;padding:18px;
+.eng{border:1px solid var(--hair);border-radius:16px;background:#fff;padding:18px;
   display:flex;flex-direction:column;min-width:0}
 @media(min-width:720px){.eng{padding:22px}}
-.eng-n{font-size:11.5px;font-weight:700;letter-spacing:.1em;color:var(--strong);margin-bottom:9px}
+.eng-n{font-size:11.5px;font-weight:700;letter-spacing:.1em;color:var(--brand);margin-bottom:9px}
 .eng h3{font-size:19px;letter-spacing:-.025em}
 @media(min-width:720px){.eng h3{font-size:21px}}
 .eng p{margin-top:9px;font-size:14.5px;line-height:1.5;color:var(--text2)}
@@ -182,9 +206,11 @@ h2{font-size:clamp(26px,5.6vw,40px);letter-spacing:-.03em}
 figure{margin:0}
 
 /* ---------- track record ---------- */
+#record.band{background:var(--warm2)}
 .rec{margin-top:26px;border:1px solid var(--border);border-radius:16px;background:#fff;
   padding:16px 14px 12px}
-@media(min-width:720px){.rec{padding:22px 24px 16px}}
+@media(min-width:720px){#record.band{background:var(--warm2)}
+.rec{padding:22px 24px 16px}}
 .axis{position:relative;height:18px;margin:0 0 4px;font-size:11px;color:var(--text3)}
 .axis i{position:absolute;transform:translateX(-50%);font-style:normal;white-space:nowrap}
 .rrow{padding:13px 0;border-top:1px solid var(--border)}
