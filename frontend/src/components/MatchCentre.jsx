@@ -122,10 +122,22 @@ export function Forecasts({ d, matchId }) {
   // them by badge in their head. Empty means every tier, so the tab opens showing everything.
   const [tiers, setTiers] = useState([]);
   const atMin = cardsOf(d).filter((f) => f.p * 100 >= min);
-  const rows = tiers.length ? atMin.filter((f) => tiers.includes(f.tier)) : atMin;
+  // A match-total line ("Both teams", over 2.5 goals and friends) is created with tier: None by
+  // design -- it is not graded against a player's usual because it is not about a player. The
+  // filter did not know that, so selecting ANY tier chip silently removed the whole Both teams
+  // group: the one market the code itself calls the one a stranger understands without being
+  // taught, and which was buried once already. A filter that can hide a category it never offers
+  // is not a filter, it is a trapdoor. Ungraded lines get a chip of their own.
+  const rows = tiers.length
+    ? atMin.filter((f) => (f.tier ? tiers.includes(f.tier) : tiers.includes("None")))
+    : atMin;
   // Counted after the slider, so a chip's number is what tapping it would actually show.
   const TIERS = ["Strong", "Solid", "Watch"];
-  const tierOpts = TIERS.map((t) => ({ id: t, label: t, count: atMin.filter((f) => f.tier === t).length }));
+  const nUngraded = atMin.filter((f) => !f.tier).length;
+  const tierOpts = [
+    ...TIERS.map((t) => ({ id: t, label: t, count: atMin.filter((f) => f.tier === t).length })),
+    ...(nUngraded ? [{ id: "None", label: "Match totals", count: nUngraded }] : []),
+  ];
   const groups = by === "team"
     // "Both teams" holds the match lines -- total goals, total cards. It is the one market a
     // stranger understands without being taught, it is the only one that needs no statistics feed,

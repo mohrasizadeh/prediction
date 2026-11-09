@@ -1,6 +1,6 @@
 // Today (docs/24 §1): day scroller, Top 3 for the day, live strip, filter chips, fixtures by league with a
 // win/draw/loss bar and an insight chip. Data: GET /api/fixtures (the same call as before) and GET /api/insights.
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
@@ -189,8 +189,26 @@ export default function Today() {
   const isFol = (m) => followed.has(m.home?.id) || followed.has(m.away?.id) || followed.has(m.league?.id);
   const pick = { all: () => true, following: isFol, live: isLive, insights: (m) => m.insight_count > 0 }[chip];
   const fav = useFavLeagues();
-  const gameDays = useGameDays(-1, 7);
+  // Ten days back as well as the week ahead. The scroller only asks this set whether a given day
+  // has football, so a wider window costs it nothing -- and the lookback is what lets the page
+  // open on the last day there WAS football instead of on an empty today.
+  const gameDays = useGameDays(-10, 18);
   const dayLeagues = useDayLeagues(-1, 7);
+  // Football does not run every day. Opening on today whatever the hour means an empty first
+  // screen two or three days a week -- and at 2am on a Sunday the interesting football was
+  // Saturday. If the reader has not chosen a day this session, and today has none, fall back to
+  // the most recent day that does. The masthead names the date, so nobody is told it is today.
+  const landed = useRef(false);
+  useEffect(() => {
+    if (landed.current || !gameDays.size) return;
+    const today = isoDay(new Date());
+    if (day !== today || gameDays.has(today)) { landed.current = true; return; }
+    const back = [...gameDays].filter((d) => d < today).sort();
+    if (back.length) setDay(back[back.length - 1]);
+    landed.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameDays]);
+
   const groups = useMemo(() => {
     const g = new Map();
     all.filter(pick).forEach((m) => { const k = m.league?.id || "other"; if (!g.has(k)) g.set(k, { league: m.league, rows: [], fol: false }); g.get(k).rows.push(m); if (isFol(m)) g.get(k).fol = true; });

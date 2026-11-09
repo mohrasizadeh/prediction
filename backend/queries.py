@@ -94,7 +94,8 @@ def fixtures_for_date(db, day: str, tz_offset_min: int = 0, league_iids=None) ->
         {"$group": {"_id": "$match_iid", "n": {"$sum": 1}}}])}
     lgs = _names(db, "leagues", [m["league_iid"] for m in ms])
     best = _best_lines(db, [m["iid"] for m in ms], S.get(db, "engine.market_weights"),
-                       S.get(db, "engine.lift_scale"), S.get(db, "engine.position_weights"))
+                       S.get(db, "engine.lift_scale"), S.get(db, "engine.position_weights"),
+                       settled={m["iid"] for m in ms if m.get("status") == "final"})
     for m in ms:
         m["home"], m["away"] = teams.get(m["home_iid"]), teams.get(m["away_iid"])
         m["league"] = lgs.get(m["league_iid"])
@@ -105,7 +106,8 @@ def fixtures_for_date(db, day: str, tz_offset_min: int = 0, league_iids=None) ->
     return ms
 
 
-def _best_lines(db, match_iids: list[int], weights=None, scale: str = "odds", pos_weights=None, limit: int = 3) -> dict:
+def _best_lines(db, match_iids: list[int], weights=None, scale: str = "odds", pos_weights=None, limit: int = 3,
+                settled: set | None = None) -> dict:
     """The few lines most worth saying out loud in each match (docs/redesign/v2 CRITIQUE section 1).
 
     The fixture row carried `insight_count`, and a count is not a value: every match has a similar
@@ -168,8 +170,15 @@ def _best_lines(db, match_iids: list[int], weights=None, scale: str = "odds", po
              "reached": None if o is None else bool(o.get("reached")),
              "actual": None if o is None else o.get("actual")}))
     out: dict = {}
+    settled = settled or set()
     for iid, items in ranked.items():
-        items.sort(key=lambda x: -x[0])
+        # BEFORE the whistle, prominence: a reader choosing which fixture to open wants the most
+        # surprising thing we said, because that is what makes one match worth opening over
+        # another. AFTER it, the same rule makes the row grade itself on its own longest shots --
+        # a 31% line is SUPPOSED to miss -- so a finished day read as a column of misses that was
+        # a selection artefact rather than the engine's record. A settled row leads with the claim
+        # we were most confident about, which is the one worth being judged on.
+        items.sort(key=(lambda x: -x[2]["p"]) if iid in settled else (lambda x: -x[0]))
         seen, keep = set(), []
         for _score, ent, line in items:
             if ent in seen:

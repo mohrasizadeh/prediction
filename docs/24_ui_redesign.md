@@ -31,6 +31,22 @@ We reviewed all 16 user screens and the admin panel, as built in the scaffold an
 
 ## Across the whole app
 
+### The judged surface is the phone
+
+Settled, so that it stops being re-decided per screen. Every layout question is answered at 390px
+first and desktop inherits the answer. The reason is not taste: anything that survives the narrow
+width survives the wide one, and the reverse is not true -- truncation and horizontal overflow only
+ever bite on the phone, and a desktop-first decision reaches them last. The 70/30 fixture split is
+the worked example: right at 1440, and it has to ease to 64/36 below 1280 or the market text gives
+way.
+
+Desktop may then earn extra columns the phone has no room for -- Most likely's opponent column is
+one -- but it earns them on top of a layout that already works, never instead of one.
+
+If the owner's own traffic ever says otherwise by a clear margin, this is the line to change, and
+it is one line.
+
+
 ### Navigation
 
 We cut the bottom bar from six items to five, each a verb people already have in mind.

@@ -350,5 +350,21 @@ _r2 = next(x for x in Q.fixtures_for_date(db, _m["kickoff"].date().isoformat(), 
 check(all(b["reached"] in (True, False) for b in _r2["best_lines"]),
       "once it is over every line says whether it happened, rather than what we expected")
 check(len(_r2["best_lines"]) == len(_r["best_lines"]), "a finished row keeps its lines: the run only clears matches it forecast again")
+# A settled row leads with the claim we were most CONFIDENT about, not the most surprising one.
+# Ranking a finished day by prominence makes every row grade itself on its own longest shots --
+# a 31% line is supposed to miss -- so the first screen read as a wall of misses that was a
+# selection artefact rather than the engine's record.
+_ps = [b["p"] for b in _r2["best_lines"]]
+check(_ps == sorted(_ps, reverse=True),
+      f"a finished row ranks its lines by what we said, likeliest first (got {[round(x, 2) for x in _ps]})")
+# And the rule does not leak backwards. Asserting the upcoming order directly would mean
+# recomputing prominence here, so this pins the thing that actually matters: the two orders are
+# produced by different calls, and only the settled one is told the match is over.
+_un = Q._best_lines(db, [_m["iid"]], settled=set())
+_st = Q._best_lines(db, [_m["iid"]], settled={_m["iid"]})
+_stp = [b["p"] for b in _st[_m["iid"]]]
+check(_stp == sorted(_stp, reverse=True), "told the match is settled, it ranks by what we said")
+check(_un[_m["iid"]] != _st[_m["iid"]] or len(_stp) < 2 or len(set(_stp)) == 1,
+      "and not told, it does not -- unless every line happens to carry the same number")
 
 print("\nALL QUERY CHECKS PASSED")
