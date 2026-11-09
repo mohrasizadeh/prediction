@@ -20,6 +20,14 @@ export function paint(proof, track, tonight) {
   // The three feeds, as plain locals. They were globals on window in the design lab; here they are
   // arguments, so two calls with different data cannot leak into each other.
   var PROOF = proof || [], TRACK = track || {}, T = tonight || {};
+  // Everything below reads T.player.name, T.run.length and T.lo/hi without asking first, so a day
+  // with no fixture inside the window threw here and the page rendered as headings over nothing --
+  // on the one screen a stranger sees first. A card is drawable only if it has a subject and a
+  // number; the sections that need one are skipped rather than half-drawn.
+  var HAS_CARD = !!(T && T.player && T.player.name && T.p != null && (T.run || []).length);
+  // TRACK.scored is read the same way, and /track-record answers with no counts until the first
+  // forecasts have been scored.
+  var SCORED = typeof TRACK.scored === "number" ? TRACK.scored : null;
   var C = {brand:'#034737', strong:'#1B8962', accent:'#A9FF9B', text:'#22281E',
            text2:'#3C4238', text3:'#62685F', s2:'#EBEEEA', border:'#D3D7D2', border2:'#AAAEA7',
            hair:'#E6E9E5', warm:'#FDF8F7', mint:'#E8F4EE'};
@@ -33,11 +41,11 @@ export function paint(proof, track, tonight) {
   // the largest thing on the page and meaningless without a prior the reader does not have yet --
   // 86 beside 87 reads as a typo. Here it is a credential under the promise, and the record
   // section further down is where it is explained.
-  document.getElementById('kicker').innerHTML =
-    '<b>' + TRACK.scored.toLocaleString('en-GB') + '</b> forecasts published, scored and left on the site';
+  if (SCORED != null) document.getElementById('kicker').innerHTML =
+    '<b>' + SCORED.toLocaleString('en-GB') + '</b> forecasts published, scored and left on the site';
 
-  document.getElementById('counters').innerHTML =
-    '<div><b>' + TRACK.scored.toLocaleString('en-GB') + '</b><span>forecasts scored and published</span></div>' +
+  if (SCORED != null) document.getElementById('counters').innerHTML =
+    '<div><b>' + SCORED.toLocaleString('en-GB') + '</b><span>forecasts scored and published</span></div>' +
     '<div><b>' + hi.n + '</b><span>of them at ' + pc(hi.from) + ' or higher</span></div>' +
     '<div><b>' + pc(Math.abs(hi.actual - hi.stated)) + '</b><span>between what we said and what happened, at ' + pc(hi.from) + '+</span></div>';
 
@@ -67,11 +75,18 @@ export function paint(proof, track, tonight) {
 
   /* ---------------- hero live card ---------------- */
   (function(){
+    if (!HAS_CARD) return;
     var pct = Math.round(T.p*100);
+    // A settled line is the fallback when nothing is inside the window, and the card says so:
+    // passing a finished match off as tonight's would be the one thing this page cannot do.
+    var lbl = T.past ? 'Last match day' : 'Tonight';
+    var when = T.past
+      ? (T.actual != null ? 'He got ' + T.actual : 'Settled')
+      : 'Kick-off ' + esc(T.kickoff);
     document.getElementById('livecard').innerHTML =
-    '<div class="live">' +
-      '<div class="live-top"><span class="lbl"><span class="dot"></span>Tonight</span>' +
-      '<span class="ko">Kick-off ' + esc(T.kickoff) + '</span></div>' +
+    '<div class="live' + (T.past ? ' live--past' : '') + '">' +
+      '<div class="live-top"><span class="lbl"><span class="dot"></span>' + lbl + '</span>' +
+      '<span class="ko">' + when + '</span></div>' +
       '<div class="live-body">' +
         '<div class="live-name">' + esc(T.player.name) + '</div>' +
         '<div class="live-meta"><b>' + esc(T.team.name) + '</b> v ' + esc(T.opp.name) +
@@ -351,7 +366,10 @@ export function paint(proof, track, tonight) {
     return s;
   }
 
-  var ENG = [
+  // Built only when there is a card: every caption below interpolates T.player.name and T.p
+  // as the array is constructed, so guarding the write that consumes it was guarding the
+  // wrong line -- the throw happened here.
+  var ENG = !HAS_CARD ? [] : [
     {n:'01', h:'A fitted curve for the player, not an average',
      p:'Every player gets his own distribution for every market — shots, on target, tackles, ' +
        'fouls, cards — fitted from how often he does it, how much of the match he plays and how ' +
@@ -390,18 +408,20 @@ export function paint(proof, track, tonight) {
           'it is answered on its own line.'}
   ];
 
-  document.getElementById('eng-grid').innerHTML = ENG.map(function(e){
+  if (HAS_CARD) document.getElementById('eng-grid').innerHTML = ENG.map(function(e){
     return '<article class="eng"><div class="eng-n">' + e.n + '</div><h3>' + e.h + '</h3><p>' +
       e.p + '</p><figure class="fig">' + e.fig() + '<figcaption>' + e.cap + '</figcaption></figure></article>';
   }).join('');
 
   /* ---------------- track record ---------------- */
   (function(){
+    // /track-record answers with no bins until forecasts have been scored, and this maps over them.
+    if (!Array.isArray(TRACK.bins) || !TRACK.bins.length) return;
     var A = 60, B = 100;
     var X = function(v){ return ((v*100 - A)/(B-A))*100; };
     document.getElementById('rec-sub').innerHTML =
       'Every forecast is scored once the match is over. This is all of them — <b>' +
-      TRACK.scored.toLocaleString('en-GB') + '</b> so far, split by how likely we said it was. ' +
+      (SCORED == null ? '' : SCORED.toLocaleString('en-GB')) + '</b> so far, split by how likely we said it was. ' +
       'Nothing is held back for looking bad.';
 
     var ax = '<div class="axis">', grid = '';

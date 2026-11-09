@@ -1048,10 +1048,16 @@ def proof(db, limit: int = 12, min_p: float = 0.7, days: int = 10) -> list[dict]
         if len(rows) >= int(limit):
             break
     _decorate(db, rows)
+    # lo/hi, the ten-game run and the position travel too. The waitlist page falls back to the most
+    # recent settled line when no fixture is inside its window, and its drawings are built from
+    # exactly those fields -- without them the fallback card could be drawn but the curve, the run
+    # strip and the range bar beside it could not.
     return [{"fkey": r["fkey"], "market": r["market"], "stat": r["stat"], "scope": r["scope"],
              "player": r.get("player"), 
              "team": r.get("team"), "opp": r.get("opp"), "kickoff": r.get("kickoff"),
              "p": round(float(r["_p"]), 4), "thr": r["_thr"], "actual": r["_actual"],
+             "lo": r.get("lo"), "hi": r.get("hi"), "run": r.get("run"), "pos": r.get("pos"),
+             "lineup_badge": r.get("lineup_badge"),
              "tier": r.get("tier"), "scored_at": r.get("_scored_at"),
              "league_name": r.get("league_name")} for r in rows]
 

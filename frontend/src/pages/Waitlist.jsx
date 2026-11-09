@@ -94,22 +94,36 @@ export default function Waitlist() {
   const lk = useApi("/likely", { within_h: 24, limit: 1 });
   const drawn = useRef(false);
 
-  // The live card at the top of the page is the first row of /likely, reshaped into what the
-  // drawings expect. If there is no fixture inside the window the page simply has no live card --
-  // an advert that invents one would be advertising something that is not there.
-  const tonight = useMemo(() => {
-    const f = (lk.data?.rows || [])[0];
+  // The card at the top of the page is the first row of /likely, reshaped into what the drawings
+  // expect. Football does not run every day, and on a quiet one this page -- the first thing a
+  // stranger sees -- had a heading over an empty band, because the window is 24 hours and nothing
+  // was inside it.
+  //
+  // So when the window is empty it falls back to the most recent SETTLED line, which is the
+  // strongest card this product owns: the same drawing, plus what actually happened. The page says
+  // which it is looking at rather than passing a finished match off as tonight's.
+  const shape = (f, past) => {
     if (!f) return null;
     const n = Math.floor(Number(f.thr)) + 1;
+    const run = (f.run || []).map((g) => (g && typeof g === "object" ? g.v : g)).filter((v) => v != null);
     return {
-      player: { name: f.player?.name || f.team?.name, pos: f.pos },
-      team: { name: f.team?.name }, opp: { name: f.opp?.name },
+      player: { name: f.player?.name || f.team?.name || "", pos: f.pos || "" },
+      team: { name: f.team?.name || "" }, opp: { name: f.opp?.name || "" },
       kickoff: f.kickoff, market: f.market, p: f.p, lo: f.lo, hi: f.hi,
       lineup: f.lineup_badge === "confirmed" ? "Starting" : f.lineup_badge === "likely" ? "Usually starts" : "",
-      run: (f.run || []).map((g) => g?.v).filter((v) => v != null),
-      need: n, reached: (f.run || []).filter((g) => g && g.v >= n).length,
+      run,
+      need: n, reached: run.filter((v) => v >= n).length,
+      past, actual: past ? f.actual : null,
     };
-  }, [lk.data]);
+  };
+  const tonight = useMemo(() => {
+    const live = shape((lk.data?.rows || [])[0], false);
+    if (live) return live;
+    // Only once /likely has actually answered: a card drawn while it is still loading would flip
+    // from a settled match to tonight's under the reader.
+    if (!lk.data) return null;
+    return shape((pf.data?.items || [])[0], true);
+  }, [lk.data, pf.data]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const ready = rec.data && pf.data;
   // Every figure below is drawn from these two feeds, so until they land there is nothing in the
