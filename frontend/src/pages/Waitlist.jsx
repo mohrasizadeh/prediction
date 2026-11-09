@@ -1,66 +1,34 @@
-// /waitlist (docs/68): the page an advert points at.
+// /waitlist (docs/68): the page an advert lands on.
 //
-// It leads with the one claim nobody else in this space can make and this product can CHECK --
-// what it said, against what happened, from its own scored record. Everything else on the page is
-// an explanation of how that number is arrived at.
+// One job: a visitor gives a name and an e-mail in exchange for the three forecasts we are most
+// confident in, every match day, until we open.
 //
-// The record is read live from /track-record. If it is not ready the page says so and leads with
-// the method instead; it never prints a figure it cannot stand behind, which would be a strange
-// way to advertise a product whose whole argument is that it does not do that.
-//
-// Outside the app shell on purpose: someone arriving from a post should meet one page with one
+// Outside the app shell on purpose -- someone arriving from a post should meet one page with one
 // thing to do, not a navigation bar inviting them elsewhere.
-import { useState } from "react";
+//
+// EVERY NUMBER IS READ FROM THE FEED. The proof cards come from /proof (forecasts that were
+// published, scored, and came in, with what actually happened), the record from /track-record, and
+// the live card from the top of /likely. Nothing is typed in, so the page is different tomorrow
+// without anyone touching it -- which is the whole reason it is worth advertising.
+//
+// The drawing lives in lib/lpfigures.js and runs in an effect once both feeds have arrived. React
+// owns the shell and the form; that file owns the geometry.
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { post } from "../lib/api";
 import { useApi } from "../lib/useApi";
-import { DISCLAIMER, pct } from "../lib/copy";
+import { DISCLAIMER } from "../lib/copy";
 import { sayError } from "../lib/errors";
-import { useSite } from "../lib/site";
 import { useTitle } from "../components/Football";
-import { BrandLogo } from "../components/Media";
+import { paint } from "../lib/lpfigures";
 
 const CONSENT = "Yes, send me the match-day e-mail. I can unsubscribe from any of them.";
-
-function Record({ q }) {
-  const d = q.data;
-  if (!d?.ready) return null;
-  const bands = (d.bins || []).filter((b) => b.from >= 0.6);
-  return (
-    <section className="wl-rec" data-testid="wl-record">
-      <h2>What we said, against what happened</h2>
-      <p className="wl-sub">
-        Every forecast we publish is scored once the match is over. This is all of them —{" "}
-        <b>{d.scored.toLocaleString()}</b> scored so far. Nothing is left out for looking bad.
-      </p>
-      <ul className="wl-bands">
-        {bands.map((b) => (
-          <li key={b.from}>
-            <span className="wl-band-h">{Math.round(b.from * 100)}–{Math.round(b.to * 100)}%</span>
-            <span className="wl-band-n">
-              <b>{pct(b.stated)}</b> said
-              <i aria-hidden="true">→</i>
-              <b>{pct(b.actual)}</b> happened
-            </span>
-            <small>{b.n.toLocaleString()} scored</small>
-          </li>
-        ))}
-      </ul>
-      <p className="wl-note">
-        The point is not that the second number is high. It is that the two are <b>close</b>. When we
-        say 80%, we want it to happen about 80 times in 100 — not more, which would mean we were
-        being timid, and not less, which would mean we were overclaiming.
-      </p>
-      <Link className="wl-more" to="/track-record" data-testid="wl-to-record">See the whole record →</Link>
-    </section>
-  );
-}
 
 function Form() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
-  const [state, setState] = useState("");          // "" | "busy" | "done"
+  const [state, setState] = useState("");
   const [err, setErr] = useState("");
 
   const submit = async (e) => {
@@ -76,116 +44,177 @@ function Form() {
 
   if (state === "done") {
     return (
-      <div className="wl-done" data-testid="wl-done">
-        <h3>You are on the list.</h3>
-        <p>
+      <div className="form-card" data-testid="wl-done">
+        <h2>You are on the list.</h2>
+        <p className="fc-sub">
           Check your inbox — there may be one e-mail asking you to confirm. After that you will get
-          our three strongest forecasts on every match day, with the reasons and the range, until we
-          open.
+          three forecasts on every match day, each with its range, its lineup word and its last-ten
+          run, until we open.
         </p>
       </div>
     );
   }
 
   return (
-    <form className="wl-form" onSubmit={submit} data-testid="wl-form">
-      <label className="wl-field">
-        <span>First name</span>
+    <form className="form-card" onSubmit={submit} noValidate data-testid="wl-form">
+      <h2>Three forecasts, every match day</h2>
+      <p className="fc-sub">Free while we are in private build. No card, no app to install.</p>
+      <label className="field"><span>First name</span>
         <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name"
-          placeholder="So we know what to call you" maxLength={80} data-testid="wl-name" />
-      </label>
-      <label className="wl-field">
-        <span>E-mail</span>
+          maxLength={80} placeholder="So we know what to call you" data-testid="wl-name" /></label>
+      <label className="field"><span>E-mail</span>
         <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email" placeholder="you@example.com" maxLength={254} data-testid="wl-email" />
-      </label>
-      <label className="wl-consent">
+          autoComplete="email" maxLength={254} placeholder="you@example.com" data-testid="wl-email" /></label>
+      <label className="consent">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} data-testid="wl-consent" />
-        <span>{CONSENT}</span>
-      </label>
+        <span>{CONSENT}</span></label>
       {err && <p className="wl-err" role="alert" data-testid="wl-err">{err}</p>}
-      <button className="btn btn--primary btn--lg" type="submit" disabled={state === "busy"} data-testid="wl-submit">
-        {state === "busy" ? "Adding you…" : "Send me the three"}
+      <button className="submit" type="submit" disabled={state === "busy"} data-testid="wl-submit">
+        {state === "busy" ? "Adding you…" : "Send me the next three"}
       </button>
-      <p className="wl-small">One e-mail per match day. Unsubscribe in one click. We never pass your address on.</p>
+      <p className="fineprint">One e-mail per match day. Unsubscribe in one click. We never pass your address on.</p>
     </form>
   );
 }
 
-const HOW = [
-  ["A model per player, not a rule of thumb",
-   "Every player gets his own fitted distribution for every market — shots, on target, tackles, fouls, cards — built from how often he does it, how much he plays, and how far the count swings from week to week."],
-  ["The opponent, by position",
-   "A winger facing a side that concedes to wingers is not the same forecast as the same winger facing one that does not. We measure what each opponent gives up, position by position, and move the number for it."],
-  ["Whether he actually plays",
-   "Every percentage is “if he is on the pitch”. Whether he will be is a separate question with a separate answer, read off how many of his club's last ten he started — never folded into the first number where it could hide."],
-  ["Two things together is not two things multiplied",
-   "A player's shots and his shots on target happen together far more often than multiplying says. We measured that across 237,000 real combinations and correct for it, which is why our combined numbers differ from the obvious arithmetic."],
-];
-
 export default function Waitlist() {
   useTitle("Join the waitlist");
-  const { cfg } = useSite();
   const rec = useApi("/track-record");
-  const ready = rec.data?.ready;
-  const high = rec.data?.high;
+  const pf = useApi("/proof", { limit: 8 });
+  const lk = useApi("/likely", { within_h: 24, limit: 1 });
+  const drawn = useRef(false);
+
+  // The live card at the top of the page is the first row of /likely, reshaped into what the
+  // drawings expect. If there is no fixture inside the window the page simply has no live card --
+  // an advert that invents one would be advertising something that is not there.
+  const tonight = useMemo(() => {
+    const f = (lk.data?.rows || [])[0];
+    if (!f) return null;
+    const n = Math.floor(Number(f.thr)) + 1;
+    return {
+      player: { name: f.player?.name || f.team?.name, pos: f.pos },
+      team: { name: f.team?.name }, opp: { name: f.opp?.name },
+      kickoff: f.kickoff, market: f.market, p: f.p, lo: f.lo, hi: f.hi,
+      lineup: f.lineup_badge === "confirmed" ? "Starting" : f.lineup_badge === "likely" ? "Usually starts" : "",
+      run: (f.run || []).map((g) => g?.v).filter((v) => v != null),
+      need: n, reached: (f.run || []).filter((g) => g && g.v >= n).length,
+    };
+  }, [lk.data]);
+
+  const ready = rec.data && pf.data;
+  useEffect(() => {
+    if (!ready || drawn.current) return;
+    drawn.current = true;
+    paint(pf.data.items || [], rec.data, tonight);
+  }, [ready, pf.data, rec.data, tonight]);
 
   return (
-    <div className="wl" data-testid="waitlist-page">
-      <header className="wl-top">
-        <Link to="/" className="brand" data-testid="wl-brand"><BrandLogo brand={cfg?.brand} /></Link>
+    <div className="lp" data-testid="waitlist-page">
+      <header className="top">
+        <div className="wrap">
+          <Link className="mark" to="/" data-testid="wl-brand">
+            <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="0" y="0" width="24" height="24" rx="6" fill="#034737" />
+              <path d="M4 17.5 L9 11 L13 14 L20 5.5" fill="none" stroke="#A9FF9B" strokeWidth="2.3"
+                strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>Forecast</span>
+          </Link>
+          <span className="tag">Opening soon — waitlist</span>
+        </div>
       </header>
 
-      <section className="wl-hero">
-        {ready && high ? (
-          <>
-            <p className="wl-kicker">Across {high.n.toLocaleString()} scored forecasts</p>
-            <h1>We said {pct(high.stated)}. It happened {pct(high.actual)} of the time.</h1>
-            <p className="wl-lead">
-              Most football stats tell you what already happened. We tell you what is likely to
-              happen next — and then we publish whether we were right. Join the list and we will
-              send you the three we are most confident in, every match day, until we open.
+      <main>
+        <section className="hero" id="join">
+          <div className="wrap hero-grid">
+            <div className="hero-left">
+              <p className="kicker" id="kicker" />
+              <h1>We say what a player will do. <span className="said">Then we publish what he did.</span></h1>
+              <p className="lead">
+                A named player, a real line, a number — published before kick-off, scored after the
+                whistle, and left on the site either way. Join the list and we will send you the three
+                we are most confident in, every match day, until we open.
+              </p>
+              <Form />
+            </div>
+            <div className="hero-right"><div id="livecard" /><div className="counters" id="counters" /></div>
+          </div>
+        </section>
+
+        <section className="band" id="proof">
+          <div className="wrap">
+            <p className="eyebrow">Published, scored, settled</p>
+            <h2>The cards that already happened</h2>
+            <p className="sub">
+              These went out before kick-off and were scored after the whistle. The big number is
+              what we said; the bar under it is what he did, against the line we published.
             </p>
-          </>
-        ) : (
-          <>
-            <p className="wl-kicker">Football forecasts, scored in public</p>
-            <h1>What is likeliest to happen tonight — and whether we have been right before.</h1>
-            <p className="wl-lead">
-              Every forecast we publish is scored once the match ends, and the record is on the site
-              for anyone to read. Join the list and we will send you the three we are most confident
-              in, every match day, until we open.
+            <div className="proof-grid" id="proof-grid" />
+            <p className="foot-note" id="proof-note" />
+          </div>
+        </section>
+
+        <section className="plain" id="engine">
+          <div className="wrap">
+            <p className="eyebrow">Inside the engine</p>
+            <h2>Four things a table of averages cannot do</h2>
+            <p className="sub">
+              Every picture below is drawn from tonight&apos;s card at the top of this page — the same
+              player, the same line, the same match. This is the machine, not a metaphor for it.
             </p>
-          </>
-        )}
-        <Form />
-      </section>
+            <div className="eng-grid" id="eng-grid" />
+          </div>
+        </section>
 
-      <Record q={rec} />
+        <section className="band" id="record">
+          <div className="wrap">
+            <p className="eyebrow">The whole record</p>
+            <h2>What we said, against what happened</h2>
+            <p className="sub" id="rec-sub" />
+            <div className="rec" id="rec" />
+            <p className="foot-note">
+              The point is not that the right-hand dot is high. It is that the two dots are <b>close</b>.
+              When we say 80%, we want it to happen about 80 times in 100 — more would mean we were
+              being timid, less would mean we were overclaiming.
+            </p>
+          </div>
+        </section>
 
-      <section className="wl-how" data-testid="wl-how">
-        <h2>How the engine works</h2>
-        <p className="wl-sub">Four things it does that a table of averages cannot.</p>
-        <ul className="wl-how-list">
-          {HOW.map(([h, b]) => <li key={h}><b>{h}</b><span>{b}</span></li>)}
-        </ul>
-      </section>
+        <section className="plain">
+          <div className="wrap">
+            <p className="eyebrow">On purpose</p>
+            <h2>Three things we do that cost us</h2>
+            <ul className="hon">
+              <li><b>We show the range, not just the number.</b><span>Every forecast carries the spread around it, so you can see the ones we are sure of and the ones we are not.</span></li>
+              <li><b>We show nothing under 60%.</b><span>A coin flip dressed as an insight is worse than an empty screen. When there is nothing worth showing, the screen says so.</span></li>
+              <li><b>We publish the misses.</b><span>The record above counts every scored forecast, not a flattering selection of them.</span></li>
+            </ul>
+          </div>
+        </section>
 
-      <section className="wl-hon" data-testid="wl-honest">
-        <h2>Three things we do that cost us</h2>
-        <ul className="wl-hon-list">
-          <li><b>We show the range, not just the number.</b> Every forecast carries the spread around it, so you can see which ones we are sure of and which we are not.</li>
-          <li><b>We show nothing under 60%.</b> A coin flip dressed as an insight is worse than an empty screen, so when there is nothing worth showing, the screen says so.</li>
-          <li><b>We publish the misses.</b> The record above counts every scored forecast, not a selection of them.</li>
-        </ul>
-      </section>
+        <section className="cta">
+          <div className="wrap">
+            <h2>Three forecasts. Every match day. Until we open.</h2>
+            <p>
+              Each one with its range, its lineup word and its last-ten run — the whole card, not
+              just a number. Then scored in public, like everything else here.
+            </p>
+            <a className="cta-btn" href="#join" data-testid="wl-cta">Join the list
+              <svg width="17" height="17" viewBox="0 0 17 17" aria-hidden="true">
+                <path d="M3 13.5 L13.5 3 M6 3 h7.5 v7.5" fill="none" stroke="#034737" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round" /></svg></a>
+          </div>
+        </section>
+      </main>
 
-      <footer className="wl-foot">
-        <p>{DISCLAIMER}</p>
-        <p>
-          <Link to="/legal/terms">Terms</Link> · <Link to="/legal/privacy">Privacy</Link> ·{" "}
-          <Link to="/track-record">Track record</Link>
-        </p>
+      <footer>
+        <div className="wrap">
+          <p className="dis">{DISCLAIMER}</p>
+          <nav>
+            <Link to="/legal/terms">Terms</Link> · <Link to="/legal/privacy">Privacy</Link> ·{" "}
+            <Link to="/track-record">Track record</Link>
+          </nav>
+        </div>
       </footer>
     </div>
   );
