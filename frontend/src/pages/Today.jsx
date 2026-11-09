@@ -133,9 +133,11 @@ function Row({ m }) {
                     named a player it could not show, because _best_lines kept the name and dropped
                     the picture. A club line wears its crest, a player line a round portrait --
                     both fall back to a shield or initials on their own. */}
-                {b.who_kind === "player"
-                  ? <PlayerAvatar player={{ id: b.who_id, name: b.who, image: b.who_image }} size={18} />
-                  : <Crest team={{ name: b.who, image: b.who_image }} size={18} />}
+                <span className="td-ins-face">
+                  {b.who_kind === "player"
+                    ? <PlayerAvatar player={{ id: b.who_id, name: b.who, image: b.who_image }} size={18} />
+                    : <Crest team={{ name: b.who, image: b.who_image }} size={18} />}
+                </span>
                 <span className="td-ins-claim"><b>{b.who}</b><i>{b.market}</i></span>
                 {/* The likelihood NEVER disappears. It used to be replaced by the verdict the
                     moment the match ended, which deleted the claim at exactly the point it became

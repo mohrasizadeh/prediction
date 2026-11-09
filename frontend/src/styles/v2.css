@@ -2109,8 +2109,11 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 :root, [data-theme] {
   --td-line:  color-mix(in srgb, var(--tier-strong) 7%, var(--surface1));
   --td-hover: color-mix(in srgb, var(--brand) 4%, var(--surface1));
-  --td-fig:   116px;
+  /* Measured: the widest figure a graded line draws ("78% · got 3") needs 91px. 104 reserved
+     space nothing used, and at 70/30 that came straight off the market text. */
+  --td-fig:   96px;
   --td-glyph: 16px;
+  --td-face:  18px;
 }
 
 /* 42.1 the league group. hig.css strips the border off .td-group; re-asserted because the group is
@@ -2132,10 +2135,13 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
    The teams column CAPS at 240px and the slack goes to the lines, so a score hugs the names
    instead of sitting a third of a row from them. */
 .td-list .td-row { display: grid; align-items: center;
-  /* 460, not the old 240. Stacked, each name had the whole teams column to itself; side by side
-     they split it, so the same cap would truncate far more than the old layout did. The chip band
-     has the width to give -- its figures are pinned to the row's right edge either way. */
-  grid-template-columns: 76px minmax(0, 460px) minmax(0, 1fr);
+  /* 70 / 30, not a cap and a 1fr. A fixed teams cap left the lines taking roughly half the row
+     and stretching across it while club names were still being cut off -- the widest thing on the
+     screen was the part with the least to say. Proportional tracks put the fixture first: at
+     1100px the two names get about 300px each, which clears every club name in the leagues we
+     carry, and the lines keep their figure column pinned to the row's right edge in the width
+     they actually need. */
+  grid-template-columns: 76px minmax(0, 7fr) minmax(0, 3fr);
   grid-template-areas: "time teams ins";
   column-gap: 20px; row-gap: 0; min-height: 0; padding: 14px 16px; border-radius: 0;
   transition: background-color .15s ease; }
@@ -2199,13 +2205,17 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
    on top of each other, so a finished row showed its third line and hid the other two. Reset the
    placement so they auto-flow into rows. */
 .td-ins-set .td-ins { grid-area: auto; display: grid; align-items: center;
-  grid-template-columns: var(--td-glyph) minmax(0, 1fr) var(--td-fig);
+  /* FOUR columns: tick, face, claim, figure. The face needs a column of its OWN -- the other
+     three are explicitly placed, so an auto-placed fourth child lands in whatever cell is free
+     and, on a finished row where the tick already holds column 1, drops to a second row. */
+  grid-template-columns: var(--td-glyph) var(--td-face) minmax(0, 1fr) var(--td-fig);
   column-gap: 8px; min-width: 0; min-height: 28px; padding: 4px 10px 4px 6px;
   border: 0; border-radius: 8px; background: var(--td-line); color: var(--text);
   font-size: 13.5px; text-align: left; white-space: nowrap; }
 .td-ins-set .td-ins > .ico { grid-column: 1; justify-self: center; }
-.td-ins-set .td-ins > .td-ins-claim { grid-column: 2; }
-.td-ins-set .td-ins > em { grid-column: 3; justify-self: end; }
+.td-ins-set .td-ins > .td-ins-face { grid-column: 2; display: inline-flex; align-items: center; }
+.td-ins-set .td-ins > .td-ins-claim { grid-column: 3; }
+.td-ins-set .td-ins > em { grid-column: 4; justify-self: end; }
 
 /* The claim is a sentence: the subject leads and NEVER truncates, the market follows and does. */
 .td-ins-claim { display: flex; align-items: baseline; gap: 5px; min-width: 0;
@@ -2260,6 +2270,14 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 
 /* 42.6 phone. Two bands, not a reflow. The ledger spans the full content width so its rail sits on
    the row's own left edge -- no margin-left, which is what pushed the document sideways at 390. */
+/* 70/30 is right once the row is wide enough to carry it. On a narrow laptop the lines column
+   gets about 300px, and a graded line needs tick + face + claim + figure inside it, so the market
+   text was the thing that gave. Between the phone layout and 1280 the split eases to 64/36, which
+   keeps "2+ shots" whole; above it the fixture gets its 70. */
+@media (min-width: 721px) and (max-width: 1280px) {
+  .td-list .td-row { grid-template-columns: 76px minmax(0, 64fr) minmax(0, 36fr); column-gap: 16px; }
+}
+
 @media (max-width: 720px) {
   .td-group { border-radius: 12px; margin-bottom: 12px; }
   .td-group > .td-ghead { min-height: 48px; padding: 0 14px 0 11px; }
@@ -2267,7 +2285,7 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
     grid-template-areas: "time teams" "ins ins";
     column-gap: 10px; row-gap: 0; padding: 12px 14px; }
   .td-row .td-ins-set { grid-column: 1 / -1; margin-top: 10px; padding-left: 9px;
-    --td-fig: 100px; --td-glyph: 15px; }
+    --td-fig: 96px; --td-glyph: 15px; --td-face: 17px; }
   .td-row > .td-ins { grid-column: 1 / -1; margin-top: 10px; justify-self: start; }
   .td-row .td-time b { font-size: 13.5px; }
   .td-row .td-name { font-size: 14.5px; }
