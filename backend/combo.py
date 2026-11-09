@@ -221,6 +221,204 @@ def _report(docs: list[dict], factors) -> dict:
                            for e, ds in zip(matches, (by_match[e["match_iid"]] for e in matches))), default=1.0)}
 
 
+# ------------------------------------------------------------------ the builder (docs/65)
+#
+# `suggest` answers "give me a combo from THIS match". The builder answers the question people
+# actually arrive with -- "build me something across tonight that comes out around here" -- which is
+# a different problem: it searches every match in a window, and it is solved against a TARGET for
+# the whole combo rather than a floor under each line.
+#
+# That distinction is the point. A floor under each line is the control a bet builder gives you,
+# and it is the wrong one: four lines at 80% do not make an 80% combo, they make about a 41% one,
+# which is the number nobody expects and nobody is shown. Here the reader says what the WHOLE thing
+# should be worth and the engine finds lines that land there -- and because the search scores
+# candidates with `combine()` itself, the target it hits is the real correlation-aware number, not
+# a product of percentages that is wrong in a direction that flatters us.
+
+REJECTIONS = ("lineup", "below_floor", "league", "market", "window", "already_used")
+
+
+def candidates(db, *, leagues=None, stats=None, within_h: float = 24.0, min_leg: float = 0.0,
+               allow_unsure: bool = False, exclude=(), now=None, limit: int = 3000):
+    """The pool the builder searches, and an honest tally of what it threw away and why.
+
+    The tally is not diagnostics: it is what the waiting screen shows. A progress state that
+    describes real work is worth having; one that counts to three while nothing happens is theatre,
+    and this product does not get to spend its credibility on theatre.
+    """
+    from datetime import datetime, timedelta, timezone
+    now = now or datetime.now(timezone.utc)
+    q = {**Q.NOT_HIDDEN, "tier": {"$ne": None}, "kickoff": {"$gte": now, "$lte": now + timedelta(hours=float(within_h))}}
+    if leagues:
+        q["league_iid"] = {"$in": list(leagues)}
+    if stats:
+        q["stat"] = {"$in": list(stats)}
+    pool, tally = [], {k: 0 for k in REJECTIONS}
+    tally["read"] = 0
+    ex = set(exclude or ())
+    for d in db.forecasts.find(q, {"_id": 0, "contrib": 0}).limit(limit):
+        tally["read"] += 1
+        if d["fkey"] in ex:
+            tally["already_used"] += 1; continue
+        # Never build on a player we are not sure will play. A combo multiplies its weakest
+        # assumption by everything else, so one doubtful starter quietly halves the whole thing.
+        if d["scope"] == "player" and d.get("lineup_badge") not in (("confirmed", "likely", "unsure") if allow_unsure else ("confirmed", "likely")):
+            tally["lineup"] += 1; continue
+        if chance(d) < float(min_leg or 0.0):
+            tally["below_floor"] += 1; continue
+        pool.append(d)
+    tally["kept"] = len(pool)
+    tally["matches"] = len({d.get("match_iid") for d in pool})
+    return pool, tally
+
+
+def _quality(d: dict) -> float:
+    """How much this line is worth having in a combo, before its likelihood is considered.
+
+    A confirmed starter beats a likely one, and a line the engine thinks departs from the player's
+    usual game beats a truism at the same likelihood -- "1+ shot" for a striker is near-certain and
+    says nothing.
+    """
+    q = 0.0
+    if d.get("lineup_badge") == "confirmed":
+        q += 0.25
+    q += min(0.5, abs(float(d.get("edge") or 0.0)) * 2.0)
+    q += {"Strong": 0.2, "Solid": 0.1}.get(d.get("tier") or "", 0.0)
+    return q
+
+
+def _pick(pool: list[dict], n: int, factors, *, target=None, keep=(), spread: bool = True) -> list[dict]:
+    """Choose n lines. Greedy on a per-line score, then local search against the real combine()."""
+    chosen = list(keep)
+    used = {_entity(d) for d in chosen}
+    matches = {d.get("match_iid") for d in chosen}
+    # With a target, aim each remaining line near the n-th root of what is left to reach: the
+    # product is the dominant term even after the corrections, so it is a good starting point and
+    # the local search below fixes the rest.
+    def score(d):
+        c = chance(d)
+        s = _quality(d)
+        if target:
+            need = max(1, n - len(chosen))
+            aim = float(target) ** (1.0 / need)
+            s -= 2.5 * abs(c - aim)          # closeness to the aim dominates
+        else:
+            s += c                            # no target: take the likeliest good lines
+        if spread and d.get("match_iid") in matches:
+            s -= 0.15                         # prefer another match: independent legs are honest legs
+        return s
+    rest = [d for d in pool if _entity(d) not in used]
+    while len(chosen) < n and rest:
+        best = max(rest, key=score)
+        chosen.append(best); used.add(_entity(best)); matches.add(best.get("match_iid"))
+        rest = [d for d in rest if _entity(d) not in used]
+    if not target or len(chosen) < 2:
+        return chosen
+    # Local search. Scoring a candidate set with combine() itself is the whole reason the target
+    # means anything: the same-player exponent and the pre-lineup factors move the answer by more
+    # than the rounding people would forgive, and solving against a product would miss by that much.
+    keepset = {_entity(d) for d in keep}
+    for _ in range(3):
+        cur = combine(chosen, "p", factors)
+        moved = False
+        for i, old in enumerate(list(chosen)):
+            if _entity(old) in keepset:
+                continue
+            others = [d for j, d in enumerate(chosen) if j != i]
+            taken = {_entity(d) for d in others}
+            for cand in rest + [old]:
+                if _entity(cand) in taken:
+                    continue
+                trial = others + [cand]
+                if abs(combine(trial, "p", factors) - target) < abs(cur - target) - 1e-6:
+                    chosen, cur, moved = trial, combine(trial, "p", factors), True
+                    rest = [d for d in pool if _entity(d) not in {_entity(x) for x in chosen}]
+                    break
+        if not moved:
+            break
+    return chosen
+
+
+def build(db, n: int = 3, *, target=None, leagues=None, stats=None, min_leg=None, within_h: float = 24.0,
+          allow_unsure: bool = False, keep_fkeys=(), exclude=(), spread: bool = True, now=None) -> dict:
+    """Build a combo of `n` lines across every match in the window.
+
+    `target` is the chance of the WHOLE combo, not of each line. `keep_fkeys` are lines the reader
+    pinned, which are never swapped out.
+    """
+    cap = int(S.get(db, "combo.max_lines") or 6)
+    if not (2 <= int(n) <= cap):
+        raise ComboError("BAD_N", f"A combo takes 2 to {cap} lines.")
+    if target is not None and not (0.01 <= float(target) <= 0.95):
+        raise ComboError("BAD_TARGET", "A target for the whole combo has to be between 1% and 95%.")
+    factors = list(S.get(db, "combo.pre_factors"))
+    pool, tally = candidates(db, leagues=leagues, stats=stats, within_h=within_h,
+                             min_leg=min_leg, allow_unsure=allow_unsure, exclude=exclude, now=now)
+    keep = [d for d in pool if d["fkey"] in set(keep_fkeys or ())]
+    if len(keep) > n:
+        raise ComboError("TOO_MANY_KEPT", f"You have pinned {len(keep)} lines but asked for {n}.")
+    chosen = _pick(pool, int(n), factors, target=target, keep=keep, spread=spread)
+    if len(chosen) < 2:
+        return {"lines": [], "searched": tally, "reason": _why_empty(tally, min_leg, within_h),
+                "asked": {"n": n, "target": target, "min_leg": min_leg, "within_h": within_h}}
+    rep = _with_match(db, _report(Q._decorate(db, chosen), factors))
+    rep["searched"] = tally
+    rep["asked"] = {"n": n, "target": target, "min_leg": min_leg, "within_h": within_h, "spread": spread}
+    if target:
+        got = rep["combined"]
+        rep["target"] = round(float(target), 4)
+        # Say so when the window could not reach the target, rather than handing back a number that
+        # looks like an answer to a question nobody asked.
+        if abs(got - float(target)) > 0.05:
+            rep["notes"].insert(0, f"The closest we could get to {round(float(target) * 100)}% from these "
+                                   f"matches is {round(got * 100)}%.")
+    if len(chosen) < int(n):
+        rep["notes"].insert(0, f"Only {_s(len(chosen), 'line')} met what you asked for, not {n}.")
+    return rep
+
+
+def _why_empty(tally: dict, min_leg, within_h) -> str:
+    if not tally["read"]:
+        return f"No lines at all in the next {int(within_h)} hours."
+    if tally["lineup"] and tally["lineup"] >= tally["read"] * 0.8:
+        return "Lineups are not out yet, so there is almost no one here we are sure will play."
+    if tally["below_floor"]:
+        return (f"{_s(tally['below_floor'], 'line')} fell under {round(float(min_leg or 0) * 100)}% once the "
+                "chance to play was counted, and what is left is not two lines on different players.")
+    return "There are not two lines here on different players that meet what you asked for."
+
+
+def alternates(db, keep_fkeys, replace_fkey: str, *, limit: int = 6, within_h: float = 24.0,
+               stats=None, leagues=None, allow_unsure: bool = False, now=None) -> dict:
+    """Other lines that could take one slot, each with what the combo becomes if it does.
+
+    Ranked by quality, not by how much they flatter the number. A list sorted by "makes your combo
+    look best" is a list that teaches the reader to keep clicking until it lies to them.
+    """
+    factors = list(S.get(db, "combo.pre_factors"))
+    rest_keys = [k for k in keep_fkeys if k != replace_fkey]
+    held = list(db.forecasts.find({**Q.NOT_HIDDEN, "fkey": {"$in": list(keep_fkeys)}}, {"_id": 0, "contrib": 0}))
+    rest = [d for d in held if d["fkey"] in rest_keys]
+    cur = combine(held, "p", factors) if held else None
+    taken = {_entity(d) for d in rest}
+    pool, _ = candidates(db, leagues=leagues, stats=stats, within_h=within_h, allow_unsure=allow_unsure,
+                         exclude=list(keep_fkeys), now=now)
+    out = []
+    for d in pool:
+        if _entity(d) in taken:
+            continue
+        joint = combine(rest + [d], "p", factors)
+        out.append((_quality(d) + chance(d), d, joint))
+    out.sort(key=lambda t: -t[0])
+    rows = []
+    for _, d, joint in out[:limit]:
+        one = _report(Q._decorate(db, [d]), factors)["lines"][0]
+        one["combined_if_swapped"] = round(joint, 4)
+        one["delta"] = round(joint - cur, 4) if cur is not None else None
+        rows.append(one)
+    return {"current": round(cur, 4) if cur is not None else None, "replacing": replace_fkey, "options": rows}
+
+
 def suggest(db, match_iid: int, mode: str = "balanced") -> dict:
     """A short combo of lines from this match that we are confident in and that are not the same player twice."""
     if mode not in MODES:

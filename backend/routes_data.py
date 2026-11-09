@@ -327,6 +327,54 @@ def combo_suggest(match_id: str, response: Response, mode: str = "balanced", db=
         raise D.err(400, e.code, e.message)
 
 
+class BuildBody(BaseModel):
+    n: int = Field(3, ge=2, le=12)
+    target: float | None = None                 # the chance of the WHOLE combo, not of each line
+    leagues: list[str] = Field(default_factory=list, max_length=30)
+    stats: list[str] = Field(default_factory=list, max_length=20)
+    min_leg: float | None = None
+    within_h: float = Field(24.0, gt=0, le=24 * 14)
+    allow_unsure: bool = False
+    spread: bool = True                         # prefer lines from different matches
+    keep: list[str] = Field(default_factory=list, max_length=12)        # fkeys the reader pinned
+    exclude: list[str] = Field(default_factory=list, max_length=60)     # fkeys they dropped
+
+
+@router.post("/combo/build")
+def combo_build(body: BuildBody, response: Response, db=Depends(D.get_db)):
+    """Build a combo across every match in the window (docs/65).
+
+    `target` is the chance of the whole combo. That is the control this screen offers instead of a
+    floor under each line, because four lines at 80% make about a 41% combo and a floor hides that.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    lids = [i for i in (Q.iid_of(db, "leagues", x) for x in body.leagues) if i]
+    try:
+        return CB.build(db, body.n, target=body.target, leagues=lids or None, stats=body.stats or None,
+                        min_leg=body.min_leg, within_h=body.within_h, allow_unsure=body.allow_unsure,
+                        spread=body.spread, keep_fkeys=body.keep, exclude=body.exclude)
+    except CB.ComboError as e:
+        raise D.err(400, e.code, e.message)
+
+
+class AltBody(BaseModel):
+    fkeys: list[str] = Field(default_factory=list, max_length=12)       # the combo as it stands
+    replace: str                                                        # the slot being filled
+    within_h: float = Field(24.0, gt=0, le=24 * 14)
+    stats: list[str] = Field(default_factory=list, max_length=20)
+    leagues: list[str] = Field(default_factory=list, max_length=30)
+    allow_unsure: bool = False
+
+
+@router.post("/combo/alternates")
+def combo_alternates(body: AltBody, response: Response, db=Depends(D.get_db)):
+    """Other lines that could take one slot, each with what the combo becomes if it does."""
+    response.headers["Cache-Control"] = "no-store"
+    lids = [i for i in (Q.iid_of(db, "leagues", x) for x in body.leagues) if i]
+    return CB.alternates(db, body.fkeys, body.replace, within_h=body.within_h,
+                         stats=body.stats or None, leagues=lids or None, allow_unsure=body.allow_unsure)
+
+
 @router.get("/forecast-markets")
 def forecast_markets(response: Response, db=Depends(D.get_db)):
     """Which (scope, stat) pairs we actually hold forecasts for right now.
