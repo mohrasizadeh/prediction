@@ -111,7 +111,7 @@ function Row({ m }) {
               <span key={i} className={"td-ins" + (b.reached === true ? " is-hit" : b.reached === false ? " is-miss" : "")}
                     data-testid={`today-ins-${m.id}-${i}`}>
                 {b.reached != null && <Icon name={b.reached ? "check" : "minus"} size={13} />}
-                <span className="td-ins-claim"><b>{b.who}</b> {b.market}</span>
+                <span className="td-ins-claim"><b>{b.who}</b><i>{b.market}</i></span>
                 {/* The likelihood NEVER disappears. It used to be replaced by the verdict the
                     moment the match ended, which deleted the claim at exactly the point it became
                     checkable: a reader saw "did not" with no denominator and scored it 0 out of 1.
@@ -193,7 +193,10 @@ export default function Today() {
               {chip === "all" ? "There are no matches in the leagues we cover on this day." : "Try All to see every match on this day."}
             </EmptyState>
           ) : groups.map((g) => <Group key={g.league?.id || "other"} league={g.league} rows={g.rows} />)}
-        {fx.data && <p className="k-faint k-small td-pct">Percentages are our win, draw and loss likelihoods for each match.</p>}
+        {/* The win/draw/loss legend lived here. It explained a bar that is no longer on the
+            fixture list (section 42.5), it sat below all 35 matches where nobody reading a row
+            could reach it, and it was never true of the percentages it sat under -- those are
+            line likelihoods, not match outcomes. */}
       </div>
     </section>
   );

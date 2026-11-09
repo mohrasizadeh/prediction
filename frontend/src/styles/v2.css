@@ -2085,3 +2085,175 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
    right. Equal width only works once the read column itself is capped, which is a bigger change
    than this line. Chips size to their content and align right. */
 
+
+/* ---------- 42. THE FIXTURE ROW IS THE PRODUCT -------------------------------------------------
+   The lines the engine published are the only thing on this page a competitor does not have, and
+   they were drawn as metadata: 12px, --text3, hairline border -- the same register as "10 matches".
+   Meanwhile the brand's green was spent on a win/draw/loss bar that reprints the two club names
+   six pixels above it (Marks.jsx:32). This block moves the colour onto the substance and takes it
+   off the chrome.
+
+   COLOUR, one job each:
+     --brand        THE CLAIM     the rail down the line stack; an ungraded likelihood; the group
+                                  header's left edge; the hover ground at 4%
+     --tier-strong  THE GRAPHIC   the tick glyph, and the line ground at 7%
+     --accent       THE OUTCOME   the fill of a reached line's chip, under --on-accent ink. 1.20:1,
+                                  so never a mark, never text, and nowhere else at all.
+     --up / --down  DEPARTURE     NOT used for grading. In this product they mean above/below
+                                  usual -- the comment at section 22 makes exactly this argument
+                                  for .td-min -- and "the line was reached" is a different claim.
+                                  Painting a hit in --up collapsed the two.
+   Measured: --on-accent on --accent 12.55:1. --brand on the line ground 10.26:1 light. The tick in
+   --tier-strong is a 14px glyph, which needs 3:1, and it is the only place tier-strong appears. */
+
+:root, [data-theme] {
+  --td-line:  color-mix(in srgb, var(--tier-strong) 7%, var(--surface1));
+  --td-hover: color-mix(in srgb, var(--brand) 4%, var(--surface1));
+  --td-fig:   116px;
+  --td-glyph: 16px;
+}
+
+/* 42.1 the league group. hig.css strips the border off .td-group; re-asserted because the group is
+   now the only thing separating one league from the next. The header's ground is --surface2, not
+   brand: a filled header is the loudest thing on a screen whose point is the rows under it. The
+   3px brand edge is lifted from likely.css's approved .lk-open. */
+.td-group { background: var(--surface1); border: 1px solid var(--border); border-radius: 14px;
+            overflow: hidden; padding: 0; margin: 0 0 16px; box-shadow: none; }
+.td-group > .td-ghead { min-height: 52px; padding: 0 16px 0 13px; gap: 10px;
+            background: var(--surface2); border-bottom: 1px solid var(--border);
+            box-shadow: inset 3px 0 0 0 var(--brand); }
+.td-group > .td-ghead b { font-size: 15px; font-stretch: 104%; font-weight: 650;
+            letter-spacing: -.012em; color: var(--text); }
+.td-group > .td-ghead small { font-size: 11.5px; font-stretch: 90%; font-weight: 600;
+            color: var(--text3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.td-group > .td-ghead .ico { color: var(--text3); flex: 0 0 auto; }
+
+/* 42.2 the row grid. Four columns, one band, at every width, so eight rows share eight left edges.
+   The teams column CAPS at 240px and the slack goes to the lines, so a score hugs the names
+   instead of sitting a third of a row from them. */
+.td-list .td-row { display: grid; align-items: center;
+  grid-template-columns: 76px minmax(0, 240px) 34px minmax(0, 1fr);
+  grid-template-areas: "time teams score ins";
+  column-gap: 20px; row-gap: 0; min-height: 0; padding: 14px 16px; border-radius: 0;
+  transition: background-color .15s ease; }
+.td-list li + li { border-top: 1px solid var(--border); }
+.td-list .td-row:hover { background: var(--td-hover); }
+.td-list .td-row.is-live { background: color-mix(in srgb, var(--down) 6%, var(--surface1)); }
+.td-row .td-teams { grid-area: teams; display: grid; gap: 6px; min-width: 0; }
+.td-row .td-teams > span { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 24px; }
+.td-row .td-scores { grid-area: score; display: grid; gap: 6px; justify-items: end; align-content: center; }
+.td-row .td-time { grid-area: time; }
+
+/* 42.3 type. The score was 18px against a 15px club name -- a 1.20 ratio, which the eye reads as
+   "the same size, slightly bolder". 22px at stretch 112% makes it 1.47, so the answer outranks
+   the question. */
+.td-row .td-time b { font-size: 14.5px; font-stretch: 92%; font-weight: 600; color: var(--text2);
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.td-row .td-time small { display: block; font-size: 10.5px; font-stretch: 88%; font-weight: 600;
+  color: var(--text3); margin-top: 1px; white-space: nowrap; }
+.td-row .td-ft { font-size: 11px; font-stretch: 86%; font-weight: 750; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--text3); }
+.td-row .td-min { font-size: 14.5px; font-stretch: 96%; font-weight: 700; color: var(--text);
+  font-variant-numeric: tabular-nums; }
+.td-row .td-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 15px; font-stretch: 104%; font-weight: 600;
+  letter-spacing: -.008em; color: var(--text); }
+.td-row .td-scores .td-sc { font-size: 22px; line-height: 24px; font-stretch: 112%; font-weight: 700;
+  letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--text); }
+/* Winner and loser: 700 against 500 on a 22px figure, legible at a glance rather than the
+   650-vs-650 non-event it was. */
+.td-row .td-teams > span.is-win .td-name { font-weight: 700; color: var(--text); }
+.td-row .td-teams > span.is-lose .td-name { font-weight: 500; color: var(--text3); }
+.td-row.is-live .td-scores .td-sc { color: var(--down); }
+
+/* 42.4 the ledger. ONE rail for the whole stack, not one per line: three rails would be
+   decoration, one is structure. The figure column is a fixed 116px flush to the row's right edge,
+   so the likelihoods form a hard column down the page and a reader can run the numbers before
+   reading a word -- likely.css's gutter move, turned ninety degrees. */
+.td-row .td-ins-set { grid-area: ins; display: grid; gap: 4px; min-width: 0;
+  justify-content: stretch; padding-left: 11px; border-left: 2px solid var(--brand);
+  flex-direction: unset; align-items: stretch; }
+/* matchday.css gives EVERY .td-ins `grid-area: ins`, and the inner chips carry that class too.
+   Inside the set -- which has no such named area -- all three resolved to one shared cell and sat
+   on top of each other, so a finished row showed its third line and hid the other two. Reset the
+   placement so they auto-flow into rows. */
+.td-ins-set .td-ins { grid-area: auto; display: grid; align-items: center;
+  grid-template-columns: var(--td-glyph) minmax(0, 1fr) var(--td-fig);
+  column-gap: 8px; min-width: 0; min-height: 28px; padding: 4px 10px 4px 6px;
+  border: 0; border-radius: 8px; background: var(--td-line); color: var(--text);
+  font-size: 13.5px; text-align: left; white-space: nowrap; }
+.td-ins-set .td-ins > .ico { grid-column: 1; justify-self: center; }
+.td-ins-set .td-ins > .td-ins-claim { grid-column: 2; }
+.td-ins-set .td-ins > em { grid-column: 3; justify-self: end; }
+
+/* The claim is a sentence: the subject leads and NEVER truncates, the market follows and does. */
+.td-ins-claim { display: flex; align-items: baseline; gap: 5px; min-width: 0;
+  font-size: 13.5px; font-stretch: 96%; font-weight: 500; color: var(--text2); }
+.td-ins-claim b { flex: 0 0 auto; font-stretch: 100%; font-weight: 650; color: var(--text); }
+.td-ins-claim b::after { content: " ·"; font-weight: 450; color: var(--text3); }
+.td-ins-claim i { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  font-style: normal; font-stretch: 96%; font-weight: 500; color: var(--text2); }
+
+/* The figures are the point of the line and are never truncated. */
+.td-ins-set .td-ins > em { display: inline-flex; align-items: center; justify-content: flex-end;
+  flex: 0 0 auto; font-style: normal; font-size: 13px; font-stretch: 92%; font-weight: 700;
+  font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -.005em;
+  color: var(--brand); background: none; border: 0; padding: 0; }
+/* The leading space before the separator is swallowed when an inline element follows text, so
+   "71%· got 3" read as one token. Held open in CSS rather than with a non-breaking space. */
+.td-ins .td-got { font-weight: 550; opacity: 1; margin-left: 4px; }
+
+/* reached: tick + FILLED lime chip + heavier weights */
+.td-ins-set .td-ins.is-hit { background: var(--td-line); border-color: transparent; color: var(--text); }
+.td-ins-set .td-ins.is-hit .ico { color: var(--tier-strong); }
+.td-ins-set .td-ins.is-hit .td-ins-claim b { font-weight: 700; color: var(--text); }
+.td-ins-set .td-ins.is-hit > em { background: var(--accent); color: var(--on-accent);
+  font-weight: 700; border: 1px solid transparent; border-radius: 999px; padding: 2px 9px; }
+.td-ins-set .td-ins.is-hit > em .td-got { color: var(--on-accent); font-weight: 600; }
+
+/* not reached: dash + HOLLOW chip + lighter weights. An answer, not a failure -- no --down, no
+   strike-through, and the likelihood we published is still printed beside it. */
+.td-ins-set .td-ins.is-miss { background: var(--td-line); border-color: transparent; color: var(--text2); }
+.td-ins-set .td-ins.is-miss .ico { color: var(--text3); }
+.td-ins-set .td-ins.is-miss .td-ins-claim,
+.td-ins-set .td-ins.is-miss .td-ins-claim b { font-weight: 550; color: var(--text2); }
+.td-ins-set .td-ins.is-miss > em { background: var(--surface1); color: var(--text2);
+  font-weight: 550; border: 1px solid var(--border-strong); border-radius: 999px; padding: 2px 9px; }
+.td-ins-set .td-ins.is-miss > em .td-got { color: var(--text2); font-weight: 550; }
+
+/* The "N lines" fallback on a row with no published line. Quiet on purpose: a count is not a
+   value, and it must not read as a graded line. */
+.td-row > .td-ins { grid-area: ins; justify-self: start; min-width: 0; min-height: 28px;
+  display: inline-flex; align-items: center; padding: 4px 11px; border-radius: 8px;
+  background: var(--surface2); border: 0; text-align: left; font-size: 12px; font-stretch: 90%;
+  font-weight: 600; color: var(--text3); white-space: nowrap; }
+.td-row > .td-ins.td-ins--none { display: none; }
+
+/* 42.5 THE CUT: the win/draw/loss bar. It reprints the two club names already in the row
+   (Marks.jsx:32); it is a MATCH-outcome forecast on a page whose thesis is PLAYER-line forecasts,
+   so it is the one object here an aggregator would also have -- drawn in the brand colour while
+   the proprietary lines were drawn in grey; it costs every upcoming row a whole band; and
+   .k-wdl-fav paints 12.5px text in --tier-strong at 4.37:1. The win likelihood belongs on the
+   match page at a size that can carry its own uncertainty. */
+.td-row .td-bar { display: none; }
+
+/* 42.6 phone. Two bands, not a reflow. The ledger spans the full content width so its rail sits on
+   the row's own left edge -- no margin-left, which is what pushed the document sideways at 390. */
+@media (max-width: 720px) {
+  .td-group { border-radius: 12px; margin-bottom: 12px; }
+  .td-group > .td-ghead { min-height: 48px; padding: 0 14px 0 11px; }
+  .td-list .td-row { grid-template-columns: 58px minmax(0, 1fr) 26px;
+    grid-template-areas: "time teams score" "ins ins ins";
+    column-gap: 10px; row-gap: 0; padding: 12px 14px; }
+  .td-row .td-ins-set { grid-column: 1 / -1; margin-top: 10px; padding-left: 9px;
+    --td-fig: 100px; --td-glyph: 15px; }
+  .td-row > .td-ins { grid-column: 1 / -1; margin-top: 10px; justify-self: start; }
+  .td-row .td-time b { font-size: 13.5px; }
+  .td-row .td-name { font-size: 14.5px; }
+  .td-row .td-scores .td-sc { font-size: 19px; line-height: 22px; }
+  .td-ins-set .td-ins { column-gap: 7px; padding: 4px 8px 4px 5px; min-height: 30px; }
+  .td-ins-claim { font-size: 13px; }
+  .td-ins-set .td-ins > em { font-size: 12.5px; }
+  .td-ins-set .td-ins.is-hit > em, .td-ins-set .td-ins.is-miss > em { padding: 2px 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .td-list .td-row { transition: none; } }
