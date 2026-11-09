@@ -163,6 +163,11 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 # not about fouls. A fixture other tests depend on must stay bit-identical when a
                 # column is added to it.
                 f_tot = int(rng_f.negative_binomial(8, 8 / (8 + 11.0)))
+                # The team layer has to forecast a stat before the player layer can take a share of
+                # it (docs/70), so the team row carries both markets. `side[X]` is the same dict
+                # already appended to tgs, so setting it here fills the row that was stored.
+                side[X]["fouls_committed"] = f_tot
+                side[X]["goal_involvements"] = g_tot + a_tot
                 for stat, tot, key in (("shots", side[X]["shots"], "shots"),
                                        ("sot", side[X]["sot"], "shots"),
                                        ("tackles", side[X]["tackles"], "tackles"),
@@ -191,6 +196,11 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                                     team_shots=side[X]["shots"], team_sot=side[X]["sot"],
                                     team_tackles=side[X]["tackles"],
                                     team_fouls_committed=f_tot, team_goal_involvements=g_tot + a_tot))
+            # The mirrors, after both sides have their totals -- they cannot be set in the loop
+            # above because the second side's numbers do not exist while the first is being built.
+            for X, Y in ((h, a), (a, h)):
+                for col in ("fouls_committed", "goal_involvements"):
+                    side[X][col + "_against"] = side[Y][col]
             gid += 1
 
     truth = dict(att=att, dfn=dfn, poss=poss, wide=wide, press=press, block=block,

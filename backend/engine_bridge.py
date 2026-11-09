@@ -104,6 +104,37 @@ def build_frames(db, league_iid: int, history_rounds: int):
     # `provider.pitchapi.player_keys` with `minutes.key` and `tackles.key` set to null, so this is
     # one unfilled settings field away at all times, and until now its only symptom was a league
     # with no player forecasts and a run marked "done".
+    # ---- team totals for the markets added in docs/70 -------------------------------------------
+    # A player market is a share of a team total, and predict_fixture takes that share of
+    # mu_team[stat] -- so the TEAM layer has to forecast the stat too, which means the team frame
+    # needs the column and its `_against` mirror. Both are DERIVED here rather than stored and
+    # backfilled, following the sot_against precedent above: derivation works on every row the
+    # database already holds, where a new column starts empty and takes a season to fill.
+    #
+    #   fouls_committed    is `fouls`, which TEAM_COLS has stored all along under another name.
+    #   goal_involvements  is the sum of the side's own player involvements in that match.
+    #
+    # An opponent's value is mirrored across the fixture the same way sot_against is.
+    if "fouls" in tg.columns:
+        tg["fouls_committed"] = tg["fouls"]
+    if "goal_involvements" in pg.columns:
+        inv = (pg.groupby(["game_id", "team"])["goal_involvements"].sum()
+                 .rename("goal_involvements").reset_index())
+        tg = tg.merge(inv, on=["game_id", "team"], how="left")
+    for col in ("fouls_committed", "goal_involvements"):
+        if col not in tg.columns:
+            continue
+        mirror = tg[["game_id", "team", col]].rename(columns={"team": "opp", col: "_opp_val"})
+        tg = tg.merge(mirror, on=["game_id", "opp"], how="left")
+        tg[col + "_against"] = tg["_opp_val"]
+        tg = tg.drop(columns=["_opp_val"])
+        # A market is only usable when BOTH sides of it are known for essentially every row; a
+        # column that is mostly empty is dropped rather than zero-filled, because a 0 here would
+        # claim a side committed no fouls at all.
+        if tg[col].isna().mean() > 0.01 or tg[col + "_against"].isna().mean() > 0.01:
+            tg = tg.drop(columns=[col, col + "_against"])
+            log.info("engine: team layer cannot model %r in this league -- the column is mostly empty", col)
+
     blank = [c for c in PLAYER_REQUIRED if c not in pg.columns or pg[c].isna().mean() > 0.99]
     # docs/70: fouls and goal involvements were added after some leagues were ingested, so their
     # columns are empty there until history accumulates. Which markets THIS league can support is
@@ -112,7 +143,11 @@ def build_frames(db, league_iid: int, history_rounds: int):
     # the league and take the three working markets down with it.
     MARKETS_WITH_DATA.clear()
     for mkt, (own, team) in PLAYER_MARKET_COLS.items():
+        # The team layer must be able to forecast it too, which it can only do when the team frame
+        # carries the column -- see the derivation above.
         missing = [c for c in (own, team) if c not in pg.columns or pg[c].isna().mean() > 0.99]
+        if mkt not in ("shots", "sot", "tackles") and mkt not in tg.columns:
+            missing.append(f"team frame has no {mkt}")
         if missing:
             log.info("engine: market %r has no data in this league (%s)", mkt, ", ".join(missing))
         else:
@@ -153,7 +188,14 @@ def configure_engine(db) -> E.SoccerEngine:
     # which is how `goals` in the ladder could look configured and quietly produce nothing.
     avail = MARKETS_WITH_DATA if MARKETS_WITH_DATA else set(E.ALL_PLAYER_STATS)   # empty = frames not built (tests)
     E.PLAYER_STATS[:] = [s_ for s_ in E.ALL_PLAYER_STATS if s_ in E.PLAYER_THR and s_ in avail]
+    # docs/70: the team layer only forecasts STATS plus whatever is passed here, and a player
+    # market needs its team total forecast before a share of it can be taken. The markets that need
+    # this are exactly the ones in the ladder that are not already team stats; the frame may still
+    # drop them, and fit() checks again, so asking for one the data cannot support costs nothing.
+    extra = tuple(m for m in E.PLAYER_THR
+                  if m in E.ALL_PLAYER_STATS and m not in E.STATS)
     eng = E.SoccerEngine(interactions=S.get(db, "engine.interactions"),
+                         extra_stats=extra,
                          lineup=False,                                   # LOCKED off: see 03_rules_and_compliance.md
                          half_life_rounds=float(S.get(db, "engine.half_life_rounds")),
                          style_k=float(S.get(db, "engine.style_k")),

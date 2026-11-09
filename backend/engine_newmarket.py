@@ -91,7 +91,9 @@ def run(market, n_teams, seed, refit_every, z_min):
 
     for i, r in enumerate(play):
         if i % refit_every == 0 or eng is None:
-            eng = E.SoccerEngine(seed=0).fit(ms, tg, pg, r)
+            # extra_stats, so the TEAM layer forecasts this stat too -- without it the player
+            # share has no mu_team to take a share of (docs/70).
+            eng = E.SoccerEngine(seed=0, extra_stats=(market,)).fit(ms, tg, pg, r)
             # The naive alternative, refit on exactly the same history: each player's own mean
             # rate per 90. Nothing clever -- that is the point of a baseline.
             past = pg[pg["round"] < r]
