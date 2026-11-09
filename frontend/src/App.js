@@ -19,6 +19,7 @@ import Finder from "./pages/Finder";
 import Combos from "./pages/Combos";
 import { Insights } from "./pages/Insights";
 import { Likely } from "./pages/Likely";
+import Waitlist from "./pages/Waitlist";
 import TrackRecord from "./pages/TrackRecord";
 import Welcome from "./pages/Welcome";
 import { Learn, LearnArticle } from "./pages/Learn";
@@ -96,6 +97,7 @@ export default function App() {
       <WelcomeGate />
       <ThemeSync />
       <Routes>
+        <Route path="waitlist" element={<Waitlist />} />
         <Route element={<Layout />}>
           <Route index element={<Today />} />
           <Route path="match/:id" element={<Match />} />

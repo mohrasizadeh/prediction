@@ -22,7 +22,8 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
-def subscribe(db, email: str, *, source: str, consent_text: str, consent: bool, ip_hash: str | None = None) -> str:
+def subscribe(db, email: str, *, source: str, consent_text: str, consent: bool, ip_hash: str | None = None,
+              name: str | None = None) -> str:
     """Returns 'pending', 'confirmed', 'already' or 'blocked'. The route shows the same message for all four."""
     if not consent:
         raise A.AuthError("CONSENT_REQUIRED", 400, "Please tick the box to say yes.")
@@ -38,6 +39,10 @@ def subscribe(db, email: str, *, source: str, consent_text: str, consent: bool, 
     double = bool(S.get(db, "newsletter.double_optin"))
     fields = {"status": "pending" if double else "confirmed", "source": source[:60], "consent_text": consent_text[:300], "consent_at": now,
               "ip_hash": ip_hash, "unsub_at": None, "confirmed_at": None if double else now}
+    # docs/68: optional, and only ever used to address the e-mail. Kept out of `$setOnInsert` so a
+    # reader who signs up again with their name filled in gets it recorded the second time.
+    if (name or "").strip():
+        fields["name"] = name.strip()[:80]
     db.newsletter.update_one({"email": email}, {"$set": fields, "$setOnInsert": {"created_at": now}}, upsert=True)
     # the e-mail address may also belong to an unsubscribed suppression; a fresh opt-in lifts only that kind
     sup = db.email_suppressions.find_one({"email": email})

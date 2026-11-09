@@ -134,6 +134,8 @@ def popup_event(pid: str, body: PopupEvent, request: Request, db=Depends(D.get_d
 class FormBody(BaseModel):
     email: str = Field(max_length=254)
     consent: bool = False
+    name: str = Field("", max_length=80)
+    source: str = Field("", max_length=40)
 
 
 @public.post("/popups/{pid}/submit")
@@ -149,7 +151,11 @@ def newsletter_subscribe(body: FormBody, request: Request, db=Depends(D.get_db))
     ip, _ = _ctx(request)
     RL.check(db, f"nlsub:{ip}", 10, 3600)
     RL.check(db, f"nlsub:{E.to_hash(body.email)}", 3, 3600)
-    N.subscribe(db, body.email, source="footer", consent_text=S.get(db, "newsletter.consent_text"), consent=body.consent, ip_hash=hashlib.sha256(ip.encode()).hexdigest()[:16])
+    # The waitlist page sends its own source so the two audiences can be told apart later; anything
+    # else is the footer form, as before.
+    src = "waitlist" if body.source == "waitlist" else "footer"
+    N.subscribe(db, body.email, source=src, consent_text=S.get(db, "newsletter.consent_text"),
+                consent=body.consent, ip_hash=hashlib.sha256(ip.encode()).hexdigest()[:16], name=body.name)
     return {"ok": True, "message": "Thanks. If that address can join, we sent a link to confirm it."}
 
 

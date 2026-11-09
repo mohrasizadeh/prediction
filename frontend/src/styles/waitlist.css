@@ -1,0 +1,68 @@
+/* /waitlist (docs/68). One page, one thing to do.
+ *
+ * Same tokens as the app, same type system, same rule that colour carries one meaning: --brand is
+ * the product's own mark, and nothing else on the page competes with the two numbers in the
+ * headline. No new colours, no gradients, nothing that the rest of the product does not already do
+ * -- an advert that looks like a different company is an advert for a different company. */
+.wl { max-width: 760px; margin: 0 auto; padding: 0 20px 64px; }
+.wl-top { padding: 22px 0 10px; }
+.wl-top .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+
+.wl-hero { padding: 26px 0 8px; }
+.wl-kicker { font-stretch: 86%; font-weight: 700; font-size: 11.5px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text3); margin: 0 0 10px; }
+.wl-hero h1 { font-stretch: 108%; font-weight: 650; font-size: clamp(30px, 6vw, 46px);
+  letter-spacing: -.028em; line-height: 1.08; margin: 0 0 14px; color: var(--text); }
+.wl-lead { font-size: 16.5px; line-height: 1.55; color: var(--text2); margin: 0 0 24px; max-width: 58ch; }
+
+/* the form is the point of the page, so it is the only boxed thing above the fold */
+.wl-form { display: grid; gap: 12px; background: var(--surface1); border: 1px solid var(--border);
+  border-radius: 16px; padding: 18px; }
+.wl-field { display: grid; gap: 5px; }
+.wl-field span { font-stretch: 92%; font-weight: 650; font-size: 12.5px; color: var(--text2); }
+.wl-field input { min-height: 46px; padding: 0 13px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text); font: inherit; font-size: 15px; }
+.wl-field input:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.wl-consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--text2); line-height: 1.45; }
+.wl-consent input { margin-top: 2px; width: 18px; height: 18px; flex: 0 0 auto; }
+.wl-form .btn { width: 100%; justify-content: center; }
+.wl-small { margin: 0; font-size: 12px; color: var(--text3); text-align: center; }
+.wl-err { margin: 0; font-size: 13px; color: var(--down); }
+.wl-done { background: var(--surface1); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+.wl-done h3 { margin: 0 0 8px; font-stretch: 104%; font-weight: 650; font-size: 19px; color: var(--text); }
+.wl-done p { margin: 0; color: var(--text2); line-height: 1.55; }
+
+.wl h2 { font-stretch: 104%; font-weight: 650; font-size: 22px; letter-spacing: -.016em; margin: 0 0 6px; color: var(--text); }
+.wl-sub { color: var(--text2); font-size: 14.5px; line-height: 1.5; margin: 0 0 16px; max-width: 60ch; }
+.wl-rec, .wl-how, .wl-hon { padding: 40px 0 0; }
+
+/* the record: one row per band, the two numbers side by side so "close" is the thing you see */
+.wl-bands { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 1px;
+  background: var(--border); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.wl-bands li { background: var(--surface1); padding: 13px 15px; display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.wl-band-h { font-stretch: 92%; font-weight: 700; font-size: 13px; color: var(--text2); font-variant-numeric: tabular-nums; }
+.wl-band-n { display: flex; align-items: baseline; gap: 9px; font-size: 13.5px; color: var(--text2); flex-wrap: wrap; }
+.wl-band-n b { font-stretch: 104%; font-weight: 700; font-size: 18px; color: var(--text); font-variant-numeric: tabular-nums; }
+.wl-band-n i { font-style: normal; color: var(--brand); font-weight: 700; }
+.wl-bands small { color: var(--text3); font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wl-note { font-size: 13.5px; color: var(--text2); line-height: 1.55; margin: 0 0 10px; max-width: 62ch; }
+.wl-note b { color: var(--text); }
+.wl-more { font-size: 13.5px; font-weight: 650; color: var(--brand); text-decoration: none; }
+.wl-more:hover { text-decoration: underline; }
+
+.wl-how-list, .wl-hon-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.wl-how-list li { display: grid; gap: 4px; }
+.wl-how-list b, .wl-hon-list b { font-stretch: 102%; font-weight: 650; font-size: 15px; color: var(--text); }
+.wl-how-list span { color: var(--text2); font-size: 14px; line-height: 1.55; }
+.wl-hon-list li { color: var(--text2); font-size: 14px; line-height: 1.55;
+  border-left: 3px solid var(--brand); padding-left: 13px; }
+
+.wl-foot { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--border);
+  color: var(--text3); font-size: 12px; line-height: 1.6; }
+.wl-foot a { color: var(--text2); }
+
+@media (max-width: 560px) {
+  .wl-bands li { grid-template-columns: 1fr auto; }
+  .wl-band-h { grid-column: 1 / -1; }
+}

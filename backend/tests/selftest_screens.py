@@ -54,4 +54,29 @@ check(labels["screens"] == "Screens" and labels["pages"] == "Pages", "the two ar
 routes = {row[0]: row[4] for row in admin_shell.MODULES}
 check(routes["screens"] == "/admin/screens" and routes["pages"] != routes["screens"], "and by route")
 
+# ---------------------------------------------------------------- the waitlist signup (docs/68)
+import newsletter as N
+S.put(db, "newsletter.consent_text", "Yes, send me the match-day e-mail. I can unsubscribe from any of them.")
+r = N.subscribe(db, "Reader@Example.test", source="waitlist", consent=True,
+                consent_text=S.get(db, "newsletter.consent_text"), name="  Sam  ")
+check(r in ("pending", "confirmed"), "a waitlist signup is accepted")
+row = db.newsletter.find_one({"email": "reader@example.test"})
+check(row and row["source"] == "waitlist", "and is recorded as coming from the waitlist, not the footer")
+check(row.get("name") == "Sam", "the name is stored, trimmed")
+
+# signing up without a name must not wipe a name given earlier
+N.subscribe(db, "reader@example.test", source="waitlist", consent=True,
+            consent_text=S.get(db, "newsletter.consent_text"))
+check(db.newsletter.find_one({"email": "reader@example.test"}).get("name") == "Sam",
+      "a later signup with no name leaves the one already there alone")
+
+# consent is still required -- the waitlist does not get its own looser rule
+try:
+    N.subscribe(db, "no@example.test", source="waitlist", consent=False,
+                consent_text=S.get(db, "newsletter.consent_text"), name="No")
+    check(False, "consent must still be required")
+except Exception as e:
+    check("CONSENT" in str(getattr(e, "code", "")) or "tick" in str(e).lower(),
+          "consent is still required on the waitlist form")
+
 print("selftest_screens: all checks passed")

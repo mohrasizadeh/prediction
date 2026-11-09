@@ -25,6 +25,7 @@ import "./styles/hig-admin.css";
 import "./styles/swiss.css";
 import "./styles/v2.css";
 import "./styles/likely.css";
+import "./styles/waitlist.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
