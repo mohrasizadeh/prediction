@@ -22,13 +22,13 @@ import { reopenConsent, setConsent, usePageBeacon, useTagLoader } from "../lib/g
 // Five sections, each a verb people already have in mind (docs/24 "Navigation").
 const NAV5 = [
   { id: "today", label: "Today", icon: "calendar", to: "/", end: true },
-  { id: "insights", label: "Insights", icon: "sparkles", to: "/insights" },
+  { id: "likely", label: "Most likely", icon: "sparkles", to: "/likely" },
   { id: "finder", label: "Finder", icon: "target", to: "/finder" },
   { id: "combos", label: "Combos", icon: "layers", to: "/combos", count: true },
   { id: "explore", label: "Explore", icon: "compass", to: "/explore", desk: true, also: /^\/(explore|leagues?|teams?|compare|referees?|track-record|learn|pricing|live)\b/ },
   { id: "you", label: "You", icon: "user", to: "/following", also: /^\/(following|account|saved)\b/ },
 ];
-const FOOT_LINKS = [["Explore", "/explore"], ["Learn", "/learn"], ["Track record", "/track-record"], ["Plans", "/pricing"], ["Teams", "/teams"], ["Referees", "/referees"], ["Compare", "/compare"]];
+const FOOT_LINKS = [["Insights", "/insights"], ["Explore", "/explore"], ["Learn", "/learn"], ["Track record", "/track-record"], ["Plans", "/pricing"], ["Teams", "/teams"], ["Referees", "/referees"], ["Compare", "/compare"]];
 
 function Nav5Item({ item, className, testid }) {
   const { pathname } = useLocation();

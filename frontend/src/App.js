@@ -18,6 +18,7 @@ import Pricing from "./pages/Pricing";
 import Finder from "./pages/Finder";
 import Combos from "./pages/Combos";
 import { Insights } from "./pages/Insights";
+import { Likely } from "./pages/Likely";
 import TrackRecord from "./pages/TrackRecord";
 import Welcome from "./pages/Welcome";
 import { Learn, LearnArticle } from "./pages/Learn";
@@ -103,6 +104,7 @@ export default function App() {
           {process.env.NODE_ENV !== "production" && <Route path="dev/kit" element={<DevKit />} />}
           <Route path="compare" element={<Compare />} />
           <Route path="explore" element={<Explore />} />
+          <Route path="likely" element={<Likely />} />
           <Route path="insights" element={<Insights />} />
           <Route path="finder" element={<Finder />} />
           <Route path="combos" element={<Combos />} />

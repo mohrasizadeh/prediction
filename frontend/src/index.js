@@ -24,6 +24,7 @@ import "./styles/hig.css";
 import "./styles/hig-admin.css";
 import "./styles/swiss.css";
 import "./styles/v2.css";
+import "./styles/likely.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

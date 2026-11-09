@@ -180,9 +180,16 @@ def configure_engine(db) -> E.SoccerEngine:
 # The badge is a DISPLAY signal and nothing else. The tier grades `p` alone (see tiering.py), and
 # `engine.min_p_play` still decides whether a card exists at all, on `p_play` -- both are left
 # exactly as they were, which is why `gate_badge` below is kept and used for them.
-def starter_badge(starts_recent, club_recent, missed_recent, doubtful, *,
-                  enabled: bool, share: float, max_missed: int, fallback: str, weighted=None) -> str:
-    """-> "likely" | "unsure" for a player whose eleven is not published yet.
+def starter_call(starts_recent, club_recent, missed_recent, doubtful, *,
+                 enabled: bool, share: float, max_missed: int, fallback: str, weighted=None) -> tuple[str, str | None]:
+    """-> (badge, why) for a player whose eleven is not published yet.
+
+    `why` says WHICH rule fired: "doubt" for a stated doubt or a run of missed club matches,
+    "record" when the start record decided it, None when the record could not decide and
+    `fallback` was returned. Both "unsure" cases used to be indistinguishable downstream, so an
+    injured player and a rotated one printed the same word -- and the honest word for one is a
+    lie about the other. starter_badge() below is this function's first element, so the rule
+    lives in exactly one place.
 
     `fallback` is the old chance-to-play answer, returned whenever the record cannot decide. A
     missing record NEVER means "unsure": a league whose provider keys are unmapped would otherwise
@@ -191,15 +198,20 @@ def starter_badge(starts_recent, club_recent, missed_recent, doubtful, *,
     matches to judge, or a `started` column with no starters in it.
     """
     if not enabled or not club_recent or starts_recent is None:
-        return fallback
+        return fallback, None
     if doubtful or int(missed_recent or 0) > int(max_missed):
-        return "unsure"          # a doubt the feed has stated, or a run of missed club matches
+        return "unsure", "doubt"   # a doubt the feed has stated, or a run of missed club matches
     # `weighted` is the same window with the recent club matches worth more (docs/62). Measured on
     # 59,644 real Premier League appearances it predicts the next start about a tenth of a log loss
     # better than the flat share, which is the largest measured gain anywhere in this engine. The
     # flat pair stays the fallback and stays what the card prints.
     got = float(weighted) if weighted is not None else float(starts_recent) / float(club_recent)
-    return "likely" if got >= float(share) else "unsure"
+    return ("likely" if got >= float(share) else "unsure"), "record"
+
+
+def starter_badge(*a, **k) -> str:
+    """-> "likely" | "unsure". The badge alone, for every caller that does not need the reason."""
+    return starter_call(*a, **k)[0]
 
 
 def enabled_markets(db, league_iid: int) -> dict:
@@ -294,8 +306,17 @@ def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = 
             # -p first, then -thr: of two lines equally likely, the more ambitious one is worth more to the reader
             keep = sorted((d for d in g if lo <= d["p"] <= hi), key=lambda d: (-d["p"], -d["thr"]))[:max_lines]
         ladder = {f"{d['thr']:g}": round(float(d["p"]), 4) for d in g}   # the whole ladder, so the Finder can answer any line
+        # docs/63: and each rung's band. A screen that lets a reader move the line has to move the
+        # range with it; without this it could only show a likelihood and would have to invent the
+        # spread, which is the one thing a page about uncertainty must not do.
+        # A rung contributes a band only if it HAS one. select_lines is a pure function and its
+        # callers hand it the smallest dict that makes sense -- requiring lo/hi here turned a
+        # ladder into a KeyError for every one of them.
+        band_of = {f"{d['thr']:g}": [round(float(d["lo"]), 4), round(float(d["hi"]), 4)]
+                   for d in g if d.get("lo") is not None and d.get("hi") is not None}
         for d in keep:
             d["ladder"] = ladder
+            d["ladder_band"] = band_of
         if not keep:
             # The docstring above promises "the whole ladder is still stored on every line, so the
             # Finder can still answer any threshold the band excluded" -- true only while at least
@@ -309,7 +330,8 @@ def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = 
             # live_track from the ticker. It publishes nothing new -- it restores the ability to
             # answer a question we already know the answer to.
             c = dict(max(g, key=lambda d: d["p"]))
-            c.update({"ladder": ladder, "carrier": True, "tier": None, "tier_note": None, "tier_basis": None})
+            c.update({"ladder": ladder, "ladder_band": band_of, "carrier": True, "tier": None,
+                      "tier_note": None, "tier_basis": None})
             out.append(c)
         out += keep
     return out
@@ -531,15 +553,16 @@ def run_league(db, league_iid: int, now=None) -> dict:
             # (engine.min_p_play, engine.min_p_start), the record anchor that moves the percentage,
             # and the legacy non-earned tier. Only the badge -- the words under the player's name --
             # is decided by the record.
+            badge_why = None
             if f.scope == "team":
                 badge = gate_badge = None
             elif state == "lineup":
                 badge = gate_badge = "confirmed" if float(f.p_play) >= 0.999 else "bench"
             else:
                 gate_badge = "likely" if float(f.p_play) >= likely_gate else "unsure"
-                badge = starter_badge(f.starts_recent, f.club_recent, f.missed_recent, f.doubtful,
-                                      enabled=from_record, share=rec_share, max_missed=rec_missed,
-                                      fallback=gate_badge, weighted=f.starts_share)
+                badge, badge_why = starter_call(f.starts_recent, f.club_recent, f.missed_recent, f.doubtful,
+                                                enabled=from_record, share=rec_share, max_missed=rec_missed,
+                                                fallback=gate_badge, weighted=f.starts_share)
             # His own record counts (docs/32), but only when he is expected to start: the record comes mostly from
             # starts, so for a substitute it pulled a short-minutes chance far above the model (docs/36 H9).
             anchor_d = 0.0
@@ -615,6 +638,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          # is on, so the two anchors can be compared on settled results later.
                          "rec_rate": f.rec_rate, "rec_neff": f.rec_neff, "anchor_d": float(anchor_d), "state": state, "calibration": (pmap or {}).get("version"),
                          "p_play": float(f.p_play), "lineup_confirmed": confirmed, "lineup_badge": badge,
+                         # docs/63: which rule produced an "unsure" badge -- a stated doubt, or a
+                         # thin start record. Without it the screen can only print one word for both.
+                         "lineup_why": badge_why,
                          # docs/59: the record the badge was read off, so it can be checked and shown
                          "starts_recent": f.starts_recent, "club_recent": f.club_recent,
                          # the weighted share the badge actually used (docs/62); the pair above stays

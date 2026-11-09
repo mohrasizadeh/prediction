@@ -13,6 +13,10 @@ from datetime import datetime, timedelta, timezone
 
 import settings_store as S
 import referees as RF
+# The one map of stat -> (singular, plural). The "most likely" screen lets a reader move the line,
+# so it needs the words for rungs the engine did not pick a label for; building a second copy of
+# this map in JavaScript is how the two would come to disagree about "1 shot on target".
+from engine_bridge import STAT_LABEL
 
 # `carrier` rows exist only so the Finder can answer a line the band did not keep (see
 # engine_bridge.select_lines). They are not forecasts the product published and must never be
@@ -515,14 +519,24 @@ def team_form(db, team_iid: int, n: int = 5) -> list[dict]:
 
 # ----------------------------------------------------------- Insights feed
 def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, stat=None, scope=None, now=None, sort=None,
-                  player_iids=None, team_iids=None) -> list[dict]:
+                  player_iids=None, team_iids=None, min_p=None, within_h=None) -> list[dict]:
     """`sort`: "edge" (default, settings engine.feed_sort) | "likely" | "kickoff".
 
     `player_iids` / `team_iids` narrow the feed to those players or clubs (docs/52). A club filter
     takes its own team lines and the lines of its players, which is what a reader picking a club
-    off the list means by it."""
+    off the list means by it.
+
+    `min_p` keeps only lines at or above that likelihood, and `within_h` only matches kicking off
+    within that many hours (docs/63). The "most likely" screen is a different question from this
+    feed's usual one -- not "what differs most from usual" but "what is likeliest in the next few
+    hours" -- and both of its filters belong in the query rather than in the page, which would
+    otherwise be filtering a fixed 200-row pool and silently losing rows past it."""
     now = now or datetime.now(timezone.utc)
     q = {**NOT_HIDDEN, "tier": {"$in": list(tiers)}, "kickoff": {"$gte": now}}
+    if within_h:
+        q["kickoff"] = {"$gte": now, "$lte": now + timedelta(hours=float(within_h))}
+    if min_p is not None:
+        q["p"] = {"$gte": float(min_p)}
     if league_iids: q["league_iid"] = {"$in": league_iids}
     if stat: q["stat"] = stat
     if scope: q["scope"] = scope
@@ -815,6 +829,7 @@ def _decorate(db, fc):
         f["match_id"] = m.get("id")
         f["league_name"] = (lgs.get(f.get("league_iid")) or {}).get("name")
         f["league_id"] = (lgs.get(f.get("league_iid")) or {}).get("id")
+        f["noun"] = list(STAT_LABEL.get(f.get("stat"), (f.get("stat"), f.get("stat"))))
     return fc
 
 

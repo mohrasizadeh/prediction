@@ -118,7 +118,7 @@ def fixtures(date: str, tz: int = 0, leagues: str = "", db=Depends(D.get_db)):
 
 @app.get("/api/insights")
 def insights(limit: int = 50, sort: str = "", stat: str = "", scope: str = "", leagues: str = "", tiers: str = "Strong,Solid",
-             players: str = "", teams: str = "",
+             players: str = "", teams: str = "", min_p: float = 0.0, within_h: float = 0.0,
              user=Depends(D.optional_user), db=Depends(D.get_db)):
     """sort = edge (default: most different from usual) | likely | kickoff (docs/25).
     `players` and `teams` are comma-separated public ids and narrow the feed to them (docs/52)."""
@@ -135,7 +135,37 @@ def insights(limit: int = 50, sort: str = "", stat: str = "", scope: str = "", l
     tl = tuple(t for t in tiers.split(",") if t in ("Strong", "Solid", "Watch")) or ("Strong", "Solid")
     return Q.insights_feed(db, limit=min(limit, 200), tiers=tl, league_iids=ids,
                            stat=stat or None, scope=scope if scope in ("player", "team") else None,
-                           sort=sort if sort in Q.FEED_SORTS else None, player_iids=pids, team_iids=tids)
+                           sort=sort if sort in Q.FEED_SORTS else None, player_iids=pids, team_iids=tids,
+                           min_p=(min_p if 0 < min_p <= 1 else None),
+                           within_h=(within_h if 0 < within_h <= 24 * 14 else None))
+
+
+@app.get("/api/likely")
+def likely(within_h: float = 4.0, limit: int = 60, leagues: str = "", stat: str = "", confirmed: bool = False,
+           db=Depends(D.get_db)):
+    """The "most likely" screen (docs/63): what is likeliest in the next few hours, likeliest first.
+
+    This is not /api/insights with different arguments. That feed answers "what differs most from
+    usual", leads on the edge, and defaults to Strong+Solid; this one answers "what is likeliest",
+    leads on the number, and wants every tier -- a tier grades a different thing and a Watch line at
+    88% belongs at the top of THIS list.
+
+    The floor is `engine.watch_min` and it is RETURNED, not assumed. The screen says "nothing here
+    reaches 60%" in its empty state and in its hint line, and a floor retyped in JavaScript is a
+    sentence that goes quietly wrong the first time the setting moves.
+    """
+    floor = float(S.get(db, "engine.watch_min"))
+    ids = [i for i in (Q.iid_of(db, "leagues", x) for x in leagues.split(",") if x) if i] or ([-1] if leagues else None)
+    rows = Q.insights_feed(db, limit=min(limit, 200), tiers=("Strong", "Solid", "Watch"), league_iids=ids,
+                           stat=stat or None, sort="likely", min_p=floor,
+                           within_h=(within_h if 0 < within_h <= 24 * 14 else 4.0))
+    if confirmed:
+        rows = [r for r in rows if r.get("lineup_badge") == "confirmed" or r.get("scope") == "team"]
+    # The feed's "likely" sort puts tier first; this screen is sorted by the number alone, because
+    # the number is what it is named after.
+    rows.sort(key=lambda r: -r["p"])
+    return {"floor": floor, "within_h": within_h, "rows": rows,
+            "confirmed_n": sum(1 for r in rows if r.get("lineup_badge") == "confirmed")}
 
 
 @app.get("/api/search")

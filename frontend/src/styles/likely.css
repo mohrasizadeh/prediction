@@ -1,0 +1,239 @@
+/* "Most likely" (docs/63). One screen, one question: what is likeliest in the next few hours.
+ *
+ * COLOUR SYSTEM. Every hue has one job, and each was measured against its own surface in both
+ * modes before it was used (3:1 for a graphic, 4.5:1 for text):
+ *   --brand        the forecast        the likely-range bar, and the part of a run bar that
+ *                                      reached the line
+ *   --tier-strong  the surplus         how far past the line a game went
+ *   --accent       the chosen line     the lit step in the stepper. It measures 1.20:1 on white,
+ *                                      so it is ONLY ever a fill under --on-accent text, never a
+ *                                      mark. --chart5 (2.19:1) is unusable here for the same
+ *                                      reason and is not used.
+ *   --down         stop                a doubtful lineup dot, and a match that has kicked off
+ *   --lk-rule      absence             the rail, missed games, blank games
+ * --border-strong is NOT used for any mark: it measures 2.25:1 light / 1.98:1 dark on surface1.
+ *
+ * Colour is never the only signal: the lineup states differ by dot fill, word and weight; a run
+ * bar that reached the line also differs in height and in where it changes tone.
+ */
+:root, [data-theme] { --lk-rule: color-mix(in srgb, var(--text3) 74%, transparent); --lk-halo: var(--surface1); }
+
+/* Type: six steps. Width moves with importance; weight only reinforces it. */
+.lk-figure { font-stretch: 112%; font-weight: 650; font-size: 32px; letter-spacing: -.03em; line-height: 1;
+  font-variant-numeric: tabular-nums; color: var(--text); }
+.lk-figure u { font-stretch: 92%; font-weight: 600; font-size: .52em; letter-spacing: 0; text-decoration: none;
+  color: var(--text2); margin-left: 1px; }
+.lk-name { font-stretch: 104%; font-weight: 600; font-size: 15px; letter-spacing: -.008em; color: var(--text); }
+.lk-claim { font-stretch: 100%; font-weight: 500; font-size: 14px; color: var(--text); }
+.lk-data { font-stretch: 92%; font-weight: 550; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.lk-label { font-stretch: 86%; font-weight: 650; font-size: 11px; letter-spacing: .01em; }
+
+.lk-lede { font-size: 15px; color: var(--text2); margin: 4px 0 14px; line-height: 1.5; max-width: 58ch; }
+.lk-lede b { color: var(--text); font-weight: 600; font-stretch: 104%; }
+
+/* Filters. One row that scrolls rather than wraps; the leftmost control is the one a reader an
+ * hour before kick-off actually changes. A chip is NOT filled just for being the default: brand
+ * fill spent on "nothing has been changed" made chrome the loudest thing on the screen. */
+.lk-bar { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; overflow-x: auto;
+  scrollbar-width: none; padding-bottom: 2px; }
+.lk-bar::-webkit-scrollbar { display: none; }
+.lk-chip { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface1); color: var(--text2); font: inherit; font-stretch: 92%; font-weight: 600;
+  font-size: 13px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  white-space: nowrap; flex: 0 0 auto; }
+.lk-chip small { font-size: 11.5px; font-weight: 700; color: var(--text3); font-variant-numeric: tabular-nums; }
+.lk-chip[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.lk-chip[aria-pressed="true"] small { color: var(--on-brand); opacity: .72; }
+.lk-chip:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+@media (pointer: coarse) { .lk-chip { min-height: 44px; } }
+
+/* The key. Each sentence sits beside a live specimen of the thing it names -- an unexplained
+ * graphic is a failed graphic, and this screen has three the reader has not seen before. */
+.lk-key { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; margin: 0 0 16px;
+  padding: 11px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; }
+.lk-keyit { display: flex; align-items: center; gap: 9px; color: var(--text2); font-stretch: 94%;
+  font-weight: 500; font-size: 12px; }
+.lk-keyit b { color: var(--text); font-weight: 650; }
+
+/* The table. Fixed layout + an explicit colgroup, so the likelihood column keeps one x position
+ * whatever a filter returns; with auto layout the whole column jumped on every chip tap. */
+.lk-tbl { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface1);
+  border: 1px solid var(--border); border-radius: 14px; overflow: hidden; table-layout: fixed; }
+.lk-tbl th { text-align: left; padding: 10px 14px 9px; background: var(--surface1);
+  border-bottom: 1px solid var(--border); color: var(--text3); vertical-align: bottom; white-space: nowrap; }
+.lk-tbl td { padding: 12px 14px; vertical-align: middle; border: 0; }
+.lk-tbl tbody tr + tr:not(.lk-grp):not(.lk-whyrow) td { border-top: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
+.lk-tbl tbody tr.lk-grp + tr td { border-top: 0; }
+.lk-tbl tbody tr:hover td { background: var(--surface2); --lk-halo: var(--surface2); }
+.lk-tbl tbody tr:hover .lk-dim { color: var(--text2); }
+.lk-tbl tbody tr:first-child td { border-top: 0; }
+.lk-c-who { width: auto; } .lk-c-fx { width: 94px; } .lk-c-mk { width: 228px; }
+.lk-c-lk { width: 188px; } .lk-c-run { width: 200px; } .lk-c-lu { width: 168px; }
+
+/* Player photo + club badge. attach_images() can return null, so initials are a first-class
+ * state. object-fit:cover so a tall portrait and a wide one take the same optical mass. */
+.lk-ava { position: relative; display: inline-block; width: 38px; height: 38px; flex: 0 0 auto; }
+.lk-ava > .media-fallback, .lk-ava > img, .lk-ava > .media-round { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.lk-ava--club > .media-chip, .lk-ava--club > .media-fallback { width: 38px; height: 38px; border-radius: 9px; }
+.lk-ava-cr { position: absolute; right: -5px; bottom: -4px; width: 17px; height: 17px; border-radius: 5px;
+  background: var(--surface1); border: 1px solid var(--border); display: grid; place-items: center;
+  overflow: hidden; box-shadow: 0 0 0 2px var(--lk-halo); box-sizing: border-box; }
+.lk-ava-cr .media-chip, .lk-ava-cr .media-fallback, .lk-ava-cr img { width: 100% !important; height: 100% !important; }
+.lk-ava-cr .media-fallback svg { width: 11px; height: 11px; }
+.lk-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.lk-who .lk-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; min-width: 0; flex: 0 1 auto; }
+.lk-who .lk-name:hover { text-decoration: underline; }
+/* The position was three bare letters reading as part of the name. A chip is the shape that says
+ * "tag", and it is deliberately colourless: colour here is spent on data, not on taxonomy. */
+.lk-pos { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px;
+  background: var(--surface2); border: 1px solid var(--border); font-stretch: 78%; font-weight: 750;
+  font-size: 9.5px; color: var(--text3); letter-spacing: .05em; flex: 0 0 auto; }
+.lk-fx { color: var(--text2); white-space: nowrap; font-stretch: 96%; font-weight: 500; font-size: 13.5px; }
+.lk-fx small { display: block; color: var(--text3); font-stretch: 92%; font-weight: 550; font-size: 11.5px;
+  font-variant-numeric: tabular-nums; margin-top: 1px; }
+.lk-fx-inline { display: none; }
+
+/* The ladder. Steps run to one beyond his best in the last 10: a fixed 1..6 on every row would
+ * print "6+ shots, 1%" down the page, which is dead ink and makes the control feel broken. */
+.lk-line { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; justify-content: center; }
+.lk-steps { display: inline-flex; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 2px; gap: 2px; max-width: 100%; }
+.lk-steps::-webkit-scrollbar { display: none; }
+.lk-step { appearance: none; border: 0; background: none; font: inherit; font-stretch: 90%; font-weight: 700;
+  font-size: 11.5px; color: var(--text3); min-width: 28px; height: 22px; border-radius: 6px; cursor: pointer;
+  font-variant-numeric: tabular-nums; position: relative; padding: 0 5px; }
+/* a 44px target without 44px of ink */
+.lk-step::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+.lk-step:hover { color: var(--text); }
+.lk-step[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
+.lk-step:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+/* The number and its range. One object: figure, bar, then the range as the bar's own caption on
+ * the bar's right edge. The range used to sit on the figure's baseline with a gap between them --
+ * two numbers belonging to nothing. The % is not optional: under a row reading "2+ shots", a bare
+ * "71-86" reads as a count of shots. */
+.lk-lk { text-align: right; padding-top: 14px; padding-bottom: 10px; }
+.lk-lk-top { display: flex; align-items: baseline; justify-content: flex-end; height: 32px; }
+.lk-rg { display: block; color: var(--text2); white-space: nowrap; text-align: right; width: 158px; margin: 5px 0 0 auto; }
+/* fixed 50-100 scale on every row, so 89-96 is a short mark hard right and 62-82 is a mark three
+ * times as long left of centre. The reader learns the scale once, from the column head. */
+.lk-band { position: relative; display: block; height: 7px; margin-top: 9px; width: 158px; margin-left: auto; }
+.lk-band::before { content: ""; position: absolute; left: 0; right: 0; top: 3px; height: 1px; background: var(--lk-rule); }
+.lk-band i { position: absolute; top: 0; height: 7px; border-radius: 2px; background: var(--brand); min-width: 9px; }
+.lk-axis { position: relative; height: 15px; margin: 3px 0 0 auto; width: 158px; }
+.lk-axis span { position: absolute; bottom: 5px; transform: translateX(-50%); font-stretch: 84%;
+  font-weight: 600; font-size: 9.5px; color: var(--text3); font-variant-numeric: tabular-nums; }
+.lk-axis span::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 1px; height: 4px; background: var(--lk-rule); }
+.lk-under .lk-figure, .lk-under .lk-rg { color: var(--text3); }
+.lk-under .lk-band i { background: var(--lk-rule); }
+.lk-underw { font-stretch: 88%; font-weight: 600; font-size: 10.5px; color: var(--text3);
+  display: block; text-align: right; margin-top: 5px; }
+
+/* Last 10. Nothing is drawn OVER a bar: the level is carried by the bar's own two-tone split,
+ * which lands at the same height across the strip. The dashed rule sits BEHIND the bars, so it
+ * appears only in the gaps and above a bar that fell short -- the two places with no tone
+ * boundary to read. Drawn in front it crossed the fill and read as a strikethrough. */
+.lk-runbox { position: relative; display: block; padding-left: 20px; flex: 0 0 auto; }
+.lk-need { position: absolute; display: block; left: 0; font-stretch: 84%; font-weight: 700; font-size: 10.5px;
+  color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; transform: translateY(50%); }
+.lk-need::after { content: ""; position: absolute; display: block; left: 11px; top: 50%; width: 5px; height: 1px;
+  background: var(--text); transform: translateY(-50%); }
+.lk-run { position: relative; display: flex; align-items: flex-end; gap: 2px; height: 26px;
+  border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+.lk-run i { display: block; width: 7px; border-radius: 2px 2px 0 0; background: var(--lk-rule); flex: 0 0 auto; position: relative; z-index: 1; }
+.lk-rule { position: absolute; display: block; left: 0; right: 0; height: 1px; z-index: 0;
+  background-image: repeating-linear-gradient(to right, var(--text3) 0 3px, transparent 3px 6px); }
+.lk-runwrap { display: flex; align-items: flex-end; gap: 9px; min-width: 0; }
+.lk-cnt { color: var(--text3); white-space: nowrap; padding-bottom: 1px; flex: 0 0 auto; }
+.lk-cnt b { color: var(--text); font-weight: 700; }
+
+/* Lineup. Was two different states in one green. Colour is now spent on data marks only; the
+ * state is a filled / half / hollow dot AND a word AND a weight step. */
+.lk-lu { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-stretch: 90%; font-size: 12.5px; }
+.lk-lu s { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; text-decoration: none;
+  flex: 0 0 auto; box-sizing: border-box; }
+.lk-lu.is-confirmed { color: var(--text); font-weight: 700; }
+.lk-lu.is-confirmed s { background: currentColor; }
+.lk-lu.is-likely { color: var(--text2); font-weight: 600; }
+.lk-lu.is-likely s { background: linear-gradient(90deg, currentColor 0 50%, transparent 50% 100%); }
+.lk-lu.is-unsure, .lk-lu.is-bench { color: var(--text3); font-weight: 600; }
+/* the one state that should stop a reader gets the one warm hue -- on the dot only, and never
+ * alone: the ring is dashed and the word differs too. */
+.lk-lu.is-doubt { color: var(--text2); font-weight: 600; }
+.lk-lu.is-doubt s { border-style: dashed; border-color: var(--down); background: none; }
+.lk-lu.is-none { color: var(--text3); font-weight: 550; }
+.lk-lucell { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+
+/* Why: one tap down. The row answers in two seconds; this answers "why should I believe it",
+ * which is where the detail goes without crowding the row. */
+.lk-why { appearance: none; border: 0; background: none; font: inherit; font-stretch: 88%; font-weight: 650;
+  font-size: 11.5px; color: var(--text3); cursor: pointer; padding: 4px 2px; white-space: nowrap; }
+.lk-why:hover { color: var(--text); }
+.lk-why:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+.lk-open td { background: color-mix(in srgb, var(--brand) 8%, var(--surface1)) !important;
+  --lk-halo: color-mix(in srgb, var(--brand) 8%, var(--surface1)); }
+.lk-open td:first-child { box-shadow: inset 3px 0 0 0 var(--brand); }
+.lk-open .lk-why { color: var(--text); font-weight: 700; }
+.lk-whyrow td { background: color-mix(in srgb, var(--brand) 8%, var(--surface1)); padding: 0 14px 14px;
+  box-shadow: inset 3px 0 0 0 var(--brand); }
+.lk-tbl tbody tr.lk-whyrow:hover td { background: color-mix(in srgb, var(--brand) 8%, var(--surface1)); }
+.lk-whybox { background: var(--surface1); border: 1px solid var(--border); border-radius: 10px; padding: 13px 15px; }
+.lk-whybox h4 { margin: 0 0 7px; font-stretch: 96%; font-weight: 700; font-size: 11.5px; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--text3); }
+.lk-whybox ul { margin: 0; padding-left: 17px; }
+.lk-whybox li { font-size: 13.5px; color: var(--text); margin: 3px 0; line-height: 1.45; }
+.lk-whybox p { margin: 9px 0 0; font-stretch: 92%; font-weight: 500; font-size: 12px; color: var(--text3); }
+
+/* Group headers. They replace twelve stacked hairlines, and the grouping is real -- by likelihood
+ * decade. The calibration half is GATED on a scored record: see Likely.jsx.
+ * NOT .lk-band: that is the range bar, and a <tr> wearing the bar's "height:7px; width:158px"
+ * rendered as a 158px box floating at the right of the table. */
+.lk-grp td { background: var(--bg); border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border); padding: 8px 14px; }
+.lk-tbl tbody tr.lk-grp:hover td { background: var(--bg); }
+.lk-grpin { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.lk-grpin b { font-stretch: 96%; font-weight: 700; font-size: 12px; color: var(--text); letter-spacing: .01em; }
+.lk-grpin span { color: var(--text3); font-stretch: 90%; font-weight: 550; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+.lk-foot { color: var(--text3); margin-top: 14px; line-height: 1.65; max-width: 88ch; font-stretch: 94%;
+  font-weight: 450; font-size: 12px; }
+.lk-foot b { color: var(--text2); font-weight: 650; }
+.lk-foot span { display: block; }
+
+/* ---------------------------------------------------------------- phone
+ * One DOM, two layouts: the table keeps its semantics and its header stays in the accessibility
+ * tree, while the rows reflow to a grid. Rendering a second list instead would mean two copies of
+ * every row to keep in step. */
+@media (max-width: 760px) {
+  .lk-tbl, .lk-tbl tbody { display: block; }
+  .lk-tbl thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .lk-tbl tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) 124px; column-gap: 10px; padding: 12px 14px; }
+  .lk-tbl tbody tr td { padding: 0; }
+  .lk-tbl tbody tr + tr:not(.lk-grp):not(.lk-whyrow) { border-top: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
+  .lk-tbl tbody tr + tr:not(.lk-grp):not(.lk-whyrow) td { border-top: 0; }
+  td.lk-cell-who { grid-column: 1; grid-row: 1; }
+  td.lk-cell-fx { display: none; }
+  td.lk-cell-mk { grid-column: 1; grid-row: 2; margin-top: 3px; }
+  td.lk-cell-lk { grid-column: 2; grid-row: 1 / span 2; }
+  td.lk-cell-run { grid-column: 1; grid-row: 3; margin-top: 10px; }
+  td.lk-cell-lu { grid-column: 2; grid-row: 3; justify-self: end; align-self: end; margin-top: 10px; }
+  .lk-fx-inline { display: inline; color: var(--text2); }
+  .lk-line { gap: 5px; }
+  /* three steps fit; the rest scroll, with a fade that is set by MEASURING overflow (see
+   * Likely.jsx) -- a fade over a chip that is the last one is a lie about there being more. */
+  .lk-steps { max-width: 128px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+  .lk-steps.lk-more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent); }
+  .lk-step { scroll-snap-align: center; }
+  .lk-lk { text-align: right; padding: 0; }
+  .lk-lk-top { height: 26px; }
+  .lk-lk .lk-figure { font-size: 26px; }
+  .lk-grp, .lk-whyrow { display: block !important; padding: 0 !important; }
+  .lk-grp td, .lk-whyrow td { display: block; padding: 7px 14px; }
+  .lk-whyrow td { padding: 0 14px 14px; }
+  .lk-tbl tbody tr.lk-grp + tr { border-top: 0; }
+  .lk-band, .lk-rg, .lk-axis { width: 120px; }
+  .lk-tbl { border-radius: 0; border-left: 0; border-right: 0; }
+  .lk-open td:first-child, .lk-whyrow td { box-shadow: none; }
+  .lk-open { box-shadow: inset 3px 0 0 0 var(--brand); }
+}
