@@ -111,7 +111,7 @@ function Row({ m }) {
               <span key={i} className={"td-ins" + (b.reached === true ? " is-hit" : b.reached === false ? " is-miss" : "")}
                     data-testid={`today-ins-${m.id}-${i}`}>
                 {b.reached != null && <Icon name={b.reached ? "check" : "minus"} size={13} />}
-                <b>{b.who}</b> {b.market}{" "}
+                <span className="td-ins-claim"><b>{b.who}</b> {b.market}</span>
                 {/* The likelihood NEVER disappears. It used to be replaced by the verdict the
                     moment the match ended, which deleted the claim at exactly the point it became
                     checkable: a reader saw "did not" with no denominator and scored it 0 out of 1.

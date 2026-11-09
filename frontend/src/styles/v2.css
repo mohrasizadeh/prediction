@@ -2057,3 +2057,15 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
    the claim is the product, the measurement is the check on it. */
 .td-ins .td-got { font-weight: 550; opacity: .82; }
 
+/* A chip must never lose its numbers. At 390px a long subject ("Brynjólfur Willumsson") plus a
+   long market ("1+ shot on target") plus the figures overran the column, and because the group is
+   a card with overflow:hidden the END of the chip was silently clipped -- so the phone showed
+   "78% - got" and ate the measurement. The claim is the only part allowed to shrink; the
+   likelihood and the measurement are the point of the chip and are never truncated. */
+.td-ins-set .td-ins { flex-wrap: nowrap; }
+.td-ins-claim { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-ins-set .td-ins > em { flex: 0 0 auto; }
+.td-ins-set .td-ins > svg { flex: 0 0 auto; }
+/* One width for every chip in a row, so the figures form a column instead of a ragged edge. */
+.td-ins-set.is-done { align-items: stretch; }
+
