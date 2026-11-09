@@ -3027,5 +3027,30 @@
     "public": false,
     "applies_at": "immediately",
     "help": "How many due posts are handed to the webhook in one job run. Instagram caps API publishing per account per day, so a large backlog is better drained steadily than all at once."
+  },
+  {
+    "key": "ads.caption_tail",
+    "label": "Caption sign-off",
+    "type": "text",
+    "default": "Statistical analysis for information and entertainment. Not betting advice.",
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Added to the end of every caption the batch writes. The disclaimer belongs here, because a caption is the only part of a post a reader can copy."
+  },
+  {
+    "key": "social.post_times",
+    "label": "Times posts go out",
+    "type": "json",
+    "default": [
+      "09:10",
+      "13:40",
+      "18:20",
+      "20:50"
+    ],
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Local times a scheduled batch is spread across, in order, repeating across the day. Keep them off the hour: everyone else posts on it."
   }
 ]

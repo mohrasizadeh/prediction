@@ -133,6 +133,33 @@ with TestClient(srv.app) as c:
           "a callback with the wrong token is rejected by the endpoint too")
     check(c.get("/api/admin/social").status_code in (401, 403), "the admin queue needs a signed-in staff user")
 
+# ---------------------------------------------------------------- 7. the batch, and captions
+with TestClient(srv.app) as c:
+    check(c.post("/api/admin/social/batch", json=[]).status_code in (401, 403),
+          "the batch endpoint needs a signed-in staff user")
+# a batch does not stop at the first bad item: nineteen good ads should not be lost to one
+good = {"media": [IMG], "caption": "fine", "scheduled_at": now.isoformat()}
+bad = {"media": ["not-a-url"], "caption": "fine", "scheduled_at": now.isoformat()}
+made, failed = [], []
+for i, it in enumerate([good, bad, good]):
+    try:
+        made.append(SOC.queue(db, ACT, platform="instagram", kind="post", media=it["media"],
+                              caption=it["caption"], scheduled_at=now))
+    except SOC.SocialError as e:
+        failed.append((i, str(e)))
+check(len(made) == 2 and len(failed) == 1 and failed[0][0] == 1,
+      "one bad item in a batch does not take the good ones with it")
+
+import ad_plan as AP
+cap = AP._caption({"headline": "Haaland has reached 1+ shot in all 10", "subhead": "Man City vs Brentford",
+                   "finder_q": ""}, "Statistical analysis for information and entertainment. Not betting advice.")
+check(cap and "Haaland" in cap and "Not betting advice." in cap,
+      "a planned ad carries the caption it would be posted with, disclaimer and all")
+check(AP._caption({"headline": "Best odds tonight", "subhead": "", "finder_q": ""}, "") == "",
+      "and a caption the guard refuses is dropped rather than published")
+SOC.queue(db, ACT, platform="instagram", kind="post", media=[IMG], caption=cap, scheduled_at=now)
+check(True, "  the kept caption is accepted by the queue, so the two guards agree")
+
 ov = SOC.overview(db, now=now)
 check(ov["posted"] >= 1 and ov["failed"] >= 1 and ov["subscribed"] == 1,
       "the overview counts what happened and whether anything is listening")

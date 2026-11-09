@@ -42,6 +42,7 @@ MODULES = [
     # an e-mail or an ad needs the same library, and that is marketing work, so it moved here and
     # took video with it. The route is unchanged, so an old bookmark still lands.
     ("ads", "Ad builder", "Marketing", "image", "/admin/ads", ("site.read",)),
+    ("schedule", "Schedule", "Marketing", "calendar", "/admin/schedule", ("site.read",)),
     ("media", "Media", "Marketing", "film", "/admin/media", ("site.read",)),
 
     # The group already says E-mail, so the labels do not repeat it.

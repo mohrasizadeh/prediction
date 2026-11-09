@@ -1,11 +1,12 @@
 // Ad builder (docs/60): pick a claim, a size and a palette mode, and take away a PNG.
 //
-// Nothing is posted to a network. The export is a download, and the share sheet where the browser
-// offers one, which was the owner's instruction and is also the only version that needs no
-// per-network account. The drawing is in ads/templates.js; this screen is the controls, the preview
-// and the saved list.
+// The export is a download, and the share sheet where the browser offers one. Since docs/64 a
+// batch can also be SCHEDULED: the same full-resolution loop renders each ad, uploads the PNG to
+// the media library for a public URL and queues it as a draft. Still nothing is posted from here --
+// the queue hands approved posts to the owner's own automation tool, which does the last hop.
+// The drawing is in ads/templates.js; this screen is the controls, the preview and the saved list.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { del, post, put } from "../lib/api";
+import { del, post, put, putFile } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { sayError } from "../lib/errors";
 import { Confirm, Field, Tabs, useToast } from "../components/Ui";
@@ -16,6 +17,9 @@ import { SIZES } from "./ads/sizes";
 import { blobOf, buildData, ensureFonts, paint, safeOverlay, saveZip, shareOrSave, slug } from "./ads/render";
 
 const pct = (x) => (x == null ? "–" : `${Math.round(x * 100)}%`);
+// Past the listed times a batch rolls into the next day rather than stacking: ad 5 of 4 slots goes
+// to tomorrow's first slot, not on top of ad 1.
+const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const PREVIEW_W = 420;
 
 // Starting words per template, so the screen is never a set of empty boxes. Each one is a sentence
@@ -148,6 +152,8 @@ export default function Ads() {
   const dayCards = useMemo(() => dayQ.data?.cards || [], [dayQ.data]);
   const byKey = useMemo(() => Object.fromEntries(dayCards.map((c) => [c.fkey, c])), [dayCards]);
   const dayAds = (dayQ.data?.ads || []).filter((_, i) => !skip[i]);
+  const schedQ = useApi(tab === "day" ? "/admin/social" : null, {});
+  const [prog, setProg] = useState(null);           // {i, n} while the batch renders
 
   // Every ad in the batch, re-painted at full resolution, in one zip. The preview tiles are
   // thumbnails; nothing downloaded is ever an upscale of one.
@@ -168,6 +174,48 @@ export default function Ads() {
       await saveZip(blobs.filter(Boolean), `ads-${dayQ.data.day}`);
       toast(`${blobs.length} ads saved as a zip`);
     } catch (e) { toast(sayError(e), "err"); } finally { setBusy(""); }
+  };
+
+  // docs/64: a job firing at 09:10 has no browser, and ad_plan says plainly that the planner
+  // decides what each ad SAYS while the browser still draws it. So the pixels have to exist before
+  // the schedule does: this renders the batch exactly as the zip does, uploads each PNG to the
+  // media library for its public URL, and queues the lot. Same loop, different destination -- a
+  // second renderer on the server would drift from this one and nobody would see it happen.
+  const scheduleDay = async () => {
+    if (!dayAds.length) return;
+    setBusy("sched");
+    try {
+      const times = schedQ.data?.times?.length ? schedQ.data.times : ["09:10", "13:40", "18:20", "20:50"];
+      const off = document.createElement("canvas");
+      const items = [];
+      for (let i = 0; i < dayAds.length; i += 1) {
+        const ad = dayAds[i];
+        setProg({ i: i + 1, n: dayAds.length });
+        const card = (ad.fkeys || []).map((k) => byKey[k]).filter(Boolean)[0] || null;
+        const many2 = (ad.fkeys || []).map((k) => byKey[k]).filter(Boolean);
+        // eslint-disable-next-line no-await-in-loop
+        const data = await buildData({ design: ad, brand: dayQ.data.brand || q.data.brand, card, cards: many2.length ? many2 : dayCards, mode: ad.mode });
+        paint(off, { design: ad, brand: q.data.brand, data, mode: ad.mode, accent: ad.accent });
+        // eslint-disable-next-line no-await-in-loop
+        const blob = await blobOf(off);
+        if (!blob) throw new Error("The browser could not make one of the images.");
+        const name = `${slug(ad.headline || ad.template)}-${dayQ.data.day}-${i + 1}.png`;
+        // eslint-disable-next-line no-await-in-loop
+        const up = await putFile(`/admin/media/upload?name=${encodeURIComponent(name)}`, blob);
+        const t = times[i % times.length];
+        // Spread past the listed times rather than stacking: ad 5 of 4 slots goes to the next day's
+        // first slot, not on top of ad 1.
+        const dayOffset = Math.floor(i / times.length);
+        items.push({ media: [up.abs_url], caption: ad.caption || "", kind: "post",
+                     scheduled_at: `${addDays(dayQ.data.day, dayOffset)}T${t}:00` });
+      }
+      const r = await post("/admin/social/batch", items);
+      setProg(null);
+      toast(r.failed?.length
+        ? `${r.queued} scheduled, ${r.failed.length} could not be: ${r.failed[0].error}`
+        : `${r.queued} posts scheduled as drafts`, r.failed?.length ? "err" : "ok");
+      schedQ.reload();
+    } catch (e) { setProg(null); toast(sayError(e), "err"); } finally { setBusy(""); }
   };
 
   const file = `${slug(design.name || design.template)}-${design.size}`;
@@ -244,7 +292,10 @@ export default function Ads() {
           <Card title={dayQ.data ? `${dayQ.data.count} ads for ${dayQ.data.kicker}` : "Building the batch…"} testid="ad-day-head"
                 actions={<span className="a-inline-actions">
                   <input type="date" value={dayDate || (dayQ.data?.day || "")} onChange={(e) => setDayDate(e.target.value)} aria-label="Match day" data-testid="ad-day-date" />
-                  <button className="btn btn--primary btn--sm" disabled={!!busy || !dayAds.length} onClick={downloadDay} data-testid="ad-day-zip">
+                  <button className="btn btn--primary btn--sm" disabled={!!busy || !dayAds.length} onClick={scheduleDay} data-testid="ad-day-schedule">
+                    {busy === "sched" ? (prog ? `Rendering ${prog.i} of ${prog.n}…` : "Scheduling…") : `Schedule these ${dayAds.length}`}
+                  </button>
+                  <button className="btn btn--sm" disabled={!!busy || !dayAds.length} onClick={downloadDay} data-testid="ad-day-zip">
                     <Icon name="download" size={16} />{busy === "day" ? "Rendering…" : `Download ${dayAds.length} as a zip`}</button>
                 </span>}>
             {dayQ.error && <p className="form-error" role="alert">{sayError(dayQ.error)}</p>}

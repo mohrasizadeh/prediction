@@ -395,3 +395,40 @@
 .a-matrix thead th:first-child { z-index: 3; }
 .a-matrix th:first-child::after, .a-matrix td:first-child::after { content: ""; position: absolute; inset: 0 -1px 0 auto; width: 1px; background: var(--border); }
 .a-matrix td, .a-matrix th { white-space: nowrap; }
+
+/* ---------------------------------------------------------------- Schedule (docs/64)
+ * One row per post, one column per question: when, what, where it got to, and what you can do
+ * about it. The time is an input because changing it is the commonest edit and a dialog for it
+ * would be three taps for a two-character change. */
+.sch-counts { display: flex; flex-wrap: wrap; gap: 18px; margin: 0 0 14px; color: var(--text2); font-size: 13.5px; }
+.sch-counts b { color: var(--text); font-weight: 700; }
+.sch-counts .sch-bad b { color: var(--down); }
+.sch-days { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; flex-wrap: wrap; }
+.sch-days input[type="date"] { min-height: 36px; padding: 0 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface1); color: var(--text); font: inherit; }
+.sch-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; background: var(--surface1); }
+.sch-row { display: grid; grid-template-columns: 76px 56px minmax(0, 1fr) auto; gap: 12px;
+  align-items: center; padding: 10px 12px; }
+.sch-row + .sch-row { border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.sch-time input { width: 72px; min-height: 36px; padding: 0 6px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+  font: inherit; font-variant-numeric: tabular-nums; }
+.sch-thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover;
+  background: var(--surface2); border: 1px solid var(--border); display: block; }
+.sch-thumb--none { display: block; }
+.sch-body { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.sch-cap { font-size: 13.5px; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }
+.sch-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+.sch-err { color: var(--down); }
+.sch-acts { display: flex; align-items: center; gap: 6px; }
+/* the one action that matters, always reachable without scrolling back */
+.sch-bar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface1); box-shadow: 0 -6px 18px color-mix(in srgb, var(--text) 8%, transparent); }
+@media (max-width: 700px) {
+  .sch-row { grid-template-columns: 56px minmax(0, 1fr); grid-template-areas: "time body" "thumb body" "acts acts"; }
+  .sch-time { grid-area: time; } .sch-thumb { grid-area: thumb; } .sch-body { grid-area: body; }
+  .sch-acts { grid-area: acts; justify-content: flex-end; }
+}

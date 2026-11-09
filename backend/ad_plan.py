@@ -29,6 +29,7 @@ from collections import defaultdict
 import engine_bridge as EB
 import queries as Q
 import settings_store as S
+import textguard as TG
 
 # Square and vertical only. A landscape ad is for a link preview, not for a feed, and the owner
 # posts to feeds and stories. `story` carries Instagram's safe area (see SAFE in the renderer).
@@ -197,6 +198,19 @@ CTA = [
 ]
 
 
+def _caption(ad: dict, tail: str) -> str:
+    """The post's words, built from the ad's own so the two can never disagree (docs/64).
+
+    Anything textguard refuses is dropped rather than published: a caption is not worth failing a
+    batch over, and the image still carries the point. The queue checks it again at the door --
+    both call the same scanner, so they cannot drift apart.
+    """
+    bits = [str(ad.get(k) or "").strip() for k in ("headline", "subhead", "finder_q")]
+    body = " ".join(b for b in bits if b)
+    out = " ".join(x for x in (body, (tail or "").strip()) if x).strip()
+    return "" if TG.scan(out) else out[:2200]
+
+
 def plan(db, day: str, tz_offset_min: int = 0, count: int = DEFAULT_COUNT) -> dict:
     """The batch. Returns designs the browser can draw without asking anything else."""
     count = max(MIN_COUNT, min(int(count or DEFAULT_COUNT), MAX_COUNT))
@@ -240,11 +254,18 @@ def plan(db, day: str, tz_offset_min: int = 0, count: int = DEFAULT_COUNT) -> di
             per_market[best.get("stat")] += 1
         return best
 
+    tail = str(S.get(db, "ads.caption_tail") or "")
+
     def add(template, **kw):
         n = len(ads)
-        ads.append({"template": template, "size": SIZES[n % len(SIZES)], "mode": "light" if n % 3 == 1 else "dark",
-                    "kicker": kicker, "headline": "", "subhead": "", "cta": "", "finder_q": "", "stat_value": "",
-                    "fkeys": [], "accent": "", **kw})
+        ad = {"template": template, "size": SIZES[n % len(SIZES)], "mode": "light" if n % 3 == 1 else "dark",
+              "kicker": kicker, "headline": "", "subhead": "", "cta": "", "finder_q": "", "stat_value": "",
+              "fkeys": [], "accent": "", **kw}
+        # docs/64: the caption the post would carry, built from the words already on the image so
+        # the two can never disagree. It is checked here because this is where it is written -- the
+        # queue refuses a bad one too, but an ad that cannot be posted should not reach the batch.
+        ad["caption"] = _caption(ad, tail)
+        ads.append(ad)
 
     # every market we really hold a forecast for, so the batch is not all shots
     markets = sorted({c.get("stat") for c in cards if c.get("stat")},

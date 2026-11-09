@@ -7,12 +7,13 @@ no allowance in the rate limiter's auth bucket.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Body, Depends, Query
 from pydantic import BaseModel, Field
 
 import deps as D
+import settings_store as S
 import social as SOC
 
 admin = APIRouter(prefix="/api/admin/social")
@@ -46,8 +47,22 @@ def _bad(e: SOC.SocialError):
 
 @admin.get("")
 def listing(frm: datetime | None = Query(None, alias="from"), to: datetime | None = None,
+            day: str = Query("", max_length=10), tz: int = Query(0, ge=-900, le=900),
             user=Depends(perm("site.read")), db=Depends(D.get_db)):
-    return {"overview": SOC.overview(db), "posts": SOC.listing(db, frm, to)}
+    """The queue, plus everything the screen needs to explain itself without a second call.
+
+    `times` is what a scheduled batch spreads across, so the builder and this screen cannot
+    disagree about when tomorrow's posts go out.
+    """
+    if day:
+        try:
+            d = datetime.fromisoformat(day).replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise D.err(400, "BAD_DATE", "Use a date like 2026-11-09.")
+        frm, to = d - timedelta(minutes=tz), d + timedelta(days=1, minutes=-tz)
+    return {"overview": SOC.overview(db), "posts": SOC.listing(db, frm, to),
+            "times": list(S.get(db, "social.post_times") or []),
+            "day": day or None}
 
 
 @admin.post("")
@@ -58,6 +73,32 @@ def create(body: NewPost, user=Depends(perm("site.write")), db=Depends(D.get_db)
                          design_id=body.design_id, note=body.note)
     except SOC.SocialError as e:
         raise _bad(e)
+
+
+class BatchItem(BaseModel):
+    media: list[str] = Field(default_factory=list)
+    caption: str = ""
+    scheduled_at: datetime
+    kind: str = "post"
+    design_id: str | None = None
+
+
+@admin.post("/batch")
+def batch(items: list[BatchItem] = Body(default_factory=list), user=Depends(perm("site.write")), db=Depends(D.get_db)):
+    """Queue a whole batch in one call.
+
+    One request rather than twenty, and it does NOT stop at the first bad one: a batch where ad 7
+    has an unreachable image should queue the other nineteen and tell you about ad 7, not leave the
+    admin guessing which ones landed.
+    """
+    made, failed = [], []
+    for i, it in enumerate(items[:60]):
+        try:
+            made.append(SOC.queue(db, user["email"], platform="instagram", kind=it.kind, media=it.media,
+                                  caption=it.caption, scheduled_at=it.scheduled_at, design_id=it.design_id))
+        except SOC.SocialError as e:
+            failed.append({"index": i, "error": str(e)})
+    return {"queued": len(made), "posts": made, "failed": failed}
 
 
 @admin.put("/{pid}")
