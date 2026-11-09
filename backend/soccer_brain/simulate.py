@@ -47,7 +47,12 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
               # something and players who do not -- which is the thing the eligibility gate has to
               # be able to tell apart.
               "goals": {"FWD": 4.0, "MID": 1.1, "DEF": 0.25},
-              "assists": {"FWD": 1.6, "MID": 2.2, "DEF": 0.5}}
+              "assists": {"FWD": 1.6, "MID": 2.2, "DEF": 0.5},
+              # Fouls tilt to the middle and the back, and they are far more EVEN across a squad
+              # than goals are -- nearly everyone commits one sometimes, where most players never
+              # score. That evenness is the point: it is what lets a fouls line clear the ordinary
+              # likelihood band where a goals line cannot (docs/70).
+              "fouls_committed": {"FWD": 1.0, "MID": 1.5, "DEF": 1.3}}
     players = []
     for t in range(T):
         def_idx = [k for k, p in enumerate(pos_list) if p == "DEF"]
@@ -66,6 +71,10 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 # contain a real range rather than eleven similar players.
                 skill_goals=np.exp(rng.normal(0, 0.55)),
                 skill_assists=np.exp(rng.normal(0, 0.45)),
+                # A narrow spread, deliberately: a squad has no "foul specialists" the way it has
+                # goal specialists, so the market's value has to come from the opponent and the
+                # game rather than from one player being ten times likelier than another.
+                skill_fouls_committed=np.exp(rng.normal(0, 0.25)),
                 q_def=1.0 if k in def_stars else rng.normal(0, 0.2),
                 q_att=1.0 if k in att_stars else rng.normal(0, 0.2)))
     squads = {t: [p for p in players if p["team"] == t] for t in range(T)}
@@ -134,11 +143,16 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 # count is drawn from the goals rather than equal to them.
                 g_tot = int(side[X]["goals"])
                 a_tot = int(rng.binomial(g_tot, 0.7)) if g_tot else 0
+                # A team's fouls in a match: around eleven, overdispersed, and not a function of
+                # how well the side is playing -- which is what makes it a different signal from
+                # shots rather than a restatement of one.
+                f_tot = int(rng.negative_binomial(8, 8 / (8 + 11.0)))
                 for stat, tot, key in (("shots", side[X]["shots"], "shots"),
                                        ("sot", side[X]["sot"], "shots"),
                                        ("tackles", side[X]["tackles"], "tackles"),
                                        ("goals", g_tot, "goals"),
-                                       ("assists", a_tot, "assists")):
+                                       ("assists", a_tot, "assists"),
+                                       ("fouls_committed", f_tot, "fouls_committed")):
                     w = np.array([base_w[key][p["pos"]] * p["skill_" + key] * minutes[i] / 90.0
                                   for i, p in enumerate(squad)])
                     if stat == "sot":
@@ -150,8 +164,13 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                                     shots=int(alloc["shots"][i]), sot=int(alloc["sot"][i]),
                                     tackles=int(alloc["tackles"][i]),
                                     goals=int(alloc["goals"][i]), assists=int(alloc["assists"][i]),
+                                    fouls_committed=int(alloc["fouls_committed"][i]),
+                                    # goals + assists, counted ONCE -- the same derivation
+                                    # normalize.players does at ingest (docs/70).
+                                    goal_involvements=int(alloc["goals"][i]) + int(alloc["assists"][i]),
                                     team_shots=side[X]["shots"], team_sot=side[X]["sot"],
-                                    team_tackles=side[X]["tackles"]))
+                                    team_tackles=side[X]["tackles"],
+                                    team_fouls_committed=f_tot, team_goal_involvements=g_tot + a_tot))
             gid += 1
 
     truth = dict(att=att, dfn=dfn, poss=poss, wide=wide, press=press, block=block,

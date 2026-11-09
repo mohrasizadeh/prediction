@@ -66,7 +66,41 @@ callers: `selftest_brain` builds its own frame and failed with `KeyError: 'team_
 the moment the markets were added. A caller that is studying shots has no reason to carry columns
 for markets it is not studying, and the engine should fit what it is given.
 
+## The wall: a player market needs a TEAM forecast
+
+Found by `engine_newmarket.py`, not by reading, and it is the reason neither market ships yet.
+
+A player market is *a share of a team total*, and `predict_fixture` takes that share of
+**`mu_team[stat]`** — the team's **predicted** total. So the stat must be one the **team layer
+forecasts**, and the team layer models exactly four: `STATS = ["shots", "sot", "corners",
+"tackles"]`, plus anything passed as `extra_stats` — which `engine_bridge` never passes.
+
+Fouls and goal involvements are in neither. The engine fitted both happily and then died at the
+first fixture:
+
+```
+goal_involvements  ->  KeyError 'goal_involvements'
+fouls_committed    ->  KeyError 'fouls_committed'
+```
+
+`selftest_new_markets` did not catch this, because the wiring it checks **is** right. It took a
+walk-forward run that actually predicts a fixture. Had the settings been pasted in, the next engine
+run would have raised mid-league.
+
+So `fit()` now requires three things of a market, not two: its own column, its team total, **and
+that the team layer forecasts it**. A market failing the third is simply not published — pasting it
+into the ladder produces no forecasts rather than an exception, which is what makes the settings
+safe to set.
+
+**To unblock:** the team layer has to forecast the stat. `SoccerEngine` already takes an
+`extra_stats` argument for exactly this and nothing passes it. Fouls would need
+`fouls_committed` and `fouls_committed_against` on the team frame, then threading through.
+Goal involvements would need a team involvement total — real, but a stranger quantity.
+
 ## Switching them on
+
+**Neither market can be switched on until the wall above is cleared.** The settings below are
+correct and safe — they will publish nothing until the team layer forecasts the stat.
 
 Run the backfill once — `POST /api/admin/ingest/team-totals/backfill?dry_run=false`. It calls the
 provider **zero** times: both totals are sums over player rows the database already holds. A

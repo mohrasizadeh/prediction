@@ -102,4 +102,25 @@ check(isinstance(by_stat, dict),
       "and engine.line_band_by_stat is where a ~40% market earns its own floor -- without an entry "
       "every involvement rung falls under the standard one and the market ships as nothing")
 
+# ---------------------------------------------------------------- 7. the team layer is the gate
+# Found by engine_newmarket.py, not by reading: a player market is a SHARE OF A TEAM TOTAL, and
+# predict_fixture takes that share of mu_team[stat]. So the stat must also be one the TEAM layer
+# forecasts. Fouls and involvements are in neither STATS nor extra_stats, so until the team layer
+# models them the engine fits a player model it cannot be asked for a forecast -- which was a
+# KeyError at the first fixture, mid-league-run, from a settings change alone.
+import pandas as pd
+frame = pd.DataFrame({"round": [1] * 4, "player": [1, 2, 3, 4], "team": [1, 1, 2, 2],
+                      "minutes": [90.0] * 4, "pos": ["FWD"] * 4,
+                      "shots": [1.0] * 4, "team_shots": [10.0] * 4,
+                      "fouls_committed": [1.0] * 4, "team_fouls_committed": [11.0] * 4})
+eng = E.SoccerEngine(seed=0)
+eng.stats = ["shots", "sot", "corners", "tackles"]          # the team layer, as production has it
+E.PLAYER_STATS[:] = ["shots", "fouls_committed"]
+keep = [c for c in E.PLAYER_STATS
+        if c in frame.columns and ("team_" + c) in frame.columns and c in eng.stats]
+check(keep == ["shots"],
+      f"a player market the TEAM layer cannot forecast is dropped, columns or no columns (got {keep})")
+check("fouls_committed" not in keep,
+      "so pasting it into the ladder publishes nothing rather than raising KeyError mid-run")
+
 print("selftest_new_markets: all checks passed")

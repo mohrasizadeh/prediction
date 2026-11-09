@@ -512,8 +512,15 @@ class SoccerEngine:
         # own frame (the A/B runner, the simulator, a test) has no reason to carry columns for
         # markets it is not studying. The engine fits what it is given rather than crashing on what
         # it is not -- the alternative is a KeyError in the middle of a league run (docs/70).
+        # THREE conditions, and the third is the one that was missing. A player market is a share
+        # of a team total, and predict_fixture takes that share of mu_team[stat] -- so the stat
+        # must also be one the TEAM layer forecasts. The team layer models STATS plus extra_stats;
+        # fouls and goal involvements are in neither, so fitting them produced a model that could
+        # not be asked for a forecast and died with KeyError: 'fouls_committed' at the first
+        # fixture. Dropping them here means the market is simply not published until the team layer
+        # can forecast it, which is the honest behaviour and makes the settings safe to set.
         self.player_stats = [c for c in PLAYER_STATS
-                             if c in pg.columns and ("team_" + c) in pg.columns]
+                             if c in pg.columns and ("team_" + c) in pg.columns and c in self.stats]
         self.teams = sorted(set(tg["team"]) | set(tg["opp"]))
         self.tidx = {t: i for i, t in enumerate(self.teams)}
         self.snaps = self._snapshots(tg, as_of)
