@@ -24,6 +24,7 @@ import legal_pages
 import mongo_init
 import plans as P
 import queries as Q
+from fastapi.responses import JSONResponse
 import routes_accounts
 import routes_admin
 import routes_billing
@@ -45,6 +46,14 @@ PROD = os.environ.get("ENV", "development") == "production"
 app = FastAPI(title="Forecast API", docs_url=None if PROD else "/docs", redoc_url=None, openapi_url=None if PROD else "/openapi.json")
 security_mw.install(app, D.get_db)
 security_mw.add_cors(app, [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()])
+# A day string that is not a day is a visitor's typo or a mangled bookmark, not a server fault.
+# Handled centrally so every route that takes `date=` answers the same way, including the ones
+# written after this line: /api/fixtures and /api/live both returned 500 before it existed.
+@app.exception_handler(Q.BadDay)
+def _bad_day(request, exc):
+    return JSONResponse(status_code=400, content={"error": {"code": "BAD_DATE", "message": str(exc)}})
+
+
 app.include_router(routes_accounts.router)
 app.include_router(routes_billing.router)
 app.include_router(routes_admin.router)

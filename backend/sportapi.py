@@ -551,7 +551,10 @@ def _names(db, fixtures):
 def scoreboard(db, day: str | None = None, tz_offset_min: int = 0, now=None) -> dict:
     """Tracked fixtures for the user's local day, grouped by league, live first."""
     now = now or utcnow()
-    d = datetime.fromisoformat(day).replace(tzinfo=timezone.utc) if day else now.replace(hour=0, minute=0, second=0, microsecond=0)
+    # queries.parse_day, not fromisoformat: a shape-valid but impossible date (2026-13-45) passes
+    # the route's regex and used to die here as a 500 on an unauthenticated request.
+    import queries as _Q
+    d = _Q.parse_day(day) if day else now.replace(hour=0, minute=0, second=0, microsecond=0)
     d0 = d - timedelta(minutes=tz_offset_min)
     rows = list(db.live_fixtures.find({"kickoff": {"$gte": d0, "$lt": d0 + timedelta(days=1)}}, {"_id": 0}).sort("kickoff", 1))
     names = _names(db, rows)

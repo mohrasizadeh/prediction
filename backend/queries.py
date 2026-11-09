@@ -56,10 +56,29 @@ def _names(db, coll, iids):
     return {d["iid"]: d for d in attach_images(db, coll, rows)}
 
 
+class BadDay(ValueError):
+    """A day string that is not a day. Carried as its own type so a route can answer 400 instead of
+    letting a visitor's typo become a 500."""
+
+
+def parse_day(day: str) -> datetime:
+    """The ONE place a `date=` query parameter becomes a datetime.
+
+    `datetime.fromisoformat` raises on anything it does not like, and these routes take `date` as a
+    bare required string with no validation -- so /api/fixtures?date=x and /api/live?date=2026-13-45
+    were a 500 from an unauthenticated request. A mangled bookmark or a crawler should get a
+    sentence, not a stack trace in the error log.
+    """
+    try:
+        return datetime.fromisoformat(str(day)).replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError) as e:
+        raise BadDay(f"{day!r} is not a date. Use one like 2026-11-09.") from e
+
+
 # ------------------------------------------------------------------ Today
 def fixtures_for_date(db, day: str, tz_offset_min: int = 0, league_iids=None) -> list[dict]:
     """Matches whose LOCAL date is `day`. tz_offset_min = minutes east of UTC (Toronto in winter: -300)."""
-    d0 = datetime.fromisoformat(day).replace(tzinfo=timezone.utc) - timedelta(minutes=tz_offset_min)
+    d0 = parse_day(day) - timedelta(minutes=tz_offset_min)
     d1 = d0 + timedelta(days=1)
     lf = [f["match_iid"] for f in db.live_fixtures.find({"kickoff": {"$gte": d0, "$lt": d1}, "match_iid": {"$ne": None}}, {"match_iid": 1})]
     q = {"$or": [{"kickoff": {"$gte": d0, "$lt": d1}}, {"iid": {"$in": lf}}]}      # SportAPI may have moved the kick-off into or out of the day
@@ -619,7 +638,7 @@ def finder(db, mode: str, stat: str, threshold: float, last_n: int = 10, league_
     now = now or datetime.now(timezone.utc)
     lo_t, hi_t, playing = now, None, None
     if day:
-        d0 = datetime.fromisoformat(day).replace(tzinfo=timezone.utc) - timedelta(minutes=tz_offset_min)
+        d0 = parse_day(day) - timedelta(minutes=tz_offset_min)
         lo_t, hi_t = max(d0, now - timedelta(hours=1)) if d0 < now else d0, d0 + timedelta(days=1)
         mq = {"status": "scheduled", "kickoff": {"$gte": d0, "$lt": hi_t}}
         if league_iids: mq["league_iid"] = {"$in": league_iids}
