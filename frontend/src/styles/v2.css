@@ -1997,7 +1997,18 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 
    The score now hugs the names (the teams column sizes to content; the slack goes to the lines),
    and a result carries up to three. */
-.td-row { grid-template-columns: 84px minmax(0, auto) 36px minmax(0, 1fr); }
+/* EVERY ROW SHARES ONE GRID. The teams column was `minmax(0, auto)` -- content-sized -- and each
+   <li> is its own grid container, so every row measured its own longest club name and placed the
+   score and the whole chip stack wherever that landed. Measured down a four-row Eredivisie group:
+   the score's right edge fell at 373, 338, 359, 373 and the chips' left edge at 385, 350, 371,
+   385. Thirty-five pixels of wander with nothing to explain it, which is what "nothing aligns"
+   looks like. Fixed columns either side of one flexible teams column means the row width -- which
+   is identical for every row -- decides the layout, so every edge is the same edge. */
+/* The teams column is CAPPED, not flexible, so a score sits beside the clubs it belongs to
+   instead of across a trench of white; the chips take the remaining width with their right edge
+   pinned to the row's. */
+.td-row { grid-template-columns: 56px minmax(0, 260px) 40px minmax(0, 1fr); column-gap: 16px; }
+.td-scores { justify-items: end; }
 .td-ins-set { grid-area: ins; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; min-width: 0; }
 .td-ins-set .td-ins { min-width: 0; display: inline-flex; align-items: center; gap: 6px; }
 /* Stacked once the row is reporting, so three lines read as a list rather than a sentence. */
@@ -2014,7 +2025,10 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .td-ins.is-miss .ico { color: var(--text3); }
 
 @media (max-width: 720px) {
-  .td-row { grid-template-columns: 70px minmax(0, 1fr) 30px; }
+  /* Same rule on a phone: fixed either side, one flexible column in the middle, so the score's
+     right edge and the chip band's left edge are the same on every row. 48px fits "20:00"; the
+     70px it replaces was two-thirds air in the column a 390px screen can least afford. */
+  .td-row { grid-template-columns: 48px minmax(0, 1fr) 26px; column-gap: 10px; }
   .td-ins-set { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; flex-direction: row; flex-wrap: wrap; }
   .td-ins-set.is-done { flex-direction: row; align-items: center; }
 }
