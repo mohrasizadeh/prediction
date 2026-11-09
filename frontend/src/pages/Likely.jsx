@@ -225,24 +225,15 @@ function Row({ f, open, onToggle, floor }) {
   );
 }
 
-const DECADES = [0.9, 0.8, 0.7, 0.6, 0.5];
-const BAND_WORDS = { 0.9: "90 and above", 0.8: "80 to 89", 0.7: "70 to 79", 0.6: "60 to 69", 0.5: "Below 60" };
-
 export function Likely() {
   useTitle("Most likely");
   const [win, setWin] = useState(4);
   const [confirmed, setConfirmed] = useState(false);
   const [open, setOpen] = useState(null);
   const q = useApi("/likely", { within_h: win, limit: 60 });
-  // The calibration on each band header comes from the product's own scored record, and only once
-  // there is one. Until then the band states what it can state -- how many lines sit in it. A
-  // figure typed into the page instead would be the one claim on this screen nobody could check.
+  // Only for the beta line in the footer: until 300 forecasts are scored there is no record to
+  // state, and the page says so rather than implying one.
   const rec = useApi("/track-record");
-  const bins = useMemo(() => {
-    const out = {};
-    if (rec.data?.ready) (rec.data.bins || []).forEach((b) => { out[b.from] = b; });
-    return out;
-  }, [rec.data]);
   const toggle = useCallback((id) => setOpen((o) => (o === id ? null : id)), []);
 
   const floor = q.data?.floor ?? 0.6;
@@ -252,17 +243,6 @@ export function Likely() {
   }, [q.data, confirmed]);
   const confN = (q.data?.rows || []).filter((r) => r.lineup_badge === "confirmed").length;
   const matches = new Set(rows.map((r) => r.match_iid)).size;
-
-  const grouped = useMemo(() => {
-    const out = [];
-    let cur = null;
-    rows.forEach((f) => {
-      const d = DECADES.find((x) => f.p >= x) ?? 0.5;
-      if (d !== cur) { cur = d; out.push({ band: d, n: rows.filter((r) => (DECADES.find((x) => r.p >= x) ?? 0.5) === d).length }); }
-      out.push({ f });
-    });
-    return out;
-  }, [rows]);
 
   const head = (
     <>
@@ -343,17 +323,9 @@ export function Likely() {
             <th scope="col" className="lk-label">Lineup</th>
           </tr></thead>
           <tbody>
-            {grouped.map((g, i) => (g.band != null ? (
-              <tr className="lk-grp" key={`b${g.band}`}><td colSpan={6}><span className="lk-grpin">
-                <b>{BAND_WORDS[g.band]}</b>
-                <span>
-                  {g.n} line{g.n === 1 ? "" : "s"}
-                  {bins[g.band] && ` · ${bins[g.band].n} scored · ${pct(bins[g.band].actual)} happened`}
-                </span>
-              </span></td></tr>
-            ) : (
-              <Row key={g.f.id || i} f={g.f} floor={floor} open={open === g.f.id} onToggle={() => toggle(g.f.id)} />
-            )))}
+            {rows.map((f, i) => (
+              <Row key={f.id || i} f={f} floor={floor} open={open === f.id} onToggle={() => toggle(f.id)} />
+            ))}
           </tbody>
         </table>
       )}
