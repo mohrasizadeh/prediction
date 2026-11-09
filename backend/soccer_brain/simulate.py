@@ -46,19 +46,23 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
 
     # ---- squads: 14 players, two defensive stars and two attacking stars each
     pos_list = ["FWD"] * 3 + ["MID"] * 4 + ["DEF"] * 4 + ["FWD", "MID", "DEF"]
-    base_w = {"shots": {"FWD": 3.0, "MID": 1.2, "DEF": 0.4},
-              "tackles": {"FWD": 0.7, "MID": 1.5, "DEF": 1.6},
+
+    # GK weights are 0.0 throughout: a keeper takes no shots, makes no tackles and scores no goals,
+    # so he must receive none of a team's allocation of them. His one market is saves, which is
+    # assigned directly rather than shared out.
+    base_w = {"shots": {"FWD": 3.0, "MID": 1.2, "DEF": 0.4, "GK": 0.0},
+              "tackles": {"FWD": 0.7, "MID": 1.5, "DEF": 1.6, "GK": 0.0},
               # Goals go mostly to forwards; assists are flatter and tilt to midfield. Shaped so a
               # squad contains both players who score often enough for a goal market to mean
               # something and players who do not -- which is the thing the eligibility gate has to
               # be able to tell apart.
-              "goals": {"FWD": 4.0, "MID": 1.1, "DEF": 0.25},
-              "assists": {"FWD": 1.6, "MID": 2.2, "DEF": 0.5},
+              "goals": {"FWD": 4.0, "MID": 1.1, "DEF": 0.25, "GK": 0.0},
+              "assists": {"FWD": 1.6, "MID": 2.2, "DEF": 0.5, "GK": 0.0},
               # Fouls tilt to the middle and the back, and they are far more EVEN across a squad
               # than goals are -- nearly everyone commits one sometimes, where most players never
               # score. That evenness is the point: it is what lets a fouls line clear the ordinary
               # likelihood band where a goals line cannot (docs/70).
-              "fouls_committed": {"FWD": 1.0, "MID": 1.5, "DEF": 1.3}}
+              "fouls_committed": {"FWD": 1.0, "MID": 1.5, "DEF": 1.3, "GK": 0.1}}
     players = []
     for t in range(T):
         def_idx = [k for k, p in enumerate(pos_list) if p == "DEF"]
@@ -81,6 +85,10 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 # goal specialists, so the market's value has to come from the opponent and the
                 # game rather than from one player being ten times likelier than another.
                 skill_fouls_committed=float(np.exp(rng_f.normal(0, 0.25))),
+                # How much of what reaches him a keeper keeps out. A narrow spread: the difference
+                # between keepers is real but small next to the difference between the defences in
+                # front of them, which is the team layer's job to know.
+
                 # A narrow spread, deliberately: a squad has no "foul specialists" the way it has
                 # goal specialists, so the market's value has to come from the opponent and the
                 # game rather than from one player being ten times likelier than another.
@@ -88,6 +96,16 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 q_def=1.0 if k in def_stars else rng.normal(0, 0.2),
                 q_att=1.0 if k in att_stars else rng.normal(0, 0.2)))
     squads = {t: [p for p in players if p["team"] == t] for t in range(T)}
+    # The keeper is held OUTSIDE `squads`, and every number about him comes off rng_f. The lineup
+    # loop draws once per squad member, so a fifteenth player would shift every later draw and
+    # change the league for a seed that has to keep producing the same one. He plays the full
+    # ninety, as a first-choice keeper does, so he needs no share of the lineup model at all.
+    #
+    # The narrow skill spread is the honest shape: the difference between keepers is real but
+    # small beside the difference between the defences in front of them -- which is the team
+    # layer's job to know, and the reason a saves market is worth modelling at all.
+    keepers = {t: dict(player=t * 100 + 90, team=t, pos="GK",
+                       skill_saves=float(np.exp(rng_f.normal(0, 0.18)))) for t in range(T)}
 
     matches, tgs, pgs = [], [], []
     gid = 0
@@ -168,6 +186,15 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                 # already appended to tgs, so setting it here fills the row that was stored.
                 side[X]["fouls_committed"] = f_tot
                 side[X]["goal_involvements"] = g_tot + a_tot
+                # Saves are what the opponent put on target and did not score. That is the real
+                # relationship, and it is why the market is worth modelling: it is a forecast about
+                # the DEFENCE in front of the keeper as much as about the keeper.
+                faced = int(side[Y]["sot"])
+                conceded = int(side[X]["goals_against"])
+                s_tot = max(faced - conceded, 0)
+                # A better keeper keeps out a shade more of what reaches him.
+                s_tot = int(round(s_tot * keepers[X]["skill_saves"]))
+                side[X]["saves"] = s_tot
                 for stat, tot, key in (("shots", side[X]["shots"], "shots"),
                                        ("sot", side[X]["sot"], "shots"),
                                        ("tackles", side[X]["tackles"], "tackles"),
@@ -183,6 +210,15 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                                for i, p in enumerate(squad)])
                 alloc["fouls_committed"] = (rng_f.multinomial(f_tot, wf / wf.sum()) if wf.sum() > 0
                                             else np.zeros(len(wf), int))
+                gk = keepers[X]
+                pgs.append(dict(game_id=gid, round=rnd, team=X, opp=Y, player=gk["player"],
+                                pos="GK", started=1, minutes=90.0,
+                                shots=0, sot=0, tackles=0, goals=0, assists=0,
+                                fouls_committed=0, goal_involvements=0,
+                                saves=s_tot, team_saves=s_tot,
+                                team_shots=side[X]["shots"], team_sot=side[X]["sot"],
+                                team_tackles=side[X]["tackles"],
+                                team_fouls_committed=f_tot, team_goal_involvements=g_tot + a_tot))
                 for i, p in enumerate(squad):
                     pgs.append(dict(game_id=gid, round=rnd, team=X, opp=Y, player=p["player"],
                                     pos=p["pos"], started=int(i in starters), minutes=minutes[i],
@@ -190,6 +226,7 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
                                     tackles=int(alloc["tackles"][i]),
                                     goals=int(alloc["goals"][i]), assists=int(alloc["assists"][i]),
                                     fouls_committed=int(alloc["fouls_committed"][i]),
+                                    saves=0, team_saves=s_tot,
                                     # goals + assists, counted ONCE -- the same derivation
                                     # normalize.players does at ingest (docs/70).
                                     goal_involvements=int(alloc["goals"][i]) + int(alloc["assists"][i]),
@@ -199,7 +236,7 @@ def simulate_league(n_teams=20, seed=11, wide_block=0.20, press_poss=0.12,
             # The mirrors, after both sides have their totals -- they cannot be set in the loop
             # above because the second side's numbers do not exist while the first is being built.
             for X, Y in ((h, a), (a, h)):
-                for col in ("fouls_committed", "goal_involvements"):
+                for col in ("fouls_committed", "goal_involvements", "saves"):
                     side[X][col + "_against"] = side[Y][col]
             gid += 1
 

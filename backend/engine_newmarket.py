@@ -66,7 +66,7 @@ def paired(a, b):
     return float(d.mean()), float(se), float(d.mean() / se) if se > 0 else 0.0, len(d)
 
 
-def run(market, n_teams, seed, refit_every, z_min):
+def run(market, n_teams, seed, refit_every, z_min, fit_r=False):
     ms, tg, pg, _ = simulate_league(n_teams=n_teams, seed=seed)
     own, team = market, "team_" + market
     if own not in pg.columns or team not in pg.columns:
@@ -79,7 +79,9 @@ def run(market, n_teams, seed, refit_every, z_min):
     # silently, which is exactly the trap docs/70 describes for the settings.
     E.PLAYER_STATS[:] = [market]
     E.PLAYER_THR.clear()
-    E.PLAYER_THR[market] = [0.5, 1.5, 2.5]
+    # A saves ladder starts higher: a keeper making NO save is the unusual match, so "1+ saves" is
+    # near-certain and says nothing. The interesting lines are 2+ and above.
+    E.PLAYER_THR[market] = [1.5, 2.5, 3.5, 4.5] if market == "saves" else [0.5, 1.5, 2.5]
     rounds = sorted(ms["round"].unique())
     start = max(6, len(rounds) // 3)      # enough history for a first fit
     play = [r for r in rounds if r >= start]
@@ -93,7 +95,7 @@ def run(market, n_teams, seed, refit_every, z_min):
         if i % refit_every == 0 or eng is None:
             # extra_stats, so the TEAM layer forecasts this stat too -- without it the player
             # share has no mu_team to take a share of (docs/70).
-            eng = E.SoccerEngine(seed=0, extra_stats=(market,)).fit(ms, tg, pg, r)
+            eng = E.SoccerEngine(seed=0, extra_stats=(market,), fit_player_r=fit_r).fit(ms, tg, pg, r)
             # The naive alternative, refit on exactly the same history: each player's own mean
             # rate per 90. Nothing clever -- that is the point of a baseline.
             past = pg[pg["round"] < r]
@@ -137,7 +139,10 @@ def run(market, n_teams, seed, refit_every, z_min):
                 mu_b = rate.get(int(f.player), league_rate) * (a.minutes / 90.0)
                 base_ll[key] = nb_ll(y, mu_b, rr)
                 # calibration of the 1+ line, which is the one a reader would see
-                p1 = 1.0 - math.exp(nb_ll(0, f.expected, rr))
+                # The chance of clearing the ladder's FIRST rung -- 1+ for most markets, 2+ for
+                # saves. Calibrating "1+ saves" would be measuring a near-certainty.
+                thr0 = E.PLAYER_THR[market][0]
+                p1 = 1.0 - sum(math.exp(nb_ll(k, f.expected, rr)) for k in range(int(thr0) + 1))
                 b = min(int(p1 * 10), 9)
                 buckets[b][0] += int(y >= 1)
                 buckets[b][1] += 1
@@ -151,7 +156,8 @@ def run(market, n_teams, seed, refit_every, z_min):
     mb = float(np.mean([base_ll[k] for k in eng_ll]))
     verdict = "PASSES" if (gain > 0 and z >= z_min) else "does not pass"
 
-    print(f"\n{'=' * 74}\n{market} -- simulated league, {n_teams} teams, seed {seed}\n{'=' * 74}")
+    print(f"\n{'=' * 74}\n{market} -- simulated league, {n_teams} teams, seed {seed}"
+          f"{', dispersion fitted' if fit_r else ''}\n{'=' * 74}")
     print(f"{'':4}{'':26}{'n':>7}{'mean ll':>11}{'gain':>10}{'se':>8}{'z':>7}")
     print(f"{'':4}{'his own average':26}{n:>7}{mb:>11.4f}")
     print(f"{'':4}{'the engine':26}{n:>7}{me:>11.4f}{gain:>10.4f}{se:>8.4f}{z:>7.2f}   {verdict}")
@@ -187,5 +193,6 @@ if __name__ == "__main__":
     ap.add_argument("--seed", type=int, default=3)
     ap.add_argument("--refit-every", type=int, default=3)
     ap.add_argument("--z", type=float, default=2.0)
+    ap.add_argument("--fit-r", action="store_true", help="fit the dispersion from residuals (engine.fit_player_r)")
     a = ap.parse_args()
-    sys.exit(run(a.market, a.teams, a.seed, a.refit_every, a.z))
+    sys.exit(run(a.market, a.teams, a.seed, a.refit_every, a.z, a.fit_r))

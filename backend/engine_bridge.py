@@ -51,7 +51,12 @@ MARKETS_WITH_DATA: set[str] = set()
 PLAYER_MARKET_COLS = {"shots": ("shots", "team_shots"), "sot": ("sot", "team_sot"),
                       "tackles": ("tackles", "team_tackles"),
                       "fouls_committed": ("fouls_committed", "team_fouls_committed"),
-                      "goal_involvements": ("goal_involvements", "team_goal_involvements")}
+                      "goal_involvements": ("goal_involvements", "team_goal_involvements"),
+                      "saves": ("saves", "team_saves")}
+# Which positions a market is published for. A keeper has no business carrying a "1+ shots" line
+# and an outfielder has no business carrying a saves line, and `engine.exclude_positions` is a
+# blunt instrument that can only remove a player from EVERY market at once (docs/70).
+MARKET_POSITIONS = {"saves": ("GK",)}
 
 
 # ------------------------------------------------------------------ frames
@@ -86,6 +91,11 @@ def build_frames(db, league_iid: int, history_rounds: int):
 
     pg = pd.DataFrame(list(db.player_match_stats.find({"match_iid": {"$in": list(set(tg["game_id"]))}}, {"_id": 0})))
     excl = set(S.get(db, "engine.exclude_positions"))
+    # A keeper is excluded from every market by that setting, which is the only tool it has. When
+    # the saves market is asked for, keepers have to reach the frame -- MARKET_POSITIONS then
+    # decides, per market, that they get saves and nothing else (docs/70).
+    if "saves" in E.PLAYER_THR:
+        excl.discard("GK")
     pg = pg.rename(columns={"match_iid": "game_id", "team_iid": "team", "opp_iid": "opp", "player_iid": "player"})
     pg = pg[pg["pos"].notna() & ~pg["pos"].isin(excl)]
     # WHO ACTUALLY PLAYED, taken before the filters below and never thinned by them.
@@ -117,11 +127,19 @@ def build_frames(db, league_iid: int, history_rounds: int):
     # An opponent's value is mirrored across the fixture the same way sot_against is.
     if "fouls" in tg.columns:
         tg["fouls_committed"] = tg["fouls"]
+    if "saves" in pg.columns:
+        # A keeper IS his side's saves, so the team total is the sum of the side's player saves --
+        # which for every real squad is one keeper's number. It still goes through the team layer,
+        # and that is the point: the team layer is what knows this side concedes shots, so the
+        # keeper's near-1.0 share of a well-forecast team total is a real forecast rather than the
+        # degenerate constant it would be if the share were doing the work (docs/70).
+        sv = pg.groupby(["game_id", "team"])["saves"].sum().rename("saves").reset_index()
+        tg = tg.merge(sv, on=["game_id", "team"], how="left")
     if "goal_involvements" in pg.columns:
         inv = (pg.groupby(["game_id", "team"])["goal_involvements"].sum()
                  .rename("goal_involvements").reset_index())
         tg = tg.merge(inv, on=["game_id", "team"], how="left")
-    for col in ("fouls_committed", "goal_involvements"):
+    for col in ("fouls_committed", "goal_involvements", "saves"):
         if col not in tg.columns:
             continue
         mirror = tg[["game_id", "team", col]].rename(columns={"team": "opp", col: "_opp_val"})
@@ -152,7 +170,18 @@ def build_frames(db, league_iid: int, history_rounds: int):
             log.info("engine: market %r has no data in this league (%s)", mkt, ", ".join(missing))
         else:
             MARKETS_WITH_DATA.add(mkt)
-    pg = pg.dropna(subset=[c for c in PLAYER_REQUIRED if c in pg.columns])
+    # Position-aware, because a keeper's required columns are not an outfielder's. normalize.players
+    # sets tackles to None for a GK deliberately -- keepers have no defence group -- and tackles is
+    # in PLAYER_REQUIRED, so a flat dropna deletes every keeper row in the league. The saves market
+    # cannot exist without them.
+    req_out = [c for c in PLAYER_REQUIRED if c in pg.columns]
+    req_gk = [c for c in ("minutes", "saves", "team_saves") if c in pg.columns]
+    is_gk = pg["pos"] == "GK"
+    if is_gk.any() and len(req_gk) == 3:
+        pg = pd.concat([pg[~is_gk].dropna(subset=req_out), pg[is_gk].dropna(subset=req_gk)],
+                       ignore_index=True)
+    else:
+        pg = pg.dropna(subset=req_out)
     pg = pg.merge(ms[["game_id", "round"]], on="game_id")
     pg["started"] = pg["started"].astype(int)
     for c in ("team", "opp", "player"):
@@ -307,6 +336,7 @@ STAT_LABEL = {"shots": ("shot", "shots"), "sot": ("shot on target", "shots on ta
               # and adding the marginals would double-count that overlap. The column has been
               # ingested and backfilled since normalize.DERIVED_PLAYER_COLS; this only names it.
               "fouls_committed": ("foul", "fouls"), "goal_involvements": ("goal or assist", "goals or assists"),
+              "saves": ("save", "saves"),
               "corners": ("corner", "corners"), "fouls": ("foul", "fouls"), "yellow": ("yellow card", "yellow cards"),
               "goals": ("goal", "goals"), "match_goals": ("goal", "goals")}
 

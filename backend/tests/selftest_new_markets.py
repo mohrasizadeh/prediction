@@ -86,10 +86,11 @@ check(E.PLAYER_STATS == ["shots"],
       f"a market the engine cannot fit is dropped rather than guessed at (got {E.PLAYER_STATS})")
 
 # ---------------------------------------------------------------- 5. the per-run reset
+CANON = list(E.ALL_PLAYER_STATS)                   # whatever the engine currently models
 E.PLAYER_STATS[:] = ["shots"]                      # as if a previous league had dropped the rest
-check(len(E.ALL_PLAYER_STATS) == 5, "the canonical list is untouched by a narrowing")
-E.PLAYER_STATS[:] = list(E.ALL_PLAYER_STATS)       # what build_frames does on the way in
-check(len(E.PLAYER_STATS) == 5,
+check(list(E.ALL_PLAYER_STATS) == CANON, "the canonical list is untouched by a narrowing")
+E.PLAYER_STATS[:] = list(E.ALL_PLAYER_STATS)       # what configure_engine does on the way in
+check(list(E.PLAYER_STATS) == CANON,
       "so a market dropped for one league is restored for the next -- run_league is a per-league loop")
 
 # ---------------------------------------------------------------- 6. the band is the gate
@@ -122,5 +123,15 @@ check(keep == ["shots"],
       f"a player market the TEAM layer cannot forecast is dropped, columns or no columns (got {keep})")
 check("fouls_committed" not in keep,
       "so pasting it into the ladder publishes nothing rather than raising KeyError mid-run")
+
+# ---------------------------------------------------------------- 8. keepers and the rest
+check(E.MARKET_POSITIONS.get("saves") == ("GK",),
+      "saves is a keeper's market and nobody else's")
+check("saves" not in [m for m in E.ALL_PLAYER_STATS if m not in E.MARKET_POSITIONS],
+      "...and every OTHER market excludes keepers, so a GK never carries a 1+ shots line")
+check("saves" in E.DEFAULT_R_PLAYER and "saves" in EB.STAT_LABEL,
+      "saves has a dispersion and words like any other market")
+check(EB.PLAYER_MARKET_COLS["saves"] == ("saves", "team_saves"),
+      "and it needs a team total like any other market -- a keeper's share of his side's saves")
 
 print("selftest_new_markets: all checks passed")

@@ -97,6 +97,48 @@ safe to set.
 `fouls_committed` and `fouls_committed_against` on the team frame, then threading through.
 Goal involvements would need a team involvement total — real, but a stranger quantity.
 
+## Saves, and the market that passed the gate and still must not ship
+
+Keepers are a third case. `engine.exclude_positions` is `["GK"]` and can only remove a player from
+**every** market at once, so the engine gained a per-market position map: `MARKET_POSITIONS`, with
+`saves: ("GK",)`. A keeper gets keeper markets and nobody else's; everyone else gets the rest and
+never saves. `build_frames`' `dropna` had to become position-aware too — `normalize.players` sets a
+keeper's tackles to `None` on purpose, and tackles is in `PLAYER_REQUIRED`, so a flat `dropna`
+deleted every keeper in the league.
+
+The share model turned out to be **right** for saves, not degenerate as first thought. A keeper is
+his side's saves, so his share is ~1.0 — but the team layer forecasts the team total, and that is
+where the work happens: it knows this side concedes shots. A near-1.0 share of a well-forecast team
+total is a real forecast.
+
+**And then it failed calibration.** It says 55% and the thing happens 88% of the time — a 33-point
+gap, against 4 for involvements and 10 for fouls:
+
+```
+saves   n=180   gain 0.4075   z 4.18   PASSES the gate
+        said ~55% -> happened 88%
+```
+
+The mean is close (predicted 2.47, actual 2.67), and fitting the dispersion from residuals left the
+gap unchanged. The cause is the model family:
+
+```
+mean 2.5, P(2+) under the negative binomial:
+  r=10 -> 68%    r=50 -> 71%    r=1000 -> 71%   (the Poisson limit is its maximum)
+observed: 88%
+```
+
+The counts are **under-dispersed** — tighter than Poisson — which a negative binomial cannot
+represent at any `r`. Every other market here is over-dispersed, which is why the family was the
+right choice for them.
+
+**Caveat worth keeping.** This may be an artifact of the simulator, where saves are
+`shots on target faced − goals conceded` and near-deterministic once the match is drawn. Real saves
+inherit the spread of real shots faced and may be over-dispersed. The finding is *saves fails here
+and the mechanism is known*, not *saves can never work*. It needs the real data to settle.
+
+**So: hold saves.** The plumbing is complete and the market is off.
+
 ## Switching them on
 
 **Neither market can be switched on until the wall above is cleared.** The settings below are

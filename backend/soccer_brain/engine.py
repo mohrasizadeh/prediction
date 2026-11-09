@@ -42,7 +42,7 @@ STATS = ["shots", "sot", "corners", "tackles"]
 # keys because a stat can only be fitted when its column and its team total are both in the frame;
 # engine_bridge.configure_engine narrows this to what the data actually carries, so a market named
 # in the settings but missing from the feed is dropped rather than raising mid-run (docs/70).
-ALL_PLAYER_STATS = ["shots", "sot", "tackles", "fouls_committed", "goal_involvements"]
+ALL_PLAYER_STATS = ["shots", "sot", "tackles", "fouls_committed", "goal_involvements", "saves"]
 PLAYER_STATS = list(ALL_PLAYER_STATS)   # narrowed per run; restored from ALL_ at the start of each
 PLAYER_THR = {"shots": [0.5, 1.5], "sot": [0.5], "tackles": [1.5, 2.5]}
 TEAM_THR = {"corners": [4.5], "shots": [11.5]}
@@ -59,7 +59,12 @@ TEAM_DIMS = {"shots": (0, 1), "corners": (2, 3), "tackles": (4, 5)}
 # shots. `fit_player_r` replaces all of these from the data when it is on, which is the point of
 # these being a starting value rather than a claim.
 DEFAULT_R_PLAYER = {"shots": 6.0, "sot": 5.0, "tackles": 10.0,
-                    "fouls_committed": 6.0, "goal_involvements": 3.0}
+                    "fouls_committed": 6.0, "goal_involvements": 3.0, "saves": 5.0}
+
+# Which positions a market may be published for; absent means every position. A keeper must not
+# carry a "1+ shots" line and an outfielder must not carry a saves line, and exclude_positions can
+# only remove a player from every market at once (docs/70).
+MARKET_POSITIONS: dict[str, tuple[str, ...]] = {"saves": ("GK",)}
 # Prior strength of a player's share of his team's total, in team-stat units (docs/25: tackles 80 beat 40, z +5.1;
 # shots and on target are best at 40).
 DEFAULT_PLAYER_PRIOR = {"shots": 40.0, "sot": 40.0, "tackles": 40.0}
@@ -1139,6 +1144,7 @@ class SoccerEngine:
             # columns the frame never carried has no rho, no posterior and no mu, so walking it
             # here would fail on the first lookup instead of simply not being published.
             for s in self.player_stats:
+                allowed = MARKET_POSITIONS.get(s)
                 post = {}
                 rate = {}
                 opp_pos_f = {}
@@ -1155,6 +1161,16 @@ class SoccerEngine:
                     continue
                 dlog = self._opp_log_spread(s, snap)
                 for pid, info in squad.items():
+                    # A keeper gets keeper markets and nobody else's; everyone else gets the
+                    # rest. Filtered HERE and not where the shares are built: the share is a share
+                    # OF THE SQUAD, so `rate` and the normaliser Z need every member of it, and
+                    # skipping them earlier left Z summing over players it had no rate for.
+                    pos_ = info.get("pos")
+                    if allowed is not None:
+                        if pos_ not in allowed:
+                            continue
+                    elif pos_ == "GK":
+                        continue          # an outfield market is not a keeper's
                     sc, Em, pplay, ps_start = scen_all[pid]
                     if pplay < 0.15:
                         continue
@@ -1166,7 +1182,11 @@ class SoccerEngine:
                     contrib = dict(grp[s])
                     Em_c = Em / max(pplay, 1e-3) if self.cond_play else Em      # minutes if he plays (docs/27)
                     contrib["minutes"] = float(np.log(max(Em_c, 1.0) / 70.0))
-                    contrib["role"] = float(np.log(max(post[pid].mean, 1e-6) / self.rho[s][info["pos"]]))
+                    # A positional mean of zero is a real answer -- keepers take no shots -- and
+                    # dividing by it is not. The filter above means this should not be reached,
+                    # but a league with an unmapped position would otherwise crash the whole run.
+                    rho_p = self.rho[s].get(info["pos"]) or 0.0
+                    contrib["role"] = float(np.log(max(post[pid].mean, 1e-6) / rho_p)) if rho_p > 0 else 0.0
                     if opp_pos_f[pid] != 1.0:
                         contrib["opp_role"] = float(np.log(opp_pos_f[pid]))
                     g = info["g"]; ap = g[g["minutes"] > 0]
