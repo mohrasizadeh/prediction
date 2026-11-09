@@ -3007,5 +3007,25 @@
     "public": false,
     "applies_at": "immediately",
     "help": "odds (default) compares the change in log-odds, so 'twice as likely as usual' counts the same whether a line is usually 20% or usually 90%. points compares plain percentage points, which favours markets whose base rate sits mid-table because they have more room to move (docs/48). Only affects ranking; the 'usually X%' a card shows is unchanged."
+  },
+  {
+    "key": "social.enabled",
+    "label": "Publish scheduled posts",
+    "type": "boolean",
+    "default": false,
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "When this is off the queue still fills and you can still approve posts, but nothing is handed to your automation tool. Turn it on once a webhook endpoint subscribed to post.due has been tested."
+  },
+  {
+    "key": "social.send_limit",
+    "label": "Posts handed over per run",
+    "type": "number",
+    "default": 20,
+    "group": "Marketing",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "How many due posts are handed to the webhook in one job run. Instagram caps API publishing per account per day, so a large backlog is better drained steadily than all at once."
   }
 ]

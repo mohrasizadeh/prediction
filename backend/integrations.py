@@ -29,7 +29,11 @@ import settings_store as S
 import transports as T
 
 EVENTS = ("user.signed_up", "user.verified", "subscription.started", "subscription.canceled", "payment.succeeded", "payment.failed",
-          "newsletter.subscribed", "newsletter.unsubscribed", "popup.submitted", "contact.received")
+          "newsletter.subscribed", "newsletter.unsubscribed", "popup.submitted", "contact.received",
+          # docs/64: an approved ad whose time has come. Unlike the others this is a COMMAND, not a
+          # notification -- the receiving Zap publishes it -- but the delivery needs exactly what
+          # this outbox already gives: a signature, a backoff, and a log of every attempt.
+          "post.due")
 BACKOFF = [timedelta(minutes=1), timedelta(minutes=5), timedelta(minutes=30), timedelta(hours=2), timedelta(hours=12)]
 MAX_ENDPOINTS = 10
 MAX_ATTEMPTS = 6

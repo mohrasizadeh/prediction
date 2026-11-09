@@ -908,10 +908,19 @@ def limits(db) -> dict:
             "max_files": MAX_ASSETS, "video_mimes": list(VIDEO_MIMES)}
 
 
+def base_url() -> str:
+    """Where this install answers from, scheme and host included.
+
+    One reader of PUBLIC_BASE_URL, because everything that has to reach back in -- an image in an
+    e-mail, a file Instagram fetches, a callback an automation tool posts to -- has to agree about
+    it, and a second copy is a second thing to get wrong on the day the domain changes.
+    """
+    return os.environ.get("PUBLIC_BASE_URL", "http://localhost:3000").rstrip("/")
+
+
 def asset_abs_url(aid: str) -> str:
     """The whole address, scheme and host included. A relative one is broken in every e-mail client."""
-    base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:3000").rstrip("/")
-    return f"{base}/api/site/assets/{aid}"
+    return f"{base_url()}/api/site/assets/{aid}"
 
 
 def _out(r: dict) -> dict:

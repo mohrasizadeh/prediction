@@ -95,6 +95,8 @@ def ensure_indexes(db) -> list[str]:
     ix("forecasts", [("is_current", ASC), ("tier", ASC), ("p", DESC)])
     ix("forecasts", [("player_iid", ASC), ("is_current", ASC)])
     ix("forecasts", [("fkey", ASC), ("run_id", ASC)], unique=True)
+    ix("social_posts", [("status", ASC), ("scheduled_at", ASC)])
+    ix("social_posts", [("scheduled_at", ASC)])
     ix("forecast_outcomes", [("forecast_id", ASC)], unique=True)
     ix("forecast_outcomes", [("scored_at", DESC)])
     ix("referee_stats", [("referee", ASC), ("league_iid", ASC)], unique=True)

@@ -135,7 +135,11 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
             if _run(db, "referees", refs, now) is not None: out["ran"].append("referees")
         if left():                                                       # copy list members out, deliver webhooks (both retry on their own)
             import integrations as INT
-            res = _run(db, "integrations", lambda: {**INT.process_audience(db, now=now), **INT.deliver_pending(db, now=now)}, now)
+            import social as SOC
+            # docs/64: due posts are handed over BEFORE the outbox is drained, so a post that comes
+            # due this tick goes out on this tick rather than waiting for the next one.
+            res = _run(db, "integrations", lambda: {**SOC.send_due(db, now=now, limit=int(S.get(db, "social.send_limit") or 20)),
+                                                    **INT.process_audience(db, now=now), **INT.deliver_pending(db, now=now)}, now)
             if res and any(res.values()): out["ran"].append("integrations")
         if left() and "images" in forced:
             import images as IMG
