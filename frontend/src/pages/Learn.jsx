@@ -6,7 +6,11 @@ import MarkdownPage from "./Markdown";
 import { useTitle } from "../components/Football";
 import { ChipsRow, TierBadge } from "../components/ui";
 
-const PicCard = () => <div className="ln-mini"><span><b>2+ shots</b><b className="ln-up">78%</b></span><i><s style={{ width: "78%" }} /></i></div>;
+// The likelihood is set like the likelihood on a real card: plain text colour (v2.css §3
+// `.k-fc-p`). It was green here, which spends `--up` -- the product's word for "above this
+// player's usual game" -- on a bare percentage, so the one picture teaching a reader to read a
+// card taught them a colour the card does not use.
+const PicCard = () => <div className="ln-mini"><span><b>2+ shots</b><b>78%</b></span><i><s style={{ width: "78%" }} /></i></div>;
 const PicTiers = () => <div className="ln-tiers"><TierBadge tier="Strong" testid="ln-tier-strong" /><TierBadge tier="Solid" testid="ln-tier-solid" /><TierBadge tier="Watch" testid="ln-tier-watch" /></div>;
 const PicLineup = () => <div className="ln-ba"><span><small>Before</small><b className="ln-solid">66%</b></span><span aria-hidden="true">→</span><span><small className="ln-up">Lineup in</small><b className="ln-up">78%</b></span></div>;
 const PicScore = () => <svg className="ln-svg" viewBox="0 0 120 80" aria-hidden="true"><line x1="10" y1="70" x2="110" y2="10" /><polyline points="22,62 44,50 64,38 86,25 104,14" /><circle cx="44" cy="50" r="4" /><circle cx="64" cy="38" r="6" /><circle cx="86" cy="25" r="5" /></svg>;

@@ -92,6 +92,7 @@
 .fg-games a { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; grid-template-areas: "dot opp res" "dot who res"; column-gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; color: var(--text); text-decoration: none; transition: background-color .15s ease; }
 .fg-games a:hover { background: var(--surface2); }
 .fg-dot { grid-area: dot; width: 10px; height: 10px; border-radius: 50%; } .fg-dot--us { background: var(--up); } .fg-dot--them { background: var(--down); } .fg-dot--none { background: var(--border-strong, var(--border)); }
+.fg-opp { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .fg-opp { grid-area: opp; font-weight: 600; } .fg-games .small { grid-area: who; } .fg-res { grid-area: res; font-variant-numeric: tabular-nums; }
 .fg-res--w { color: var(--up); } .fg-res--l { color: var(--down); }
 .ref-badge { width: 64px; height: 64px; border-radius: 18px; flex: none; background: linear-gradient(135deg, #f5c518 0 50%, #e5484d 50% 100%); box-shadow: inset 0 0 0 3px var(--surface1); }
@@ -120,7 +121,10 @@
 .ra-fix { display: grid; gap: 2px; color: var(--text); text-decoration: none; min-width: 0; }
 .ra-ref { display: grid; gap: 2px; min-width: 0; } .ra-ref a { color: var(--text); }
 .ra-tag { justify-self: start; margin-top: 2px; padding: 2px 8px; border-radius: 999px; font-size: .75rem; background: var(--surface2); color: var(--text2); }
-.ra-tag.is-high { background: color-mix(in srgb, #f5c518 22%, transparent); color: var(--text); } .ra-tag.is-low { background: color-mix(in srgb, var(--up) 14%, transparent); }
+/* League.jsx sets .is-low when the referee's cards are BELOW the league average and .is-high
+   above it. --up was on the low one, so again the colours were inverted; and is-high was a
+   raw hex that no theme can follow. Both are tokens now, the right way round. */
+.ra-tag.is-high { background: color-mix(in srgb, var(--up) 16%, transparent); color: var(--text); } .ra-tag.is-low { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--text); }
 .book-alert { display: grid; gap: 8px; padding: 18px; margin-bottom: 16px; border-color: color-mix(in srgb, #f5c518 45%, var(--border)); }
 .fg-pair { display: grid; gap: 14px; } @media (min-width: 900px) { .fg-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 @media (max-width: 480px) { .hero-team .chips { display: none; } .hero-mid time { font-size: 12px; } }
@@ -158,7 +162,7 @@
 .cell-person span { overflow: hidden; text-overflow: ellipsis; }
 .grid .gcol { text-align: center; } .grid .gcol small { display: block; font-weight: 500; }
 .grid .gcell { text-align: center; }
-.grid .gcell.hit { background: color-mix(in srgb, var(--up) 16%, transparent); font-weight: 700; }
+.grid .gcell.hit { background: color-mix(in srgb, var(--hit) 16%, transparent); font-weight: 700; }
 
 .mlist { list-style: none; margin: 0 0 16px; padding: 0 16px; }
 .mrow { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-areas: "t t t" "h s a"; gap: 6px 10px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); color: var(--text); text-decoration: none; }
@@ -207,7 +211,7 @@
 
 .chart { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 180px; padding-top: 18px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
 .chart-bar { flex: 1; min-width: 0; background: var(--text3); border-radius: 6px 6px 0 0; position: relative; opacity: .55; transition: height .4s cubic-bezier(.2,0,0,1); }
-.chart-bar.hit { background: var(--up); opacity: 1; }
+.chart-bar.hit { background: var(--hit); opacity: 1; }
 .chart-bar i { position: absolute; top: -18px; left: 0; right: 0; text-align: center; font-style: normal; font-size: 11px; color: var(--text2); }
 .chart-line { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--tier-watch); z-index: 1; pointer-events: none; }
 .next-link { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; color: var(--text); text-decoration: none; margin-bottom: 14px; font-weight: 600; }

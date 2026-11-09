@@ -7,6 +7,7 @@ import { post } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Field, FormError, PasswordField } from "../components/Ui";
 import Icon from "../components/Icon";
+import { Skeleton } from "../components/ui";
 
 const safe = (n) => (n && n.startsWith("/") && !n.startsWith("//") ? n : "/");
 
@@ -262,7 +263,7 @@ export function ResetPassword() {
   if (ok) return <AuthCard title="Password set" lead="Every device was signed out. Sign in with your new password." icon="check" testid="reset-ok"><div className="form"><Link to="/sign-in" className="btn btn--primary btn--lg btn--block" data-testid="reset-signin">Sign in</Link></div></AuthCard>;
   if (live === null) return (
     <AuthCard title="Set a new password" lead="Checking your link." icon="key" testid="reset-checking">
-      <div className="form"><p className="form-foot">One moment.</p></div>
+      <div className="form"><Skeleton shape="row" count={2} testid="reset-checking-loading" /></div>
     </AuthCard>
   );
   if (!live) return <DeadResetLink />;
@@ -314,7 +315,7 @@ export function TwoFactorSetup({ onFinished }) {
     try { const r = await post("/account/2fa/confirm", { code }); setCodes(r.recovery_codes || []); } catch (x) { setErr(x); } finally { setBusy(false); }
   };
   if (codes) return <RecoveryCodes codes={codes} onDone={onFinished} />;
-  if (!begin) return err ? <FormError error={err} /> : <div className="skel" style={{ height: 200 }} />;
+  if (!begin) return err ? <FormError error={err} /> : <Skeleton shape="card" count={1} testid="twofa-loading" />;
   return (
     <form className="form" onSubmit={confirm} data-testid="twofa-setup">
       <ol className="steps">

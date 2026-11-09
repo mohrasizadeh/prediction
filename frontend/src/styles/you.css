@@ -36,13 +36,18 @@
 .y-feed > .k-sec { margin-top: 8px; }
 .y-item { display: grid; gap: 8px; padding: 14px 16px; border-radius: 16px; background: var(--surface1); border: 1px solid var(--border); color: var(--text); text-decoration: none; transition: border-color .15s; }
 .y-item:hover { border-color: var(--border-strong); }
-.y-item--row { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+/* Fixed either side of a flexible middle. Both outer tracks were `auto`, so the picture column
+   sized to whichever row had the larger face and the tag column to whichever had the longest
+   word -- "Did not happen" against "Starts" -- and no two rows shared an edge. 128px holds the
+   longest outcome word; every row now draws picture, words, tag in that order. */
+.y-item--row { grid-template-columns: 40px minmax(0, 1fr) 128px; align-items: center; gap: 12px; }
+.y-item--row > :last-child { justify-self: end; }
 .y-item-k { display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); }
 .y-item-k i { font-style: normal; text-transform: none; letter-spacing: 0; font-weight: 600; }
 .y-vs { display: flex; align-items: center; gap: 10px; } .y-vs b { font-size: 17px; }
 .y-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; background: var(--surface2); color: var(--text2); white-space: nowrap; }
-.y-tag--hit { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
-.y-tag--miss { background: color-mix(in srgb, var(--down) 16%, transparent); color: var(--down); }
+.y-tag--hit { background: color-mix(in srgb, var(--hit) 18%, transparent); color: var(--hit); }
+.y-tag--miss { background: color-mix(in srgb, var(--miss) 16%, transparent); color: var(--miss); }
 .y-out { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; }
 .y-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .y-note { display: block; margin-top: 4px; color: var(--text2); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -64,7 +69,10 @@
 .tr-line { fill: none; stroke: var(--up); stroke-width: 2.5; }
 .tr-dot { fill: var(--up); stroke: var(--surface1); stroke-width: 2; }
 .tr-tiers { display: grid; gap: 12px; }
-.tr-tier { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px; }
+/* A grid, not a flex row: the left cell held the tier badge and "1,180 forecasts" with no
+   min-width:0, so each tile's figure sat wherever its own label happened to end rather than on a
+   shared x. The tiles are equal width, so the column now lines up by construction. */
+.tr-tier { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 18px; }
 .tr-tier > span:first-child { display: grid; gap: 6px; justify-items: start; }
 .tr-of { display: grid; justify-items: end; } .tr-of b { font-size: clamp(1.5rem, 3.6vw, 2.5rem); color: var(--tone); line-height: 1; }
 .tr-wait { display: grid; gap: 10px; justify-items: start; }
@@ -98,9 +106,12 @@
 .pr-card header { display: flex; justify-content: space-between; align-items: center; } .pr-card h2 { margin: 0; font-size: 22px; }
 .pr-price { margin: 0; font-size: 36px; font-weight: 800; letter-spacing: -0.02em; } .pr-price small { font-size: 14px; font-weight: 500; color: var(--text2); letter-spacing: 0; }
 .pr-rows { list-style: none; margin: 6px 0 10px; padding: 0; }
-.pr-rows li { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 46px; border-top: 1px solid var(--border); }
-.pr-rows li > :last-child { color: var(--up); } .pr-rows li.off { color: var(--text3); } .pr-rows li.off > :last-child { color: var(--text3); }
-.pr-unl { color: var(--up); }
+.pr-rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 46px; border-top: 1px solid var(--border); }
+/* --up means above the subject's usual. A plan's feature value is not above anything, so it
+   takes plain text and the greyed .off row carries the absence, as it already did. The pair is
+   a grid column rather than space-between, so "25 / 3 / 10" line up down a plan card. */
+.pr-rows li > :last-child { color: var(--text); justify-self: end; text-align: right; font-variant-numeric: tabular-nums; } .pr-rows li.off { color: var(--text3); } .pr-rows li.off > :last-child { color: var(--text3); }
+.pr-unl { color: var(--text); }
 .lk-tag { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0 10px; border-radius: 999px; border: 0; background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); font: inherit; font-size: 12.5px; font-weight: 750; cursor: pointer; vertical-align: middle; transition: background-color .15s; }
 .lk-tag:hover { background: color-mix(in srgb, var(--brand) 24%, transparent); }
 .lk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -141,7 +152,11 @@
 /* R7: data that used to be hidden */
 .k-fc-tier { display: grid; justify-items: end; gap: 2px; } .k-fc-note { font-size: 11px; color: var(--text3); text-align: right; max-width: 14ch; line-height: 1.2; }
 .mc-ref { margin: 8px 0 0; font-size: 13px; }
-.ref-up { color: var(--down); } .ref-down { color: var(--up); }
+/* Referees.jsx sets .ref-up when factor > 1.03 -- ABOVE the usual -- and .ref-down below it.
+   These were the wrong way round, so a referee who cards more than usual wore the
+   below-usual colour and vice versa: the one screen that teaches the reader what the two
+   colours mean was teaching the opposite. */
+.ref-up { color: var(--up); } .ref-down { color: var(--down); }
 .ins-bar [role="radiogroup"] button, .ins-bar [role="tablist"] button { white-space: nowrap; }
 @media (max-width: 560px) { .ins-bar > :first-child { max-width: 100%; overflow-x: auto; } .ins-bar [role="radiogroup"] button { font-size: 13px; padding-left: 10px; padding-right: 10px; } }
 .ins-bar { flex-wrap: wrap; gap: 8px; }

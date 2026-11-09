@@ -4,9 +4,9 @@ import { useApi } from "../lib/useApi";
 import { Crest } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { kickoff, shortDay, useTitle } from "../components/Football";
+import { pct } from "../lib/copy";
 
 const f2 = (v) => (v == null ? "–" : v.toFixed(2));
-const pc = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : "–");
 export const refPath = (name) => `/referee/${encodeURIComponent(name)}`;
 
 function Tiles({ d }) {
@@ -17,8 +17,8 @@ function Tiles({ d }) {
       <div><dt>Yellows a game</dt><dd data-testid="referee-yellow-pg">{f2(d.per_game.yellow)}</dd></div>
       <div><dt>Reds a game</dt><dd>{f2(d.per_game.red)}</dd></div>
       <div><dt>Penalties a game</dt><dd>{f2(d.per_game.pens)}</dd></div>
-      <div><dt>Home wins</dt><dd>{pc(t.home_wins, t.matches)}</dd></div>
-      <div><dt>Draws</dt><dd>{pc(t.draws, t.matches)}</dd></div>
+      <div><dt>Home wins</dt><dd>{pct(t.matches ? t.home_wins / t.matches : null)}</dd></div>
+      <div><dt>Draws</dt><dd>{pct(t.matches ? t.draws / t.matches : null)}</dd></div>
     </dl>
   );
 }
@@ -38,7 +38,13 @@ export default function Referee() {
       {d.upcoming.length > 0 && (
         <section className="ref-section"><h2 className="h3">Next matches</h2>
           <ul className="mlist card" data-testid="referee-upcoming">{d.upcoming.map((m) => (
-            <li key={m.match_id}><Link className="ref-row" to={`/match/${m.match_id}`}><span className="team"><Crest team={m.home} size={20} />{m.home?.name} v {m.away?.name}<Crest team={m.away} size={20} /></span><small className="muted">{m.league?.name} · {kickoff(m.kickoff)}</small></Link></li>
+            <li key={m.match_id}><Link className="ref-row" to={`/match/${m.match_id}`}>
+              <span className="td-teams" aria-label={`${m.home?.name} against ${m.away?.name}`}>
+                <span className="td-side td-side--h"><span className="td-name">{m.home?.name}</span><Crest team={m.home} size={20} /></span>
+                <span className="td-scores td-scores--pre" aria-hidden="true">v</span>
+                <span className="td-side td-side--a"><Crest team={m.away} size={20} /><span className="td-name">{m.away?.name}</span></span>
+              </span>
+              <small className="muted">{m.league?.name} · {kickoff(m.kickoff)}</small></Link></li>
           ))}</ul>
         </section>
       )}
@@ -50,11 +56,19 @@ export default function Referee() {
       )}
       <section className="ref-section"><h2 className="h3">Matches</h2>
         {!d.games.length ? <Empty icon="flag">No finished matches yet.</Empty> : (
-          <div className="tbl-wrap"><table className="tbl" data-testid="referee-games"><thead><tr><th scope="col">Match</th><th scope="col">Score</th><th scope="col">Yellows</th><th scope="col">Reds</th><th scope="col">Penalties</th></tr></thead>
-            <tbody>{d.games.map((g) => (
-              <tr key={g.match_id} data-testid="referee-game"><td><Link to={`/match/${g.match_id}`} className="team"><Crest team={g.home} size={18} />{g.home?.name} v {g.away?.name}</Link><small className="muted sub-note">{g.league?.name} · {shortDay(g.kickoff)}</small></td>
-                <td className="num">{g.score}</td><td className="num">{g.yellow ?? "–"}</td><td className="num">{g.red ?? "–"}</td><td className="num">{g.pens ?? "–"}</td></tr>
-            ))}</tbody></table></div>
+          <div className="tbl-wrap"><table className="tbl" data-testid="referee-games"><thead><tr><th scope="col">Match</th><th scope="col">Yellows</th><th scope="col">Reds</th><th scope="col">Penalties</th></tr></thead>
+            <tbody>{d.games.map((g) => {
+              const [hs, as] = String(g.score ?? "").split("-");
+              return (
+              <tr key={g.match_id} data-testid="referee-game"><td><Link to={`/match/${g.match_id}`} className="ra-fix">
+                  <span className="td-teams" aria-label={`${g.home?.name} ${hs}, ${g.away?.name} ${as}`}>
+                    <span className="td-side td-side--h"><span className="td-name">{g.home?.name}</span><Crest team={g.home} size={20} /></span>
+                    <span className="td-scores"><b className="td-sc">{hs}</b><span className="td-dash" aria-hidden="true">&ndash;</span><b className="td-sc">{as}</b></span>
+                    <span className="td-side td-side--a"><Crest team={g.away} size={20} /><span className="td-name">{g.away?.name}</span></span>
+                  </span></Link><small className="muted sub-note">{g.league?.name} · {shortDay(g.kickoff)}</small></td>
+                <td className="num">{g.yellow ?? "–"}</td><td className="num">{g.red ?? "–"}</td><td className="num">{g.pens ?? "–"}</td></tr>
+              );
+            })}</tbody></table></div>
         )}
       </section>
     </section>

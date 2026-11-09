@@ -20,6 +20,7 @@ import { useApi } from "../lib/useApi";
 import { DISCLAIMER } from "../lib/copy";
 import { sayError } from "../lib/errors";
 import { useTitle } from "../components/Football";
+import { ErrorState, Skeleton } from "../components/ui";
 import { paint } from "../lib/lpfigures";
 
 const CONSENT = "Yes, send me the match-day e-mail. I can unsubscribe from any of them.";
@@ -102,6 +103,14 @@ export default function Waitlist() {
   }, [lk.data]);
 
   const ready = rec.data && pf.data;
+  // Every figure below is drawn from these two feeds, so until they land there is nothing in the
+  // three section bodies -- and if they fail there never will be. They used to be three empty
+  // divs: a heading, a sub-line and a band of nothing, with no way to try again. The rest of the
+  // product answers that with the kit's three states (docs/24), and this page is the one a
+  // stranger sees first.
+  const failed = !!(rec.error || pf.error);
+  const waiting = !ready && !failed;
+  const retry = () => { if (rec.error) rec.reload(); if (pf.error) pf.reload(); };
   useEffect(() => {
     if (!ready || drawn.current) return;
     drawn.current = true;
@@ -149,7 +158,9 @@ export default function Waitlist() {
               These went out before kick-off and were scored after the whistle. The big number is
               what we said; the bar under it is what he did, against the line we published.
             </p>
-            <div className="proof-grid" id="proof-grid" />
+            {waiting ? <Skeleton shape="card" count={3} testid="wl-proof-loading" />
+              : failed ? <ErrorState message="We could not load the scored cards just now." onRetry={retry} testid="wl-proof-error" />
+              : <div className="proof-grid" id="proof-grid" />}
             <p className="foot-note" id="proof-note" />
           </div>
         </section>
@@ -162,7 +173,12 @@ export default function Waitlist() {
               Every picture below is drawn from tonight&apos;s card at the top of this page — the same
               player, the same line, the same match. This is the machine, not a metaphor for it.
             </p>
-            <div className="eng-grid" id="eng-grid" />
+            {/* One error on the page, not three: the three bands share the same two feeds, so the
+                proof band above carries the message and the way back, and the bands below simply
+                do not draw a frame around nothing. */}
+            {waiting ? <Skeleton shape="card" count={4} testid="wl-engine-loading" />
+              : failed ? null
+              : <div className="eng-grid" id="eng-grid" />}
           </div>
         </section>
 
@@ -171,7 +187,9 @@ export default function Waitlist() {
             <p className="eyebrow">The whole record</p>
             <h2>What we said, against what happened</h2>
             <p className="sub" id="rec-sub" />
-            <div className="rec" id="rec" />
+            {waiting ? <Skeleton shape="match" count={3} testid="wl-record-loading" />
+              : failed ? null
+              : <div className="rec" id="rec" />}
             <p className="foot-note">
               The point is not that the right-hand dot is high. It is that the two dots are <b>close</b>.
               When we say 80%, we want it to happen about 80 times in 100 — more would mean we were

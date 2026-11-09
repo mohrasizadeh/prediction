@@ -7,9 +7,8 @@ import { useApi } from "../lib/useApi";
 import { useSite } from "../lib/site";
 import { utc } from "../lib/time";
 import { Confirm, Field, FormError, PasswordField, Switch, useToast } from "../components/Ui";
-import { Empty, ErrorBox, Loading } from "../components/States";
 import Icon from "../components/Icon";
-import { ProLock } from "../components/ui";
+import { EmptyState, ErrorState, ProLock, Segmented, Skeleton } from "../components/ui";
 import { NewPasswordForm, TwoFactorSetup } from "./Auth";
 
 const TABS = [
@@ -49,11 +48,8 @@ function Profile() {
           {zones.map((z) => <option key={z} value={z}>{z}</option>)}
         </Field>
         <button type="button" className="btn btn--ghost btn--sm self-start" onClick={() => setF({ ...f, tz: Intl.DateTimeFormat().resolvedOptions().timeZone })} data-testid="profile-tz-detect">Use this device's time zone</button>
-        <fieldset className="seg" data-testid="profile-theme"><legend>Theme</legend>
-          {["system", "dark", "light"].map((t) => (
-            <label key={t} className={"seg-opt" + (f.theme === t ? " is-on" : "")}><input type="radio" name="theme" value={t} checked={f.theme === t} onChange={() => setF({ ...f, theme: t })} data-testid={`profile-theme-${t}`} />{t[0].toUpperCase() + t.slice(1)}</label>
-          ))}
-        </fieldset>
+        <Segmented options={[{ id: "system", label: "System" }, { id: "dark", label: "Dark" }, { id: "light", label: "Light" }]}
+                   value={f.theme} onChange={(t) => setF({ ...f, theme: t })} label="Theme" testid="profile-theme" />
         <FormError error={err} />
         <button className="btn btn--primary self-start" disabled={busy} data-testid="profile-save">Save</button>
       </form>
@@ -125,7 +121,9 @@ function Devices() {
   const act = async (fn, msg) => { try { await fn(); toast(msg); s.reload(); } catch (x) { toast(x.message || "Could not do that", "err"); } };
   return (
     <Section title="Devices" lead="Where your account is signed in." testid="account-devices">
-      {s.loading ? <Loading /> : s.error ? <ErrorBox error={s.error} onRetry={s.reload} /> : !s.data?.sessions?.length ? <Empty>No sessions.</Empty> : (
+      {s.loading && !s.data ? <Skeleton shape="row" count={3} testid="account-devices-loading" />
+        : s.error ? <ErrorState message="We could not load your devices." onRetry={s.reload} testid="account-devices-error" />
+        : !s.data?.sessions?.length ? <EmptyState icon="phone" title="No sessions" testid="account-devices-empty" /> : (
         <>
           <ul className="rows">
             {s.data.sessions.map((x) => (
@@ -190,8 +188,8 @@ function Plan() {
   const [busy, setBusy] = useState(false);
   const done = useCallback(() => { setSp({}); b.reload(); }, [setSp, b]);
   const portal = async () => { setBusy(true); try { const r = await post("/billing/portal"); window.location.assign(r.url); } catch (x) { toast(x.message || "Billing is not available right now", "err"); setBusy(false); } };
-  if (b.loading && !b.data) return <Loading />;
-  if (b.error) return <ErrorBox error={b.error} onRetry={b.reload} />;
+  if (b.loading && !b.data) return <Skeleton shape="card" count={1} testid="account-plan-loading" />;
+  if (b.error) return <ErrorState message="We could not load your plan." onRetry={b.reload} testid="account-plan-error" />;
   const d = b.data;
   const plan = d.plan || {};
   return (
@@ -212,7 +210,7 @@ function Plan() {
       <h3>Invoices</h3>
       {d.payments?.length ? (
         <ul className="rows">{d.payments.map((p) => <li key={p.id || p.at} className="row-card"><div className="row-main"><strong>{(p.amount_cents / 100).toFixed(2)} {String(p.currency || "").toUpperCase()}</strong><small>{fmtDate(p.at || p.created_at)} · {p.status}</small></div>{p.invoice_url && <a href={p.invoice_url} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">Invoice</a>}</li>)}</ul>
-      ) : <Empty icon="receipt">No invoices yet.</Empty>}
+      ) : <EmptyState icon="receipt" title="No invoices yet" testid="account-invoices-empty" />}
     </Section>
   );
 }
@@ -253,7 +251,7 @@ export default function Account() {
   const nav = useNavigate();
   const signOutNow = async () => { try { await doSignOut(); } finally { nav("/"); } };
   const { user, loading } = useAuth();
-  if (loading) return <Loading />;
+  if (loading) return <Skeleton shape="row" count={3} testid="account-loading" />;
   if (!user) return <Navigate to="/sign-in?next=/account" replace />;
   return (
     <div className="account" data-testid="account-page">

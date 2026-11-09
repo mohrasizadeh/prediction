@@ -103,11 +103,14 @@
 .cb-card-f { display: flex; align-items: center; gap: 8px; }
 .cb-card-f .btn:last-child { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
 .cb-res { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.cb-res li { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; }
-.cb-res-t { flex: 1; min-width: 0; }
+/* `flex: 1` on the middle left the figure beside it content-sized, so no two percentages in a
+   settled combo lined up. Four tracks: mark, face, words, figure. */
+.cb-res li { display: grid; grid-template-columns: 18px 22px minmax(0, 1fr) 132px; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; }
+.cb-res-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cb-res-n { justify-self: end; text-align: right; font-variant-numeric: tabular-nums; }
 .cb-tick { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex: none; }
-.cb-tick.y { background: color-mix(in srgb, var(--up) 22%, transparent); color: var(--up); }
-.cb-tick.n { background: color-mix(in srgb, var(--text3) 22%, transparent); color: var(--text3); }
+.cb-tick.y { background: color-mix(in srgb, var(--hit) 22%, transparent); color: var(--hit); }
+.cb-tick.n { background: color-mix(in srgb, var(--miss) 22%, transparent); color: var(--miss); }
 .cb-sum { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-top: 12px; display: grid; gap: 8px; }
 .cb-sum h2 { margin: 0; }
 .cb-sum-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }

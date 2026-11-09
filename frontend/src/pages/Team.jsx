@@ -156,7 +156,7 @@ export default function Team() {
           on the page -- while the player page has led with its next match since it was written.
           Same block, same component, same position: the answer first, the season behind it. */}
       <section className="card" data-testid="team-next">
-        <h2 className="k-sec">What we expect next match</h2>
+        <header className="v2-sec-head v2-sec-head--card"><h2 className="k-sec v2-sec">What we expect next match</h2></header>
         {!d.next.length ? <p className="muted">No upcoming match loaded.</p>
           : cards.length ? <div className="fgrid">{cards.map((f) => <ForecastCard key={f.id} f={f} teams={nextTeams} homeIid={d.next[0].home_iid} showTime={false} testid={`team-fc-${f.id}`} />)}</div>
           : <p className="muted small">No forecasts for this club yet.</p>}

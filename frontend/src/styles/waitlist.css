@@ -24,7 +24,15 @@
  */
 /* No @font-face here: the app serves its own variable font from the site config, and a second
    declaration pointing at a local file would either 404 or quietly load a second copy. */
-:root{
+/* SCOPED TO .lp, and it must stay that way.
+   index.js imports this file globally and LAST, and every rule below used to be a bare `:root`,
+   `body`, `h1..h4`, `ul`, `a`, `svg` or `*`. base.css keeps the app palette inside
+   `@layer fallback`, and unlayered CSS beats any layer whatever its specificity -- so one
+   landing page's stylesheet was repainting the entire product. Measured in dark mode with the
+   real import order: --text #22281E instead of #FFFFFF, --brand #034737 instead of #409CFF, color-scheme forced to light, body background forced to white, every <ul> in the app stripped
+   of its bullets, and `overflow-x:hidden` on body -- which did not prevent horizontal overflow, it HID it, on every screen we have been measuring for exactly that.
+   The page root is <div class="lp">, so scoping costs the page nothing. */
+.lp{
   --brand:#034737; --strong:#1B8962; --accent:#A9FF9B; --down:#A8372B;
   --text:#22281E; --text2:#3C4238; --text3:#62685F;
   --surface2:#EBEEEA; --border:#D3D7D2; --border2:#AAAEA7;
@@ -35,20 +43,19 @@
   --hair:color-mix(in srgb, #D3D7D2 62%, #fff);
   --font:'Archivo v2',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   color-scheme:light;
-}
-*{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:#fff;color:var(--text);font-family:var(--font);
+  margin:0;background:#fff;color:var(--text);font-family:var(--font);
   font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums;
-  -webkit-font-smoothing:antialiased;overflow-x:hidden}
-h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:-.022em;line-height:1.1}
-p{margin:0}
-ul{margin:0;padding:0;list-style:none}
-svg{display:block;font-family:var(--font);font-variant-numeric:tabular-nums}
-a{color:inherit}
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+.lp *{box-sizing:border-box}
+.lp h1, .lp h2, .lp h3, .lp h4{margin:0;font-weight:700;letter-spacing:-.022em;line-height:1.1}
+.lp p{margin:0}
+.lp ul{margin:0;padding:0;list-style:none}
+.lp svg{display:block;font-family:var(--font);font-variant-numeric:tabular-nums}
+.lp a{color:inherit}
 
-.wrap{max-width:1120px;margin:0 auto;padding:0 16px;width:100%}
-@media(min-width:720px){.wrap{padding:0 28px}}
+.lp .wrap{max-width:1120px;margin:0 auto;padding:0 16px;width:100%}
+@media(min-width:720px){.lp .wrap{padding:0 28px}}
 
 /* ---------- header ---------- */
 .top{border-bottom:1px solid var(--border)}
@@ -61,7 +68,7 @@ a{color:inherit}
   border-radius:999px;padding:5px 11px;letter-spacing:.02em;white-space:nowrap}
 
 /* ---------- hero ---------- */
-.hero{padding:34px 0 10px}
+.lp .hero{padding:34px 0 10px}
 .hero-grid{display:grid;gap:30px;align-items:start}
 /* Phones: the headline, then FOOTBALL, then the ask. The form sat above every card, so the first
    thing a reader from a football advert met was an empty text field. */
@@ -74,18 +81,18 @@ a{color:inherit}
   .hero-left .form-card{order:5}
 }
 @media(min-width:960px){
-  .hero{padding:54px 0 18px}
+  .lp .hero{padding:54px 0 18px}
   .hero-grid{grid-template-columns:minmax(0,1fr) minmax(0,400px);gap:48px}
-  .hero-left,.hero-right{display:contents}
+  .hero-left, .hero-right{display:contents}
 }
-.kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;
+.lp .kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;
   letter-spacing:.09em;text-transform:uppercase;color:var(--brand);
   background:var(--surface2);border-radius:999px;padding:6px 13px;margin-bottom:16px}
-.kicker b{color:var(--brand)}
+.lp .kicker b{color:var(--brand)}
 h1{font-size:clamp(34px,8.6vw,62px);letter-spacing:-.035em}
 h1 .said{color:var(--brand)}
-.lead{margin-top:18px;font-size:17px;line-height:1.55;color:var(--text2);max-width:46ch}
-@media(min-width:960px){.lead{font-size:18.5px}}
+.lp .lead{margin-top:18px;font-size:17px;line-height:1.55;color:var(--text2);max-width:46ch}
+@media(min-width:960px){.lp .lead{font-size:18.5px}}
 
 /* ---------- form ---------- */
 .form-card{margin-top:26px;border:1px solid var(--border);border-radius:16px;
@@ -93,12 +100,12 @@ h1 .said{color:var(--brand)}
 @media(min-width:960px){.form-card{margin-top:30px;padding:24px}}
 .form-card h2{font-size:17px;letter-spacing:-.015em}
 .form-card .fc-sub{font-size:13.5px;color:var(--text3);margin-top:5px;margin-bottom:16px}
-.field{display:block;margin-bottom:13px}
-.field span{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px}
-.field input{width:100%;min-height:46px;border:1px solid var(--border2);border-radius:10px;
+.lp .field{display:block;margin-bottom:13px}
+.lp .field span{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px}
+.lp .field input{width:100%;min-height:46px;border:1px solid var(--border2);border-radius:10px;
   background:#fff;padding:0 14px;font:inherit;font-size:16px;color:var(--text)}
-.field input::placeholder{color:var(--text3)}
-.field input:focus-visible{outline:3px solid var(--brand);outline-offset:1px;border-color:var(--brand)}
+.lp .field input::placeholder{color:var(--text3)}
+.lp .field input:focus-visible{outline:3px solid var(--brand);outline-offset:1px;border-color:var(--brand)}
 .consent{display:flex;gap:11px;align-items:flex-start;min-height:44px;padding:8px 0;
   font-size:13.5px;color:var(--text2);line-height:1.4;cursor:pointer}
 .consent input{width:22px;height:22px;flex:none;margin:1px 0 0;accent-color:var(--brand)}
@@ -128,7 +135,7 @@ h1 .said{color:var(--brand)}
 .live-name{font-size:23px;font-weight:700;letter-spacing:-.03em;line-height:1.1}
 .live-meta{margin-top:5px;font-size:13px;color:var(--text3)}
 .live-meta b{color:var(--text2);font-weight:600}
-.live-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
+.lp .live-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
   margin-top:15px;padding-top:15px;border-top:1px solid var(--border)}
 .live-mk{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
   color:var(--brand);background:var(--accent);border-radius:6px;padding:4px 8px;display:inline-block}
@@ -136,11 +143,11 @@ h1 .said{color:var(--brand)}
 .live-p{text-align:right;line-height:.92}
 .live-p b{font-size:50px;font-weight:700;letter-spacing:-.045em;color:var(--brand)}
 .live-p span{display:block;font-size:11.5px;color:var(--text3);margin-top:7px;letter-spacing:.02em}
-.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
-.chip{font-size:12px;font-weight:600;padding:5px 9px;border-radius:999px;
+.lp .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.lp .chip{font-size:12px;font-weight:600;padding:5px 9px;border-radius:999px;
   border:1px solid var(--border);color:var(--text2);background:#fff;white-space:nowrap}
-.chip.on{background:var(--surface2);border-color:var(--border)}
-.chip.on b{color:var(--brand)}
+.lp .chip.on{background:var(--surface2);border-color:var(--border)}
+.lp .chip.on b{color:var(--brand)}
 .live-run{margin-top:14px;padding-top:13px;border-top:1px solid var(--border)}
 .run-h{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text3);
   margin-bottom:8px;gap:8px}
@@ -180,7 +187,7 @@ h2{font-size:clamp(26px,5.6vw,40px);letter-spacing:-.03em}
 @media(min-width:620px){.pc-nums b{font-size:30px}}
 .pc-nums span{font-size:11px;color:var(--text3)}
 .pc-strip{margin-top:9px}
-.pc-strip svg,.live-run svg{width:100%;height:auto;display:block}
+.pc-strip svg, .live-run svg{width:100%;height:auto;display:block}
 /* a chip, not a strip: it is the full stop at the end of the card, not the card's background */
 .pc-out{margin-top:10px;display:inline-flex;align-items:center;gap:5px;background:var(--accent);
   border-radius:999px;padding:4px 10px 4px 7px;font-size:12px;font-weight:700;color:var(--brand);

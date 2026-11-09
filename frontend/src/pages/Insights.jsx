@@ -8,6 +8,7 @@ import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
 import { useTitle } from "../components/Football";
+import { Crest, PlayerAvatar } from "../components/Media";
 import { ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard, ProLock, RangeSlider, Segmented, Skeleton, TierBadge, isoDay } from "../components/ui";
 import { fixtureOf, timeOf } from "../components/ui/ForecastCard";
 
@@ -22,10 +23,21 @@ const POS = [{ id: "G", label: "GK" }, { id: "D", label: "DEF" }, { id: "M", lab
 // 20 cards became 8 on the first run. The floor is 0 and the slider reaches it.
 const NOF = { min: 0, pos: [], venue: "all", confirmed: false };
 
+// The list edition of the same rows. Four children per row, always four, because the shared grid
+// assigns its areas by position (matchday.css .ins-compact li > :nth-child(n)): a row that dropped
+// its first child when a line had no tier slid the name into the face's column and the percentage
+// out of its own, so one untiered line bent the whole list. The subject wears its face here as it
+// does on the card (docs/19 §5), and the tier sits with the percentage it grades (docs/58), not
+// beside the name it does not.
 function Compact({ rows }) {
   return (
     <ul className="ins-compact" data-testid="ins-compact">{rows.map((f) => (
-      <li key={f.id}><TierBadge tier={f.tier} testid={`ins-row-tier-${f.id}`} /><span><b>{f.player?.name || f.team?.name}</b> {f.market}</span><small className="k-faint">{f.team?.name} v {f.opp?.name}</small><b>{pct(f.p)}</b></li>
+      <li key={f.id}>
+        <span className="ins-row-face">{f.player ? <PlayerAvatar player={f.player} size={32} /> : <Crest team={f.team} size={32} />}</span>
+        <span><b>{f.player?.name || f.team?.name}</b> {f.market}</span>
+        <small className="k-faint">{f.team?.name} v {f.opp?.name}</small>
+        <span className="ins-row-p"><b>{pct(f.p)}</b><TierBadge tier={f.tier} testid={`ins-row-tier-${f.id}`} /></span>
+      </li>
     ))}</ul>
   );
 }

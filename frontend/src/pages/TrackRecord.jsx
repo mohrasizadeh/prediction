@@ -60,10 +60,17 @@ function Chart({ bins, hi }) {
 // The tile used to take the tier's own colour, so the biggest number read as the best one. On real
 // data a lime "90 of 100" can be WORSE calibrated than a violet "64 of 100": the colour was grading
 // magnitude, not accuracy. It now says whether the gap is inside what a sample this size produces.
-function calClass(v) {
+//
+// It says it in a WORD as well as in a colour. Three states told apart by hue alone is the one
+// thing docs/03 forbids everywhere else in this product (the tier badge prints its name, the run
+// strip prints its count, the fixture row draws a tick), and the state being graded here -- are we
+// honest about this tier -- is the whole reason the page exists.
+function calOf(v) {
   const se = Math.sqrt(Math.max(v.stated * (1 - v.stated), 1e-6) / Math.max(v.n, 1));
-  if (Math.abs(v.actual - v.stated) <= 1.96 * se) return "tr-cal tr-cal--ok";
-  return v.actual < v.stated ? "tr-cal tr-cal--under" : "tr-cal tr-cal--over";
+  if (Math.abs(v.actual - v.stated) <= 1.96 * se) return { cls: "tr-cal tr-cal--ok", word: "in line with what we said" };
+  return v.actual < v.stated
+    ? { cls: "tr-cal tr-cal--under", word: "less often than we said" }
+    : { cls: "tr-cal tr-cal--over", word: "more often than we said" };
 }
 
 // How much of a said-vs-happened gap is real, and how much is the sample being small.
@@ -127,15 +134,19 @@ function Body({ d }) {
       <div className="tr-grid2">
         {d.bins.length ? <Chart bins={d.bins} hi={hi} /> : <EmptyState icon="bar-chart" title="Not enough in each band yet" testid="tr-no-bins">We draw the chart once each band holds 30 forecasts.</EmptyState>}
         <div className="tr-tiers" data-testid="tr-tiers">
-          {Object.entries(d.tiers).map(([t, v]) => (
-            <div key={t} className="tr-tier card" style={{ "--tone": `var(--tier-${t.toLowerCase()})` }} data-testid={`tr-tier-${t}`}>
-              <span><TierBadge tier={t} testid={`tr-tier-badge-${t}`} /><small className="k-faint">{v.n.toLocaleString()} forecasts</small></span>
-              <span className="tr-of">
-                <b className={calClass(v)}>{v.n >= 100 ? `${of100(v.actual)} of 100` : `${Math.round(v.actual * v.n)} of ${v.n}`}</b>
-                <small className="k-faint">came true · we said {pct(v.stated)}</small>
-              </span>
-            </div>
-          ))}
+          {Object.entries(d.tiers).map(([t, v]) => {
+            const cal = calOf(v);
+            return (
+              <div key={t} className="tr-tier card" style={{ "--tone": `var(--tier-${t.toLowerCase()})` }} data-testid={`tr-tier-${t}`}>
+                <span><TierBadge tier={t} testid={`tr-tier-badge-${t}`} /><small className="k-faint">{v.n.toLocaleString()} forecasts</small></span>
+                <span className="tr-of">
+                  <b className={cal.cls}>{v.n >= 100 ? `${of100(v.actual)} of 100` : `${Math.round(v.actual * v.n)} of ${v.n}`}</b>
+                  <small className="k-faint">came true · we said {pct(v.stated)}</small>
+                  <small className="k-faint" data-testid={`tr-tier-cal-${t}`}>{cal.word}</small>
+                </span>
+              </div>
+            );
+          })}
           {!Object.keys(d.tiers).length ? <p className="k-faint">No forecasts with a tier have been scored yet.</p>
             : <p className="k-faint k-small" data-testid="tr-tier-note">{Object.values(d.tiers).reduce((s, v) => s + v.n, 0).toLocaleString()} of the {d.scored.toLocaleString()} scored forecasts had a tier; the rest are counted in the chart only.</p>}
           <Link to="/learn/how-we-score" className="k-link" data-testid="tr-how">How we score this</Link>
@@ -168,13 +179,18 @@ export default function TrackRecord() {
       </div>}
       {q.loading && !q.data ? <Skeleton shape="card" count={3} testid="tr-loading" />
         : q.error ? <ErrorState message="We could not load the track record." onRetry={q.reload} testid="tr-error" />
+        /* "Nothing to show yet, and here is why" is an empty state, and the kit has one. This was a
+           card of its own with its own heading, its own grey paragraph class and its own left edge,
+           sitting where every other screen in the product puts an EmptyState -- on the page whose
+           job is to look like the rest of the product only more carefully. The progress bar and the
+           way out stay; they are the empty state's "next step". */
         : !q.data.ready ? (
-          <div className="card tr-wait" data-testid="tr-not-ready">
-            <h2 className="h3">Collecting results</h2>
-            <p className="muted">We show the record once {q.data.needed} forecasts{league || stat ? " for this pick" : ""} have been scored, so the numbers mean something. {q.data.scored} so far.</p>
-            <div className="lbar-track" style={{ "--tone": "var(--brand)" }}><span className="lbar-fill" style={{ width: `${Math.min(100, (q.data.scored / q.data.needed) * 100)}%` }} /></div>
+          <EmptyState icon="clock" title="Collecting results" testid="tr-not-ready" action={<>
+            <div className="lbar-track" style={{ "--tone": "var(--brand)", width: "min(320px, 100%)" }}><span className="lbar-fill" style={{ width: `${Math.min(100, (q.data.scored / q.data.needed) * 100)}%` }} /></div>
             {(league || stat) && <button type="button" className="btn btn--secondary btn--sm" onClick={() => setSp({}, { replace: true })} data-testid="tr-clear">Show all leagues and markets</button>}
-          </div>
+          </>}>
+            We show the record once {q.data.needed} forecasts{league || stat ? " for this pick" : ""} have been scored, so the numbers mean something. {q.data.scored} so far.
+          </EmptyState>
         ) : <Body d={q.data} />}
     </section>
   );

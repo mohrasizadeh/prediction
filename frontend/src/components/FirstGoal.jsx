@@ -1,18 +1,19 @@
 // First goal record for one team: who scored first, what happened next, and the players who most often open the scoring.
 import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
-import { Empty, ErrorBox, Loading } from "./States";
+import { EmptyState, ErrorState, Skeleton } from "./ui";
 import { Crest, PlayerAvatar } from "./Media";
+import { pct } from "../lib/copy";
 
-const pc = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : "–");
+const pc = (a, b) => pct(b ? a / b : null);
 const wdl = (r) => `${r.w}W ${r.d}D ${r.l}L`;
 
 export default function FirstGoal({ team, compact, testid = "first-goal" }) {
   const q = useApi(team?.id ? `/teams/${team.id}/first-goal` : null);
-  if (q.loading && !q.data) return <Loading rows={2} />;
-  if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  if (q.loading && !q.data) return <Skeleton shape="row" count={2} testid={`${testid}-loading`} />;
+  if (q.error) return <ErrorState message="We could not load the first-goal record." onRetry={q.reload} testid={`${testid}-error`} />;
   const d = q.data;
-  if (!d?.played) return <Empty icon="activity" testid={`${testid}-empty`}>No first-goal records yet for {team?.name}.</Empty>;
+  if (!d?.played) return <EmptyState icon="activity" title="No first-goal records yet" testid={`${testid}-empty`}>Nothing for {team?.name} so far this season.</EmptyState>;
   return (
     <section className="fg card" data-testid={testid}>
       <header className="fg-head"><Crest team={team} size={28} /><h3>{team.name}</h3><small className="muted">last {d.played} games</small></header>
@@ -23,7 +24,7 @@ export default function FirstGoal({ team, compact, testid = "first-goal" }) {
       </div>
       <dl className="fg-stats">
         <div><dt>Scored first</dt><dd data-testid={`${testid}-scored`}>{d.scored_first} <small>({pc(d.scored_first, d.played)})</small></dd></div>
-        <div><dt>Conceded first</dt><dd data-testid={`${testid}-conceded`}>{d.conceded_first} <small>({!d.conceded_first ? "0%" : `${100 - Math.round((d.scored_first / d.played) * 100) - Math.round((d.goalless / d.played) * 100)}%`})</small></dd></div>
+        <div><dt>Conceded first</dt><dd data-testid={`${testid}-conceded`}>{d.conceded_first} <small>({pc(d.conceded_first, d.played)})</small></dd></div>
         <div><dt>After scoring first</dt><dd>{wdl(d.after_scoring)}</dd></div>
         <div><dt>After conceding first</dt><dd>{wdl(d.after_conceding)}</dd></div>
       </dl>
@@ -39,7 +40,7 @@ export default function FirstGoal({ team, compact, testid = "first-goal" }) {
         <ul className="fg-games" data-testid={`${testid}-games`}>{d.games.map((g) => (
           <li key={g.match_id}><Link to={`/match/${g.match_id}`}>
             <span className={`fg-dot fg-dot--${g.who}`} aria-hidden="true" />
-            <span className="fg-opp">{g.home ? "v" : "at"} {g.opp?.name}</span>
+            <span className="fg-opp"><Crest team={g.opp} size={20} />{g.home ? "v" : "at"} {g.opp?.name}</span>
             <span className="muted small">{g.who === "none" ? "No goals" : g.who === "us" ? `${g.scorer?.name || "Scored first"}${g.minute != null ? ` ${g.minute}'` : ""}` : `Conceded first${g.minute != null ? ` ${g.minute}'` : ""}`}</span>
             <b className={`fg-res fg-res--${g.result}`}>{g.score}</b>
           </Link></li>

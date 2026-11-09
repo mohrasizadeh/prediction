@@ -5,6 +5,14 @@
     --bg: #000000; --surface1: #1C1C1E; --surface2: #2C2C2E; --surface3: #3A3A3C; --border: #38383A; --border-strong: #545458;
     --text: #FFFFFF; --text2: #EBEBF5; --text3: #98989F; --brand: #409CFF; --on-brand: #000000; --tier-strong: #30D158; --tier-solid: #64D2FF;
     --tier-watch: #FF9F0A; --up: #30D158; --down: #FF6961; --on-down: #000000; --chart1: #409CFF; --chart2: #30D158;
+    /* GRADING is not DEPARTURE. --up/--down mean above/below usual and are read that way all
+       over the product (form, a referee's cards, a club's run). Five rules were also using
+       them to mean "the line came in" / "it did not", which teaches one colour two meanings
+       -- and the two screens that print a graded line did not even agree: Today drew a miss
+       in --text3 and Following drew it in --down, so the same outcome was grey on one screen
+       and red on the next. These carry Today's answer, which is the documented one, and give
+       grading a token of its own that can move later without dragging form with it. */
+    --hit: var(--up); --miss: var(--text3);
     --card-shadow: none;
     --font-body: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif; --font-heading: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif; --heading-weight: 700;
     --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --max-width: 1200px; --btn-radius: 999px; --btn-h-sm: 36px; --btn-h-md: 44px; --btn-h-lg: 52px;

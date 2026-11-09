@@ -230,7 +230,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .y-item, .pr-card, .ln-tile, .tr-chart, .sq-card, .wl, .st-zone { border: 0; box-shadow: none; }
 .y-item + .y-item, .lk-list li + li { border-top: .5px solid var(--hig-separator); }
 .y-tag, .lk-tag, .tr-tier, .ln-up { border-radius: 999px; }
-.y-tag--hit { color: var(--text); background: color-mix(in srgb, var(--up) 18%, transparent); }
+.y-tag--hit { color: var(--text); background: color-mix(in srgb, var(--hit) 18%, transparent); }
 .y-tag--miss { color: var(--text); background: var(--hig-fill-strong); }
 .pr-card--hi { background: color-mix(in srgb, var(--brand) 10%, var(--surface1)); outline: 1.5px solid var(--brand); outline-offset: -1.5px; }
 .tr-chart, .tr-hero { border: 0; }

@@ -469,8 +469,8 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 
 /* c) An empty state left ~700px of dead space before the footer, because the page reserves the
       chart's grid area whether or not there is a chart. An empty page should be short. */
-.tr-grid2:has(.k-empty) { display: block; }
-.tr .k-empty, .k-empty { padding: 28px 20px; }
+.tr-grid2:has(.k-state) { display: block; }
+.tr .k-state, .k-state { padding: 28px 20px; }
 
 /* d) The dead band on every short page. `.main` carried `min-height: 62vh`, which on an 844px phone
       reserves 523px whatever the content, so Plans and Track record both showed a short card, then

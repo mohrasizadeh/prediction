@@ -10,6 +10,7 @@ import Standings from "../components/Standings";
 import { Segmented } from "../components/ui";
 import { MatchRow, STATS, Seg, Select, kickoff, num1, posLabel, useTitle } from "../components/Football";
 import { refPath } from "./Referee";
+import { pct } from "../lib/copy";
 
 export function Leagues() {
   const [q, setQ] = useState("");
@@ -65,7 +66,6 @@ function Leaders({ id }) {
   );
 }
 
-const pc = (v) => (v == null ? "–" : `${Math.round(v * 100)}%`);
 function Assignments({ id }) {
   const q = useApi(`/leagues/${id}/referee-assignments`);
   if (q.loading && !q.data) return <Loading rows={2} />;
@@ -89,7 +89,13 @@ function Assignments({ id }) {
       <p className="muted small">Referees are usually named a day or two before kickoff.{avg?.yellow_pg != null ? ` League average: ${avg.yellow_pg.toFixed(2)} yellows and ${(avg.pens_pg || 0).toFixed(2)} penalties a game.` : ""}</p>
       <ul className="ra-list">{d.rows.map((r) => (
         <li key={r.match_id} className="ra-row" data-testid={`assign-${r.match_id}`}>
-          <Link to={`/match/${r.match_id}`} className="ra-fix"><span className="team"><Crest team={r.home} size={18} />{r.home?.name}</span><span className="team"><Crest team={r.away} size={18} />{r.away?.name}</span><small className="muted">{kickoff(r.kickoff)}</small></Link>
+          <Link to={`/match/${r.match_id}`} className="ra-fix">
+            <span className="td-teams" aria-label={`${r.home?.name} against ${r.away?.name}`}>
+              <span className="td-side td-side--h"><span className="td-name">{r.home?.name}</span><Crest team={r.home} size={22} /></span>
+              <span className="td-scores td-scores--pre" aria-hidden="true">v</span>
+              <span className="td-side td-side--a"><Crest team={r.away} size={22} /><span className="td-name">{r.away?.name}</span></span>
+            </span>
+            <small className="muted">{kickoff(r.kickoff)}</small></Link>
           {r.referee ? (
             <span className="ra-ref"><Link to={refPath(r.referee)} data-testid="assign-referee"><b>{r.referee}</b></Link>
               <small className="muted">{r.stats?.yellow_pg != null ? `${r.stats.yellow_pg.toFixed(2)} yellows · ${(r.stats.pens_pg || 0).toFixed(2)} pens a game · ${r.stats.matches} games` : "No games here yet"}</small>
@@ -113,7 +119,7 @@ function Referees({ id }) {
     <div className="tbl-wrap"><table className="tbl" data-testid="referee-table">
       <thead><tr><th scope="col">Referee</th><th scope="col">Games</th><th scope="col">Yellows a game</th><th scope="col">Reds a game</th><th scope="col">Penalties a game</th><th scope="col">Home wins</th></tr></thead>
       <tbody>{q.data.map((r) => (
-        <tr key={r.name} data-testid="referee-row"><td><Link to={refPath(r.name)} data-testid="referee-link"><b>{r.name}</b></Link></td><td className="num">{r.matches}</td><td className="num">{r.yellow_pg == null ? "–" : r.yellow_pg.toFixed(2)}</td><td className="num">{r.red_pg == null ? "–" : r.red_pg.toFixed(2)}</td><td className="num">{r.pens_pg == null ? "–" : r.pens_pg.toFixed(2)}</td><td className="num">{pc(r.home_win_pct)}</td></tr>
+        <tr key={r.name} data-testid="referee-row"><td><Link to={refPath(r.name)} data-testid="referee-link"><b>{r.name}</b></Link></td><td className="num">{r.matches}</td><td className="num">{r.yellow_pg == null ? "–" : r.yellow_pg.toFixed(2)}</td><td className="num">{r.red_pg == null ? "–" : r.red_pg.toFixed(2)}</td><td className="num">{r.pens_pg == null ? "–" : r.pens_pg.toFixed(2)}</td><td className="num">{pct(r.home_win_pct)}</td></tr>
       ))}</tbody>
     </table></div>
     </>
@@ -134,7 +140,7 @@ function Bookings({ id }) {
           <PlayerAvatar player={f.player} size={36} />
           <span className="book-who"><Link to={`/player/${f.player?.id}`}><b>{f.player?.name}</b></Link>
             <small className="muted">{f.team?.name} {f.home_iid === f.team_iid ? "v" : "at"} <Link to={`/match/${f.match_id}`}>{f.opp?.name}</Link>{f.referee ? <> · <Link to={refPath(f.referee)}>{f.referee}</Link></> : ""}</small></span>
-          <span className="book-p"><b>{Math.round(f.p * 100)}%</b><span className="book-bar"><i style={{ width: `${Math.round(f.p * 100)}%` }} /></span></span>
+          <span className="book-p"><b>{pct(f.p)}</b><span className="book-bar"><i style={{ width: `${Math.round((f.p || 0) * 100)}%` }} /></span></span>
         </li>
       ))}</ol>
     </>

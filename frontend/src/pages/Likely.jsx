@@ -68,7 +68,7 @@ function Bar({ p, lo, hi, under }) {
   return (
     <span className="lk-band" role="img" aria-label={`${p} percent. Likely range ${lo} to ${hi} per cent. ${judge}`}>
       <i style={{ left: `${x.toFixed(2)}%`, width: `${w.toFixed(2)}%` }} />
-      {under && <span className="lk-underw">Below the {under}% bar — not listed by default</span>}
+      {under && <span className="lk-underw">Below the {under} bar — not listed by default</span>}
     </span>
   );
 }
@@ -156,7 +156,9 @@ function Row({ f, open, onToggle, floor }) {
   const band = n === chosen ? [f.lo, f.hi] : rung?.band || [f.lo, f.hi];
   const lo = Math.round(100 * band[0]);
   const hi = Math.round(100 * band[1]);
-  const under = p < Math.round(floor * 100) ? Math.round(floor * 100) : null;
+  // pct() is the one place a likelihood becomes words (lib/copy), floor included -- a second
+  // rounding written out by hand here is how two places on one screen start to disagree.
+  const under = p < Math.round(floor * 100) ? pct(floor) : null;
   const lu = lineupWords(f);
   const known = (f.run || []).filter((g) => g && g.v != null);
   const cleared = known.filter((g) => g.v >= n).length;
@@ -299,8 +301,8 @@ export function Likely() {
       </div>
 
       {!rows.length ? (
-        <EmptyState icon="calendar" title={`Nothing here reaches ${Math.round(floor * 100)}%.`}>
-          We list a line once it reaches {Math.round(floor * 100)}%, and nothing in the next {win} hours does yet.
+        <EmptyState icon="calendar" title={`Nothing here reaches ${pct(floor)}.`}>
+          We list a line once it reaches {pct(floor)}, and nothing in the next {win} hours does yet.
           Numbers move as team news arrives, so this often fills up in the last hour.
         </EmptyState>
       ) : (

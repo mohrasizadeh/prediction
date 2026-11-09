@@ -9,7 +9,7 @@ import LiveStatus from "../components/LiveStatus";
 import MatchEvents from "../components/MatchEvents";
 import LiveLineups from "../components/LiveLineups";
 import { useTitle } from "../components/Football";
-import { Empty, ErrorBox, Loading } from "../components/States";
+import { ChipsRow, EmptyState, ErrorState, Skeleton } from "../components/ui";
 import { fxLive, fxStarted } from "../lib/live";
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -44,7 +44,7 @@ function Detail({ f }) {
   return (
     <div className="live-detail" data-testid={`live-detail-${f.sid}`}>
       {sc.ht_home != null && <p className="muted small">Half-time {sc.ht_home} – {sc.ht_away}</p>}
-      {events === null ? <Loading label="Events" rows={2} /> : <MatchEvents events={events} testid={`live-events-${f.sid}`} />}
+      {events === null ? <Skeleton shape="row" count={2} testid={`live-events-loading-${f.sid}`} /> : <MatchEvents events={events} testid={`live-events-${f.sid}`} />}
       <LiveLineups lineups={lineups} home={f.home.team?.name || f.home.name} away={f.away.team?.name || f.away.name} />
       {f.match_id && <Link className="btn btn--secondary btn--sm live-link" to={`/match/${f.match_id}`} data-testid={`live-match-link-${f.sid}`}>Forecasts and stats for this match</Link>}
     </div>
@@ -76,7 +76,11 @@ const LABELS = ["Yesterday", "Today", "Tomorrow"];
 export default function Live() {
   useTitle("Live scores");
   const [day, setDay] = useState(iso(new Date()));
-  const days = useMemo(() => [-1, 0, 1].map((i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; }), []);
+  // The three days as ISO strings, chosen through the shared chip row rather than a tablist of
+  // hand-rolled `.chip` buttons: every other screen picks a day or a filter with ChipsRow, and the
+  // ids stay the day's word so the published testids ("live-day-today") are unchanged.
+  const days = useMemo(() => [-1, 0, 1].map((i) => { const d = new Date(); d.setDate(d.getDate() + i); return iso(d); }), []);
+  const sel = LABELS[days.indexOf(day)]?.toLowerCase() || "today";
   const q = useLive(day);
   return (
     <section className="live-page" data-testid="live-page">
@@ -84,13 +88,12 @@ export default function Live() {
         <h1>Live scores</h1>
         {q.data?.live_count > 0 && <span className="live-chip live-chip--lg" data-testid="live-count"><span className="live-dot" aria-hidden="true" />{q.data.live_count} live now</span>}
       </div>
-      <div className="date-strip" role="tablist" aria-label="Day">
-        {days.map((d, i) => (
-          <button key={iso(d)} type="button" role="tab" aria-selected={iso(d) === day} className={iso(d) === day ? "chip chip-on" : "chip"} onClick={() => setDay(iso(d))} data-testid={`live-day-${LABELS[i].toLowerCase()}`}>{LABELS[i]}</button>
-        ))}
+      <div className="date-strip">
+        <ChipsRow label="Day" value={sel} onChange={(id) => setDay(days[LABELS.findIndex((l) => l.toLowerCase() === id)])}
+                  options={LABELS.map((l) => ({ id: l.toLowerCase(), label: l }))} testid="live-day" />
       </div>
-      {q.loading ? <Loading rows={4} /> : q.error && !q.data ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.leagues.length ? (
-        <Empty icon="clock" testid="live-empty">No matches in the leagues we follow live on this day.</Empty>
+      {q.loading ? <Skeleton shape="match" count={4} testid="live-loading" /> : q.error && !q.data ? <ErrorState message="We could not load the live scores." onRetry={q.reload} testid="live-error" /> : !q.data.leagues.length ? (
+        <EmptyState icon="clock" title="No matches on this day" testid="live-empty">Nothing in the leagues we follow live. Try another day.</EmptyState>
       ) : q.data.leagues.map((g) => (
         <div key={g.league} className="card live-group" data-testid="live-league">
           <h2 className="league-head">{g.league}</h2>

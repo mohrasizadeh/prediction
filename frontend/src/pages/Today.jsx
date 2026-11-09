@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/auth";
+import { pct } from "../lib/copy";
 import { utc } from "../lib/time";
 import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
@@ -147,7 +148,7 @@ function Row({ m }) {
                     lines reads as a results table rather than as a verdict column. That is more
                     honest than what it replaces, not less: nothing is hidden, a number is
                     restored. */}
-                <em>{Math.round((b.p || 0) * 100)}%{b.actual != null && <span className="td-got"> · got {Math.round(b.actual * 10) / 10}</span>}</em>
+                <em>{pct(b.p)}{b.actual != null && <span className="td-got"> · got {Math.round(b.actual * 10) / 10}</span>}</em>
               </span>
             ))}
           </span>

@@ -182,3 +182,10 @@
 
 .tr-how { margin-top: 10px; } .tr-how summary { cursor: pointer; font-weight: 600; color: var(--text2); min-height: 32px; }
 .tr-how ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; color: var(--text2); }
+
+/* The compact row now always draws four children -- face, words, fixture, figure+tier -- because
+   TierBadge returns null for an untiered line and these areas are assigned BY POSITION, so one
+   untiered row used to slide the name into the face's cell and push the percentage out of its
+   own column. The figure and its tier stack on the hard right edge, as the card's own does. */
+.ins-row-face { display: flex; align-items: center; }
+.ins-row-p { display: grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; }

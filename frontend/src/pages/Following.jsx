@@ -8,6 +8,7 @@ import { useAuth } from "../lib/auth";
 import { pct } from "../lib/copy";
 import { utc } from "../lib/time";
 import { Crest, LeagueMark, PlayerAvatar } from "../components/Media";
+import Icon from "../components/Icon";
 import { Tabs, useToast } from "../components/Ui";
 import SearchOverlay from "../components/SearchOverlay";
 import { ForecastCard } from "../components/ui/ForecastCard";
@@ -28,10 +29,16 @@ function inTime(s) {
 }
 const subjectOf = (f) => f.player?.name || f.team?.name || "";
 
+// Three-valued, in the product's own words (docs/03 section 4.6, and the same three the combo list
+// and the forecast card's live tracking use): it happened, it did not, or he did not play. Each
+// carries a mark as well as a word -- "Hit" and "Miss" were a word and a colour, in a vocabulary
+// nothing else on the site speaks, and the third state was a word with no mark at all.
 function Outcome({ o }) {
   if (!o) return null;
-  if (o.player_played === false) return <span className="y-tag" data-testid="outcome-dnp">Did not play</span>;
-  return o.reached ? <span className="y-tag y-tag--hit" data-testid="outcome-hit">Hit</span> : <span className="y-tag y-tag--miss" data-testid="outcome-miss">Miss</span>;
+  if (o.player_played === false) return <span className="y-tag" data-testid="outcome-dnp"><Icon name="minus" size={12} />Did not play</span>;
+  return o.reached
+    ? <span className="y-tag y-tag--hit" data-testid="outcome-hit"><Icon name="check" size={12} />Happened</span>
+    : <span className="y-tag y-tag--miss" data-testid="outcome-miss"><Icon name="x" size={12} />Did not happen</span>;
 }
 
 function FeedItem({ it }) {
@@ -46,7 +53,16 @@ function FeedItem({ it }) {
   }
   if (it.type === "result") {
     const m = it.m;
-    return <Link to={`/match/${m.id}`} className="y-item y-item--row" data-testid={`feed-result-${m.id}`}><span className="y-tag">FT</span><span>{m.home?.name} <b>{m.hg}–{m.ag}</b> {m.away?.name}</span></Link>;
+    // This was the one row in the feed that named two clubs and could show neither. The pair of
+    // crests goes in the row's picture slot, the way the forecast card draws a match-level line,
+    // so every `y-item--row` in this feed is the same three cells: picture, words, tag.
+    return (
+      <Link to={`/match/${m.id}`} className="y-item y-item--row" data-testid={`feed-result-${m.id}`}>
+        <span className="k-fc-crests"><Crest team={m.home} size={28} /><Crest team={m.away} size={28} /></span>
+        <span>{m.home?.name} <b>{m.hg}–{m.ag}</b> {m.away?.name}</span>
+        <span className="y-tag">FT</span>
+      </Link>
+    );
   }
   if (it.type === "lineup") {
     const x = it.x;
@@ -60,13 +76,18 @@ function FeedItem({ it }) {
   if (it.type === "saved") {
     return (
       <Link to={f.match_id ? `/match/${f.match_id}` : "#"} className="y-item y-item--row" data-testid={`feed-saved-${f.fkey}`}>
-        <Outcome o={it.o} /><span>Your saved: <b>{subjectOf(f)} {f.market}</b> ({pct(f.p)}).{it.o?.player_played !== false && it.o?.actual != null ? ` Final count: ${it.o.actual}.` : ""}</span>
+        {/* The face, and the outcome tag where the other rows keep their tag. This row named a
+            player or a club with no picture, and put its tag in the slot every other row in the
+            feed fills with one -- so the words began at a different x on every saved row. */}
+        {f.player ? <PlayerAvatar player={f.player} size={40} /> : <Crest team={f.team} size={40} />}
+        <span>Your saved: <b>{subjectOf(f)} {f.market}</b> ({pct(f.p)}).{it.o?.player_played !== false && it.o?.actual != null ? ` Final count: ${it.o.actual}.` : ""}</span>
+        <Outcome o={it.o} />
       </Link>
     );
   }
   return (
     <Link to={f.match_id ? `/match/${f.match_id}` : "#"} className="y-item y-item--row" data-testid={`feed-forecast-${f.fkey || f.id}`}>
-      {f.player ? <PlayerAvatar player={f.player} size={40} /> : <Crest team={f.team} size={36} />}
+      {f.player ? <PlayerAvatar player={f.player} size={40} /> : <Crest team={f.team} size={40} />}
       <span><b>{subjectOf(f)}</b> · {f.p_prev != null ? <>forecast {f.p > f.p_prev ? "rose" : "fell"} from {pct(f.p_prev)} to <b>{pct(f.p)}</b>: {f.market}</> : <>forecast: {f.market}, <b>{pct(f.p)}</b></>}</span><TierBadge tier={f.tier} testid={`feed-tier-${f.fkey || f.id}`} />
     </Link>
   );
@@ -97,7 +118,7 @@ function BookingRisk() {
         <li key={f.id} className="book-row" data-testid={`following-booking-${f.player_iid}`}>
           <span className="book-rank">{f.rank}</span><PlayerAvatar player={f.player} size={36} />
           <span className="book-who"><Link to={`/player/${f.player?.id}`}><b>{f.player?.name}</b></Link><small className="muted">{f.home_iid === f.team_iid ? "v" : "at"} <Link to={`/match/${f.match_id}`}>{f.opp?.name}</Link></small></span>
-          <span className="book-p"><b>{Math.round(f.p * 100)}%</b><span className="book-bar"><i style={{ width: `${Math.round(f.p * 100)}%` }} /></span></span>
+          <span className="book-p"><b>{pct(f.p)}</b><span className="book-bar"><i style={{ width: `${Math.round(f.p * 100)}%` }} /></span></span>
         </li>
       ))}</ol>
     </section>
@@ -141,7 +162,7 @@ function Saved({ q }) {
   const drop = async (fkey) => { try { await del("/me/saved", { fkey }); toast("Removed"); q.reload(); } catch (x) { toast(x.message, "err"); } };
   if (q.loading && !q.data) return <Skeleton shape="card" count={3} testid="saved-loading" />;
   if (q.error) return <ErrorState message="We could not load your saved forecasts." onRetry={q.reload} testid="saved-error" />;
-  if (!q.data.items.length) return <EmptyState icon="star" title="No saved forecasts" testid="saved-empty">Press the star on any forecast to keep it here. Once the match is played, it says hit or miss.</EmptyState>;
+  if (!q.data.items.length) return <EmptyState icon="star" title="No saved forecasts" testid="saved-empty">Press the star on any forecast to keep it here. Once the match is played, it says whether it happened.</EmptyState>;
   return (
     <div className="fgrid" data-testid="saved-list">{q.data.items.map((r) => (
       <div key={r.fkey} className="saved-item">
@@ -196,7 +217,9 @@ function SignedOut() {
           <ul className="ex-grid" data-testid="following-suggest">
             {leagues.map((l) => (
               <li key={l.id}><Link to={`/league/${l.id}`} className="ex-lg" data-testid={`following-league-${l.id}`}>
-                <span className="ex-lg-top"><LeagueMark league={l} size={36} /></span>
+                {/* The same tile as Explore's league grid, so the same mark size: these share
+                    .ex-lg and were drawn at 36 here and 40 there. */}
+                <span className="ex-lg-top"><LeagueMark league={l} size={40} /></span>
                 <b>{l.name}</b><small className="k-faint">Browse clubs to follow</small>
               </Link></li>
             ))}

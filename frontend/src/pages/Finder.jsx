@@ -72,7 +72,11 @@ function Row({ r, f, canLine, statLabel }) {
   const nx = r.next_match;
   return (
     <li className="fs-row" data-testid={`finder-row-${r.id}`}>
-      {r.player ? <PlayerAvatar player={r.player} size={44} /> : <Crest team={r.team} size={40} />}
+      {/* One size for both, as the forecast card's own Who does. A 44px portrait on one row and a
+          40px crest on the next sized this column differently per row, so the name, the strip and
+          the percentage after it all started at a different x depending on whether the row was
+          about a person or a club. */}
+      {r.player ? <PlayerAvatar player={r.player} size={44} /> : <Crest team={r.team} size={44} />}
       <span className="fs-who"><Link to={r.player ? `/player/${r.player.id}` : `/team/${r.team?.id}`}><b>{(r.player || r.team)?.name}</b></Link>
         <small>{[r.player && r.team ? r.team.name : null, nx ? `next v ${(nx.home?.id === r.team?.id ? nx.away : nx.home)?.name}, ${kickoff(nx.kickoff)}` : null].filter(Boolean).join(" · ")}</small></span>
       {/* Ten filled-or-empty squares could not tell a quiet game from a busy one, or say who it
@@ -91,7 +95,13 @@ function Row({ r, f, canLine, statLabel }) {
         : <small className="fs-nonext muted" data-testid={`finder-nonext-${r.id}`}>
             {canLine && !canLine.includes(Number(f.n)) ? `We do not forecast ${f.n}+ ${statLabel}` : "No forecast for this match"}
           </small>}
-      {r.forecast?.fkey && r.forecast.addable !== false && <RowAdd f={{ ...r.forecast, player: r.player || r.forecast.player, team: r.team || r.forecast.team }} />}
+      {/* The add control's slot is drawn on every row, empty where the line cannot be added.
+          Rendered only when present it was a fifth grid child on some rows and a fourth on
+          others, so those rows laid out on a different set of tracks and nothing lined up down
+          the list. An empty cell is how a column keeps its place. */}
+      {r.forecast?.fkey && r.forecast.addable !== false
+        ? <RowAdd f={{ ...r.forecast, player: r.player || r.forecast.player, team: r.team || r.forecast.team }} />
+        : <span className="fs-addslot" aria-hidden="true" />}
       {r.forecast?.from_ladder && <small className="muted fs-ladder" data-testid={`finder-ladder-${r.id}`}>Open the match to add this line.</small>}
     </li>
   );

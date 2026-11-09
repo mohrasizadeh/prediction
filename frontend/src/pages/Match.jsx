@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
-import { PlayerAvatar } from "../components/Media";
+import { Crest, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { MatchRow, Seg, TacticChip, num1, posLabel, useTitle } from "../components/Football";
@@ -12,6 +12,7 @@ import MatchEvents from "../components/MatchEvents";
 import LiveLineups from "../components/LiveLineups";
 import { ProLock } from "../components/ui";
 import { isLiveNow } from "../lib/live";
+import { pct } from "../lib/copy";
 
 const cardsOf = (d) => d.cards || d.forecasts;
 
@@ -54,7 +55,7 @@ function Pitch({ d }) {
             <Link key={`${k}-${s.player_iid}`} to={s.player ? `/player/${s.player.id}` : "#"} className={`pp pp--${k}${!conf && pp[s.player_iid] != null && pp[s.player_iid] < 0.7 ? " pp--unsure" : ""}`} style={{ top: `${top}%`, left: `${left}%` }} title={s.player?.name} data-testid={`pitch-player-${s.player_iid}`}>
               <PlayerAvatar player={s.player} size={32} />
               <span className="pp-name">{s.shirt_number ? `${s.shirt_number} ` : ""}{(s.player?.name || "").split(" ").slice(-1)[0]}</span>
-              {!conf && pp[s.player_iid] != null && <span className="pp-pct">{Math.round(pp[s.player_iid] * 100)}%</span>}
+              {!conf && pp[s.player_iid] != null && <span className="pp-pct">{pct(pp[s.player_iid])}</span>}
             </Link>
           );
         }); })}
@@ -88,7 +89,7 @@ function H2H({ d }) {
   if (!h.matches.length) return <Empty icon="clock">These clubs have not met in the matches we hold.</Empty>;
   return (
     <>
-      <div className="h2h-sum" data-testid="h2h-summary"><span><b>{h.a_wins}</b>{d.home.name}</span><span><b>{h.draws}</b>Draws</span><span><b>{h.b_wins}</b>{d.away.name}</span></div>
+      <div className="h2h-sum" data-testid="h2h-summary"><span><b>{h.a_wins}</b><Crest team={d.home} size={20} />{d.home.name}</span><span><b>{h.draws}</b>Draws</span><span><b>{h.b_wins}</b><Crest team={d.away} size={20} />{d.away.name}</span></div>
       <ul className="mlist">{h.matches.map((m) => <MatchRow key={m.iid} m={m} />)}</ul>
     </>
   );
@@ -145,7 +146,7 @@ function Analysis({ d }) {
       <section id="an-players" className="an-sec"><h2 className="k-sec">Shots by player · last 10 games</h2><Players d={d} /></section>
       <section id="an-style" className="an-sec"><h2 className="k-sec">Playing style</h2>
         {d.matchup_locked ? <Empty icon="padlock" testid="matchup-locked">The style comparison is part of a bigger plan. <ProLock testid="matchup-pro" /></Empty>
-          : <div className="split2">{[d.home, d.away].map((t, i) => <div key={t.id} className="card"><h3 className="h3">{t.name}</h3><div className="chips">{(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).map((x) => <TacticChip key={x} t={x} />)}{!(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).length && <span className="k-faint">No clear style yet</span>}</div></div>)}</div>}
+          : <div className="split2">{[d.home, d.away].map((t, i) => <div key={t.id} className="card"><h3 className="h3 team"><Crest team={t} size={22} />{t.name}</h3><div className="chips">{(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).map((x) => <TacticChip key={x} t={x} />)}{!(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).length && <span className="k-faint">No clear style yet</span>}</div></div>)}</div>}
       </section>
     </div>
   );

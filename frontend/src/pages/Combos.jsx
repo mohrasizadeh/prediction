@@ -13,7 +13,7 @@ import { Crest, PlayerAvatar } from "../components/Media";
 import { EmptyState, ErrorState, ForecastCard, Segmented, Skeleton } from "../components/ui";
 import { useTitle } from "../components/Football";
 
-const Face = ({ l }) => (l.player ? <PlayerAvatar player={l.player} size={28} /> : <Crest team={l.team} size={28} />);
+const Face = ({ l, size = 28 }) => (l.player ? <PlayerAvatar player={l.player} size={size} /> : <Crest team={l.team} size={size} />);
 
 function Card({ c, onDelete }) {
   const done = c.status !== "upcoming";
@@ -36,20 +36,32 @@ function Card({ c, onDelete }) {
         </div>
       ) : (
         <ul className="cb-res">{c.lines.map((l) => {
-          // reached === null means we do not know yet: a dash, never a cross (docs/03 section 4.6)
-          const mark = l.reached === true ? "y" : l.reached === false ? "n" : "u";
-          const says = l.reached === true ? "Happened" : l.reached === false ? "Did not happen" : "Not known yet";
-          const note = l.played === false ? "Did not play"
+          // Three-valued (docs/03 section 4.6): it happened, it did not, or he did not play. A man
+          // who never came on has not MISSED his line -- the match never put the claim to the
+          // test -- so "did not play" is its own state with its own mark and its own word, never
+          // folded into the cross. reached === null is "not known yet", also a dash, never a cross.
+          const dnp = l.played === false;
+          const mark = dnp ? "u" : l.reached === true ? "y" : l.reached === false ? "n" : "u";
+          const says = dnp ? "Did not play" : l.reached === true ? "Happened" : l.reached === false ? "Did not happen" : "Not known yet";
+          const note = dnp ? "Did not play"
             : l.actual != null ? `Had ${l.actual}`
             : l.current != null && l.needed != null ? `${l.current} of ${l.needed} so far`
             : live ? "Counting" : "";
           return (
             <li key={l.fkey}>
               <span className={"cb-tick " + mark} aria-label={says}>
-                {l.reached === true ? <Icon name="check" size={12} /> : l.reached === false ? <Icon name="x" size={12} /> : "–"}
+                {dnp ? "–" : l.reached === true ? <Icon name="check" size={12} /> : l.reached === false ? <Icon name="x" size={12} /> : "–"}
               </span>
+              {/* The face of whoever the line is about. The card's header draws all four of them
+                  and this list -- the part a reader actually reads -- named them with nothing to
+                  show. Same component as the header, same shield/initials fallback. */}
+              <Face l={l} size={22} />
               <span className="cb-res-t">{l.player?.name || l.team?.name} · {l.market}</span>
-              <small className="muted">{note}</small>
+              {/* The likelihood stays after the event, as it does on a fixture row: "71% · Had 3"
+                  and "38% · Had 3" are the same kind of object, so a column of graded lines reads
+                  as a results table rather than as a verdict column. `chance` is the number this
+                  line was saved at -- routes_me keeps it per line for exactly this. */}
+              <small className="muted cb-res-n">{pct(l.chance)}{note ? ` · ${note}` : ""}</small>
             </li>
           );
         })}
