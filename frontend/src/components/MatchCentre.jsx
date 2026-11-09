@@ -12,7 +12,7 @@ import TeamNews from "./TeamNews";
 import { ShareCard } from "./Share";
 import { num1 } from "./Football";
 import BuildForMe from "./BuildForMe";
-import { ChipsRow, EmptyState, ErrorState, ForecastCard, RangeSlider, Segmented, Skeleton, WdlBar } from "./ui";
+import { ChipsRow, EmptyState, ErrorState, ForecastRow, RangeSlider, Segmented, Skeleton, WdlBar } from "./ui";
 import { fxState, mLive } from "../lib/live";
 
 const cardsOf = (d) => d.cards || d.forecasts;
@@ -102,6 +102,7 @@ export function MatchNotes({ d }) {
 }
 
 export function Forecasts({ d, matchId }) {
+  const [openRow, setOpenRow] = useState(null);
   const live = !!d.match.live && fxState(d.match.live) !== "later" && d.match.status !== "postponed";
   // While the match is on, ask every 30 s which lines have happened. This used to stop at half time (docs/42).
   const lt = useApi(live && matchId ? `/matches/${matchId}/live-forecasts` : null, undefined, { every: mLive(d.match) ? 30000 : 0 });
@@ -116,7 +117,6 @@ export function Forecasts({ d, matchId }) {
   // the lines this product is prepared to stand behind had to read twenty-three cards and sort
   // them by badge in their head. Empty means every tier, so the tab opens showing everything.
   const [tiers, setTiers] = useState([]);
-  const fxTeams = { [d.match.home_iid]: d.home, [d.match.away_iid]: d.away };
   const atMin = cardsOf(d).filter((f) => f.p * 100 >= min);
   const rows = tiers.length ? atMin.filter((f) => tiers.includes(f.tier)) : atMin;
   // Counted after the slider, so a chip's number is what tapping it would actually show.
@@ -149,7 +149,15 @@ export function Forecasts({ d, matchId }) {
         : !rows.length ? <EmptyState icon="target" title={tiers.length ? `Nothing in ${tiers.join(" or ")} at ${min}% or more` : `Nothing at ${min}% or more`} testid="fc-none" action={<button type="button" className="btn btn--secondary btn--sm" onClick={() => { setMin(50); setTiers([]); }} data-testid="fc-reset">Show all</button>}>{tiers.length ? "Widen the tier, or lower the minimum likelihood." : "Lower the minimum likelihood."}</EmptyState>
         : groups.filter(([, xs]) => xs.length).map(([title, xs]) => (
           <section key={title} className="mc-fc-group"><header className="v2-sec-head"><h2 className="k-sec v2-sec">{title} · {xs.length}</h2></header>
-            <div className="fgrid">{xs.map((f) => <ForecastCard key={f.id} f={f} teams={fxTeams} homeIid={d.match.home_iid} showTime={false} track={track} testid={`match-fc-${f.id}`} />)}</div></section>
+            {/* The same row Most likely draws, from the shared kit. A grid of cards and this row
+                were two presentations of one object, and the card was on ten surfaces only because
+                the agreed one had never been extracted from that page. */}
+            <table className="lk-tbl" data-testid={`match-fc-${title}`}><tbody>
+              {xs.map((f) => (
+                <ForecastRow key={f.id} f={f} floor={0} open={openRow === f.id}
+                             onToggle={() => setOpenRow(openRow === f.id ? null : f.id)} />
+              ))}
+            </tbody></table></section>
         ))}
     </div>
   );

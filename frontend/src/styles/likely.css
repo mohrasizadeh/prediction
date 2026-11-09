@@ -303,3 +303,18 @@
   .lk-open td:first-child, .lk-whyrow td { box-shadow: none; }
   .lk-open { box-shadow: inset 3px 0 0 0 var(--brand); }
 }
+
+/* The departure from usual, carried over from ForecastCard when the match page adopted this row.
+   It sits under the claim, where the card put it under the market, and uses the same two
+   directions the card did -- which are genuine above/below-usual, the one thing --up/--down are
+   for. Only drawn on the rung the forecast is about: p_usual belongs to that rung. */
+.lk-dep { display: block; margin-top: 3px; font-size: 12px; color: var(--text2); line-height: 1.35; }
+.lk-dep i { font-style: normal; margin-right: 4px; }
+.lk-dep b { font-weight: 650; color: var(--text); }
+.lk-dep.is-up i { color: var(--up); }
+.lk-dep.is-down i { color: var(--down); }
+/* The save control sits beside Why, in the cell that already holds the row's two buttons. */
+.lk-lucell .k-save { margin-left: 6px; }
+
+.lk-tiercell { display: block; margin-top: 4px; }
+.lk-tiercell .k-tier { justify-content: flex-end; }
