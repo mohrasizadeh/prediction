@@ -1,13 +1,14 @@
 // App frame drawn from the site config (docs/16 §2.7): header with Beta tag, desktop rail or top menu, phone bottom bar
 // from nav.mobile_tabs plus More, announcements, footer with the disclaimer, cookie banner, maintenance page.
 import { useCallback, useEffect, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/useApi";
 import { get, patch } from "../lib/api";
 import { DISCLAIMER } from "../lib/copy";
 import { utc } from "../lib/time";
 import { audienceOk, route, useSite } from "../lib/site";
+import { pageOn } from "../lib/features";
 import Icon from "./Icon";
 import { BrandLogo, Crest, LeagueMark, PlayerAvatar } from "./Media";
 import PopupHost from "./Popups";
@@ -32,8 +33,10 @@ const FOOT_LINKS = [["Insights", "/insights"], ["Explore", "/explore"], ["Learn"
 
 function Nav5Item({ item, className, testid }) {
   const { pathname } = useLocation();
+  const { cfg } = useSite();
   const n = useCombo().count;
   const on = item.end ? pathname === "/" : pathname.startsWith(item.to) || (item.also && item.also.test(pathname));
+  if (!pageOn(cfg, item.to)) return null;        // one map, so the nav and the router cannot disagree
   return (
     <Link to={item.to} className={className + (on ? " active" : "")} aria-current={on ? "page" : undefined} data-testid={testid}>
       <Icon name={item.icon} size={20} /><span>{item.label}</span>{item.count && n > 0 && <i className="cb-count" data-testid="combo-count" aria-label={`${n} lines in your open combo`}>{n}</i>}
@@ -149,7 +152,9 @@ function Announcements() {
 function Footer({ cfg, updated, mode }) {
   const f = cfg?.footer || {};
   const extra = (f.columns || []).flatMap((c) => c.links || []).map((l) => [l.label, l.route]);
-  const links = [...FOOT_LINKS, ...extra].filter(([, r], i, a) => a.findIndex((x) => x[1] === r) === i && r !== "/");
+  const links = [...FOOT_LINKS, ...extra]
+    .filter(([, r], i, a) => a.findIndex((x) => x[1] === r) === i && r !== "/")
+    .filter(([, r]) => pageOn(cfg, r));          // a switched-off page is not a footer link either
   return (
     <footer className="footer" data-testid="site-footer">
       <div className="wrap">
@@ -223,6 +228,11 @@ export default function Layout({ children }) {
   const small = useHeaderShrink();
   const mode = useThemeMode();
   const nav = cfg?.nav || {};
+  // docs/67: Layout wraps every public route, so one check here covers the navigation AND the
+  // address bar. Hiding a page from the nav while its URL still answers is not hiding it -- and
+  // the owner, looking at a nav without it, believes it is off.
+  const allowed = pageOn(cfg, loc.pathname);
+
   const cta = nav.header_cta?.enabled && audienceOk(nav.header_cta.audience, user, me) ? nav.header_cta : null;
   const rail = nav.desktop_layout !== "top";
   const staff = user && user.role !== "user";
@@ -235,6 +245,12 @@ export default function Layout({ children }) {
   }, []);
   usePageBeacon(loc.pathname);
   useTagLoader(cfg?.tracking, loc.pathname);
+
+  // After every hook, never before: a conditional return above them changes the hook order
+  // between renders. Home is the right destination -- a visitor who followed an old link to a
+  // page the owner has since switched off should land somewhere useful, not on a 404 that
+  // implies the address was wrong.
+  if (!allowed) return <Navigate to="/" replace />;
 
   return (
     <div className={"app" + (rail ? " app--rail" : "")}>

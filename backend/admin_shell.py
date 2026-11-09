@@ -59,6 +59,7 @@ MODULES = [
     ("studio", "Site Studio", "Website", "palette", "/admin/studio", ("site.read",)),
     ("pages", "Pages", "Website", "file-text", "/admin/pages", ("content.write",)),
 
+    ("screens", "Screens", "System", "layers", "/admin/screens", ("settings.read",)),
     ("settings", "Settings", "System", "settings", "/admin/settings", ("settings.read",)),
     ("keys", "Keys", "System", "key", "/admin/keys", ("settings.read",)),
     ("integrations", "Integrations", "System", "external", "/admin/integrations", ("integrations.read",)),

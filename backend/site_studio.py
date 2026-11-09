@@ -848,6 +848,11 @@ def public_config(db, draft: bool = False) -> dict:
                      "meta_pixel_id": trk["tracking.meta_pixel_id"] if trk["tracking.enabled"] else "",
                      "google_ads_id": trk["tracking.google_ads_id"] if trk["tracking.enabled"] else "",
                      "require_consent": bool(trk["tracking.require_consent"])},
+        # docs/67: every features.* switch, without its prefix. They existed in the registry from
+        # the start and reached nothing -- only billing and maintenance were ever read, so the rest
+        # were decorative. A switch that hides nothing is worse than no switch, because the owner
+        # believes the page is off.
+        "features": {k[len("features."):]: bool(v) for k, v in pub.items() if k.startswith("features.")},
         "popups_enabled": bool(S.get(db, "popups.enabled")),
         "maintenance": {"on": bool(pub.get("features.maintenance")), "message": pub.get("site.maintenance_message", "")},
         "disclaimer": pub.get("copy.disclaimer", textguard.DISCLAIMER),

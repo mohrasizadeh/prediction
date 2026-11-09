@@ -432,3 +432,16 @@
   .sch-time { grid-area: time; } .sch-thumb { grid-area: thumb; } .sch-body { grid-area: body; }
   .sch-acts { grid-area: acts; justify-content: flex-end; }
 }
+
+/* ---------------------------------------------------------------- Screens (docs/67)
+ * A switch and the sentence that says what it hides. Settings is a search box over 270 keys;
+ * deciding what a visitor sees should not require knowing what a key is called. */
+.pg-lead { color: var(--text2); font-size: 13px; margin: 0 0 10px; }
+.pg-list { list-style: none; margin: 0; padding: 0; }
+.pg-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 10px 0; }
+.pg-row + .pg-row { border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.pg-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pg-text b { font-size: 14px; font-weight: 650; color: var(--text); }
+.pg-text small { font-size: 12.5px; color: var(--text3); line-height: 1.45; }
+.pg-row .switch-row { flex: 0 0 auto; }
+.pg-row .switch-text { display: none; }

@@ -3052,5 +3052,45 @@
     "public": false,
     "applies_at": "immediately",
     "help": "Local times a scheduled batch is spread across, in order, repeating across the day. Keep them off the hour: everyone else posts on it."
+  },
+  {
+    "key": "features.likely",
+    "label": "Most likely",
+    "type": "boolean",
+    "default": true,
+    "group": "Features",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "The ranked screen: what is likeliest in the next few hours. The one a new visitor should land on."
+  },
+  {
+    "key": "features.combos",
+    "label": "Combos",
+    "type": "boolean",
+    "default": true,
+    "group": "Features",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Build and track a combination of lines."
+  },
+  {
+    "key": "features.compare",
+    "label": "Compare",
+    "type": "boolean",
+    "default": true,
+    "group": "Features",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "Side-by-side comparison of two players or clubs."
+  },
+  {
+    "key": "features.explore",
+    "label": "Explore",
+    "type": "boolean",
+    "default": true,
+    "group": "Features",
+    "public": true,
+    "applies_at": "immediately",
+    "help": "The browse hub: leagues, clubs and the directory pages under it."
   }
 ]
