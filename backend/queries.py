@@ -977,6 +977,46 @@ def against_by_position(db, team_iid: int, stat: str, last_n: int = 10) -> dict:
 
 
 # -------------------------------------------------------------- Track record
+def proof(db, limit: int = 12, min_p: float = 0.7, days: int = 10) -> list[dict]:
+    """Recent forecasts that were published, scored, and CAME IN -- with what actually happened.
+
+    This is the strongest material the product owns for a landing page, and it costs nothing to
+    keep fresh: it is yesterday's work, already graded. A claim a reader can check beats any
+    sentence about a method.
+
+    Only lines where the player PLAYED are eligible. A forecast on someone who never came on was
+    not right about football, and dressing it as a hit on a page whose whole argument is honesty
+    would be the one unforced error available here.
+    """
+    since = datetime.now(timezone.utc) - timedelta(days=int(days))
+    outs = list(db.forecast_outcomes.find(
+        {"reached": True, "player_played": True, "p": {"$gte": float(min_p)}, "scored_at": {"$gte": since}},
+        {"_id": 0}).sort("scored_at", -1).limit(int(limit) * 6))
+    if not outs:
+        return []
+    fc = {f["id"]: f for f in db.forecasts.find({"id": {"$in": [o["forecast_id"] for o in outs]}},
+                                                {"_id": 0, "contrib": 0})}
+    rows, seen = [], set()
+    for o in outs:
+        f = fc.get(o["forecast_id"])
+        if not f:
+            continue
+        key = f.get("player_iid") or ("t", f.get("team_iid"))
+        if key in seen:                       # one line per player, so the strip is not one striker six times
+            continue
+        seen.add(key)
+        rows.append({**f, "_actual": o["actual"], "_p": o["p"], "_thr": o["thr"], "_scored_at": o.get("scored_at")})
+        if len(rows) >= int(limit):
+            break
+    _decorate(db, rows)
+    return [{"fkey": r["fkey"], "market": r["market"], "stat": r["stat"], "scope": r["scope"],
+             "player": r.get("player"), 
+             "team": r.get("team"), "opp": r.get("opp"), "kickoff": r.get("kickoff"),
+             "p": round(float(r["_p"]), 4), "thr": r["_thr"], "actual": r["_actual"],
+             "tier": r.get("tier"), "scored_at": r.get("_scored_at"),
+             "league_name": r.get("league_name")} for r in rows]
+
+
 def track_record(db, league_iid=None, min_n: int = 300, stat=None, scope=None) -> dict:
     q = {"league_iid": league_iid} if league_iid else {}
     if stat:

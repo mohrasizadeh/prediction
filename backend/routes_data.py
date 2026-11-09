@@ -291,6 +291,18 @@ def player_history(player_id: str, response: Response, last: int = Query(20, ge=
 
 
 # ------------------------------------------------------------------ track record
+@router.get("/proof")
+def proof(limit: int = Query(12, ge=1, le=30), response: Response = None, db=Depends(D.get_db)):
+    """Recent forecasts that were published, scored, and came in (docs/68).
+
+    Public and uncached-by-the-browser on purpose: the landing page's whole claim is that these are
+    fresh, and a day-old copy in a CDN would quietly make it a lie.
+    """
+    if response is not None:
+        response.headers["Cache-Control"] = "no-store"
+    return {"items": Q.proof(db, limit=limit)}
+
+
 @router.get("/track-record")
 def track_record(response: Response, league: str | None = None,
                  stat: str | None = Query(None, pattern="^(shots|sot|tackles|corners|yellow_cards|match_yellow_cards)$"),
