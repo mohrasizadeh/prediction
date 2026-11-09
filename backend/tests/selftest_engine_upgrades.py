@@ -59,8 +59,14 @@ check(abs(sum(sv_rows.values()) - sum(b_rows.values())) > 1e-9, "it changes the 
 fr = fit(fit_player_r=True)
 check(fr.r_player != base.r_player, "the spread is fitted, not the fixed default")
 check(all(0.5 <= v <= 100.0 for v in fr.r_player.values()), f"...and lands in a sane range: {fr.r_player}")
-check(set(fr.mu_fit) == set(E.PLAYER_STATS) and len(fr.mu_fit["shots"]) > 100,
-      "it scores against the team totals the model PREDICTED, not the ones that happened")
+# Scoped to the markets this FRAME supports, not the module list. PLAYER_STATS names every market
+# the engine can fit; a given frame carries the columns for some of them, and a predicted team
+# total can only exist where there is also a team model to predict it (docs/70). This fixture has
+# shots, sot and tackles -- it was written before fouls and goal involvements existed, and
+# comparing against the module list made it fail for the one reason that is not a defect.
+expect = {st for st in fr.player_stats if st in fr.stats}
+check(set(fr.mu_fit) == expect and len(fr.mu_fit["shots"]) > 100,
+      f"it scores against the team totals the model PREDICTED, not the ones that happened ({sorted(expect)})")
 few = E.SoccerEngine(seed=0, fit_player_r=True)
 few.r_player = {"shots": 6.0, "sot": 5.0, "tackles": 10.0}
 few.mu_fit = {}

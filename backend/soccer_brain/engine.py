@@ -258,6 +258,11 @@ class SoccerEngine:
         self.mf = tuple(match_features)             # ((column, group), ...) known at lineup time; see _feat
         self.extra = tuple(extra_stats)
         self.stats = list(STATS) + [s for s in self.extra if s not in STATS]
+        # Every player market the engine can fit, until fit() narrows it to the ones this frame
+        # actually carries columns for. Defaulted here and not only in fit() because the dispersion
+        # fitter can be driven directly, without a frame, and an attribute that exists only after a
+        # successful fit is one a caller cannot reason about (docs/70).
+        self.player_stats = list(PLAYER_STATS)
         self.sum_cols = list(SUM_COLS)
         self.team_dims = dict(TEAM_DIMS)
         for j, st_ in enumerate(s for s in self.extra if s not in STATS):
@@ -501,6 +506,14 @@ class SoccerEngine:
         matches = matches[matches["round"] < as_of]
         tg = tg[tg["round"] < as_of].copy().reset_index(drop=True)
         pg = pg[pg["round"] < as_of].copy()
+        # The markets THIS frame can support, decided once and used by everything below. A market
+        # needs its own column and its team total, and neither is guaranteed: fouls and goal
+        # involvements were added after some leagues were ingested, and a caller that builds its
+        # own frame (the A/B runner, the simulator, a test) has no reason to carry columns for
+        # markets it is not studying. The engine fits what it is given rather than crashing on what
+        # it is not -- the alternative is a KeyError in the middle of a league run (docs/70).
+        self.player_stats = [c for c in PLAYER_STATS
+                             if c in pg.columns and ("team_" + c) in pg.columns]
         self.teams = sorted(set(tg["team"]) | set(tg["opp"]))
         self.tidx = {t: i for i, t in enumerate(self.teams)}
         self.snaps = self._snapshots(tg, as_of)
@@ -526,7 +539,7 @@ class SoccerEngine:
             offs[s] = np.array([self._offset(s, self.tidx[r.team], self.tidx[r.opp], self.snaps[r.round])
                                 for r in rows.itertuples()])
             self.glm[s] = NBGLM(l2=l2).fit(Xs, rows[s].values.astype(float), w, offset=offs[s])
-            if self.fit_player_r and s in PLAYER_STATS and len(rows):
+            if self.fit_player_r and s in self.player_stats and len(rows):
                 mu_hat = self.glm[s].predict_mu(Xs, offs[s])
                 self.mu_fit[s] = {(int(gid), int(t)): float(v)
                                   for gid, t, v in zip(rows["game_id"].values, rows["team"].values, mu_hat)}
@@ -554,14 +567,6 @@ class SoccerEngine:
         # `rho90`, the positional per-90 mean, was computed here only to shrink the player's own
         # baseline toward. That baseline is now built from the same posterior and the same team
         # total as his forecast, so nothing reads it any more.
-        # The markets THIS frame can support. A market needs its own column and its team total, and
-        # neither is guaranteed: fouls and goal involvements were added to the engine after some
-        # leagues were ingested, and a caller that builds its own frame (the A/B runner, the
-        # simulator, a test) has no reason to carry columns for markets it is not studying. The
-        # engine fits what it is given rather than crashing on what it is not -- the alternative is
-        # a KeyError in the middle of a league run, which is how this was found.
-        self.player_stats = [s for s in PLAYER_STATS
-                             if s in pgp.columns and ("team_" + s) in pgp.columns]
         for s in self.player_stats:
             E = pgp["team_" + s] * pgp["minutes"] / 90.0
             self.rho[s] = (pgp.groupby("pos")[s].sum() / E.groupby(pgp["pos"]).sum()).to_dict()
