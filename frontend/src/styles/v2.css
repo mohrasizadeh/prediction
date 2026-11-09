@@ -2066,6 +2066,8 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 .td-ins-claim { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .td-ins-set .td-ins > em { flex: 0 0 auto; }
 .td-ins-set .td-ins > svg { flex: 0 0 auto; }
-/* One width for every chip in a row, so the figures form a column instead of a ragged edge. */
-.td-ins-set.is-done { align-items: stretch; }
+/* Equal-width chips were tried here and reverted: stretched across an uncapped 1fr column they
+   become 1100px pills with the claim adrift in the middle and the figures stranded at the far
+   right. Equal width only works once the read column itself is capped, which is a bigger change
+   than this line. Chips size to their content and align right. */
 
