@@ -955,11 +955,22 @@
       "tackles": [
         1.5,
         2.5
+      ],
+      "fouls_committed": [
+        0.5,
+        1.5
+      ],
+      "goal_involvements": [
+        0.5
+      ],
+      "saves": [
+        1.5,
+        2.5
       ]
     },
     "public": false,
     "applies_at": "next_engine_run",
-    "help": "Which lines the engine publishes per player market. engine.auto_lines decides WHICH of these two is live -- the ladder when it is on (the default), the thresholds when it is off. A market named here that the engine cannot fit is dropped, not guessed at; the markets it can fit are shots, sot, tackles, fouls_committed and goal_involvements."
+    "help": "Which lines the engine publishes per player market. engine.auto_lines decides WHICH of these two is live -- the ladder when it is on (the default), the thresholds when it is off. A market named here that the engine cannot fit is dropped, not guessed at; the markets it can fit are shots, sot, tackles, fouls_committed, goal_involvements and saves (keepers only). A market the engine fits but nobody names here is not published, so this list is the on/off switch for each one."
   },
   {
     "key": "engine.team_thresholds",
@@ -1014,11 +1025,25 @@
         3.5,
         4.5,
         5.5
+      ],
+      "fouls_committed": [
+        0.5,
+        1.5,
+        2.5
+      ],
+      "goal_involvements": [
+        0.5
+      ],
+      "saves": [
+        1.5,
+        2.5,
+        3.5,
+        4.5
       ]
     },
     "public": false,
     "applies_at": "next_engine_run",
-    "help": "Which lines the engine publishes per player market. engine.auto_lines decides WHICH of these two is live -- the ladder when it is on (the default), the thresholds when it is off. A market named here that the engine cannot fit is dropped, not guessed at; the markets it can fit are shots, sot, tackles, fouls_committed and goal_involvements."
+    "help": "Which lines the engine publishes per player market. engine.auto_lines decides WHICH of these two is live -- the ladder when it is on (the default), the thresholds when it is off. A market named here that the engine cannot fit is dropped, not guessed at; the markets it can fit are shots, sot, tackles, fouls_committed, goal_involvements and saves (keepers only). A market the engine fits but nobody names here is not published, so this list is the on/off switch for each one."
   },
   {
     "key": "engine.team_ladder",
@@ -1095,11 +1120,16 @@
     "key": "engine.line_band_by_stat",
     "label": "Likelihood band, per market",
     "type": "json",
-    "default": {},
+    "default": {
+      "goal_involvements": [
+        0.25,
+        0.985
+      ]
+    },
     "group": "Engine",
     "public": false,
     "applies_at": "next engine run",
-    "help": "A likelihood band per market, overriding engine.line_band. Goal involvements sit near 40% for even the best forwards, so without an entry here every rung falls under the 0.5 floor and the market ships as nothing. Fouls need no entry: they clear the standard band."
+    "help": "A likelihood band per market, overriding engine.line_band. Goal involvements sit near 40% for even the best forwards, so without an entry here every rung falls under the 0.5 floor and the market ships as nothing -- hence the 0.25 floor it comes with. Fouls and saves need no entry: both clear the standard band."
   },
   {
     "key": "engine.max_lines_per_stat",
@@ -1398,11 +1428,12 @@
       "sot": 5.0,
       "tackles": 10.0,
       "fouls_committed": 6.0,
-      "goal_involvements": 3.0
+      "goal_involvements": 3.0,
+      "saves": 2.5
     },
     "public": false,
     "applies_at": "next_engine_run",
-    "help": "Negative-binomial dispersion per player market: var = mu + mu^2/r, so a LOWER r means more clustering. Replaced from the data when engine.fit_player_r is on."
+    "help": "Negative-binomial dispersion per player market: var = mu + mu^2/r, so a LOWER r means more clustering. Saves sit lowest because a keeper's count follows what the defence in front of him concedes on target, which swings far more than a forward's own shot count. Every market the engine fits needs an entry; one missing here falls back to the built-in value rather than failing mid-run. Replaced from the data when engine.fit_player_r is on."
   },
   {
     "key": "engine.absence_model",

@@ -255,7 +255,13 @@ def configure_engine(db) -> E.SoccerEngine:
                          # docs/62: whether a manager picks him is a fact about NOW, and the measured
                          # optimum is a four-match half-life. 0 restores the flat count.
                          starter_half_life=float(S.get(db, "engine.starter_half_life") or 0.0))
-    eng.r_player = dict(S.get(db, "engine.r_player"))      # fit_player_r replaces these during fit() when it is on
+    # Merged over the code defaults, NOT replacing them. This used to be a wholesale replacement,
+    # and a settings row only ever holds the markets that existed when it was written: `saves`,
+    # added later, was simply absent, and the first saves line raised KeyError('saves') deep in
+    # the line-drawing loop -- which is why the market validated fine here and did nothing live.
+    # A row can override a market's dispersion; it must not be able to delete one.
+    eng.r_player = {**E.DEFAULT_R_PLAYER, **(S.get(db, "engine.r_player") or {})}
+    # fit_player_r replaces these during fit() when it is on
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
     eng.likely_starter_p = float(S.get(db, "engine.likely_starter_p"))   # likely starters get full minutes, no chance-to-play discount

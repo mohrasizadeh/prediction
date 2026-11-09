@@ -141,10 +141,17 @@ def run(market, n_teams, seed, refit_every, z_min, fit_r=False):
                 # calibration of the 1+ line, which is the one a reader would see
                 # The chance of clearing the ladder's FIRST rung -- 1+ for most markets, 2+ for
                 # saves. Calibrating "1+ saves" would be measuring a near-certainty.
+                #
+                # `need` has to come from the SAME rung the forecast is about. It did not: the
+                # forecast was P(Y >= need) while the outcome scored was `y >= 1`, which agree only
+                # when need == 1. For saves, need is 2, so a forecast of "2+" was being graded
+                # against "did he make any save at all" -- a near-certainty. That mismatch, not the
+                # model, produced the 33-point miscalibration saves was first reported with.
                 thr0 = E.PLAYER_THR[market][0]
-                p1 = 1.0 - sum(math.exp(nb_ll(k, f.expected, rr)) for k in range(int(thr0) + 1))
+                need = int(thr0) + 1
+                p1 = 1.0 - sum(math.exp(nb_ll(k, f.expected, rr)) for k in range(need))
                 b = min(int(p1 * 10), 9)
-                buckets[b][0] += int(y >= 1)
+                buckets[b][0] += int(y >= need)
                 buckets[b][1] += 1
 
     if not eng_ll:
@@ -163,7 +170,8 @@ def run(market, n_teams, seed, refit_every, z_min, fit_r=False):
     print(f"{'':4}{'the engine':26}{n:>7}{me:>11.4f}{gain:>10.4f}{se:>8.4f}{z:>7.2f}   {verdict}")
     print(f"\n    gate: better than the baseline by at least {z_min} paired standard errors")
 
-    print("\n    calibration of the 1+ line -- said, against happened:")
+    need0 = int(E.PLAYER_THR[market][0]) + 1
+    print(f"\n    calibration of the {need0}+ line -- said, against happened:")
     rows = [(b, h, t) for b, (h, t) in sorted(buckets.items()) if t >= 25]
     if not rows:
         print("      too few forecasts in any band to judge")
@@ -179,7 +187,7 @@ def run(market, n_teams, seed, refit_every, z_min, fit_r=False):
     inband = [t for b, h, t in rows if (b + 0.5) / 10 >= 0.5]
     total = sum(t for _, _, t in rows)
     share = sum(inband) / total if total else 0.0
-    print(f"\n    share of 1+ lines that clear the standard 0.5 floor: {share:.0%}"
+    print(f"\n    share of {need0}+ lines that clear the standard 0.5 floor: {share:.0%}"
           f"{'  -- needs engine.line_band_by_stat' if share < 0.25 else ''}")
     print("\n    SIMULATED football. This says whether the machinery works and whether the market")
     print("    can clear a band. What it is worth on the owner's real leagues needs the real data.")

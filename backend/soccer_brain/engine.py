@@ -58,8 +58,13 @@ TEAM_DIMS = {"shots": (0, 1), "corners": (2, 3), "tackles": (4, 5)}
 # goal or he does not, where shots arrive steadily -- hence 3.0 for involvements against 6.0 for
 # shots. `fit_player_r` replaces all of these from the data when it is on, which is the point of
 # these being a starting value rather than a claim.
+# saves is the loosest of the six: a keeper's count is driven by how much the defence in front of
+# him concedes on target, which swings far more match to match than a forward's own shot count
+# (measured var/mean 3.4 against 1.0 for a Poisson). 2.5 came out of a sweep over simulated
+# leagues -- it halved the worst calibration gap against the 5.0 first guessed, at the same
+# likelihood gain. Re-fit it on real results with engine.fit_player_r once engine_ab clears.
 DEFAULT_R_PLAYER = {"shots": 6.0, "sot": 5.0, "tackles": 10.0,
-                    "fouls_committed": 6.0, "goal_involvements": 3.0, "saves": 5.0}
+                    "fouls_committed": 6.0, "goal_involvements": 3.0, "saves": 2.5}
 
 # Which positions a market may be published for; absent means every position. A keeper must not
 # carry a "1+ shots" line and an outfielder must not carry a saves line, and exclude_positions can
@@ -261,19 +266,12 @@ class SoccerEngine:
         self.tx_on = False
         self.shape_on = False
         self.mf = tuple(match_features)             # ((column, group), ...) known at lineup time; see _feat
-        self.extra = tuple(extra_stats)
-        self.stats = list(STATS) + [s for s in self.extra if s not in STATS]
         # Every player market the engine can fit, until fit() narrows it to the ones this frame
         # actually carries columns for. Defaulted here and not only in fit() because the dispersion
         # fitter can be driven directly, without a frame, and an attribute that exists only after a
         # successful fit is one a caller cannot reason about (docs/70).
         self.player_stats = list(PLAYER_STATS)
-        self.sum_cols = list(SUM_COLS)
-        self.team_dims = dict(TEAM_DIMS)
-        for j, st_ in enumerate(s for s in self.extra if s not in STATS):
-            self.sum_cols += [st_, st_ + "_against"]
-            self.team_dims[st_] = (len(SUM_COLS) + 2 * j, len(SUM_COLS) + 1 + 2 * j)
-            TEAM_THR.setdefault(st_, list(EXTRA_THR.get(st_, [])))
+        self._set_extra(extra_stats)
         self.lineup_l2 = lineup_l2
         self.hl = half_life_rounds
         # A PLAYER'S form and a CLUB's strength do not move at the same speed, and one half-life was
@@ -334,6 +332,23 @@ class SoccerEngine:
                 pairs[i_for] = i_ag
                 pairs[i_ag] = i_for
         return pairs
+
+    def _set_extra(self, extras):
+        """Rebuild the team-layer stat list and the column map together.
+
+        `sum_cols` and `team_dims` are POSITIONAL: each extra market appends its own
+        (for, against) pair and records the offsets it landed at. So a market cannot simply be
+        removed from one of them -- drop it and every later market's recorded offsets point at
+        the wrong columns. Both are rebuilt from the kept list, in order, every time.
+        """
+        self.extra = tuple(extras)
+        self.stats = list(STATS) + [s for s in self.extra if s not in STATS]
+        self.sum_cols = list(SUM_COLS)
+        self.team_dims = dict(TEAM_DIMS)
+        for j, st_ in enumerate(s for s in self.extra if s not in STATS):
+            self.sum_cols += [st_, st_ + "_against"]
+            self.team_dims[st_] = (len(SUM_COLS) + 2 * j, len(SUM_COLS) + 1 + 2 * j)
+            TEAM_THR.setdefault(st_, list(EXTRA_THR.get(st_, [])))
 
     def _snapshots(self, tg, as_of):
         """Style snapshot before every round. Normalised (docs/25) when set:
@@ -524,6 +539,16 @@ class SoccerEngine:
         # not be asked for a forecast and died with KeyError: 'fouls_committed' at the first
         # fixture. Dropping them here means the market is simply not published until the team layer
         # can forecast it, which is the honest behaviour and makes the settings safe to set.
+        # The TEAM layer needs the same guard, for the same reason, and it has to come FIRST: an
+        # extra market contributes a (for, against) pair to sum_cols, and _snapshots indexes the
+        # team frame by that whole list -- so an extra market the frame has no columns for is a
+        # KeyError in _snapshots, before a single forecast is attempted. This stayed invisible
+        # while the new markets shipped off (extra_stats was empty); turning them on by default
+        # found it. A league missing a source column must lose the MARKET, not the run.
+        keep = [s for s in self.extra
+                if s in STATS or (s in tg.columns and (s + "_against") in tg.columns)]
+        if list(keep) != list(self.extra):
+            self._set_extra(keep)
         self.player_stats = [c for c in PLAYER_STATS
                              if c in pg.columns and ("team_" + c) in pg.columns and c in self.stats]
         self.teams = sorted(set(tg["team"]) | set(tg["opp"]))

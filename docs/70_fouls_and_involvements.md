@@ -111,58 +111,172 @@ his side's saves, so his share is ~1.0 — but the team layer forecasts the team
 where the work happens: it knows this side concedes shots. A near-1.0 share of a well-forecast team
 total is a real forecast.
 
-**And then it failed calibration.** It says 55% and the thing happens 88% of the time — a 33-point
-gap, against 4 for involvements and 10 for fouls:
+**And then it appeared to fail calibration** — 55% said against 88% happened, a 33-point gap. Two
+things were wrong with that finding, and both were mine rather than the engine's.
 
-```
-saves   n=180   gain 0.4075   z 4.18   PASSES the gate
-        said ~55% -> happened 88%
-```
+**The gap was a bug in the validation harness.** `engine_newmarket.py` forecast the ladder's first
+rung but scored the outcome at a fixed `y >= 1`:
 
-The mean is close (predicted 2.47, actual 2.67), and fitting the dispersion from residuals left the
-gap unchanged. The cause is the model family:
-
-```
-mean 2.5, P(2+) under the negative binomial:
-  r=10 -> 68%    r=50 -> 71%    r=1000 -> 71%   (the Poisson limit is its maximum)
-observed: 88%
+```python
+need = int(thr0) + 1                     # 2 for saves, 1 for every other market
+p1 = 1.0 - sum(exp(nb_ll(k, mu, r)) for k in range(need))   # P(Y >= need)
+buckets[b][0] += int(y >= 1)             # <-- graded against "any save at all"
 ```
 
-The counts are **under-dispersed** — tighter than Poisson — which a negative binomial cannot
-represent at any `r`. Every other market here is over-dispersed, which is why the family was the
-right choice for them.
+The two agree only when `need == 1`. Fouls and involvements both start at 0.5, so `need` is 1 and
+their numbers were sound. Saves starts at 1.5, so a forecast of **2+ saves** was being graded
+against **did he make any save** — a near-certainty. That one mismatch was the whole 33 points.
 
-**Caveat worth keeping.** This may be an artifact of the simulator, where saves are
-`shots on target faced − goals conceded` and near-deterministic once the match is drawn. Real saves
-inherit the spread of real shots faced and may be over-dispersed. The finding is *saves fails here
-and the mechanism is known*, not *saves can never work*. It needs the real data to settle.
+**And the dispersion diagnosis was backwards.** I wrote that the counts were under-dispersed and so
+outside what a negative binomial can represent. Measured:
 
-**So: hold saves.** The plumbing is complete and the market is off.
+```
+keeper appearances 364    mean 2.68    var 9.17    var/mean 3.43
+```
+
+Heavily **over**-dispersed, not under — comfortably inside the family. The reasoning that produced
+the opposite conclusion was built on the broken comparison above.
+
+**What was actually wrong was one constant.** `var/mean = 1 + mu/r`, so a var/mean of 3.4 at mu 2.7
+implies an `r` near 1. The market shipped with `r = 5.0`, guessed by analogy with shots, which made
+every saves forecast too sharp. A sweep over three independent simulated leagues:
+
+```
+     r   mean z   worst calibration gap   lines in band
+   0.8     4.64         20.3%                 50%
+   1.2     4.63         14.7%                 65%
+   1.8     4.61          9.3%                 74%
+   2.5     4.59          8.0%                 78%     <-- shipped
+   3.5     4.56         12.0%                 81%
+   5.0     4.53         14.7%                 85%     <-- was shipped
+   8.0     4.48         14.7%                 86%
+```
+
+A clean minimum at **2.5**: the gap halves, the likelihood gain is unchanged, and 78% of rungs still
+clear the standard band. That is the value in `DEFAULT_R_PLAYER` and in the registry.
+
+**The reason it validated and still did nothing live.** `engine_newmarket.py` builds a
+`SoccerEngine` directly, so it kept the code default. Production goes through
+`engine_bridge.configure_engine`, which read the dispersion straight out of the settings row:
+
+```python
+eng.r_player = dict(S.get(db, "engine.r_player"))     # replaced the dict wholesale
+```
+
+A settings row only holds the markets that existed when it was written. `saves` was added later and
+was in neither the registry default nor any stored row, so `r_player` had no `saves` key and the
+first saves line raised `KeyError('saves')` deep in the line-drawing loop. The market was
+configured and fatal — the one state it should never be able to reach. It now merges over the code
+defaults, so a row can override a market's dispersion but can never delete one, and
+`selftest_new_markets` checks both the registry coverage and the stale-row case.
+
+## The second guard: the team layer had none
+
+Turning the markets on by default found a second way the chain could be configured-and-fatal, in
+the same shape as the first and one layer up.
+
+`extra_stats` appends a **(for, against) column pair** to `sum_cols` and records the offsets that
+pair landed at in `team_dims`. `_snapshots` then indexes the whole team frame by `sum_cols`:
+
+```python
+X = g[self.sum_cols].values.astype(float)
+# KeyError: "['fouls_committed', 'fouls_committed_against'] not in index"
+```
+
+So a team frame that does not carry a market's columns raised in `_snapshots` — before a single
+forecast was attempted, and taking the three working markets down with it. The player list has had
+a guard at the top of `fit()` since the first wall; the team list had none, and nothing noticed
+because the markets shipped **off**, which left `extra_stats` empty on every run.
+
+The guard now sits immediately above the player one, and has to run first, since the player check
+tests `c in self.stats`:
+
+```python
+keep = [s for s in self.extra
+        if s in STATS or (s in tg.columns and (s + "_against") in tg.columns)]
+if list(keep) != list(self.extra):
+    self._set_extra(keep)
+```
+
+`_set_extra` rebuilds `sum_cols` **and** `team_dims` together from the kept list. That matters: the
+pairs are positional, so removing a market from one of them alone leaves every later market's
+recorded offsets pointing at the wrong column — a silent wrong number rather than a crash, which is
+the worse failure. `selftest_new_markets` now checks both that a frame missing one market's columns
+loses only that market, and that every surviving offset still points inside `sum_cols`.
+
+The rule both guards share: a market is **off**, or **published**. It is never configured and fatal,
+and a league missing a source column loses the market rather than the run.
+
+## Fouls is the weak one, and the number I first gave was too kind
+
+Re-measured across two league sizes and three seeds each, after the keeper work landed:
+
+```
+                 n     gain      se      z
+ 14 teams  s=3  2772  0.0165  0.0064   2.59  PASSES
+ 14 teams  s=5  2772  0.0417  0.0173   2.41  PASSES
+ 14 teams  s=7  2772  0.0213  0.0079   2.69  PASSES
+ 20 teams  s=3  5720  0.0086  0.0071   1.20  does not pass
+ 20 teams  s=5  5720  0.0018  0.0034   0.54  does not pass
+ 20 teams  s=7  5720  0.0192  0.0062   3.07  PASSES
+```
+
+Four of six clear the gate. **I earlier reported fouls at gain 0.0814, z 2.87 — that figure is
+superseded.** It was one run on one league before keepers existed in the simulator, and it was
+roughly four times the gain any later run reproduces.
+
+The honest reading is about size, not significance. Involvements gain **0.118** and saves **0.199**
+per appearance; fouls gains **0.002 to 0.042**. Whether that scrapes past two standard errors
+depends on the league. So the engine's foul forecast is *barely* better than restating the player's
+own foul rate per 90 — which is the thing `engine_newmarket.py`'s first rule exists to catch:
+
+> If the engine cannot beat "use his historical rate", the market is an expensive way to restate a
+> mean and should not ship.
+
+That is not surprising for this market. Fouling is mostly a stable trait of a player; there is
+little match-to-match signal for a model to add beyond his own average, and most of what the engine
+contributes is opponent and game-script. Fouls is also well calibrated (worst gap 13%) and 80% of
+its rungs clear the standard band, so the lines it publishes are *true* — they are simply not
+telling a reader much they could not get from the player's season average.
+
+**Recommendation: leave fouls off until `engine_ab.py` has run on the real database.** It ships on
+with the others because that is what was asked for, and it is one key to turn off:
+`engine.player_ladder`, drop the `fouls_committed` entry. Real football may well give this market
+more to work with than simulated football does.
 
 ## Switching them on
 
-**Neither market can be switched on until the wall above is cleared.** The settings below are
-correct and safe — they will publish nothing until the team layer forecasts the stat.
-
-Run the backfill once — `POST /api/admin/ingest/team-totals/backfill?dry_run=false`. It calls the
-provider **zero** times: both totals are sums over player rows the database already holds. A
-team-match whose source column was never ingested is left empty rather than filled with a 0, because
-a 0 there would claim nobody in the league ever committed a foul.
-
-Then:
+**Nothing to paste.** All three markets ship **on** as registry defaults, so a fresh install and any
+key you have never saved picks them up on the next engine run:
 
 ```json
-// engine.player_ladder   (auto_lines is true by default, so this is the live one)
+// engine.player_ladder
 { "shots": [0.5,1.5,2.5,3.5,4.5,5.5], "sot": [0.5,1.5,2.5,3.5],
-  "tackles": [1.5,2.5,3.5,4.5,5.5], "fouls_committed": [0.5,1.5,2.5] }
+  "tackles": [1.5,2.5,3.5,4.5,5.5], "fouls_committed": [0.5,1.5,2.5],
+  "goal_involvements": [0.5], "saves": [1.5,2.5,3.5,4.5] }
+
+// engine.line_band_by_stat   — required for involvements, not for fouls or saves
+{ "goal_involvements": [0.25, 0.985] }
+
+// engine.r_player
+{ "shots": 6.0, "sot": 5.0, "tackles": 10.0,
+  "fouls_committed": 6.0, "goal_involvements": 3.0, "saves": 2.5 }
 ```
 
-```json
-// engine.line_band_by_stat   — required for involvements, not for fouls
-{ "goal_involvements": [0.30, 0.985] }
-```
+A **saved row overrides the default**, so any of these keys already edited by hand keeps its stored
+value. The admin settings screen marks each key `is_default`; `S.reset(db, key)` puts one back.
 
-Fouls clear the standard band and need no override. Involvements do not, and the override is a
-**product** decision as much as an engine one: a 42% line published beside a 94% line changes what
-"likely" means across the screens, and the tiers and the record are calibrated around the current
-floor. Both go through `engine_ab.py` before a default moves — the docs/37 convention holds.
+Saves starts at 2+ rather than 0.5 because a keeper making no save is the unusual match, so "1+
+save" is a near-certainty that says nothing. Involvements need the 0.25 floor because even the best
+forwards sit near 40% for a goal or an assist, and under the standard 0.5 floor every rung is
+dropped and the market ships as nothing. That override is a **product** decision as much as an
+engine one: a 42% line published beside a 94% line changes what "likely" means across the screens.
+
+Team totals need no provider call — `build_frames` derives all three from rows the database already
+holds (`fouls_committed` *is* the stored `fouls`; saves and involvements are sums over the side's
+player rows). A market with no data is dropped for that league rather than guessed at.
+
+**Still simulated football.** Every number above says the machinery works and the market can clear a
+band. What these markets are worth on real leagues needs `engine_ab.py` on the real database, and
+`engine.fit_player_r` is the right way to replace the three dispersions with fitted ones once it
+clears — the docs/37 convention holds.

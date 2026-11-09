@@ -134,4 +134,58 @@ check("saves" in E.DEFAULT_R_PLAYER and "saves" in EB.STAT_LABEL,
 check(EB.PLAYER_MARKET_COLS["saves"] == ("saves", "team_saves"),
       "and it needs a team total like any other market -- a keeper's share of his side's saves")
 
+# ---------------------------------------------------------------- 9. the settings row is not the list
+# How saves shipped broken. engine_newmarket.py builds a SoccerEngine directly, so it kept the
+# code default and validated fine; production goes through configure_engine, which read the
+# dispersion straight out of the settings row. A settings row only ever holds the markets that
+# existed when it was written, so `saves` was simply absent and the first saves line raised
+# KeyError('saves') deep in the line-drawing loop. A market can be off, or published; it must
+# never be configured-and-fatal.
+import json as _json
+_reg = {e["key"]: e for e in _json.load(open(os.path.join(HERE, "settings_registry.json")))}
+for m in E.ALL_PLAYER_STATS:
+    check(m in _reg["engine.r_player"]["default"],
+          f"the registry ships a dispersion for {m}, not just the code")
+for m in ("fouls_committed", "goal_involvements", "saves"):
+    check(m in _reg["engine.player_ladder"]["default"],
+          f"{m} is ON in the shipped ladder, so a fresh install publishes it")
+check(_reg["engine.line_band_by_stat"]["default"].get("goal_involvements", [1])[0] < 0.5,
+      "and involvements ship with their own floor, or every rung falls under the standard one")
+
+db2 = mongomock.MongoClient()["nm2"]; mongo_init.ensure_indexes(db2)
+# a row written before saves existed -- which is every owner who has ever saved this setting
+S.put(db2, "engine.r_player", {"shots": 6.0, "sot": 5.0, "tackles": 10.0,
+                               "fouls_committed": 6.0, "goal_involvements": 3.0})
+_eng = EB.configure_engine(db2)
+for m in E.ALL_PLAYER_STATS:
+    check(m in _eng.r_player,
+          f"a stored row missing {m} falls back to the built-in value instead of deleting the market")
+check(_eng.r_player["tackles"] == 10.0, "while the row's own values still win where it has them")
+
+# ---------------------------------------------------------------- 10. the TEAM layer's own guard
+# Found by turning the markets on by default: extra_stats appends a (for, against) column pair to
+# sum_cols, and _snapshots indexes the whole team frame by that list, so an extra market the frame
+# has no columns for was a KeyError in _snapshots -- before any forecast was attempted. It stayed
+# invisible while the markets shipped off, because extra_stats was then empty.
+from simulate import simulate_league                              # noqa: E402
+_ms, _tg, _pg, _ = simulate_league(n_teams=10, seed=11)
+_as_of = max(_ms["round"]) - 1
+_extras = ("fouls_committed", "goal_involvements", "saves")
+
+_full = E.SoccerEngine(seed=0, extra_stats=_extras).fit(_ms, _tg, _pg, _as_of)
+check([x for x in _full.stats if x not in E.STATS] == list(_extras),
+      "with every column present the team layer models all three extras")
+
+_tg_cut = _tg.drop(columns=[c for c in _tg.columns if c.startswith("fouls_committed")])
+_cut = E.SoccerEngine(seed=0, extra_stats=_extras).fit(_ms, _tg_cut, _pg, _as_of)
+check([x for x in _cut.stats if x not in E.STATS] == ["goal_involvements", "saves"],
+      "a team frame missing a market's columns loses THAT MARKET, not the run")
+check("fouls_committed" not in _cut.player_stats and "saves" in _cut.player_stats,
+      "...and the player side follows it down, while the other markets survive")
+check(len(_cut.sum_cols) == len(set(_cut.sum_cols)),
+      "sum_cols has no duplicate after the rebuild")
+check(all(max(v) < len(_cut.sum_cols) for v in _cut.team_dims.values()),
+      "and every team_dims offset still points inside sum_cols -- the pairs are POSITIONAL, so "
+      "dropping one market without rebuilding both would silently read the wrong column")
+
 print("selftest_new_markets: all checks passed")
