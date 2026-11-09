@@ -110,9 +110,14 @@ def _best_lines(db, match_iids: list[int], weights=None, scale: str = "odds", po
     # Once a match is over the row was still showing what we EXPECTED, on the one line where the
     # answer is already known. That throws away the product's own argument at the moment it could
     # be made, so a finished fixture says whether the line it led with actually happened.
-    done = {o["forecast_id"]: bool(o.get("reached"))
+    # `actual` travels with `reached` because a verdict without a measurement is the weakest thing
+    # this product can print. "5+ corners -- did not" tells a reader we were wrong; "5+ corners --
+    # 38% -- got 3" tells them how wrong, which is the whole of calibration and the only frame in
+    # which a published miss reads as rigour rather than as failure. The field is already stored
+    # (engine_bridge.score_finished) and already read by proof(); this is one more projected key.
+    done = {o["forecast_id"]: o
             for o in db.forecast_outcomes.find({"forecast_id": {"$in": [r.get("id") for r in rows if r.get("id")]}},
-                                               {"_id": 0, "forecast_id": 1, "reached": 1})}
+                                               {"_id": 0, "forecast_id": 1, "reached": 1, "actual": 1})}
     # One line per match was right while the row only PREDICTED: a reader picking a fixture needs one
     # reason, not three. A finished row is a different object -- the answers are known, and showing
     # one of them throws away the other nineteen we were right or wrong about. So a match carries a
@@ -123,11 +128,16 @@ def _best_lines(db, match_iids: list[int], weights=None, scale: str = "odds", po
     ranked: dict = {}
     for r in rows:
         who = (pl.get(r["player_iid"]) or {}).get("name") if r.get("player_iid") else (tm.get(r["team_iid"]) or {}).get("name")
+        # No outcome row at all means NOT GRADED YET, which the page draws differently from a miss.
+        # `reached` must therefore stay None rather than collapsing to False.
+        o = done.get(r.get("id"))
         ranked.setdefault(r["match_iid"], []).append((
             prominence(r, weights, scale, pos_weights),
             ("p", r.get("player_iid")) if r.get("player_iid") else ("t", r.get("team_iid")),
             {"who": who, "market": r.get("market"), "p": float(r.get("p") or 0),
-             "tier": r.get("tier"), "reached": done.get(r.get("id"))}))
+             "tier": r.get("tier"),
+             "reached": None if o is None else bool(o.get("reached")),
+             "actual": None if o is None else o.get("actual")}))
     out: dict = {}
     for iid, items in ranked.items():
         items.sort(key=lambda x: -x[0])

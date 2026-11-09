@@ -1369,7 +1369,16 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 /* --- c) the filter row stops being a row of loose pills ------------------------------------
    Scoped to .td-chips: ChipsRow is also a multi-select filter elsewhere, where a pill is right.
    Here it is a tab bar -- one of four, exactly one on -- so it is drawn as one. */
-.td-chips { margin: var(--v2-gap-section) 0 var(--v2-gap-block); border-bottom: 1px solid var(--v2-hair); }
+/* Was `margin: var(--v2-gap-section) 0 ...` = 56px on top. Added to .td's own 18px grid gap and
+   .td-chips' 6px padding that is 80px of white between the date strip and the tabs whenever the
+   block above them renders nothing -- which is most of the strip, because /api/insights has no
+   `day` parameter and the page filters a globally ranked pool client-side. The tabs are the
+   strip's consequence and belong close to it. A sticky element with a large top margin also
+   parks itself that far below the header once stuck. */
+.td-chips { margin: var(--s-5) 0 0; padding: 0; border-bottom: 1px solid var(--v2-hair); }
+/* The list follows its own tab bar. The swipe wrapper has no class of its own, so it is addressed
+   through the tabs it belongs to rather than by adding one to the markup for a single margin. */
+.td-chips + div { margin-top: var(--s-4); }
 .td-chips .k-chips { gap: 4px; padding: 0; }
 .td-chips .k-chip {
   background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
@@ -2043,3 +2052,8 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 
 /* One legend for the whole grid, not one per card. */
 .v2-run-key { margin: 0 0 10px; font-size: .75rem; color: var(--text3); }
+
+/* The measured outcome, next to the likelihood we published. Dimmer than the figure it follows:
+   the claim is the product, the measurement is the check on it. */
+.td-ins .td-got { font-weight: 550; opacity: .82; }
+

@@ -1,5 +1,8 @@
 /* Match-day pages (docs/24 R3): Today, Insights, match centre, live sheet extras. Token variables only. */
-.td { display: grid; gap: 18px; }
+/* gap: 0. An 18px grid gap stacks on top of every child's own margin and cannot collapse with
+   it, so the page's vertical rhythm was the sum of two systems that did not know about each
+   other. The blocks own their spacing. */
+.td { display: grid; gap: 0; }
 .td-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .td-carousel { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 1fr); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; scrollbar-width: none; }
 .td-carousel::-webkit-scrollbar { display: none; } .td-carousel > * { scroll-snap-align: start; }
@@ -88,7 +91,10 @@
 .td-row { grid-template-columns: 84px minmax(0, 1fr) 36px auto; grid-template-areas: "time teams score ins" ". bar bar ins"; row-gap: 8px; min-height: 84px; }
 .td-time { grid-area: time; } .td-teams { grid-area: teams; } .td-scores { grid-area: score; } .td-bar { grid-area: bar; min-width: 0; } .td-ins { grid-area: ins; }
 .td-bar:empty { display: none; }
-.td-ins { align-self: center; }
+/* `.td-ins { align-self: center }` lived here. align-self on an item beats align-items on its
+   container unconditionally, so it overrode `.td-ins-set.is-done { align-items: flex-end }`
+   (v2.css) and centred every chip in a 1fr column -- white on both sides, no two right edges
+   agreeing. That was the whole of the ragged-chip symptom. The set owns the alignment now. */
 .td-scores { display: grid; gap: 6px; justify-items: end; align-self: stretch; align-content: center; }
 .td-scores .td-sc { font-size: 18px; line-height: 24px; font-weight: 800; }
 .td-teams > span { min-height: 24px; }
@@ -102,7 +108,11 @@
 .td-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 @media (max-width: 720px) {
   .td-row { grid-template-columns: 64px minmax(0, 1fr) 28px; grid-template-areas: "time teams score" "time bar bar" "ins ins ins"; gap: 6px 10px; }
-  .td-row .td-ins { justify-self: start; margin-left: 74px; } .td-ins--none { display: none; }
+  /* `margin-left: 74px` lived on this rule. It was written when a row carried ONE chip and the
+     margin aligned it under the teams column; every inner chip now carries `.td-ins` too, so a
+     finished row applied it three times inside a 1fr column and pushed the document into
+     horizontal scroll at 390px. The chip band is placed by the grid, not by a margin. */
+  .td-row .td-ins { justify-self: stretch; } .td-ins--none { display: none; }
   .td-bar { grid-column: auto; grid-row: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .td-row { transition: none; } }

@@ -112,9 +112,15 @@ function Row({ m }) {
                     data-testid={`today-ins-${m.id}-${i}`}>
                 {b.reached != null && <Icon name={b.reached ? "check" : "minus"} size={13} />}
                 <b>{b.who}</b> {b.market}{" "}
-                {b.reached == null
-                  ? <em>{Math.round((b.p || 0) * 100)}%</em>
-                  : <em>{b.reached ? "happened" : "did not"}</em>}
+                {/* The likelihood NEVER disappears. It used to be replaced by the verdict the
+                    moment the match ended, which deleted the claim at exactly the point it became
+                    checkable: a reader saw "did not" with no denominator and scored it 0 out of 1.
+                    Keeping the number and adding the measurement makes a hit and a miss the same
+                    kind of object -- "71% - got 3" and "38% - got 3" -- so a column of graded
+                    lines reads as a results table rather than as a verdict column. That is more
+                    honest than what it replaces, not less: nothing is hidden, a number is
+                    restored. */}
+                <em>{Math.round((b.p || 0) * 100)}%{b.actual != null && <span className="td-got"> · got {Math.round(b.actual * 10) / 10}</span>}</em>
               </span>
             ))}
           </span>
