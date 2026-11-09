@@ -150,7 +150,7 @@ export default function Waitlist() {
               <path d="M4 17.5 L9 11 L13 14 L20 5.5" fill="none" stroke="#A9FF9B" strokeWidth="2.3"
                 strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span>Forecast</span>
+            <span>{cfg?.brand?.name || "Forecast Zone"}</span>
           </Link>
           <span className="tag">{t("tag", "Opening soon — waitlist")}</span>
         </div>

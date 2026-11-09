@@ -23,7 +23,20 @@ with TestClient(srv.app) as owner:
 
     # ---------------- public config before anything is published
     r = anon.get("/api/site/config"); cfg = r.json()
-    check(r.status_code == 200 and cfg["v"] == 0 and cfg["brand"]["name"] == "Forecast" and "--brand" in cfg["theme"]["css"], "visitors get working defaults before anything is published")
+    check(r.status_code == 200 and cfg["v"] == 0 and cfg["brand"]["name"] == "Forecast Zone" and "--brand" in cfg["theme"]["css"], "visitors get working defaults before anything is published")
+    # The domain travels with the brand, because it is printed on everything made to be shared --
+    # the ad footer, the forecast image, the combo image -- and an image with no address on it
+    # cannot be acted on. A bare domain: it is typed from memory, never clicked.
+    check(cfg["brand"].get("site") == "forecast.zone", "...the address among them")
+    for bad in ("https://forecast.zone", "forecast.zone/ads", "not a domain", "x" * 61):
+        try:
+            SS.validate_section("brand", {**SS.defaults()["brand"], "site": bad}); ok = False
+        except SS.SiteError:
+            ok = True
+        check(ok, f"brand.site refuses {bad[:22]!r}")
+    for good in ("forecast.zone", "sub.forecast.zone", ""):
+        SS.validate_section("brand", {**SS.defaults()["brand"], "site": good})
+    check(True, "...and accepts a bare domain, a subdomain, or nothing at all")
     check(all(k not in r.text for k in ("password", "secret", "stripe", "api_key")), "site config holds nothing secret")
     etag = r.headers["etag"]
     check(anon.get("/api/site/config", headers={"If-None-Match": etag}).status_code == 304, "unchanged config answers 304")
@@ -43,7 +56,7 @@ with TestClient(srv.app) as owner:
     check(r.status_code == 422 and "Unknown field" in r.text, "unknown fields refused (typos never silently do nothing)")
     r = put(admin, "brand", {**base_brand, "name": "Pitchside"})
     check(r.status_code == 200 and r.json()["sections_changed"] == ["brand"], "valid brand saved to the draft")
-    check(anon.get("/api/site/config").json()["brand"]["name"] == "Forecast", "visitors still see the old name until Publish")
+    check(anon.get("/api/site/config").json()["brand"]["name"] == "Forecast Zone", "visitors still see the old name until Publish")
     d = admin.get("/api/admin/site/draft").json()
     check(d["dirty"] and d["updated_by"] == "admin@example.com" and d["draft"]["brand"]["name"] == "Pitchside", "draft shows who changed it")
     check(admin.get("/api/admin/site/diff").json()["changed"][0]["draft"]["name"] == "Pitchside", "diff shows live against draft")

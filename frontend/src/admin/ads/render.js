@@ -44,7 +44,7 @@ export async function buildData({ design, brand, card, cards, mode }) {
   const images = Object.fromEntries(keys.map((k, i) => [k, got[i]]));
   if (rows) images.rows = rows;
   return {
-    card, cards, brand: brand?.name || "", disclaimer: brand?.disclaimer || "", images,
+    card, cards, brand: brand?.name || "", site: brand?.site || "", disclaimer: brand?.disclaimer || "", images,
     // Whatever the planner attached for the templates that are not about a forecast.
     teamStat: design.team_stat || design.teamStat || null,
     record: design.record || null,

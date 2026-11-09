@@ -114,7 +114,7 @@ function card(ctx, W, H, p, t, d) {
     const rh = Math.min(runMax, H - foot - y);
     if (rh > 130 * t.s) D.run(ctx, c.run, c.thr, pct(c.p), pad, y, inner, rh, p, t.body, { down: downward, label: runLabel });
   }
-  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
 // ---------------------------------------------------------------- 2. the run
@@ -153,7 +153,7 @@ function run(ctx, W, H, p, t, d) {
     // The strip takes everything left: in a story that is most of the image, which is the point.
     D.run(ctx, c.run, c.thr, pct(c.p), pad, y, inner, H - foot - y - 10 * t.s, p, t.body, { down: downward, label });
   }
-  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
 // ---------------------------------------------------------------- 3. the table
@@ -199,7 +199,7 @@ function table(ctx, W, H, p, t, d) {
     ctx.textAlign = "right"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, Math.min(rh * 0.42, 54 * t.s));
     ctx.fillText(pct(c.p), rx + colW - 26 * t.s, cy + Math.min(rh * 0.14, 18 * t.s));
   });
-  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
 // ---------------------------------------------------------------- 4. the fixture
@@ -240,7 +240,7 @@ function fixture(ctx, W, H, p, t, d) {
     ctx.textAlign = "right"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 72 * t.s);
     ctx.fillText(pct(c.p), W - pad - 36 * t.s, by + 100 * t.s);
   }
-  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
 // ---------------------------------------------------------------- 5. the Finder sentence
@@ -274,7 +274,7 @@ function finder(ctx, W, H, p, t, d) {
     ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 500, 30 * t.s);
     D.block(ctx, d.text.subhead, pad, y + 54 * t.s, inner, { lineHeight: 38 * t.s, lines: 2 });
   }
-  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
 // ---------------------------------------------------------------- 6. one number
@@ -290,7 +290,7 @@ function stat(ctx, W, H, p, t, d) {
     ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 500, 32 * t.s);
     D.block(ctx, d.text.subhead, W / 2, y + 48 * t.s, inner, { lineHeight: 40 * t.s, lines: 3, align: "center" });
   }
-  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
 // ---------------------------------------------------------------- 7. headline, and 8. cover
@@ -323,7 +323,7 @@ function headline(ctx, W, H, p, t, d, big) {
     ctx.fillStyle = p.text3; ctx.textAlign = "right"; ctx.font = D.font(t.body, 600, 28 * t.s);
     ctx.fillText("Swipe →", W - pad, H * 0.2);
   }
-  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
 // ---------------------------------------------------------------- 9. a club's own numbers
@@ -366,7 +366,7 @@ function teamstat(ctx, W, H, p, t, d) {
       ctx.fillText("faced", pad + inner - 32 * t.s, cy + 38 * t.s);
     }
   });
-  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
 // ---------------------------------------------------------------- 10. how we did
@@ -394,7 +394,7 @@ function record(ctx, W, H, p, t, d) {
     ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 24 * t.s);
     ctx.fillText(`${Number(r.n).toLocaleString()} forecasts scored after the match`, W / 2, yy + 44 * t.s);
   }
-  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, logo: d.images.logo, disclaimer: d.disclaimer });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
 export const TEMPLATES = {

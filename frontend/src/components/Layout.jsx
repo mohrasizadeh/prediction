@@ -160,7 +160,7 @@ function Footer({ cfg, updated, mode }) {
       <div className="wrap">
         <NewsletterForm />
         <div className="foot2">
-          <div className="foot2-brand"><BrandLogo brand={cfg?.brand} mode={mode} /><strong>{cfg?.brand?.name || "Forecast"}</strong><span>Football stats and forecasts, for information.</span></div>
+          <div className="foot2-brand"><BrandLogo brand={cfg?.brand} mode={mode} /><strong>{cfg?.brand?.name || "Forecast Zone"}</strong><span>Football stats and forecasts, for information.</span></div>
           <nav aria-label="Footer" className="foot2-links" data-testid="footer-links">
             {links.map(([label, r]) => isExternal(r) ? <a key={r} href={r} target="_blank" rel="noopener noreferrer">{label}</a> : <Link key={r} to={route(r)} data-testid={`footer-link-${label.toLowerCase().replace(/\s+/g, "-")}`}>{label}</Link>)}
             <button type="button" className="linkish" onClick={reopenConsent} data-testid="footer-privacy-choices">Privacy choices</button>
@@ -258,7 +258,7 @@ export default function Layout({ children }) {
       {preview && <div className="preview-bar" data-testid="preview-bar">Preview of the draft look. Visitors do not see this.</div>}
       <header className={"header" + (small ? " header--small" : "")} data-testid="site-header">
         <div className="header-row">
-          <Link to="/" className="brand" data-testid="brand-link"><BrandLogo brand={cfg?.brand} mode={mode} /><span className="brand-name">{cfg?.brand?.name || "Forecast"}</span></Link>
+          <Link to="/" className="brand" data-testid="brand-link"><BrandLogo brand={cfg?.brand} mode={mode} /><span className="brand-name">{cfg?.brand?.name || "Forecast Zone"}</span></Link>
           <span className="beta" data-testid="beta-tag" title="Tested on simulated data only">Beta</span>
           {!rail && <nav className="top-nav" aria-label="Main">{NAV5.map((i) => <Nav5Item key={i.id} item={i} className="" testid={`top-nav-${i.id}`} />)}</nav>}
           {nav.show_search !== false && <button type="button" className="hsearch only-desk" onClick={() => setSearch(true)} data-testid="header-search-field"><Icon name="search" size={18} /><span>Search players, teams, leagues</span><kbd aria-hidden="true">/</kbd></button>}

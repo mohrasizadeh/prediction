@@ -250,7 +250,22 @@ export function meter(ctx, { p: val, lo, hi, usual }, x, y, w, h, p) {
 // ---------------------------------------------------------------- the line every ad carries
 /** docs/03: the disclaimer goes on anything a visitor sees, and an ad is the most public thing the
  *  product makes. There is no switch to remove it. */
-export function footer(ctx, w, h, p, fam, { brand, logo, note, disclaimer }) {
+// The web address, under the brand it belongs to. An ad is looked at and then typed into a
+// browser from memory, so the one thing it cannot leave out is where to go -- and it has to be
+// the bare domain for that to work. Returns the right edge it used, so the disclaimer beside it
+// still measures its own room correctly.
+function addr(ctx, site, fam, p, x, yBrand, bs, w) {
+  if (!site) return 0;
+  const ss = Math.max(19, bs * 0.62);
+  ctx.font = font(fam, 600, ss);
+  ctx.fillStyle = p.text3;
+  const sw = Math.min(ctx.measureText(site).width, w * 0.4);
+  ctx.fillText(fit(ctx, site, w * 0.4), x, yBrand + ss * 1.25);
+  ctx.font = font(fam, 800, bs);
+  return x + sw;
+}
+
+export function footer(ctx, w, h, p, fam, { brand, site, logo, note, disclaimer }) {
   const pad = w * 0.062;
   const y = h - pad * 0.62;
   ctx.textAlign = "left";
@@ -264,11 +279,13 @@ export function footer(ctx, w, h, p, fam, { brand, logo, note, disclaimer }) {
     const bw = Math.min(ctx.measureText(brand || "").width, w * 0.34);
     ctx.fillText(fit(ctx, brand || "", w * 0.34), pad + d + 16, y - d * 0.32 + bs * 0.36);
     brandRight = pad + d + 16 + bw;
+    brandRight = Math.max(brandRight, addr(ctx, site, fam, p, pad + d + 16, y - d * 0.32 + bs * 0.36, bs, w));
   } else {
     ctx.fillStyle = p.text;
     const bw = Math.min(ctx.measureText(brand || "").width, w * 0.4);
     ctx.fillText(fit(ctx, brand || "", w * 0.4), pad, y - 6);
     brandRight = pad + bw;
+    brandRight = Math.max(brandRight, addr(ctx, site, fam, p, pad, y - 6, bs, w));
   }
   // The disclaimer is a fixed sentence and docs/03 requires it, so it is SIZED to fit rather than
   // cut: it was ending "...Not be" on every ad, which is worse than no line at all.

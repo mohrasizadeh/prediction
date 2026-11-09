@@ -6,6 +6,7 @@ import { ApiError, post, put } from "../lib/api";
 import { comboText, drawCard, useCombo } from "../lib/combo";
 import { pct } from "../lib/copy";
 import { useAuth } from "../lib/auth";
+import { useSite } from "../lib/site";
 import Icon from "./Icon";
 import { Crest, PlayerAvatar } from "./Media";
 import { BottomSheet } from "./ui";
@@ -61,6 +62,7 @@ function Alternatives({ line, lines, onPick }) {
 
 function Review() {
   const { combo, setOpen, clear, swap, toggle } = useCombo();
+  const { cfg } = useSite();
   const { est, error, busy } = useEstimate((combo?.lines || []).map((l) => l.fkey));
   const [openRow, setOpenRow] = useState(null);
   const [saved, setSaved] = useState(null);
@@ -78,7 +80,7 @@ function Review() {
   const copy = async () => { try { await navigator.clipboard.writeText(comboText(est, est.label)); setNote("Copied."); } catch { setNote("Your browser did not let us copy. Select the text instead."); } };
   const share = async () => {
     try {
-      const blob = await drawCard(est, est.label, when);
+      const blob = await drawCard(est, est.label, when, cfg?.brand);
       const file = new File([blob], "combo.png", { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: "My combo" });
       else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "combo.png"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }

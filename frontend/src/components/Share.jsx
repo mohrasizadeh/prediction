@@ -72,7 +72,8 @@ async function draw(d, brand) {
     ctx.fillStyle = t.text; ctx.font = font(800, 30); ctx.fillText(fit(ctx, `${who} · ${top.market}`, 680), 182, 532);
     ctx.textAlign = "right"; ctx.fillStyle = t.accent; ctx.font = font(800, 44); ctx.fillText(pct(top.p), 1018, 528);
   }
-  ctx.textAlign = "left"; ctx.fillStyle = t.text; ctx.font = font(800, 24); ctx.fillText(brand?.name || "Forecast", 40, 600);
+  ctx.textAlign = "left"; ctx.fillStyle = t.text; ctx.font = font(800, 24); ctx.fillText(brand?.name || "Forecast Zone", 40, 600);
+  if (brand?.site) { ctx.fillStyle = t.text3; ctx.font = font(600, 18); ctx.fillText(brand.site, 40, 626); }
   ctx.textAlign = "right"; ctx.fillStyle = t.text3; ctx.font = font(500, 18); ctx.fillText("Statistical analysis for information and entertainment.", W - 40, 600);
   return new Promise((ok) => c.toBlob(ok, "image/png"));
 }

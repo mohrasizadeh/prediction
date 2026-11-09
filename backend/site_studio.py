@@ -196,7 +196,10 @@ VARIANTS = ("primary", "secondary", "ghost", "danger")
 
 def defaults() -> dict:
     return copy.deepcopy({
-        "brand": {"name": "Forecast", "tagline": "Football forecasts with the reasons shown.", "logo_light": "", "logo_dark": "",
+        # `site` is the bare domain, no scheme and no path: it is printed, not linked -- on an ad,
+        # on a shared image, in the footer -- so it has to read as an address a person can type.
+        "brand": {"name": "Forecast Zone", "tagline": "Football forecasts with the reasons shown.",
+                  "site": "forecast.zone", "logo_light": "", "logo_dark": "",
                   "favicon": "", "og_image": ""},
         "theme": {"default_mode": "system", "allow_toggle": True,
                   "colors": {"dark": DARK, "light": LIGHT},
@@ -297,6 +300,11 @@ def _validate_brand(d, problems):
     d = _merge_known(base, d, "brand", problems)
     if not _str(d["name"], 1, 40): _p(problems, "brand.name", "1 to 40 characters.")
     if not isinstance(d["tagline"], str) or len(d["tagline"]) > 120: _p(problems, "brand.tagline", "Up to 120 characters.")
+    # Typed by a reader off an image, so no scheme, no path, no spaces -- "forecast.zone", not
+    # "https://forecast.zone/". Empty is allowed: an owner who does not want it printed.
+    site = d.get("site", "")
+    if not isinstance(site, str) or len(site) > 60 or (site and not re.fullmatch(r"[a-z0-9.-]+\.[a-z]{2,}", site)):
+        _p(problems, "brand.site", "A bare domain such as forecast.zone, with no https:// and no path.")
     for k in ("logo_light", "logo_dark", "favicon", "og_image"):
         if not valid_image(d[k]): _p(problems, f"brand.{k}", "Use an uploaded image (starts with /) or an https address.")
     return d
@@ -796,9 +804,9 @@ def get_version(db, v: int) -> dict | None:
 
 def brand_name(db) -> str:
     try:
-        return get_live(db)["data"]["brand"]["name"] or "Forecast"
+        return get_live(db)["data"]["brand"]["name"] or "Forecast Zone"
     except Exception:
-        return "Forecast"
+        return "Forecast Zone"
 
 
 # ----------------------------------------------------------------------------- preview tokens

@@ -86,7 +86,7 @@ export const comboText = (est, label) => [
 ].filter(Boolean).join("\n");
 
 // The share card, drawn on a canvas (no network, no photos): 1080 x auto PNG blob.
-export function drawCard(est, label, when) {
+export function drawCard(est, label, when, brand) {
   // The colours were six hex literals from the Midnight palette, which stopped being the brand two
   // redesigns ago -- the same fault Share.jsx had. They come from the live palette now (lib/theme),
   // so this card follows Site Studio and the reader's light or dark mode (docs/60).
@@ -99,7 +99,11 @@ export function drawCard(est, label, when) {
   g.fillStyle = grad; g.fillRect(0, 0, W, H);
   const font = (w, s) => { g.font = `${w} ${s}px ${face}`; };
   g.fillStyle = t.brand; g.beginPath(); g.arc(pad + 22, pad + 22, 22, 0, 7); g.fill();
-  g.fillStyle = t.text; font(700, 34); g.textBaseline = "middle"; g.fillText("Forecast", pad + 62, pad + 22);
+  // The brand as the owner set it, not a name baked in here -- and the address under it, because
+  // this image is made to be posted and the one thing it cannot leave out is where to go.
+  g.fillStyle = t.text; font(700, 34); g.textBaseline = "middle";
+  g.fillText(brand?.name || "Forecast Zone", pad + 62, pad + 22);
+  if (brand?.site) { g.fillStyle = t.text3; font(600, 22); g.fillText(brand.site, pad + 62, pad + 52); }
   g.fillStyle = t.text3; font(600, 28); g.textAlign = "right"; g.fillText(when || "", W - pad, pad + 22); g.textAlign = "left";
   g.fillStyle = t.text; font(800, 68); g.fillText(label || "Your combo", pad, 190);
   g.fillStyle = t.text3; font(500, 30); g.fillText(`${est.lines.length} line${est.lines.length === 1 ? "" : "s"} · forecast${est.state === "pre" ? " before lineups" : ""}`, pad, 250);
