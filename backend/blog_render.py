@@ -51,12 +51,34 @@ TIER_WORD = {**TG_LABEL, "lower": "No badge"}
 # Why each tier is what it is, in a sentence, because a stranger has never seen the badge before and
 # the post is where they meet it. These match docs/52 and the Learn article: the badge grades the
 # DEPARTURE from a player's usual game, never the percentage beside it.
+# What each badge means, in a sentence, because a post is the first place most readers meet one.
+#
+# These describe the LIKELIHOOD grading, which is what the words say and what the engine does unless
+# `engine.personal_lines` is on. With that setting on the badge grades the departure from the
+# player's usual game instead, and these sentences would be wrong -- so `_tier_help` picks the right
+# set rather than printing one of them regardless (docs/75).
 TIER_HELP = {
+    "Strong": "we make this 90% or more likely, and the low end of the range clears 84% too",
+    "Solid": "80% or more, with the low end of the range above 70%",
+    "Watch": "worth a card, but under the bar Solid asks for",
+    "lower": "nothing here clears the Watch bar, which is an honest answer and a common one",
+}
+TIER_HELP_DEPARTURE = {
     "Strong": "a big gap between tonight and this player's usual game, with the likely range clear of it",
     "Solid": "a gap worth saying, though the likely range still reaches their usual",
     "Watch": "a small gap \u2014 tonight looks close to any other night",
     "lower": "tonight looks like any other night for them, which is the commonest honest answer",
 }
+
+
+def _tier_help(db, tier: str) -> str:
+    """The sentence that matches the rule actually in force, not the one that reads better."""
+    try:
+        import settings_store as _S
+        departure = bool(_S.get(db, "engine.personal_lines"))
+    except Exception:
+        departure = False
+    return (TIER_HELP_DEPARTURE if departure else TIER_HELP).get(tier, "")
 
 STYLE = """
 /* Token names are Site Studio's own (COLOR_TOKENS in site_studio.py): --border, not --line;
@@ -173,10 +195,10 @@ def _face(url: str, alt: str) -> str:
     return f'<img src="{esc(u)}" alt="{esc(alt)}" width="38" height="38" loading="lazy">' if u else ""
 
 
-def _card(it: dict) -> str:
+def _card(it: dict, db=None) -> str:
     tier = it.get("tier") or "lower"
     word = TIER_WORD.get(tier, "No badge")
-    help_ = TIER_HELP.get(tier, "")
+    help_ = _tier_help(db, tier)
     pct = int(round(float(it.get("p") or 0) * 100))
     cls = f" badge--{tier.lower()}" if tier in ("Strong", "Solid", "Watch") else ""
     rng = ""
@@ -425,7 +447,7 @@ def render_post(db, post: dict) -> str:
   <div class="side away"><span>{esc(a.get('name') or '')}</span>{_crest(a.get('image'), a.get('name') or '')}</div>
 </div>"""
 
-    cards = "".join(_card(it) for it in (post.get("items") or []))
+    cards = "".join(_card(it, db) for it in (post.get("items") or []))
 
     # A missing tier is stated, not hidden. Most days have no Strong forecast at all, and a reader
     # told so learns what the badge means; a reader not told assumes we had nothing to say.

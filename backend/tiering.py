@@ -114,13 +114,18 @@ def assign(db, rec: Record | None, f: dict) -> tuple[str | None, str | None]:
     return _watch_says_why(t, note, so_min)
 
 
-# The words a reader sees. The STORED values are still Strong / Solid / Watch -- the engine writes
-# them, settings name them, forecast_outcomes keeps them, every filter queries them -- and nothing
-# about the grading changed. Only the labels did, because the old ones taught the wrong thing:
-# "Strong" is a confidence word, so a reader met a 57% card reading Watch beside a 56% one reading
-# Solid and concluded the product was broken. Named for the axis they measure, the pair reads as
-# what it is. Mirrored in the app by lib/copy.js tierLabel; docs/75.
-TIER_LABEL = {"Strong": "Well above usual", "Solid": "Above usual", "Watch": "Near usual"}
+# The words a reader sees, in one place (docs/75).
+#
+# They are the stored values today, and the map exists anyway: it is what makes a rename a one-line
+# change instead of a hunt through three codebases. It was briefly used for one -- Well above usual
+# / Above usual / Near usual, named for the axis the badge grades when `engine.personal_lines` is
+# on -- and that was the wrong fix. "Strong" is a confidence word and a reader is RIGHT to read it
+# as one; the answer is to grade the likelihood, which is what the engine does by default, not to
+# rename the badge around a setting.
+#
+# Mirrored in the app by lib/copy.js and on the ad canvas by admin/ads/draw.js, which cannot import
+# either. selftest_blog pins all three together so a rename cannot land in two of them.
+TIER_LABEL = {"Strong": "Strong", "Solid": "Solid", "Watch": "Watch"}
 
 
 def label(t: str | None) -> str:
@@ -141,7 +146,7 @@ def _watch_says_why(t: str | None, note: str | None, so_min: float) -> tuple[str
     high percentage but not solid".
     """
     if t == "Watch" and note is None:
-        return t, f"Under {round(so_min * 100)}%, where the next grade up starts"
+        return t, f"Under {round(so_min * 100)}%, where Solid starts"
     return t, note
 
 

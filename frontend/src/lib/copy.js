@@ -3,23 +3,20 @@
 export const DISCLAIMER = "Statistical analysis for information and entertainment. Not betting advice.";
 // The tier badge, and the ONE place its words are decided (docs/75).
 //
-// The stored values are still Strong / Solid / Watch -- the engine writes them, settings name them,
-// forecast_outcomes keeps them, filters query them. Only the WORDS changed, and they changed because
-// the old ones were teaching the wrong thing.
+// Strong / Solid / Watch are confidence words, and that is correct AS LONG AS the badge grades the
+// likelihood: Strong is 90% or more, Solid 80%, Watch 60% (engine.strong_min and friends). It stops
+// being correct the moment `engine.personal_lines` is on, because a personal line sits where the
+// player lands about half the time and the badge then grades the DEPARTURE from their usual game
+// instead -- which is how a 57% card reading Watch ends up beside a 56% one reading Solid.
 //
-// "Strong" is a confidence word. A reader maps it to "strong chance" and then meets a 57% card
-// reading Watch beside a 56% one reading Solid, and concludes the product is broken. It is not: the
-// badge grades the DEPARTURE from this player's usual game (docs/52, docs/58), never the percentage
-// beside it. The concept was right and the label was arguing with it.
-//
-// Named for the axis it measures, the contradiction disappears without a word of explanation:
-// "56%, above usual" next to "57%, near usual" is obviously coherent.
+// The words were briefly renamed to the departure axis to resolve that. The owner's answer was
+// better: keep the words and keep the grading they describe. See docs/75.
 export const TIER = {
-  Strong: { dots: 3, label: "Well above usual" },
-  Solid: { dots: 2, label: "Above usual" },
-  Watch: { dots: 1, label: "Near usual" },
+  Strong: { dots: 3, label: "Strong" },
+  Solid: { dots: 2, label: "Solid" },
+  Watch: { dots: 1, label: "Watch" },
 };
-// What a row with no tier is called, where something has to be called something -- a filter chip.
+// What a row with no tier is called where something has to be called something -- a filter chip.
 // On a card it stays what it has always been: nothing at all.
 export const NO_TIER_LABEL = "Typical";
 export const tierLabel = (t) => TIER[t]?.label || (t ? String(t) : NO_TIER_LABEL);

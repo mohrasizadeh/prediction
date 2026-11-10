@@ -373,7 +373,7 @@ with TestClient(srv.app) as owner:
 
     # ---------------- docs/75: the tier words, and the one place they are decided
     import tiering as TI
-    check(TI.TIER_LABEL == {"Strong": "Well above usual", "Solid": "Above usual", "Watch": "Near usual"},
+    check(TI.TIER_LABEL == {"Strong": "Strong", "Solid": "Solid", "Watch": "Watch"},
           "the stored tiers map to the reader's words in one place")
     check(BR.TIER_WORD["Strong"] == TI.TIER_LABEL["Strong"], "the blog reads that map rather than keeping its own")
     check(BR.TIER_WORD["lower"] == "No badge", "...and names the no-badge case for a reader who has never seen a badge")
@@ -387,9 +387,14 @@ with TestClient(srv.app) as owner:
     copy_js = open(os.path.join(HERE_FE, "src", "lib", "copy.js"), encoding="utf-8").read()
     for stored, words in TI.TIER_LABEL.items():
         check(f'label: "{words}"' in copy_js, f"the app's badge says {words!r} too")
-    # Nothing a reader sees should still carry the old confidence words.
-    for old in ("Strong", "Solid", "Watch"):
-        check(old not in BR.TIER_WORD.values(), f"{old!r} is gone from the words a reader is shown")
+    # The badge says Strong because the engine grades the LIKELIHOOD. The help sentence has to
+    # describe the rule actually in force, or the badge and its own explanation disagree -- which is
+    # the fault this whole exercise was about.
+    check("90% or more" in BR._tier_help(db, "Strong"), "with likelihood grading, Strong explains itself as a likelihood")
+    S.put(db, "engine.personal_lines", True, "boss@example.com")
+    check("gap" in BR._tier_help(db, "Strong"), "...and with personal lines on, as a gap from usual")
+    S.put(db, "engine.personal_lines", False, "boss@example.com")
+    check("90% or more" in BR._tier_help(db, "Strong"), "...switching back switches the sentence back")
 
     # ---------------- docs/75: titles carry the search
     t, d, _ = B.words(final=False, hn="Arsenal", an="Chelsea", when="11 November 2026", score="",

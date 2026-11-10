@@ -172,7 +172,7 @@ export function tier(ctx, name, x, y, p, fam, scale = 1) {
   // in the product that says "Well above usual" teaches two vocabularies for one thing -- and the ad
   // is the FIRST of the two a stranger meets. Not imported: this module draws on a canvas and is
   // kept free of app imports (see the header), so the map is restated and pinned by a test.
-  const words = { Strong: "Well above usual", Solid: "Above usual", Watch: "Near usual" }[name] || name;
+  const words = { Strong: "Strong", Solid: "Solid", Watch: "Watch" }[name] || name;
   const fs = 26 * scale, pad = 16 * scale, r = 6 * scale, gap = 7 * scale, h = 48 * scale;
   ctx.font = font(fam, 700, fs);
   const tw = ctx.measureText(words).width;
