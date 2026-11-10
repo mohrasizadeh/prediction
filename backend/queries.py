@@ -494,20 +494,17 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
             top = max({f["stat"] for f in lead},
                       key=lambda st: (market_score(st, lead[0]["scope"], pos, weights, pos_weights), st))
             lead = [f for f in lead if f["stat"] == top] or lead
-        own = [f for f in lead if f.get("is_personal")]
-        if own:
-            # docs/52: when the entity has its own line there is nothing to choose between -- that line
-            # is the question worth asking about it, and the neighbours exist only to answer follow-ups.
-            head = max(own, key=lambda f: (lead_score(f, rule, weights, scale, pos_weights), f["p"], f["thr"]))
-            card = dict(head)
-            # `span` travels with each rung (docs/61): the card names its strongest line on the face
-            # now, and the only honest way to do that is to say in the same breath why it is not the
-            # headline -- which is the span, how far the line moves across the league's defences.
-            card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos", "span")}
-                                         for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
-            card["best_p"] = max(f["p"] for f in g)
-            out.append(card)
-            continue
+        # docs/76: the entity's OWN half-way line no longer wins the card automatically.
+        #
+        # It used to (docs/52), because the badge graded the departure from that player's usual game
+        # and the own rung was the only one that question could be asked about. The badge grades the
+        # likelihood now, and the own rung sits at about a half by construction -- so letting it lead
+        # would put an ungradeable number on the face of every card and leave the feed untiered.
+        #
+        # The lines are all still here, the own one among them, and `lead_score` picks between them
+        # on the configured rule. What the own line was protecting against -- a near-certain line
+        # leading the card -- is handled above, per rung and measured: `max_p` and the triviality
+        # gate have both already run.
         best = max(lead_score(f, rule, weights, scale, pos_weights) for f in lead)
         # Nothing in this group is saying anything unusual: fall back to the likeliest, as before.
         # Under "confident" the score is already the likelihood, so this never fires -- it is the
@@ -1098,19 +1095,29 @@ def track_record(db, league_iid=None, min_n: int = 300, stat=None, scope=None) -
     # tiering.Record earns a tier against the whole chance and scores a non-appearance as a miss,
     # so the two are not the same measurement. Both are fair; the page may not print one and label
     # it with the other, so the count left out travels with the answer.
-    rows = list(db.forecast_outcomes.find({**q, "player_played": True}, {"_id": 0, "tier": 1, "p": 1, "reached": 1, "scored_at": 1}))
+    rows = list(db.forecast_outcomes.find({**q, "player_played": True},
+                                          {"_id": 0, "tier": 1, "p": 1, "reached": 1, "scored_at": 1,
+                                           "is_personal": 1, "tier_rule": 1}))
     not_played = db.forecast_outcomes.count_documents({**q, "player_played": False})
     if len(rows) < min_n:
         return {"ready": False, "scored": len(rows), "needed": min_n, "not_played": not_played}
-    # docs/61: tiers are reported over ORDINARY lines only. A personal line's badge grades the gap
-    # from that player's usual game, not the number, and those lines sit at about 50% by
-    # construction -- so pooling them with lines that had to clear 80% to be Solid produced a
-    # "record on Solid forecasts" that described neither population. Rows stored before the flag
-    # existed have no `is_personal` and are counted as ordinary, which is what they were.
-    ordinary = [r for r in rows if not r.get("is_personal")]
+    # THE TIER BREAKDOWN COUNTS ROWS WHOSE TIER MEANS WHAT THE PAGE SAYS IT MEANS (docs/61, docs/76).
+    #
+    # One rule grades every line now, so a personal line's Solid is the same promise as any other
+    # Solid and belongs in the same bucket. What does not belong is a row scored under the engine
+    # that graded personal lines on the GAP from the player's usual game: those sit at about 50% by
+    # construction and were still badged Solid or Strong, so pooling them with lines that had to
+    # clear 80% would publish a figure about neither population.
+    #
+    # `tier_rule` is written on every row scored since the rule changed (engine_bridge.score_finished).
+    # Its absence on a personal row is what marks the old grading, and the only exact marker there
+    # is: `lo` is not stored, so the tier cannot be recomputed, and a date cutoff would hard-code a
+    # deploy. An ordinary row needs no marker -- it was graded on the number under both engines.
+    # This filter empties itself as the old rows age out of engine.keep_days.
+    comparable = [r for r in rows if not r.get("is_personal") or r.get("tier_rule") == "likelihood"]
     tiers = {}
     for t in ("Strong", "Solid", "Watch"):
-        g = [r for r in ordinary if r["tier"] == t]
+        g = [r for r in comparable if r["tier"] == t]
         if g:
             tiers[t] = {"n": len(g), "stated": sum(r["p"] for r in g) / len(g), "actual": sum(r["reached"] for r in g) / len(g)}
     bins = []
@@ -1141,7 +1148,7 @@ def track_record(db, league_iid=None, min_n: int = 300, stat=None, scope=None) -
             "overall": overall, "high": high, "not_played": not_played,
             # What the tier figures above are computed over, so the page can say so rather than
             # imply the tiers cover everything we published.
-            "tiers_scope": {"counted": len(ordinary), "left_out": len(rows) - len(ordinary)}}
+            "tiers_scope": {"counted": len(comparable), "left_out": len(rows) - len(comparable)}}
 
 
 # --------------------------------------------------------------------- Search

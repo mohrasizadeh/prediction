@@ -745,12 +745,20 @@ def run_league(db, league_iid: int, now=None) -> dict:
                 t = tier(p, lo, solid_ok, strong=strong, solid=solid)
                 t_full = tier(p, lo, True, strong=strong, solid=solid)
                 tier_note = ("On the bench: Watch only" if gate_badge == "bench" else "Watch until lineups are out") if (not solid_ok and t_full != t) else None
-            # docs/52: with personal lines on, only the entity's own rung is a forecast worth grading. The
-            # neighbours exist so the Finder can answer "what about 2+?" -- they are not insights, and if they
-            # keep a tier the feed falls back to them the moment the entity's own line has nothing to say,
-            # which is exactly the near-certain card this change exists to stop.
-            if f.thr_personal is not None and not is_own:
-                t, tier_note = None, None
+            # docs/76: every rung is graded now, including the neighbours. This rule used to blank
+            # them, because with the departure grading only the entity's own rung was a forecast
+            # worth grading and a tiered neighbour let the feed fall back to a near-certain line the
+            # moment the own line had nothing to say.
+            #
+            # With the badge grading the LIKELIHOOD that reasoning inverts: a neighbour is exactly
+            # where a real likelihood lives -- the own rung sits at about a half by construction and
+            # can never earn a badge. Blanking the neighbours while grading on likelihood would leave
+            # the whole feed untiered.
+            #
+            # The near-certain card is still guarded, and better than this blunt rule did it:
+            # `engine.feed_max_p` keeps a line above it from leading while any other line can, and
+            # `engine.min_span` (docs/56) demotes a rung that answers the same against every defence
+            # in the league. Both are per rung and both are measured; this was neither.
             p_usual = p_usual_raw
             # Where tonight's opponent sits in the league's range for THIS rung, 0 = the meanest
             # defence, 1 = the leakiest. Computed entirely in the model's own space, because the
@@ -954,12 +962,23 @@ def score_finished(db) -> int:
                                          "thr": f["thr"], "actual": float(actual), "reached": bool(actual > f["thr"]),
                                          "p_model": f.get("p_model", f["p"]), "state": f.get("state"),
                                          "player_played": played, "p_basis": f.get("p_basis", "all"), "p_play": f.get("p_play"),
-                                         # docs/61: which grading system this row's tier came from. Without it the
-                                         # record mixes personal lines (graded on the GAP from usual, and sitting at
-                                         # about 50% by construction) with ordinary lines (graded on the NUMBER, and
-                                         # at 80%+ to be Solid) in one Strong/Solid/Watch bucket, and the published
-                                         # figure is then a statement about neither.
                                          "is_personal": bool(f.get("is_personal")),
+                                         # WHICH RULE GRADED THIS ROW'S TIER (docs/61, docs/76).
+                                         #
+                                         # There is only one rule now -- the tier grades the number -- so from here on
+                                         # this is always "likelihood" and a personal line's tier means what every
+                                         # other tier means. It is stored all the same, because the record is a
+                                         # running total over rows that outlive the code that wrote them: rows scored
+                                         # under the old two-rule engine carry a tier graded on the GAP from the
+                                         # player's usual game, on lines sitting at about 50% by construction, and
+                                         # pooling those with lines that had to clear 80% to be Solid gives a
+                                         # "record on Solid forecasts" that describes neither population.
+                                         #
+                                         # Those rows cannot be re-graded from what was stored (`lo` is not kept, and
+                                         # tiering.assign needs it), and they cannot be told apart by date without
+                                         # hard-coding a deploy. They are told apart by the absence of this field,
+                                         # which is exact. queries.track_record is the reader.
+                                         "tier_rule": "likelihood",
                                          # The departure is the quantity the feed is ranked on and the
                                          # one the card leads with ("usually 58%, tonight -6 pts"), and
                                          # it was the one thing never carried into the record -- so

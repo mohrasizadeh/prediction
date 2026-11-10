@@ -44,6 +44,11 @@ have caught it: a neutral fixture, where the old code reported **+10.2 points** 
 
 ## 2. The badge graded a different quantity from the number beside it
 
+> **Superseded by docs/76.** This section is why that change happened, and the measurements in it
+> are the case for it. There is one grading rule now — the tier grades the number, always — so the
+> fix recorded below (the badge sitting with the gap it grades) was the half-measure and docs/76 is
+> the rest of it. `_departure_tier` no longer exists.
+
 `tiering.py` runs two systems. On an ordinary line the tier grades `p`. On a personal line
 (`_departure_tier`, docs/52) it grades the **gap** from that player's usual game. The badge sat
 immediately beside the percentage in both cases.
@@ -72,6 +77,9 @@ about exactly that ordering. The grid now says what it is sorted by.
 
 ## 3. The Learn page said this screen was impossible
 
+> **Superseded by docs/76.** `/learn/tiers` describes one rule again, because there is one rule
+> again. "Both systems are now described" below was true of this pass only.
+
 `/learn/tiers` read, verbatim: *"Strong: 90% or more. Solid: 80% or more… **That is the whole
 rule.**"* No card on the reviewed screen was above 71% and three carried Solid or Strong. A reader
 who did the diligent thing and went to check was told, in the product's own voice, that what they
@@ -79,6 +87,12 @@ were looking at could not exist. docs/52 overrode docs/58 for personal lines and
 updated. Both systems are now described, and the card says which kind it is.
 
 ## 4. The record mixed the two systems
+
+> **Refined by docs/76.** "The tier figures are computed over ordinary lines only" was right while
+> two rules existed. With one rule a personal line's Solid is the same promise as any other and
+> belongs in the bucket; what does not belong is a row *scored under the old rule*. Rows now carry
+> `tier_rule`, and `track_record` counts a personal row only when it has it. The reasoning, and why
+> no other test is exact, is in docs/76.
 
 `track_record` bucketed outcomes by the tier **string**. Personal lines sit at about 50% by
 construction; an ordinary line had to clear 80% to be Solid. Pooled, "our record on Solid forecasts"

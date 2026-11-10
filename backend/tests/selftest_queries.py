@@ -143,6 +143,29 @@ check(tr["high"]["actual"] < tr["high"]["stated"] - 0.15,
 check(tr["high"]["from"] == float(S.get(db, "engine.record_high_p")),
       "the band's floor is the setting, and travels with the answer so the page can name it")
 db.forecast_outcomes.delete_many({"fkey": {"$regex": "^trlo|^trhi"}})
+
+# --- docs/76: the tier breakdown counts rows whose tier means what the page says it means --------
+# One rule grades every line now, so a personal line's Solid is the same promise as any other and
+# belongs in the bucket. Rows scored under the engine that graded personal lines on the DEPARTURE
+# do not: they sit at about a half by construction and were badged Solid anyway, so counting them
+# would publish a "record on Solid forecasts" that is a statement about neither population.
+# `tier_rule` is the marker, and its absence on a personal row is what dates the row.
+_mk = lambda pre, n, p_, tier, hits, **kw: [
+    {"league_iid": None, "stat": "shots", "scope": "player", "player_played": True, "tier": tier,
+     "p": p_, "reached": i < hits, "scored_at": now, "fkey": f"{pre}{i}", "forecast_id": f"{pre}{i}", **kw}
+    for i in range(n)]
+db.forecast_outcomes.insert_many(
+    _mk("tco", 150, 0.85, "Solid", 128)                                         # ordinary, graded on the number
+    + _mk("tcold", 60, 0.50, "Solid", 30, is_personal=True)                     # legacy: graded on the departure
+    + _mk("tcnew", 60, 0.85, "Solid", 51, is_personal=True, tier_rule="likelihood"))
+tc = Q.track_record(db, min_n=100)
+check(tc["tiers"]["Solid"]["n"] == 210,
+      f"the Solid bucket counts ordinary AND same-rule personal rows, and only those ({tc['tiers']['Solid']['n']})")
+check(abs(tc["tiers"]["Solid"]["stated"] - 0.85) < 0.01,
+      f"...so the stated figure is not dragged down by lines graded on a different question ({tc['tiers']['Solid']['stated']:.0%})")
+check(tc["tiers_scope"] == {"counted": 210, "left_out": 60},
+      f"...and the page is told what was left out rather than left to imply the tiers cover everything ({tc['tiers_scope']})")
+db.forecast_outcomes.delete_many({"fkey": {"$regex": "^tco|^tcold|^tcnew"}})
 s = Q.search(db, "player 1")
 check(s["players"] and Q.search(db, "(")["players"] == [], "search: partial match, regex characters are escaped")
 check(Q.team_form(db, t, 5)[0]["result"] in "WDL", "team_form")

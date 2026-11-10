@@ -52,11 +52,14 @@ TIER_WORD = {
 # Why each tier is what it is, in a sentence, because a stranger has never seen the badge before and
 # the post is where they meet it. These match docs/52 and the Learn article: the badge grades the
 # DEPARTURE from a player's usual game, never the percentage beside it.
+# What each badge means, in a sentence, because a post is where most readers meet one first.
+# It grades the likelihood and nothing else (docs/76), so these say so in numbers a reader can check
+# against the percentage printed directly above them.
 TIER_HELP = {
-    "Strong": "a big gap between tonight and this player's usual game, with the likely range clear of it",
-    "Solid": "a gap worth saying, though the likely range still reaches their usual",
-    "Watch": "a small gap \u2014 tonight looks close to any other night",
-    "lower": "tonight looks like any other night for them, which is the commonest honest answer",
+    "Strong": "90% or more likely, with the low end of the range above 84%",
+    "Solid": "80% or more likely, with the low end of the range above 70%",
+    "Watch": "60% or more likely \u2014 worth a card, under the bar Solid asks for",
+    "lower": "under 60%, which is an honest answer and a common one",
 }
 
 STYLE = """
@@ -435,8 +438,8 @@ def render_post(db, post: dict) -> str:
     if miss:
         words = " or ".join(esc(m) for m in miss)
         gap = (f'<p class="note">No {words} forecast for this match. That is the ordinary case rather than '
-               f'a gap in the data: the badge grades how far tonight sits from a player\'s usual game, and '
-               f'most nights sit close to it.</p>')
+               f'a gap in the data: those badges need 90% and 80%, and most football questions do not '
+               f'have an answer that confident.</p>')
 
     link = (f'<p><a href="{esc(base)}/match/{esc(post.get("match_id") or "")}">'
             f'Open the full match on {esc(brand.get("name") or "the app")}</a></p>') if post.get("match_id") else ""

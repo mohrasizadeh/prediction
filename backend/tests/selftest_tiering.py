@@ -60,4 +60,42 @@ est, n = rec.earned("player", "tackles", 0.92); check(n == 100 and est > 0.9, f"
 # the engine bridge reads the tier rule from settings
 setting("engine.tier_mode", "classic"); check(B.S.get(db, "engine.tier_mode") == "classic", "classic mode can be chosen")
 setting("engine.tier_mode", "earned")
+# ---------------------------------------------------------------- docs/76: ONE rule, always
+# The badge used to grade the DEPARTURE from a player's usual game whenever the line was that
+# player's own half-way count. That is why a 57% card could read Watch beside a 56% one reading
+# Solid, and it is why "Strong" stopped meaning "strong chance". There is one rule now, and these
+# pin it: a personal line is graded on its NUMBER like everything else.
+own = {**F(0.56, 0.48), "is_personal": True, "p_usual": 0.38}      # 18 points above usual, range clear
+t, _ = TI.assign(db, None, own)
+check(t is None, f"a personal line at 56% earns no badge, however far it sits from usual (got {t})")
+t, _ = TI.assign(db, None, {**own, "p": 0.62, "lo": 0.55})
+check(t == "Watch", "the same line at 62% is Watch, on the number")
+t, _ = TI.assign(db, None, {**own, "p": 0.84, "lo": 0.75})
+check(t == "Solid", "...and at 84% it is Solid")
+t, _ = TI.assign(db, None, {**own, "p": 0.93, "lo": 0.88})
+check(t == "Strong", "...and at 93% it is Strong")
+# The two cards that started this: 57% and 56%, one of them a personal line. Same answer now.
+a, _ = TI.assign(db, None, {**F(0.57, 0.50), "is_personal": True, "p_usual": 0.40})
+b, _ = TI.assign(db, None, F(0.56, 0.49))
+check(a == b, f"57% and 56% no longer disagree about their badge ({a} vs {b})")
+check(not hasattr(TI, "_departure_tier"), "the departure grader is gone, not merely unreachable")
+for k in ("engine.departure_strong", "engine.departure_solid"):
+    check(k not in TI.S.registry(), f"{k} is gone from the registry rather than left reaching nothing")
+
+# ---------------------------------------------------------------- the card no longer leads with it
+# Grading on likelihood only helps if the card SHOWS a line whose likelihood is worth grading. The
+# entity's own line sits at about a half by construction, so letting it lead would put an
+# ungradeable number on the face of every card.
+import queries as Q
+grp = [{"id": "own", "fkey": "k1", "scope": "player", "stat": "shots", "thr": 2.5, "p": 0.51, "lo": 0.44,
+        "hi": 0.58, "tier": None, "p_usual": 0.38, "edge": 0.13, "is_personal": True, "player_iid": 7,
+        "match_iid": 1, "team_iid": 3, "span": 0.25, "pos": "FWD"},
+       {"id": "low", "fkey": "k2", "scope": "player", "stat": "shots", "thr": 1.5, "p": 0.84, "lo": 0.76,
+        "hi": 0.90, "tier": "Solid", "p_usual": 0.70, "edge": 0.14, "is_personal": False, "player_iid": 7,
+        "match_iid": 1, "team_iid": 3, "span": 0.22, "pos": "FWD"}]
+cards = Q.group_cards(grp, max_p=0.97, group="player", min_span=0.0)
+check(len(cards) == 1, "one player, one card")
+check(cards[0]["id"] == "low", f"the card leads with the line that has a real likelihood, not the half-way one (led with {cards[0]['id']})")
+check(any(m["fkey"] == "k1" for m in cards[0]["more_lines"]), "...and the half-way line is still there, one tap away")
+
 print("PASS selftest_tiering")

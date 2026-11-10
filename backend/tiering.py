@@ -7,6 +7,14 @@ our own scored results show it.
 
 A Watch line always carries a note saying WHICH of those it is -- see _watch_says_why.
 
+ONE RULE, ALWAYS (docs/76). There used to be a second: with `engine.personal_lines` on, every line
+sits where the entity lands about half the time, so likelihood says the same thing about everybody,
+and the badge graded the DEPARTURE from their usual game instead. That is defensible and it was
+measured -- but it means "Strong" stops meaning "strong chance", and a reader who reads it that way
+is right and the product is wrong. A 57% card reading Watch beside a 56% one reading Solid is what
+that costs. The departure is still shown, in its own words, on its own line of the card; it is no
+longer hidden inside a word that means something else.
+
 THE TIER GRADES THE NUMBER ON THE CARD, AND NOTHING ELSE.
 
 It used to grade `p x p_play` -- the chance he reaches the line times the chance he features -- while the card
@@ -94,8 +102,6 @@ def assign(db, rec: Record | None, f: dict) -> tuple[str | None, str | None]:
     s_min, so_min = float(S.get(db, "engine.strong_min")), float(S.get(db, "engine.solid_min"))
     s_lo, so_lo = float(S.get(db, "engine.strong_lo_min")), float(S.get(db, "engine.solid_lo_min"))
     watch = float(S.get(db, "engine.watch_min"))
-    if f.get("is_personal") and f.get("p_usual") is not None:
-        return _watch_says_why(*_departure_tier(db, f, p, lo), so_min)
     t = "Strong" if (p >= s_min and lo >= s_lo) else "Solid" if (p >= so_min and lo >= so_lo) else "Watch" if p >= watch else None
     note = None
     if rec is not None and t in ("Strong", "Solid"):
@@ -131,38 +137,6 @@ def _watch_says_why(t: str | None, note: str | None, so_min: float) -> tuple[str
         return t, f"Under {round(so_min * 100)}%, where Solid starts"
     return t, note
 
-
-
-def _departure_tier(db, f: dict, w: float, lw: float) -> tuple[str | None, str | None]:
-    """Tiering for a line that is the entity's OWN half-way count (docs/52).
-
-    The ordinary tiers answer "how likely is this". Once the line is set where the entity lands about
-    half the time, that question has the same answer for everybody and tells the reader nothing: on
-    the measured feed 84 of 90 personal lines fell below even Watch.
-
-    The question worth grading is the one the line was built to ask: **is this fixture unlike their
-    normal game, and how sure are we?** So:
-
-      Strong  the likely range sits wholly on one side of what they usually do, and the gap is big
-      Solid   the gap is big enough to be worth saying, but the range still touches their usual
-      Watch   there is a gap, but a small one
-      none    this fixture looks like any other for them -- which is honest, and not worth a card
-
-    A departure below is as real as one above: "well short of his normal game" is a forecast.
-    """
-    pu = float(f["p_usual"])
-    d = abs(float(f["p"]) - pu)
-    big, some = float(S.get(db, "engine.departure_strong")), float(S.get(db, "engine.departure_solid"))
-    clear = (float(f["lo"]) > pu) or (float(f["hi"]) < pu)       # the range does not straddle the usual
-    if d >= big and clear:
-        return "Strong", None
-    if d >= some:
-        return "Solid", (None if clear else "The likely range still reaches their usual")
-    if d >= some / 2:
-        # Not "under 80%": a personal line is graded on the SIZE OF THE GAP, not on the chance, so
-        # the plain note would name a bar this line is not measured against.
-        return "Watch", "A small step from their usual game"
-    return None, None
 
 
 def _logit(x):
