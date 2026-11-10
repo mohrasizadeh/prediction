@@ -227,7 +227,17 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
   const markets = useMemo(() => (f.markets?.length ? f.markets : [f]), [f]);
   // `cur` is the forecast on screen. Everything below reads from it, not from `f` -- reading the
   // lead line while showing another market is how a card ends up contradicting itself.
-  const cur = useMemo(() => markets.find((m) => m.stat === (stat ?? f.stat)) || f, [markets, stat, f]);
+  //
+  // ON THE CARD'S OWN MARKET, `f` WINS. `f` IS that market -- group_cards builds the card from the
+  // lead forecast and then lists the same forecast in `markets` -- so the two agree, and where they
+  // agree this changes nothing. Where they could ever disagree, `f` is the copy the feed ranked,
+  // sorted, filtered and counted on, and the row must not quietly show a different number from the
+  // one the list used to place it. Caught by a fixture that set `p` on the row without updating
+  // its `markets`: three rows that should have read 64%, 91% and 41% all read 64%.
+  const cur = useMemo(() => {
+    const st = stat ?? f.stat;
+    return st === f.stat ? f : markets.find((m) => m.stat === st) || f;
+  }, [markets, stat, f]);
   const lad = useMemo(() => ladderOf(cur), [cur]);
   const chosen = need(cur.thr);
   const n = pick ?? chosen;

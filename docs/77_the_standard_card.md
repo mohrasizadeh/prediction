@@ -141,11 +141,11 @@ A Playwright harness renders the **real** `ForecastRow` out of the built app —
 bench player, a club line with no player and no markets, a row with no run data at all, and a row
 whose range is one digit shorter than the rest.
 
-Thirty-three checks, all passing. The ones worth naming:
+Thirty-nine checks, all passing. The ones worth naming:
 
 - no page errors and no horizontal overflow, at either width
 - the market is a control, and `+N more markets` is gone
-- the range rail is gone, and the strip's column is at least the answer's
+- the range rail is gone, the strip's column is at least the answer's, and the bars fill it
 - every figure shares one right edge, badge or no badge, over captions of differing length
 - on desktop, every cell is still a `table-cell`, and the six columns account for the whole table
 - on desktop, every figure sits at one height from its row's top, within a pixel
@@ -159,6 +159,33 @@ Thirty-three checks, all passing. The ones worth naming:
   layout. An ad and a card that look like different products is worse than either.
 - **"He had 3"** on a club line. A team line has no *he*, and no one has decided what it says
   instead.
+
+## Three faults the before/after comparison exposed
+
+Found while rendering `main` and this branch side by side for review — after the browser checks
+were green, which is the point of the section below.
+
+**The strip was not using its column.** It had been widened from 14% to 20% and this document said
+the evidence got the space. It did not: the bars were `width: 7px; flex: 0 0 auto`, so the strip
+measured **88px whatever column it sat in**, and the extra 64px was whitespace. The claim was
+false in the way that matters — it described an intention, not a render. The bars now grow from a
+7px basis with a cap, so they stay bars rather than becoming blocks: **10.5px at 1366, 16px on a
+phone**, and the strip is 123px of 215 and 248px of 312.
+
+**The result wrapped.** `Happened — 3` broke across two lines inside the answer column and stood
+42px instead of 24, so a settled row ran 154–175px against an unsettled row's 108. It fits on one
+line in the width the column gives it; it only had to be allowed to.
+
+**A row could show another row's number.** `cur` resolved through the `markets` list even for the
+card's own market. In production the two agree — `group_cards` builds the card from the lead
+forecast and lists that same forecast — so nothing was visibly wrong. But `f` is the copy the feed
+ranked, sorted, filtered and counted on, and a row must never quietly display a number other than
+the one the list used to place it. **On its own market, `f` wins.** A fixture that set `p` without
+updating `markets` is what surfaced it: three rows that should have read 64%, 91% and 41% all read
+64%.
+
+The run is **39 checks** now. The ones added here: the bars fill more than half their column; the
+result sits on one line; every row shows its own number.
 
 ## Deleted with the old layout
 

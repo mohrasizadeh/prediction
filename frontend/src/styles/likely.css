@@ -168,7 +168,11 @@ td.lk-cell-lu  { width: 13%; }
  * here needs flex to achieve it. */
 .lk-lk { text-align: right; padding-top: 14px; padding-bottom: 10px; }
 .lk-lk-top { display: flex; align-items: baseline; justify-content: flex-end; height: 32px; }
+/* The result reads "Happened -- 3". Left to wrap it broke across two lines inside this column and
+ * stood 42px tall, so a settled row ran 154px against an unsettled row's 108 and the column lost
+ * its rhythm. It fits on one line in the width the column gives it; it just has to be allowed to. */
 .lk-rescell { display: flex; justify-content: flex-end; margin-top: 5px; }
+.lk-rescell > * { white-space: nowrap; }
 /* The range is a caption now, not the label of a drawn rail, so it takes the width the column
  * gives it instead of the rail's old fixed 158px -- which was wider than the column itself. */
 .lk-rg { display: block; color: var(--text2); white-space: nowrap; text-align: right; margin: 5px 0 0 auto; }
@@ -180,14 +184,19 @@ td.lk-cell-lu  { width: 13%; }
  * which lands at the same height across the strip. The dashed rule sits BEHIND the bars, so it
  * appears only in the gaps and above a bar that fell short -- the two places with no tone
  * boundary to read. Drawn in front it crossed the fill and read as a strikethrough. */
-.lk-runbox { position: relative; display: block; padding-left: 20px; flex: 0 0 auto; }
+.lk-runbox { position: relative; display: block; padding-left: 20px; flex: 1 1 auto; min-width: 0; }
 .lk-need { position: absolute; display: block; left: 0; font-stretch: 84%; font-weight: 700; font-size: 10.5px;
   color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; transform: translateY(50%); }
 .lk-need::after { content: ""; position: absolute; display: block; left: 11px; top: 50%; width: 5px; height: 1px;
   background: var(--text); transform: translateY(-50%); }
+/* THE BARS TAKE THE COLUMN THEY WERE GIVEN. They were a fixed 7px with `flex: 0 0 auto`, so the
+ * strip measured 88px whatever width it sat in -- and widening this column from 14% to 20% bought
+ * 64px of WHITESPACE, not evidence, which is the opposite of the point. Growing from a 7px basis
+ * with a cap keeps them bars rather than blocks: 11px at 1366, 16px on a phone. */
 .lk-run { position: relative; display: flex; align-items: flex-end; gap: 2px; height: 26px;
-  border-bottom: 1px solid var(--border); flex: 0 0 auto; }
-.lk-run i { display: block; width: 7px; border-radius: 2px 2px 0 0; background: var(--lk-rule); flex: 0 0 auto; position: relative; z-index: 1; }
+  border-bottom: 1px solid var(--border); flex: 1 1 auto; min-width: 0; }
+.lk-run i { display: block; flex: 1 1 7px; min-width: 7px; max-width: 16px; border-radius: 2px 2px 0 0;
+  background: var(--lk-rule); position: relative; z-index: 1; }
 .lk-rule { position: absolute; display: block; left: 0; right: 0; height: 1px; z-index: 0;
   background-image: repeating-linear-gradient(to right, var(--text3) 0 3px, transparent 3px 6px); }
 .lk-runwrap { display: flex; align-items: flex-end; gap: 9px; min-width: 0; }
