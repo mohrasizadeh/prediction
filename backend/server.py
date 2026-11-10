@@ -28,6 +28,7 @@ from fastapi.responses import JSONResponse
 import routes_accounts
 import routes_admin
 import routes_billing
+import routes_blog
 import routes_social
 import routes_teams
 import routes_data
@@ -72,6 +73,8 @@ app.include_router(routes_ingest_admin.router)
 app.include_router(routes_cron.router)
 app.include_router(routes_me.router)
 app.include_router(routes_ads.router)
+app.include_router(routes_blog.public)
+app.include_router(routes_blog.admin)
 
 
 def set_db(db) -> None:

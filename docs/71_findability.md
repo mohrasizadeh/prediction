@@ -132,3 +132,11 @@ It also decides how any automated content must work: anything that writes public
 through `textguard` on the way in. A pipeline that ingests outside football coverage will drag
 banned words in constantly — failing the build, or worse, writing straight to Mongo and bypassing
 the check entirely. Generate from our own data, where we control the words.
+
+## Update: the blog
+
+The daily match posts (docs/72) are the one part of the product that **is** server-rendered, for
+exactly the reasons this document lays out. They are also in the sitemap. Until the rendering
+decision above is made for the rest of the app, they are the only pages here a crawler can read
+without executing JavaScript — which makes them the most valuable rows in `sitemap.xml`, not an
+afterthought at the end of it.

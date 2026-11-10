@@ -79,8 +79,27 @@
   overflow: hidden; box-shadow: 0 0 0 2px var(--lk-halo); box-sizing: border-box; }
 .lk-ava-cr .media-chip, .lk-ava-cr .media-fallback, .lk-ava-cr img { width: 100% !important; height: 100% !important; }
 .lk-ava-cr .media-fallback svg { width: 11px; height: 11px; }
+/* Column widths. The table is `table-layout: fixed` (above), which means the browser divides the
+ * width EQUALLY between the columns and ignores both min-width and the content: six columns, so
+ * every one got exactly a sixth, and the name cell was 190px whatever was in it. That is why a
+ * player read as "Gustav...": not a truncation rule, an equal-shares layout. Under fixed layout the
+ * one thing a cell can say is `width`, so the columns say it. They total 100%.
+ *
+ * Reported against a real match page, where two of the three visible rows had a cut-off name. */
+td.lk-cell-who { width: 24%; }
+td.lk-cell-fx  { width: 9%; }
+td.lk-cell-mk  { width: 27%; }
+td.lk-cell-lk  { width: 13%; }
+td.lk-cell-run { width: 14%; }
+td.lk-cell-lu  { width: 13%; }
 .lk-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.lk-who .lk-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; min-width: 0; flex: 0 1 auto; }
+/* Wrap to a second line rather than cut. An ellipsis in the middle of a surname is the one piece of
+ * a row a reader uses to recognise who it is about, and two lines of a name fit inside the height
+ * the 38px avatar already sets -- so this costs no row height in practice. Three lines would, hence
+ * the clamp; a name that long is cut, but it is cut after two lines of evidence rather than eight
+ * characters. */
+.lk-who .lk-name { text-decoration: none; min-width: 0; flex: 0 1 auto; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .lk-who .lk-name:hover { text-decoration: underline; }
 /* The position was three bare letters reading as part of the name. A chip is the shape that says
  * "tag", and it is deliberately colourless: colour here is spent on data, not on taxonomy. */
@@ -320,8 +339,11 @@
 /* The save control sits beside Why, in the cell that already holds the row's two buttons. */
 .lk-lucell .k-save { margin-left: 6px; }
 
-.lk-tiercell { display: block; margin-top: 4px; }
+.lk-tiercell { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-top: 4px; }
 .lk-tiercell .k-tier { justify-content: flex-end; }
+/* The result sits under the tier, right-flushed with it: same column, same edge, so a row with a
+ * result and a row without still line their figures up. */
+.lk-tiercell .lv-chip { max-width: 100%; white-space: nowrap; }
 
 /* The two controls the card had and the extracted row had lost: keep the line, and put it in a
    combo. They sit in the cell that already holds Why, so the row gains no column. */

@@ -3295,5 +3295,75 @@
     "public": true,
     "applies_at": "immediately",
     "help": "Wording on the public waitlist page at /waitlist. Empty falls back to the shipped text."
+  },
+  {
+    "key": "blog.enabled",
+    "group": "Marketing",
+    "label": "Blog",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Serves the match posts at /api/blog. Off hides every post from visitors; drafts and published posts are kept."
+  },
+  {
+    "key": "blog.auto_generate",
+    "group": "Marketing",
+    "label": "Prepare posts automatically",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Each day the tick prepares DRAFT posts for that day's matches. Nothing is published without an admin pressing Publish."
+  },
+  {
+    "key": "blog.max_per_day",
+    "group": "Marketing",
+    "label": "Posts prepared each day",
+    "type": "number",
+    "default": 6,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "How many of the day's matches get a draft, best-supported match first. A big Saturday has more fixtures than are worth writing about."
+  },
+  {
+    "key": "blog.cta_title",
+    "group": "Marketing",
+    "label": "Call to action: heading",
+    "type": "text",
+    "default": "See every forecast for this match",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "The box after the forecasts, and again at the end of the post."
+  },
+  {
+    "key": "blog.cta_body",
+    "group": "Marketing",
+    "label": "Call to action: sentence",
+    "type": "text",
+    "default": "This post shows three. The app has the rest of this match, every other match we cover, and the reasons behind each one.",
+    "public": false,
+    "applies_at": "immediately",
+    "help": ""
+  },
+  {
+    "key": "blog.cta_button",
+    "group": "Marketing",
+    "label": "Call to action: button",
+    "type": "text",
+    "default": "Create a free account",
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Links to the sign-up page with ?from=blog-mid or ?from=blog-end, so analytics can tell the two boxes apart."
+  },
+  {
+    "key": "blog.draft_keep_days",
+    "group": "Marketing",
+    "label": "Delete unreviewed drafts after (days)",
+    "type": "number",
+    "default": 14,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "A draft for a match that has already been played is deleted after this many days. Published posts are never deleted."
   }
 ]

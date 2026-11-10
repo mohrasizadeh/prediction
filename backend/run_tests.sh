@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs all 51 self-test suites. No keys, no network, no MongoDB needed (in-memory database, fake providers).
+# Runs all 52 self-test suites. No keys, no network, no MongoDB needed (in-memory database, fake providers).
 #   pip install -r requirements.txt   then   bash run_tests.sh
 set -u
 cd "$(dirname "$0")"

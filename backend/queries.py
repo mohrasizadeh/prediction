@@ -209,6 +209,22 @@ def match_detail(db, match_iid: int) -> dict | None:
     for f in fc:
         f["player"] = players.get(f.get("player_iid"))
     _usual(db, fc)
+    # docs/73: after the whistle, say what happened. The forecasts were already scored into
+    # `forecast_outcomes` by score_finished, and _recap below already counts them -- but only in
+    # aggregate, so every row on a settled match still read as though the game were hours away.
+    # `actual` is carried as well as `reached` because "did not happen" and "2 when 3 were needed"
+    # are different amounts of information, and we hold the second one.
+    for f in fc:
+        f["status"] = m.get("status")
+    if m.get("status") == "final":
+        outs = {o["forecast_id"]: o for o in db.forecast_outcomes.find(
+            {"forecast_id": {"$in": [f["id"] for f in fc if f.get("id")]}},
+            {"_id": 0, "forecast_id": 1, "reached": 1, "actual": 1, "player_played": 1})}
+        for f in fc:
+            o = outs.get(f.get("id"))
+            if o:
+                f["outcome"] = {"reached": bool(o.get("reached")), "actual": o.get("actual"),
+                                "played": o.get("player_played") is not False}
     styles = {s["team_iid"]: s for s in db.team_styles.find({"team_iid": {"$in": [m["home_iid"], m["away_iid"]]}}, {"_id": 0}).sort("as_of", 1)}   # newest wins
     lu = list(db.lineups.find({"match_iid": match_iid, "started": True}, {"_id": 0}))
     lp = _names(db, "players", [x["player_iid"] for x in lu])

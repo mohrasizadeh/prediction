@@ -36,6 +36,7 @@ MODULES = [
 
     ("popups", "Popups", "Marketing", "layers", "/admin/popups", ("popups.read",)),
     ("announcements", "Announcements", "Marketing", "flag", "/admin/announcements", ("content.write",)),
+    ("blog", "Blog", "Marketing", "book", "/admin/blog", ("content.write",)),
     ("campaigns", "Campaigns", "Marketing", "send", "/admin/campaigns", ("email.write",)),
     ("newsletter", "E-mail list", "Marketing", "list", "/admin/newsletter", ("email.read",)),
     # Both new in docs/60. Media sat under Website as "Images" while its only reader was Site Studio;

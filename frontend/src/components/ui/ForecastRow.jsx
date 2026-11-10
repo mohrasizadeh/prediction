@@ -16,7 +16,7 @@ import { Crest, PlayerAvatar } from "../Media";
 import { SaveButton } from "../Actions";
 import { TierBadge } from "./Marks";
 import { LineActions } from "./Subject";
-import { fixtureOf } from "./ForecastCard";
+import { fixtureOf, shortName } from "./ForecastCard";
 import { useCombo } from "../../lib/combo";
 import Icon from "../Icon";
 
@@ -159,6 +159,33 @@ function Why({ f, n, p, lo, hi, cleared, played, more = [], topMore = null }) {
   );
 }
 
+// What happened, once there is an answer (docs/31 live, docs/73 settled).
+//
+// `track` is the live feed, counting while the match is on. `f.outcome` is the scored result, read
+// off forecast_outcomes after the whistle. The row took `track` as a prop from the day it was
+// extracted and never rendered it -- so the match page, which had shown this on the old card, went
+// quiet about whether anything happened, and stayed quiet after full time as well.
+//
+// `actual` is shown when we have it, because "did not happen" and "2, where 3 were needed" are
+// different amounts of information and we hold the second.
+function Result({ t, outcome, needed, id }) {
+  if (outcome) {
+    if (outcome.played === false) {
+      return <span className="lv-chip" data-testid={`${id}-dnp`}>Did not play</span>;
+    }
+    const got = outcome.actual == null ? null : Math.round(outcome.actual * 10) / 10;
+    return outcome.reached
+      ? <span className="lv-chip lv-chip--hit" data-testid={`${id}-hit`}><Icon name="check" size={14} />
+          Happened{got == null ? "" : ` \u2014 ${got}`}</span>
+      : <span className="lv-chip lv-chip--miss" data-testid={`${id}-missed`}>
+          Did not happen{got == null ? "" : ` \u2014 ${got} of ${needed}`}</span>;
+  }
+  if (!t || t.state === "unknown") return null;
+  if (t.state === "hit") return <span className="lv-chip lv-chip--hit" data-testid={`${id}-hit`}><Icon name="check" size={14} />Happened</span>;
+  if (t.state === "missed") return <span className="lv-chip lv-chip--miss" data-testid={`${id}-missed`}>Did not happen</span>;
+  return <span className="lv-chip" data-testid={`${id}-live`}><span className="k-livedot" aria-hidden="true" />{t.current} of {t.needed} so far</span>;
+}
+
 export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, homeIid, track }) {
   const [pick, setPick] = useState(null);
   const [lines, setLines] = useState(false);
@@ -182,9 +209,14 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
   const known = (f.run || []).filter((g) => g && g.v != null);
   const cleared = known.filter((g) => g.v >= n).length;
   const who = f.player?.name || fx.team?.name;
+  const res = n === chosen ? (f.outcome || null) : null;
+  const tk = n === chosen ? track?.[f.fkey] : null;
   const words = lineWords(f, n);
   const pos = POS[f.pos] || f.pos;
-  const ko = f.kickoff ? utc(f.kickoff).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+  // A settled match showed its KICK-OFF time, so a game played this morning read as one starting
+  // at 09:00. The clock is only news before the whistle; afterwards the news is that it is over.
+  const done = f.status === "final";
+  const ko = done ? "FT" : (f.kickoff ? utc(f.kickoff).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
   // The four things ForecastCard carried and this row did not. Same fields, same arithmetic and
   // the same words as the card, so a reader who learnt them there reads them here unchanged.
   const dep = f.p_usual == null ? null : Math.round((f.p - f.p_usual) * 100);
@@ -219,7 +251,7 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
             ) : (
               <span className="lk-ava lk-ava--club"><Crest team={fx.team} size={38} /></span>
             )}
-            <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${fx.team?.id}`}>{who}</Link>
+            <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${fx.team?.id}`} title={who}>{shortName(who)}</Link>
             {pos && <span className="lk-pos">{pos}</span>}
           </span>
         </td>
@@ -264,9 +296,12 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
               `ladder_tier` is the engine's own core.tier applied to each rung with the configured
               cutoffs, so stepping 2+ -> 3+ shows that rung's grade instead of freezing on the lead
               line's or disappearing. Falls back to the line's own tier for the rung it is about. */}
-          {extras && rungTier && (
-            <span className="lk-tiercell"><TierBadge tier={rungTier} testid={`lk-tier-${f.id}`} /></span>
-          )}
+          {(extras && rungTier) || res || tk ? (
+            <span className="lk-tiercell">
+              {extras && rungTier && <TierBadge tier={rungTier} testid={`lk-tier-${f.id}`} />}
+              <Result t={tk} outcome={res} needed={n} id={`lk-${f.id}`} />
+            </span>
+          ) : null}
         </td>
         <td className="lk-cell-run"><Run games={f.run} n={n} /></td>
         <td className="lk-cell-lu">

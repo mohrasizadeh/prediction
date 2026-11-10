@@ -28,6 +28,12 @@ def ensure_indexes(db) -> list[str]:
     ix("settings", [("key", ASC)], unique=True)
     ix("settings_history", [("key", ASC), ("at", DESC)])
     ix("content_pages", [("slug", ASC)], unique=True)
+    # One post per slug, and the slug carries the date, so the two legs a club meets in a season
+    # cannot collide (blog.post_slug).
+    ix("blog_posts", [("slug", ASC)], unique=True)
+    ix("blog_posts", [("status", ASC), ("published_at", DESC)])
+    ix("blog_posts", [("status", ASC), ("kickoff", DESC)])
+    ix("blog_posts", [("match_iid", ASC)])
     ix("provider_keys", [("provider", ASC)], unique=True)
     ix("audit_log", [("at", DESC)])
     ix("audit_log", [("actor", ASC), ("at", DESC)])

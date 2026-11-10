@@ -33,6 +33,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from xml.sax.saxutils import escape
 
+import settings_store as S
 import site_studio as SS
 
 # The sitemap protocol's own ceiling is 50,000 URLs / 50 MB uncompressed per file. These caps keep
@@ -43,6 +44,7 @@ MAX_URLS = 50_000
 CAP_PLAYERS = 20_000
 CAP_TEAMS = 5_000
 CAP_MATCHES = 10_000
+CAP_POSTS = 5_000
 
 # How far either side of today a match page is worth indexing. Forward: every fixture we hold.
 # Back: a settled match still earns its page, because it carries what we said and what happened --
@@ -153,6 +155,18 @@ def urls(db, now: datetime | None = None) -> list[dict]:
     today = now.date().isoformat()
     out: list[dict] = [{"loc": "/" + p, "lastmod": today} for p in STATIC_PATHS if not is_private(p)]
     out += [{"loc": f"/learn/{s}", "lastmod": today} for s in learn_slugs()]
+
+    # The blog posts (docs/72). These are the only pages in the product that are served as real
+    # HTML, so they are the only ones a crawler can read without executing JavaScript -- which makes
+    # them the most valuable rows in this file, not an afterthought at the end of it. Drafts are
+    # never listed: the public route refuses them, and offering one here would advertise a URL that
+    # answers 404.
+    if S.get(db, "blog.enabled"):
+        for b in db.blog_posts.find({"status": "published"},
+                                    {"slug": 1, "published_at": 1}).sort("published_at", -1).limit(CAP_POSTS):
+            if b.get("slug"):
+                out.append({"loc": f"/api/blog/{b['slug']}", "lastmod": _iso(b.get("published_at")) or today})
+        out.append({"loc": "/api/blog", "lastmod": today})
 
     lg_iids = _enabled_league_iids(db)
     if not lg_iids:
