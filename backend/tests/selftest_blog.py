@@ -220,4 +220,66 @@ with TestClient(srv.app) as owner:
     check(all("outcome" not in f for f in d["forecasts"]), "a match still to be played carries no outcome at all")
     check(all(f["status"] == "scheduled" for f in d["forecasts"]), "...and says so")
 
+    # ---------------- docs/73: a post for a match already played
+    # Without this a post generated for a past fixture reads in the future tense with no score and
+    # no results -- the same fault reported on the match page, in a second place. It is also the one
+    # thing nobody else does: everyone's forecast page becomes a dead wrong page after the whistle.
+    db.blog_posts.delete_many({})
+    db.forecast_outcomes.delete_many({})
+    db.teams.update_one({"iid": 71}, {"$set": {"name": "Chelsea"}})
+    db.matches.update_one({"iid": 900}, {"$set": {"status": "final", "hg": 2, "ag": 1}})
+    db.forecast_outcomes.insert_many([
+        {"forecast_id": "f1", "fkey": "kf1", "tier": "Strong", "reached": True, "actual": 4.0, "player_played": True},
+        {"forecast_id": "f2", "fkey": "kf2", "tier": "Solid", "reached": True, "actual": 5.0, "player_played": True},
+        {"forecast_id": "f3", "fkey": "kf3", "tier": None, "reached": False, "actual": 0.0, "player_played": True},
+    ])
+    sp = B.build_post(db, 900, now=now)
+    check(sp["final"] is True and sp["score"] == "2\u20131", "a settled post knows the match is over and what the score was")
+    check("2\u20131" in sp["title"] and "how our forecasts did" in sp["title"], f"the score is in the title: {sp['title']!r}")
+    check("played" in sp["intro"] and "meet" not in sp["intro"], "the intro is in the past tense")
+    check(sp["came_in"] == 2 and sp["scored_n"] == 3, "the tally counts what came in")
+    check(sp["items"][0]["result"] == {"reached": True, "actual": 4.0, "played": True}, "each item carries its own result")
+    check(sp["items"][2]["result"]["reached"] is False, "...including the one that did not come in")
+    check(sp["items"][2]["needed"] == 2, "...and what was needed, so the miss can be quantified")
+
+    B.upsert_draft(db, sp); B.publish(db, sp["slug"], "boss@example.com")
+    html = anon.get(f"/api/blog/{sp['slug']}").text
+    check("Happened \u2014 4" in html, "the page says it happened, and with what number")
+    check("Did not happen \u2014 0, where 2 were needed" in html, "a miss is quantified, and the verb agrees with the number")
+    check(">FT<" in html and "2\u20131" in html, "the fixture strip shows the score and FT, not a kick-off time")
+    check("2 of the 3 forecasts in this post came in" in html, "the tally is on the page, stated plainly either way")
+    check("What we said, and what happened" in html, "...under a heading that is honest about what the post is")
+
+    # A player who did not appear was never scored, and saying "did not happen" about him would be a
+    # different claim from the true one.
+    db.forecast_outcomes.update_one({"forecast_id": "f3"}, {"$set": {"player_played": False}})
+    db.blog_posts.delete_many({})
+    sp2 = B.build_post(db, 900, now=now)
+    check(sp2["scored_n"] == 2 and sp2["came_in"] == 2, "a player who did not play is left out of the tally")
+    B.upsert_draft(db, sp2); B.publish(db, sp2["slug"], "boss@example.com")
+    h2 = anon.get(f"/api/blog/{sp2['slug']}").text
+    check("never scored" in h2 and "Did not happen \u2014 0" not in h2, "...and the page says he did not play rather than scoring him a miss")
+
+    # ---------------- the share row
+    check(h2.count('class="sh"') == 5, "five places to share it")
+    for host in ("twitter.com/intent/tweet", "wa.me/?text=", "facebook.com/sharer", "reddit.com/submit", "mailto:?"):
+        check(host in h2, f"...including {host.split('/')[0].split('?')[0]}")
+    check(f"https://app.test/api/blog/{sp2['slug']}" in h2, "the address is printed for a reader to copy")
+    check('rel="noopener noreferrer nofollow"' in h2, "share links carry noopener and nofollow")
+    # The share row must not cost this page its one real property.
+    check("<script" not in h2.replace('<script type="application/ld+json">', ""), "and it needed no JavaScript to do any of it")
+    check("script-src 'none'" in anon.get(f"/api/blog/{sp2['slug']}").headers.get("content-security-policy", ""),
+          "...so the CSP still forbids script outright")
+
+    # A post for a match still to be played says none of this.
+    db.matches.update_one({"iid": 900}, {"$set": {"status": "scheduled"}})
+    db.blog_posts.delete_many({})
+    up = B.build_post(db, 900, now=now)
+    check(up["final"] is False and not up["score"], "an upcoming post is not marked final")
+    check("meet" in up["intro"] and all(i["result"] is None for i in up["items"]), "...and carries no results at all")
+    B.upsert_draft(db, up); B.publish(db, up["slug"], "boss@example.com")
+    h3 = anon.get(f"/api/blog/{up['slug']}").text
+    check(">FT<" not in h3 and "Three forecasts, and why" in h3, "...and reads as a preview, with no FT marker")
+    check(h3.count('class="sh"') == 5, "an upcoming post can be shared too")
+
 print("PASS")

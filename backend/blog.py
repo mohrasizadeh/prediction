@@ -160,8 +160,21 @@ def build_post(db, match_iid: int, *, now: datetime | None = None) -> dict | Non
     if len(picked) < MIN_FORECASTS:
         return None
 
+    # docs/73: a post for a match already played must say what happened. Without this a post
+    # generated for a past fixture reads in the future tense, with no score and no results -- the
+    # same fault reported on the match page, in a second place. It is also the whole differentiator:
+    # everyone else's forecast page becomes a dead wrong page the moment the whistle goes, and this
+    # one becomes a record of what we said and what followed.
+    final = m.get("status") == "final"
+    outs = {}
+    if final:
+        outs = {o["forecast_id"]: o for o in db.forecast_outcomes.find(
+            {"forecast_id": {"$in": [f["id"] for f in picked if f.get("id")]}},
+            {"_id": 0, "forecast_id": 1, "reached": 1, "actual": 1, "player_played": 1})}
+
     items = []
     for f in picked:
+        o = outs.get(f.get("id"))
         items.append({
             "subject": _subject(f, home, away),
             "image": (f.get("player") or {}).get("image") or "",
@@ -173,15 +186,42 @@ def build_post(db, match_iid: int, *, now: datetime | None = None) -> dict | Non
             "tier": tier_of(f),
             "usual": (round(float(f["p_usual"]), 4) if f.get("p_usual") is not None else None),
             "reasons": _reasons(f),
+            # `actual` as well as `reached`: "did not happen" and "2, where 3 were needed" are
+            # different amounts of information and we hold the second.
+            "result": ({"reached": bool(o.get("reached")), "actual": o.get("actual"),
+                        "played": o.get("player_played") is not False} if o else None),
+            "needed": (int(float(f["thr"])) + 1 if f.get("thr") is not None else None),
         })
 
     ko = m.get("kickoff")
-    when = ko.strftime("%d %B %Y") if isinstance(ko, datetime) else ""
+    # "%d" zero-pads, so the 8th read as "08 November". Nobody writes a date that way in a sentence.
+    when = f"{ko.day} {ko.strftime('%B %Y')}" if isinstance(ko, datetime) else ""
     hn, an = home.get("name") or "Home", away.get("name") or "Away"
-    title = f"{hn} v {an} forecasts, {when}".strip().rstrip(",")
     lead = items[0]
-    desc = (f"What we expect from {hn} v {an}: {lead['subject']} {lead['line']} at {lead['pct']}, "
-            f"and the reasons behind it.")
+    scored = [i for i in items if i["result"] and i["result"]["played"]]
+    came_in = sum(1 for i in scored if i["result"]["reached"])
+    hg, ag = m.get("hg"), m.get("ag")
+    score = f"{hg}\u2013{ag}" if final and hg is not None and ag is not None else ""
+
+    if final:
+        # The score goes in the TITLE, because that is what someone searching afterwards types, and
+        # because a title promising a forecast for a game already played is a broken promise.
+        title = f"{hn} {score} {an}: how our forecasts did".strip() if score else f"{hn} v {an}: how our forecasts did"
+        if scored:
+            desc = (f"{hn} {score} {an}. Of the {len(scored)} forecasts in this post, "
+                    f"{came_in} came in. Every one is shown either way, with the reasons we gave.")
+        else:
+            desc = f"{hn} {score} {an}, and the forecasts we published before it, with the reasons we gave."
+        intro = (f"{hn} played {an} on {when}"
+                 + (f", finishing {score}" if score else "")
+                 + ". These are forecasts we published before kick-off, shown with what actually "
+                 + "happened \u2014 the ones that came in and the ones that did not.")
+    else:
+        title = f"{hn} v {an} forecasts, {when}".strip().rstrip(",")
+        desc = (f"What we expect from {hn} v {an}: {lead['subject']} {lead['line']} at {lead['pct']}, "
+                f"and the reasons behind it.")
+        intro = (f"{hn} meet {an} on {when}. Here are three of our forecasts for the match, each with "
+                 f"the reasons behind it and how likely we think it is.")
 
     post = {
         "slug": post_slug(hn, an, ko),
@@ -194,8 +234,11 @@ def build_post(db, match_iid: int, *, now: datetime | None = None) -> dict | Non
         "home": {"name": hn, "image": home.get("image") or "", "id": home.get("id")},
         "away": {"name": an, "image": away.get("image") or "", "id": away.get("id")},
         "match_id": m.get("id"),
-        "intro": (f"{hn} meet {an} on {when}. Here are three of our forecasts for the match, each with "
-                  f"the reasons behind it and how likely we think it is."),
+        "intro": intro,
+        "final": final,
+        "score": score,
+        "came_in": came_in,
+        "scored_n": len(scored),
         "items": items,
         # Said in the post rather than hidden: a day with no Strong forecast is the normal case, and a
         # reader who is told that learns what the badge means instead of assuming we had nothing.

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from html import escape as esc
+from urllib.parse import quote
 
 import settings_store as S
 import site_studio as SS
@@ -108,6 +109,19 @@ h2{font-size:21px;margin:30px 0 4px}
 .box{background:var(--surface1);border:1px solid var(--border);border-radius:var(--radius-md,14px);padding:14px}
 .box b{display:block;margin-bottom:4px;font-size:15px}
 .box span{color:var(--text2);font-size:14px}
+.res{margin:0 0 6px;font-size:14px;font-weight:700}
+.res--hit{color:var(--up)}
+.res--miss{color:var(--text3)}
+.res--dnp{color:var(--text3);font-weight:600}
+.sc{flex:none;text-align:center;font-size:22px;font-weight:800;letter-spacing:-.01em;line-height:1.1}
+.sc small{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--text3)}
+.share{border:1px solid var(--border);border-radius:var(--radius-md,14px);padding:14px;margin:22px 0}
+.share b{display:block;margin-bottom:9px;font-size:15px}
+.sh-row{display:flex;flex-wrap:wrap;gap:8px}
+.sh{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:99px;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text);text-decoration:none;
+  font-size:14px;font-weight:700}
+.sh-url{margin:10px 0 0;font-size:12.5px;color:var(--text3);word-break:break-all;user-select:all}
 .note{color:var(--text3);font-size:14px;background:var(--surface2);border-radius:var(--radius-md,12px);padding:12px;margin:18px 0}
 footer{border-top:1px solid var(--border);margin-top:34px;padding:18px 0 40px;color:var(--text3);font-size:13px}
 footer a{color:var(--text3)}
@@ -166,13 +180,31 @@ def _card(it: dict) -> str:
     why = ""
     if it.get("reasons"):
         why = "<ul class=\"why\">" + "".join(f"<li>{esc(r)}</li>" for r in it["reasons"]) + "</ul>"
+    # What happened, when the match has been played and the forecast scored.
+    res = ""
+    r = it.get("result")
+    if r:
+        if r.get("played") is False:
+            res = '<p class="res res--dnp">He did not play, so this one was never scored.</p>'
+        else:
+            got = None if r.get("actual") is None else (round(float(r["actual"]) * 10) / 10)
+            got = int(got) if got is not None and float(got).is_integer() else got
+            need = it.get("needed")
+            if r.get("reached"):
+                tail = f" \u2014 {got}" if got is not None else ""
+                res = f'<p class="res res--hit">Happened{esc(str(tail))}</p>'
+            else:
+                verb = "was" if need == 1 else "were"
+                tail = f" \u2014 {got}, where {need} {verb} needed" if got is not None and need is not None else ""
+                res = f'<p class="res res--miss">Did not happen{esc(str(tail))}</p>'
+
     return f"""<article class="card">
   <div class="who">{_face(it.get('image'), it.get('subject') or '')}
     <div><b>{esc(it.get('subject') or '')}</b><small>{esc(it.get('line') or '')}</small></div>
   </div>
   <div class="row"><span class="p">{pct}%</span><span class="badge{cls}">{esc(word)}</span></div>
   <div class="bar"><i style="width:{pct}%"></i></div>
-  {rng}{usual}{why}
+  {res}{rng}{usual}{why}
   <p class="rng">{esc(word)}: {esc(help_)}.</p>
 </article>"""
 
@@ -191,6 +223,38 @@ def _cta(db, brand: dict, where: str) -> str:
   <h3>{esc(head)}</h3>
   <p>{esc(body)}</p>
   <a href="{href}">{esc(label)}</a>
+</section>"""
+
+
+def _share(title: str, url: str) -> str:
+    """A share row, with NO JavaScript.
+
+    The obvious build is a button calling navigator.share, and it would cost this page the one
+    property that makes it worth having: a script tag, which means a CSP that allows script, on the
+    only page in the product a stranger meets first. Plain links to each network's share endpoint
+    need no script at all, open the native app on a phone, and work in a browser with JS switched
+    off -- which is also, not coincidentally, the state every crawler reads this page in.
+
+    The address is printed as text beside them because a reader who wants to paste it somewhere we
+    have not listed should not have to fish it out of the address bar, and `Copy` is the one control
+    here that genuinely cannot work without script.
+    """
+    t = quote(title)
+    u = quote(url)
+    nets = [
+        ("X", f"https://twitter.com/intent/tweet?text={t}&url={u}"),
+        ("WhatsApp", f"https://wa.me/?text={quote(title + ' ' + url)}"),
+        ("Facebook", f"https://www.facebook.com/sharer/sharer.php?u={u}"),
+        ("Reddit", f"https://www.reddit.com/submit?url={u}&title={t}"),
+        ("Email", f"mailto:?subject={t}&body={quote(title + chr(10) + chr(10) + url)}"),
+    ]
+    links = "".join(
+        f'<a class="sh" href="{esc(href)}" target="_blank" rel="noopener noreferrer nofollow">{esc(name)}</a>'
+        for name, href in nets)
+    return f"""<section class="share">
+  <b>Share this</b>
+  <div class="sh-row">{links}</div>
+  <p class="sh-url">{esc(url)}</p>
 </section>"""
 
 
@@ -281,13 +345,29 @@ def render_post(db, post: dict) -> str:
     url = post_url(post.get("slug") or "")
     top, foot = _chrome(db, brand)
     ko = post.get("kickoff")
-    when = ko.strftime("%A %d %B %Y, %H:%M UTC") if isinstance(ko, datetime) else (post.get("day") or "")
+    when = (f"{ko.strftime('%A')} {ko.day} {ko.strftime('%B %Y, %H:%M')} UTC"
+            if isinstance(ko, datetime) else (post.get("day") or ""))
+    if post.get("final"):
+        when = ((f"{ko.strftime('%A')} {ko.day} {ko.strftime('%B %Y')}" if isinstance(ko, datetime)
+                 else (post.get("day") or "")) + " \u2014 full time")
+    heading = "What we said, and what happened" if post.get("final") else "Three forecasts, and why"
+    # The tally is stated plainly, win or lose. A forecasting site that only publishes its hits is
+    # not publishing a record, and the one thing a stranger cannot check is the thing we most need
+    # them to believe.
+    tally = ""
+    if post.get("final") and post.get("scored_n"):
+        tally = (f'<p class="note">{post["came_in"]} of the {post["scored_n"]} forecasts in this post came in. '
+                 f'Every forecast we publish is scored and kept, including the ones that were not reached.</p>')
     h, a = post.get("home") or {}, post.get("away") or {}
     base = SS.base_url()
 
+    # A played match shows its score where an upcoming one shows "v". A post about a game that has
+    # been played must not present itself as a preview of it.
+    mid = f'<div class="sc">{esc(post.get("score") or "")}<small>FT</small></div>' if post.get("final") and post.get("score") else (
+        '<div class="sc"><small>FT</small></div>' if post.get("final") else '<div class="v">v</div>')
     fixture = f"""<div class="fx">
   <div class="side">{_crest(h.get('image'), h.get('name') or '')}<span>{esc(h.get('name') or '')}</span></div>
-  <div class="v">v</div>
+  {mid}
   <div class="side away"><span>{esc(a.get('name') or '')}</span>{_crest(a.get('image'), a.get('name') or '')}</div>
 </div>"""
 
@@ -316,9 +396,11 @@ def render_post(db, post: dict) -> str:
 <p class="kick">{esc(when)}</p>
 {fixture}
 <p class="lead">{esc(post.get('intro') or '')}</p>
-<h2>Three forecasts, and why</h2>
+<h2>{heading}</h2>
+{tally}
 {cards}
 {gap}
+{_share(post.get('title') or '', url)}
 {_cta(db, brand, 'mid')}
 <h2>What you get with an account</h2>
 {_benefits(db)}

@@ -98,6 +98,44 @@ published post**, whose URL may already be shared and indexed.
 The tick prepares drafts every six hours when `blog.auto_generate` is on, and deletes unreviewed
 drafts for matches already played after `blog.draft_keep_days`. Published posts are never swept.
 
+## After the whistle
+
+A post for a match already played **says what happened**, because the first build did not and read
+in the future tense with no score and no results — the same fault reported on the match page, in a
+second place (docs/73).
+
+| | Upcoming | Played |
+|---|---|---|
+| Title | *Arsenal v Chelsea forecasts, 8 November 2026* | *Arsenal 2–1 Chelsea: how our forecasts did* |
+| Fixture strip | `v` | the score, and FT |
+| Heading | Three forecasts, and why | What we said, and what happened |
+| Each card | the forecast | plus *Happened — 4* or *Did not happen — 0, where 2 were needed* |
+| Above the cards | — | *2 of the 3 forecasts in this post came in.* |
+
+The tally is stated plainly whichever way it went. A forecasting site that publishes only its hits
+is not publishing a record, and credibility is the one thing a stranger cannot check for themselves.
+A player who did not appear reads *"he did not play, so this one was never scored"* — he is left out
+of the tally rather than counted a miss, which would be a different claim from the true one.
+
+This is also the differentiator worth naming: everyone else's prediction page becomes a dead wrong
+page the moment the whistle goes. These become a record of what we said and what followed, and keep
+earning.
+
+## Sharing
+
+A share row sits after the forecasts: X, WhatsApp, Facebook, Reddit, email, and the address printed
+as selectable text.
+
+**It uses no JavaScript.** The obvious build is a button calling `navigator.share`, and it would cost
+this page the one property that makes it worth having — a script tag means a CSP that allows script,
+on the only page in the product a stranger meets first. Plain links to each network's share endpoint
+need no script, open the native app on a phone, and work with JS switched off, which is also the
+state every crawler reads this page in. `Copy` is the one control here that genuinely cannot work
+without script, so the URL is printed instead.
+
+If a native share sheet is wanted later it is one small inline script and a CSP hash — worth doing
+deliberately, not by accident.
+
 ## Settings
 
 `blog.enabled`, `blog.auto_generate`, `blog.max_per_day`, `blog.cta_title`, `blog.cta_body`,
