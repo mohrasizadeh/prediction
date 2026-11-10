@@ -154,13 +154,20 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
             import images as IMG
             if _run(db, "images", lambda: IMG.run_sync(db, max_seconds=max(5.0, min(40.0, max_seconds - (time.monotonic() - t0))), refresh=img_refresh), now) is not None: out["ran"].append("images")
         if left() and ("blog" in forced or _due_every(db, "blog", timedelta(hours=6), now)):
-            # docs/72: prepare DRAFT posts for today's matches. Four times a day rather than once,
-            # because a forecast is refit as lineups land and a draft prepared at 03:00 would be
-            # reviewed against numbers that have since moved. Publishing is never automatic.
+            # docs/72: prepare DRAFT posts for TOMORROW's matches -- the post has to exist before
+            # the match to be found by anyone searching the fixture, and to give a reader a reason
+            # to open the site that evening. Four times a day rather than once, because a forecast
+            # is refit as lineups land and a draft prepared at 03:00 would be reviewed against
+            # numbers that have since moved. Publishing is never automatic.
+            #
+            # A published post is then updated in place after the whistle by the refresh below, so
+            # one URL covers both: the preview that earns the visit, and the record that earns the
+            # link.
             if S.get(db, "blog.auto_generate"):
                 import blog as BL
                 def blog_job():
                     made = BL.generate(db)
+                    made["settled"] = BL.refresh_settled(db, now=now)
                     made["purged"] = BL.purge_old_drafts(db, days=int(S.get(db, "blog.draft_keep_days") or 14), now=now)
                     return made
                 if _run(db, "blog", blog_job, now) is not None: out["ran"].append("blog")

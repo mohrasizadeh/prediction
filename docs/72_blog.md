@@ -8,6 +8,20 @@ kick-off.
 
 ## The two decisions that shape everything else
 
+### 0. Published the evening BEFORE the match
+
+`plan_day` builds for **tomorrow's** fixtures when no day is given, so a post is prepared today,
+reviewed today and published tonight.
+
+Search interest in a fixture peaks in the day or two before kick-off. A post published on the
+morning of the match is too late to be crawled and too late to bring anyone in; one published
+afterwards has missed the point entirely. The same reasoning, and the same choice, as the ad planner
+(`ad_plan.py`: *"the owner posts the night before"*).
+
+A post then **updates in place after the whistle** rather than being replaced — `refresh_settled`,
+run on the tick. Same slug, same URL, now carrying what happened. One address covers both jobs: the
+preview that earns the visit, and the record that earns the link.
+
 ### 1. One post per fixture, not one post per day
 
 A daily round-up called *"Forecasts for 14 November"* holding twelve matches cannot rank for any of
@@ -52,8 +66,36 @@ then this is the address that works, and it is the only one: it is what goes in 
 - The fixture, with crests.
 - **Three forecasts: one Strong, one Solid, one lower rung** — enough to be worth reading, not
   enough to replace the product, and it quietly teaches what the tiers mean.
-- Each with its percentage, likely range, usual rate, and **the engine's own reasons** — the same
-  list the match page shows. There is no prose generator inventing a rationale.
+- Each with its percentage, likely range, usual rate, **the last ten games on that line as a bar
+  strip** — the same ten numbers and the same drawing rules as the card (`ForecastRow`'s `Run`),
+  in CSS rather than JSX because this page runs no script — and then the reasons.
+
+### Evidence before opinion
+
+The "why" under each card is in two parts, in this order:
+
+1. **What a reader can check**, from the strip beside it: *"He reached 3+ in 6 of the last 10
+   games"*, the streak if there is one, and how far the line swings between opponents (docs/56) —
+   *"this line swings about 24 points depending on the opponent, so the fixture is doing real work
+   here"*, or the opposite, *"this line barely moves whoever the opponent is"*. That last one matters:
+   a rung that answers the same against every defence in the league is a fact about the player, not
+   about this match, and saying so is the difference between a forecast and a table of averages.
+2. **The engine's own reasons**, from `core.top_reasons`, which reads the model's feature
+   contributions and words them from a fixed vocabulary — *"The opponent gives up more shots to
+   players in his position"*, *"The expected game state lifts shots"*. These are the actual drivers,
+   not a narrative written around the number afterwards.
+
+Nothing in this module invents a sentence. And reasons that are only about **availability** are
+dropped: *"he is in the announced eleven"* answers a different question from the one a post titled
+*"why we think this"* is asking, and a reader notices. *"Expected minutes are limited"* stays — that
+is a real cause of a lower count.
+
+### One place for the arithmetic
+
+`need_of(thr)` is `floor(thr) + 1` — the same arithmetic as the card's `need()` and as the scoring
+rule in `forecast_outcomes` (`reached = actual > thr`). The first build read a 2.0 threshold as
+*"2+ shots"* while the evidence line under it said *"reached 3+ in 6 of the last 10"*, so the card
+contradicted its own reasons. A reader notices that before they notice anything else on the page.
 - A call to action after the forecasts and again at the end, linking to sign-up with
   `?from=blog-mid` / `?from=blog-end` so analytics can tell the two apart.
 - Four boxes on what an account gives, and a link to the track record.

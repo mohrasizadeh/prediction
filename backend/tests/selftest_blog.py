@@ -48,9 +48,14 @@ with TestClient(srv.app) as owner:
     check(B.pick_three([])[0] == [], "no cards, no picks")
 
     # ---------------- line labels read like the product's own
-    check(B.line_label(fc("x", thr=2.0)) == "2+ shots", "a whole rung reads 2+ shots")
-    check(B.line_label(fc("x", thr=3.5, stat="cards")) == "over 3.5 cards", "a half rung reads over 3.5")
-    check(B.line_label(fc("x", stat="shots_on_target", thr=1.0)) == "1+ shots on target", "the stat name is unpicked from its id")
+    # floor(thr)+1, the same arithmetic as the card's need() and as forecast_outcomes' scoring rule
+    # (reached = actual > thr). The first build read 2.0 as "2+ shots" under an evidence line saying
+    # "reached 3+ in 6 of the last 10", so the card contradicted its own reasons.
+    check(B.line_label(fc("x", thr=2.0)) == "3+ shots", "a 2.0 threshold is a 3+ line, because reached means MORE than 2")
+    check(B.line_label(fc("x", thr=1.5)) == "2+ shots", "a 1.5 threshold is a 2+ line")
+    check(B.line_label(fc("x", thr=3.5, stat="cards")) == "4+ cards", "a half rung is worded the same way the card words it")
+    check(B.line_label(fc("x", stat="shots_on_target", thr=0.5)) == "1+ shots on target", "the stat name is unpicked from its id")
+    check(B.need_of(2.0) == 3 and B.need_of(1.5) == 2 and B.need_of(None) is None, "need_of is the one place that arithmetic lives")
 
     # ---------------- a real post, end to end
     db.leagues.insert_one({"iid": 7, "ext_id": "L7", "id": "pl", "name": "Premier League", "enabled": True,
@@ -76,7 +81,7 @@ with TestClient(srv.app) as owner:
     check(p["slug"] == "arsenal-v-chelsea-2026-11-14", "the post is slugged from the fixture")
     check(len(p["items"]) == 3, "three forecasts, no more")
     check([i["tier"] for i in p["items"]] == ["Strong", "Solid", "lower"], "one of each tier, strongest first")
-    check(p["items"][0]["subject"] == "Bukayo Saka" and p["items"][0]["line"] == "2+ shots", "the lead item names the player and the line")
+    check(p["items"][0]["subject"] == "Bukayo Saka" and p["items"][0]["line"] == "3+ shots", "the lead item names the player and the line")
     check(p["items"][0]["pct"] == "81%", "the percentage is the engine's, rounded for reading")
     check(len(p["items"][0]["reasons"]) == 2, "the engine's own reasons travel with the item")
     check("Arsenal" in p["title"] and "Chelsea" in p["title"], "the title names both clubs")
@@ -281,5 +286,86 @@ with TestClient(srv.app) as owner:
     h3 = anon.get(f"/api/blog/{up['slug']}").text
     check(">FT<" not in h3 and "Three forecasts, and why" in h3, "...and reads as a preview, with no FT marker")
     check(h3.count('class="sh"') == 5, "an upcoming post can be shared too")
+
+    # ---------------- the ten-game strip, and evidence before opinion
+    db.blog_posts.delete_many({})
+    db.forecast_outcomes.delete_many({})
+    db.matches.update_one({"iid": 900}, {"$set": {"status": "scheduled"}})
+    # Ten games on the shots line for Saka, oldest first, as queries._usual builds them.
+    db.player_match_stats.delete_many({})
+    db.player_match_stats.insert_many([
+        {"player_iid": 700, "match_iid": 800 + i, "kickoff": KO - timedelta(days=70 - 7 * i),
+         "minutes": 90, "opp_iid": 71, "home": i % 2 == 0, "pos": "FWD", "shots": v}
+        for i, v in enumerate([1, 3, 2, 4, 0, 3, 3, 2, 5, 4])])
+    ev = B.build_post(db, 900, now=now)
+    it = ev["items"][0]
+    check(len(it["run"]) == 10, f"the item carries the last ten games ({len(it['run'])})")
+    check(it["played_n"] == 10 and it["cleared"] == 6, f"and the record on the line: {it['cleared']} of {it['played_n']}")
+    check(it["needed"] == 3 and it["line"] == "3+ shots", "the line label and the needed count are the same number")
+    check(any("reached 3+ in 6 of the last 10" in e for e in it["evidence"]), f"the record leads the why: {it['evidence'][:1]}")
+    check(it["evidence"] and it["evidence"][0].startswith("He"), "a player is 'he', a club is 'they'")
+
+    # Evidence is checkable; the engine's reasons are its read of the fixture. Order matters.
+    B.upsert_draft(db, ev); B.publish(db, ev["slug"], "boss@example.com")
+    h = anon.get(f"/api/blog/{ev['slug']}").text
+    check('class="runwrap"' in h and h.count('class="run"') >= 1, "the strip is drawn on the page")
+    check('<b>6</b> of 10' in h, "...with the count beside it")
+    check(h.index("reached 3+ in 6 of the last 10") < h.index("Chelsea concede shots to wide forwards"),
+          "the checkable record comes BEFORE the model's reasons")
+    check("<script" not in h.replace('<script type="application/ld+json">', ""), "...and the strip needed no JavaScript")
+
+    # Fewer than three games is not evidence of anything.
+    db.player_match_stats.delete_many({"player_iid": 700})
+    db.player_match_stats.insert_many([
+        {"player_iid": 700, "match_iid": 860 + i, "kickoff": KO - timedelta(days=20 - i),
+         "minutes": 90, "opp_iid": 71, "home": True, "pos": "FWD", "shots": 2} for i in range(2)])
+    db.blog_posts.delete_many({})
+    thin = B.build_post(db, 900, now=now)
+    B.upsert_draft(db, thin); B.publish(db, thin["slug"], "boss@example.com")
+    h2 = anon.get(f"/api/blog/{thin['slug']}").text
+    check('class="runwrap"' not in h2, "two games draws no strip at all")
+
+    # ---------------- availability is not a reason
+    db.forecasts.update_one({"id": "f1"}, {"$set": {"reasons": [
+        "He is in the announced eleven", "The opponent's style allows more shots"]}})
+    db.blog_posts.delete_many({})
+    av = B.build_post(db, 900, now=now)
+    rs = av["items"][0]["reasons"]
+    check("The opponent's style allows more shots" in rs, "a reason about the fixture is kept")
+    check(not any("announced eleven" in r for r in rs), "a reason that only says he will be on the pitch is dropped")
+    db.forecasts.update_one({"id": "f1"}, {"$set": {"reasons": [
+        "Arsenal are expected to hold the ball in Chelsea's half", "Chelsea concede shots to wide forwards"]}})
+
+    # ---------------- the day a batch is built for
+    # A post has to exist BEFORE the match to be found by anyone searching the fixture.
+    db.blog_posts.delete_many({})
+    db.matches.update_one({"iid": 900}, {"$set": {"kickoff": now + timedelta(days=1)}})
+    made = B.generate(db, now=now)
+    check(made["created"] == 1, f"with no day given, the batch is built for TOMORROW's fixtures ({made})")
+    db.blog_posts.delete_many({})
+    check(B.generate(db, now.date().isoformat(), now=now)["created"] == 0, "...not today's")
+    db.matches.update_one({"iid": 900}, {"$set": {"kickoff": KO}})
+
+    # ---------------- a published post settles in place, same URL
+    db.blog_posts.delete_many({})
+    pre = B.build_post(db, 900, now=now)
+    B.upsert_draft(db, pre); B.publish(db, pre["slug"], "boss@example.com")
+    url_before = pre["slug"]
+    check(B.refresh_settled(db, now=now) == 0, "a match still to be played settles nothing")
+    db.matches.update_one({"iid": 900}, {"$set": {"status": "final", "hg": 2, "ag": 1}})
+    check(B.refresh_settled(db, now=now + timedelta(days=1)) == 0,
+          "final but nothing scored yet: left as a preview rather than claiming results it has not got")
+    db.forecast_outcomes.insert_many([
+        {"forecast_id": "f1", "fkey": "kf1", "tier": "Strong", "reached": True, "actual": 4.0, "player_played": True},
+        {"forecast_id": "f2", "fkey": "kf2", "tier": "Solid", "reached": False, "actual": 2.0, "player_played": True},
+    ])
+    check(B.refresh_settled(db, now=now + timedelta(days=1)) == 1, "once scored, the post settles")
+    done = db.blog_posts.find_one({"slug": url_before}, {"_id": 0})
+    check(done["slug"] == url_before, "THE URL DOES NOT CHANGE: the link that was shared still works")
+    check(done["status"] == "published" and done["final"] is True, "it is still published, and now marked final")
+    check("how our forecasts did" in done["title"] and "2\u20131" in done["title"], "the title turned over with it")
+    check(done["came_in"] == 1 and done["scored_n"] == 2, "and the tally is the scored items only")
+    check(done["items"][0]["result"]["reached"] is True, "results are attached by forecast id, item by item")
+    check(B.refresh_settled(db, now=now + timedelta(days=1)) == 0, "settling is idempotent")
 
 print("PASS")

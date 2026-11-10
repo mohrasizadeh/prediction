@@ -92,6 +92,15 @@ h2{font-size:21px;margin:30px 0 4px}
 .bar{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden;margin:8px 0 4px}
 .bar i{display:block;height:100%;background:var(--brand)}
 .rng{color:var(--text3);font-size:13px;margin:0}
+/* The ten-game strip, same rules as the card's (likely.css .lk-run*). */
+.runwrap{display:flex;align-items:flex-end;gap:14px;margin:12px 0 10px}
+.runbox{position:relative;padding-left:18px}
+.need{position:absolute;left:0;font-size:11px;font-weight:700;color:var(--text3);line-height:1}
+.run{position:relative;display:flex;align-items:flex-end;gap:4px;height:44px}
+.rule{position:absolute;left:0;right:0;border-top:1px dashed var(--border);height:0}
+.run i{display:block;width:11px;border-radius:2px 2px 0 0}
+.runcnt{font-size:13px;color:var(--text2);font-weight:700;line-height:1.25}
+.runcnt small{display:block;font-size:11.5px;font-weight:500;color:var(--text3)}
 .badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;
   border:1px solid var(--border);color:var(--text2);background:var(--surface2);white-space:nowrap}
 .badge--strong{border-color:var(--tier-strong);color:var(--tier-strong)}
@@ -177,9 +186,13 @@ def _card(it: dict) -> str:
     usual = ""
     if it.get("usual") is not None:
         usual = f"<p class=\"rng\">In their usual game this line comes in about {int(round(it['usual'] * 100))}% of the time.</p>"
+    # Evidence first, opinion second. The record and the swing are checkable against the strip
+    # above them; the engine's reasons are the model's read of the fixture. A stranger should not be
+    # asked to accept the second before they have been shown the first.
     why = ""
-    if it.get("reasons"):
-        why = "<ul class=\"why\">" + "".join(f"<li>{esc(r)}</li>" for r in it["reasons"]) + "</ul>"
+    lines = list(it.get("evidence") or []) + list(it.get("reasons") or [])
+    if lines:
+        why = "<ul class=\"why\">" + "".join(f"<li>{esc(r)}</li>" for r in lines) + "</ul>"
     # What happened, when the match has been played and the forecast scored.
     res = ""
     r = it.get("result")
@@ -204,9 +217,51 @@ def _card(it: dict) -> str:
   </div>
   <div class="row"><span class="p">{pct}%</span><span class="badge{cls}">{esc(word)}</span></div>
   <div class="bar"><i style="width:{pct}%"></i></div>
-  {res}{rng}{usual}{why}
+  {res}{_runstrip(it)}{rng}{usual}{why}
   <p class="rng">{esc(word)}: {esc(help_)}.</p>
 </article>"""
+
+
+RH = 44                 # run strip height in px. Taller than the card's 26: this page has a
+                        # column to itself, and it is the first time a reader has seen the strip.
+
+
+def _runstrip(it: dict) -> str:
+    """The last ten games on this line, as the product's own card draws them (ForecastRow's Run).
+
+    The same shape and the same rules, in CSS rather than JSX, because this page runs no script:
+      * bars scaled to the taller of the line and the biggest count, so the rule is always on screen
+      * the threshold drawn BEHIND the bars, so it shows in the gaps and above a bar that fell
+        short, and never reads as a strikethrough across a bar that cleared it
+      * a bar that cleared the line is two-tone, splitting AT the rule, so the level reads across
+        the strip at one height
+      * fewer than three known games draws nothing: that is not evidence of anything
+
+    This is the half of a forecast a reader can check for themselves, which is why it belongs in a
+    post that is trying to earn their trust before it asks for their e-mail address.
+    """
+    run, need = it.get("run") or [], it.get("needed")
+    if need is None or len(run) < 3:
+        return ""
+    mx = max([need] + [g["v"] for g in run])
+    y = max(1, round((need / mx) * RH))
+    bars = []
+    for g in run:
+        h = max(2, round((g["v"] / mx) * RH))
+        hit = g["v"] >= need
+        fill = (f"linear-gradient(to top, var(--brand) 0 {min(h, y)}px, var(--tier-strong) {min(h, y)}px 100%)"
+                if hit else "var(--surface3, var(--text3))")
+        where = ("home to " if g.get("home") else "away at ") if g.get("opp") else ""
+        label = f'{g["v"]} {where}{g["opp"]}'.strip() if g.get("opp") else str(g["v"])
+        bars.append(f'<i style="height:{h}px;background:{fill}" title="{esc(label)}"></i>')
+    cleared, played = it.get("cleared") or 0, it.get("played_n") or len(run)
+    return f"""<div class="runwrap">
+  <div class="runbox" role="img" aria-label="Reached it in {cleared} of the last {played}.">
+    <span class="need" style="bottom:{y - 1}px">{need}</span>
+    <span class="run"><span class="rule" style="bottom:{y}px"></span>{''.join(bars)}</span>
+  </div>
+  <span class="runcnt"><b>{cleared}</b> of {played}<small>last {played} games on this line</small></span>
+</div>"""
 
 
 def _cta(db, brand: dict, where: str) -> str:

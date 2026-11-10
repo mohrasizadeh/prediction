@@ -33,6 +33,7 @@ is how a site of its own data gets treated as scaled content abuse (docs/71).
 """
 from __future__ import annotations
 
+import math
 import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
@@ -88,16 +89,27 @@ def _subject(f: dict, home: dict, away: dict) -> str:
     return "Both teams"
 
 
-def line_label(f: dict) -> str:
-    """"2+ shots", "4+ tackles", "Over 3.5 cards" -- the product's own phrasing for a rung."""
-    thr = f.get("thr")
-    stat = str(f.get("stat") or "").replace("_", " ")
+def need_of(thr) -> int | None:
+    """How many it takes to reach the line.
+
+    `floor(thr) + 1`, which is the SAME arithmetic as the card's `need()` in ForecastRow and as the
+    scoring rule in forecast_outcomes (`reached = actual > thr`). Getting this wrong by one is not a
+    rounding nicety: the first build read a 2.0 threshold as "2+ shots" while the evidence line under
+    it said "reached 3+ in 6 of the last 10", so the card contradicted its own reasons. A reader
+    notices that before they notice anything else on the page.
+    """
     if thr is None:
+        return None
+    return int(math.floor(float(thr))) + 1
+
+
+def line_label(f: dict) -> str:
+    """"3+ shots", "4+ tackles" -- worded exactly as the card words it (ForecastRow lineWords)."""
+    stat = str(f.get("stat") or "").replace("_", " ")
+    n = need_of(f.get("thr"))
+    if n is None:
         return stat or "this line"
-    t = float(thr)
-    if abs(t - round(t)) < 1e-9:                       # a whole number: "2+ shots"
-        return f"{int(round(t))}+ {stat}"
-    return f"over {t:g} {stat}"                         # a half line: "over 3.5 cards"
+    return f"{n}+ {stat}"
 
 
 def tier_of(f: dict) -> str:
@@ -131,16 +143,93 @@ def pick_three(cards: list[dict]) -> tuple[list[dict], list[str]]:
     return picked, missing
 
 
+# Reasons the engine writes that are about AVAILABILITY rather than about why the count should be
+# what it is. "Expected minutes are limited" is a real cause of a lower count and stays; a sentence
+# that only says someone is likely to be on the pitch answers a different question from the one a
+# post titled "why we think this" is asking, and a reader notices.
+_NOT_A_REASON = ("he is in the announced eleven", "he has started", "usually starts",
+                 "no lineup yet", "no team news")
+
+
 def _reasons(f: dict, limit: int = 3) -> list[str]:
-    """The engine's own reasons, cleaned of anything that would fail the copy check."""
+    """The engine's own reasons, cleaned of anything that would fail the copy check.
+
+    These come from core.top_reasons, which reads the model's own feature contributions and words
+    them from a fixed vocabulary -- "The opponent's style allows more shots", "The opponent gives up
+    more shots to players in his position", "The expected game state lifts shots". They are the
+    actual drivers, not a narrative written around the number afterwards, which is why nothing in
+    this module invents a sentence.
+    """
     out = []
     for r in (f.get("reasons") or []):
         r = str(r).strip()
-        if r and not TG.scan(r):
-            out.append(r)
+        if not r or TG.scan(r):
+            continue
+        if any(k in r.lower() for k in _NOT_A_REASON):
+            continue
+        out.append(r)
         if len(out) >= limit:
             break
     return out
+
+
+def evidence(it: dict, scope: str) -> list[str]:
+    """The checkable sentences that go ABOVE the engine's reasons.
+
+    A reader who has never heard of us will not take "the opponent's shape allows more shots" on
+    trust, and should not have to: the record on this line and how much it moves between opponents
+    are both things they can verify from the strip beside them. Opinion follows evidence, not the
+    other way round.
+    """
+    out = []
+    need, cleared, played = it.get("needed"), it.get("cleared"), it.get("played_n")
+    who = "He" if scope == "player" else "They"
+    if need is not None and played:
+        word = "games" if played != 1 else "game"
+        out.append(f"{who} reached {need}+ in {cleared} of the last {played} {word}.")
+    if (it.get("streak") or 0) >= 3:
+        out.append(f"That is {it['streak']} in a row.")
+    # docs/56: a rung that answers the same against every defence in the league says nothing about
+    # THIS fixture. Saying so is the difference between a forecast and a table of averages.
+    sp = it.get("span")
+    if sp is not None:
+        if sp >= 0.18:
+            out.append(f"This line swings about {round(sp * 100)} points depending on the opponent, "
+                       f"so the fixture is doing real work here.")
+        elif sp <= 0.06:
+            out.append("This line barely moves whoever the opponent is, so it is more about the "
+                       "player than the fixture.")
+    return out
+
+
+def words(*, final: bool, hn: str, an: str, when: str, score: str, scored_n: int,
+          came_in: int, lead: dict) -> tuple[str, str, str]:
+    """Title, search description and opening paragraph, for both states of a post.
+
+    One function rather than two, because the two states are the same post at different times and
+    the wording has to turn over together: a settled post that kept its preview title promises a
+    forecast for a game already played, which is the fault that was reported on the match page.
+    """
+    if final:
+        # The score goes in the TITLE: it is what someone searching afterwards types.
+        title = (f"{hn} {score} {an}: how our forecasts did" if score
+                 else f"{hn} v {an}: how our forecasts did")
+        if scored_n:
+            desc = (f"{hn} {score} {an}. Of the {scored_n} forecasts in this post, {came_in} came in. "
+                    f"Every one is shown either way, with the reasons we gave.")
+        else:
+            desc = f"{hn} {score} {an}, and the forecasts we published before it, with the reasons we gave."
+        intro = (f"{hn} played {an} on {when}"
+                 + (f", finishing {score}" if score else "")
+                 + ". These are forecasts we published before kick-off, shown with what actually "
+                 + "happened \u2014 the ones that came in and the ones that did not.")
+        return title[:MAX_TITLE], desc[:MAX_DESC], intro
+    title = f"{hn} v {an} forecasts, {when}".strip().rstrip(",")
+    desc = (f"What we expect from {hn} v {an}: {lead['subject']} {lead['line']} at {lead['pct']}, "
+            f"and the reasons behind it.")
+    intro = (f"{hn} meet {an} on {when}. Here are three of our forecasts for the match, each with "
+             f"the reasons behind it and how likely we think it is.")
+    return title[:MAX_TITLE], desc[:MAX_DESC], intro
 
 
 def build_post(db, match_iid: int, *, now: datetime | None = None) -> dict | None:
@@ -175,7 +264,15 @@ def build_post(db, match_iid: int, *, now: datetime | None = None) -> dict | Non
     items = []
     for f in picked:
         o = outs.get(f.get("id"))
+        need = need_of(f.get("thr"))
+        known = [g for g in (f.get("run") or []) if g and g.get("v") is not None]
+        run = [{"v": g["v"], "opp": (g.get("opp") or {}).get("name") or "", "m": g.get("m"),
+                "home": bool(g.get("home"))} for g in known]
+        cleared = sum(1 for g in known if need is not None and g["v"] >= need)
         items.append({
+            # Which forecast this was. refresh_settled() attaches results by this id rather than
+            # rebuilding the post, so a published post always shows the forecasts AS PUBLISHED.
+            "fid": f.get("id"),
             "subject": _subject(f, home, away),
             "image": (f.get("player") or {}).get("image") or "",
             "line": line_label(f),
@@ -190,8 +287,20 @@ def build_post(db, match_iid: int, *, now: datetime | None = None) -> dict | Non
             # different amounts of information and we hold the second.
             "result": ({"reached": bool(o.get("reached")), "actual": o.get("actual"),
                         "played": o.get("player_played") is not False} if o else None),
-            "needed": (int(float(f["thr"])) + 1 if f.get("thr") is not None else None),
+            "needed": need,
+            # The ten games the card draws, oldest first, exactly as queries._usual built them.
+            # Carried onto the post rather than recomputed, so the strip in a post and the strip on
+            # the match page are the same ten numbers and cannot drift.
+            "run": run,
+            "cleared": cleared,
+            "played_n": len(known),
+            "streak": int(f.get("streak") or 0),
+            # docs/56: how far this rung moves across the league's defences. A line that answers the
+            # same against everyone is a fact about the player; one that moves is a fact about the
+            # fixture, and only the second is a reason to read this post rather than a table.
+            "span": (round(float(f["span"]), 4) if f.get("span") is not None else None),
         })
+        items[-1]["evidence"] = evidence(items[-1], f.get("scope") or "player")
 
     ko = m.get("kickoff")
     # "%d" zero-pads, so the 8th read as "08 November". Nobody writes a date that way in a sentence.
@@ -203,25 +312,8 @@ def build_post(db, match_iid: int, *, now: datetime | None = None) -> dict | Non
     hg, ag = m.get("hg"), m.get("ag")
     score = f"{hg}\u2013{ag}" if final and hg is not None and ag is not None else ""
 
-    if final:
-        # The score goes in the TITLE, because that is what someone searching afterwards types, and
-        # because a title promising a forecast for a game already played is a broken promise.
-        title = f"{hn} {score} {an}: how our forecasts did".strip() if score else f"{hn} v {an}: how our forecasts did"
-        if scored:
-            desc = (f"{hn} {score} {an}. Of the {len(scored)} forecasts in this post, "
-                    f"{came_in} came in. Every one is shown either way, with the reasons we gave.")
-        else:
-            desc = f"{hn} {score} {an}, and the forecasts we published before it, with the reasons we gave."
-        intro = (f"{hn} played {an} on {when}"
-                 + (f", finishing {score}" if score else "")
-                 + ". These are forecasts we published before kick-off, shown with what actually "
-                 + "happened \u2014 the ones that came in and the ones that did not.")
-    else:
-        title = f"{hn} v {an} forecasts, {when}".strip().rstrip(",")
-        desc = (f"What we expect from {hn} v {an}: {lead['subject']} {lead['line']} at {lead['pct']}, "
-                f"and the reasons behind it.")
-        intro = (f"{hn} meet {an} on {when}. Here are three of our forecasts for the match, each with "
-                 f"the reasons behind it and how likely we think it is.")
+    title, desc, intro = words(final=final, hn=hn, an=an, when=when, score=score,
+                               scored_n=len(scored), came_in=came_in, lead=lead)
 
     post = {
         "slug": post_slug(hn, an, ko),
@@ -258,12 +350,25 @@ def build_post(db, match_iid: int, *, now: datetime | None = None) -> dict | Non
 def plan_day(db, day: str | None = None, *, limit: int | None = None, now: datetime | None = None) -> list[dict]:
     """Draft posts for one day's fixtures, best-supported match first.
 
+    WHICH DAY, WHEN `day` IS NOT GIVEN: TOMORROW'S.
+
+    A post exists to be found before the match, by someone searching the fixture, and to give a
+    reader a reason to open the site that evening. Search interest in a fixture peaks in the day or
+    two before kick-off; a post published on the morning of the match is too late to be crawled and
+    too late to bring anyone in, and one published afterwards has missed the entire point. So the
+    batch is built for tomorrow, reviewed today, and published this evening -- the same reasoning,
+    and the same choice, as the ad planner (ad_plan.py: "the owner posts the night before").
+
+    A post then UPDATES after the whistle rather than being replaced: same URL, same slug, now
+    carrying what happened (docs/73). Before the match it earns the visit; afterwards it earns the
+    link, because it is one of the few forecast pages anywhere that stays honest about how it did.
+
     The order matters because `limit` cuts the tail: if only six posts are wanted from a
     twelve-match Saturday, they should be the six with the most to say, not the six that happen to
     kick off first.
     """
     now = now or utcnow()
-    day = day or now.date().isoformat()
+    day = day or (now + timedelta(days=1)).date().isoformat()
     limit = int(limit if limit is not None else (S.get(db, "blog.max_per_day") or 6))
     ms = Q.fixtures_for_date(db, day)
     out = []
@@ -361,6 +466,67 @@ def edit(db, slug: str, fields: dict, actor: str) -> dict:
     up["edited_by"] = actor
     db.blog_posts.update_one({"slug": slug}, {"$set": up})
     return db.blog_posts.find_one({"slug": slug}, {"_id": 0}) or {}
+
+
+def refresh_settled(db, *, now: datetime | None = None) -> int:
+    """Turn a post about a match that has now been played into a post about what happened.
+
+    This is the half of the lifecycle that makes the whole thing worth building. A post is published
+    the evening before, where it earns the visit; after the whistle the SAME URL carries what
+    happened, which is what earns the link -- almost no forecast page anywhere stays honest about
+    how it did, and ours is the record we already publish.
+
+    It updates the stored post IN PLACE, attaching results by the `fid` on each item. It deliberately
+    does NOT rebuild from match_detail: the post should show the forecasts exactly as they were
+    published, not as they look after a refit, and rebuilding would also fail once the forecasts stop
+    being current.
+
+    The title, description and opening paragraph are rewritten by words() above, which supersedes an
+    admin's pre-match edit to those three fields. That is intended: a preview title on a settled post
+    is a broken promise, and the admin screen can be used to reword it again afterwards.
+    """
+    now = now or utcnow()
+    n = 0
+    for post in db.blog_posts.find({"status": "published", "final": {"$ne": True},
+                                    "kickoff": {"$lt": now}}, {"_id": 0}):
+        m = db.matches.find_one({"iid": post.get("match_iid")},
+                                {"_id": 0, "status": 1, "hg": 1, "ag": 1, "kickoff": 1})
+        if not m or m.get("status") != "final":
+            continue
+        fids = [i.get("fid") for i in (post.get("items") or []) if i.get("fid")]
+        outs = {o["forecast_id"]: o for o in db.forecast_outcomes.find(
+            {"forecast_id": {"$in": fids}},
+            {"_id": 0, "forecast_id": 1, "reached": 1, "actual": 1, "player_played": 1})}
+        if not outs:
+            # Final, but nothing scored yet. Leave it as a preview rather than publish a post that
+            # says the match is over and then shows no results; the next tick will pick it up.
+            continue
+        items = []
+        for i in post.get("items") or []:
+            o = outs.get(i.get("fid"))
+            items.append({**i, "result": ({"reached": bool(o.get("reached")), "actual": o.get("actual"),
+                                           "played": o.get("player_played") is not False} if o else None)})
+        scored = [i for i in items if i["result"] and i["result"]["played"]]
+        came_in = sum(1 for i in scored if i["result"]["reached"])
+        hg, ag = m.get("hg"), m.get("ag")
+        score = f"{hg}\u2013{ag}" if hg is not None and ag is not None else ""
+        ko = m.get("kickoff") or post.get("kickoff")
+        when = f"{ko.day} {ko.strftime('%B %Y')}" if isinstance(ko, datetime) else (post.get("day") or "")
+        hn = (post.get("home") or {}).get("name") or "Home"
+        an = (post.get("away") or {}).get("name") or "Away"
+        title, desc, intro = words(final=True, hn=hn, an=an, when=when, score=score,
+                                   scored_n=len(scored), came_in=came_in, lead=items[0] if items else {})
+        up = {"items": items, "final": True, "score": score, "came_in": came_in,
+              "scored_n": len(scored), "title": title, "description": desc, "intro": intro,
+              "settled_at": now}
+        try:
+            TG.require_clean("blog post", {k: up[k] for k in ("title", "description", "intro")})
+            TG.require_clean("blog forecasts", items)
+        except TG.BannedWords:
+            continue
+        db.blog_posts.update_one({"slug": post["slug"]}, {"$set": up})
+        n += 1
+    return n
 
 
 def purge_old_drafts(db, *, days: int = 14, now: datetime | None = None) -> int:
