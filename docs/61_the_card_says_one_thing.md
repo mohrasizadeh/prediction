@@ -101,6 +101,12 @@ ordinary lines only, and the payload says how many rows that covers.
 
 ## 5. The rest of the card
 
+> **The layout in this section is superseded by docs/77**, which is the card the product now
+> follows: the market as a named control, the picker and stepper on the row, the range as a caption
+> instead of a drawn rail, and the badge above the figure rather than beside or below it. What
+> survives unchanged is the *reason* for the alignment — every figure at one height and one right
+> edge down the column — and docs/77 says how it is held now.
+
 * **The headline rendered at 28px, not 46.** `.v2-fch-p .k-fc-p` (0-2-0) beat the 46px rule below
   it, so the number a reader came for was barely larger than the player's name. Now 36px.
 * **The range was the least legible thing on the card** — 11px `--text3` under a 28px `--text`

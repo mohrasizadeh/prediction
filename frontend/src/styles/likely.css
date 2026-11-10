@@ -24,7 +24,6 @@
 .lk-figure u { font-stretch: 92%; font-weight: 600; font-size: .52em; letter-spacing: 0; text-decoration: none;
   color: var(--text2); margin-left: 1px; }
 .lk-name { font-stretch: 104%; font-weight: 600; font-size: 15px; letter-spacing: -.008em; color: var(--text); }
-.lk-claim { font-stretch: 100%; font-weight: 500; font-size: 14px; color: var(--text); }
 .lk-data { font-stretch: 92%; font-weight: 550; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .lk-label { font-stretch: 86%; font-weight: 650; font-size: 11px; letter-spacing: .01em; }
 
@@ -86,11 +85,13 @@
  * one thing a cell can say is `width`, so the columns say it. They total 100%.
  *
  * Reported against a real match page, where two of the three visible rows had a cut-off name. */
-td.lk-cell-who { width: 24%; }
-td.lk-cell-fx  { width: 9%; }
-td.lk-cell-mk  { width: 27%; }
-td.lk-cell-lk  { width: 13%; }
-td.lk-cell-run { width: 14%; }
+td.lk-cell-who { width: 21%; }
+td.lk-cell-fx  { width: 8%; }
+td.lk-cell-mk  { width: 26%; }
+td.lk-cell-lk  { width: 12%; }
+/* docs/77: the ten games are the evidence and the range was out-shouting them. The strip's column
+ * grew by the width the range rail gave back, and the range is a caption now. */
+td.lk-cell-run { width: 20%; }
 td.lk-cell-lu  { width: 13%; }
 .lk-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
 /* Wrap to a second line rather than cut. An ellipsis in the middle of a surname is the one piece of
@@ -111,41 +112,67 @@ td.lk-cell-lu  { width: 13%; }
   font-variant-numeric: tabular-nums; margin-top: 1px; }
 .lk-fx-inline { display: none; }
 
-/* The ladder. Steps run to one beyond his best in the last 10: a fixed 1..6 on every row would
- * print "6+ shots, 1%" down the page, which is dead ink and makes the control feel broken. */
-.lk-steps-phone { display: none; }
-.lk-pos-inline { display: none; }
 .lk-line { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; justify-content: center; }
-.lk-steps { display: inline-flex; background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 2px; gap: 2px; max-width: 100%; }
-.lk-steps::-webkit-scrollbar { display: none; }
-.lk-step { appearance: none; border: 0; background: none; font: inherit; font-stretch: 90%; font-weight: 700;
-  font-size: 11.5px; color: var(--text3); min-width: 28px; height: 22px; border-radius: 6px; cursor: pointer;
-  font-variant-numeric: tabular-nums; position: relative; padding: 0 5px; }
-/* a 44px target without 44px of ink */
-.lk-step::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
-.lk-step:hover { color: var(--text); }
-.lk-step[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
-.lk-step:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 
-/* The number and its range. One object: figure, bar, then the range as the bar's own caption on
- * the bar's right edge. The range used to sit on the figure's baseline with a gap between them --
- * two numbers belonging to nothing. The % is not optional: under a row reading "2+ shots", a bare
- * "71-86" reads as a count of shots. */
+/* ============================================================ the question (docs/77)
+ * The market is a control, not the second word of a sentence: a reader could not tell at a glance
+ * which market a row was about, the word being buried in "2+ tackles" in body text. And the line
+ * steps freely instead of offering three fixed chips. Both sit on the row, because the whole point
+ * is that nothing opens, expands or navigates away to change what the card is answering. */
+.lk-q { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.lk-mktwrap { position: relative; display: inline-flex; }
+.lk-mkt { display: inline-flex; align-items: center; gap: 6px; height: 32px; max-width: 160px;
+  padding: 0 8px 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2);
+  color: var(--text); font: inherit; font-weight: 800; font-size: 14px; letter-spacing: -.01em;
+  cursor: pointer; white-space: nowrap; overflow: hidden; }
+.lk-mkt em { font-style: normal; overflow: hidden; text-overflow: ellipsis; }
+.lk-mkt svg { opacity: .5; flex: none; }
+.lk-mkt.on { border-color: var(--brand); color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, transparent); }
+.lk-mkt--one { display: inline-flex; align-items: center; height: 32px; font-weight: 800; font-size: 14px;
+  letter-spacing: -.01em; color: var(--text); }
+.lk-mktlist { position: absolute; z-index: 20; top: 36px; left: 0; min-width: 212px; max-height: 300px;
+  overflow: auto; background: var(--surface1); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.16); padding: 5px; display: flex; flex-direction: column; }
+.lk-mkthd { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--text3);
+  font-weight: 800; padding: 7px 10px 5px; }
+.lk-mktlist button { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  min-height: 38px; padding: 0 10px; border: 0; background: none; border-radius: 8px; font: inherit;
+  font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; text-align: left; }
+.lk-mktlist button:hover { background: var(--surface2); }
+.lk-mktlist button.on { color: var(--brand); font-weight: 800; background: color-mix(in srgb, var(--brand) 9%, transparent); }
+.lk-mktlist button em { font-style: normal; color: var(--text3); font-weight: 700; font-variant-numeric: tabular-nums; }
+.lk-mktlist button.on em { color: var(--brand); }
+
+.lk-step { display: inline-flex; height: 32px; border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--surface2); flex: none; }
+.lk-step button { width: 28px; border: 0; background: none; color: var(--text2); font: inherit;
+  font-size: 15px; font-weight: 700; cursor: pointer; display: grid; place-items: center; }
+.lk-step button:hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); }
+.lk-step button:disabled { opacity: .35; cursor: default; }
+.lk-step b { min-width: 38px; display: grid; place-items: center; font-size: 14px; font-weight: 800;
+  letter-spacing: -.02em; border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  background: var(--surface1); font-variant-numeric: tabular-nums; }
+
+/* The answer: the badge above the number, the number, its range, then the result.
+ *
+ * THIS CELL STAYS A TABLE CELL. `display: flex` here took the <td> out of the table's column
+ * model, so the 12% above stopped applying and the cell shrink-wrapped its contents -- measured at
+ * 28px of a 1078px table, with 103px unaccounted for across the row. The figures still looked
+ * aligned, but only because every row's range caption happened to be the same number of digits;
+ * one row reading "9-14%" against another reading "86-95%" would have moved the edge. Same family
+ * as the grid-item <td> that would not stretch to its track: a table cell has a job, and taking
+ * away `table-cell` takes away the job.
+ *
+ * What actually holds every figure at one height is `.lk-tiercell` below -- a slot of a fixed 22px
+ * that is rendered whether or not there is a badge to put in it. That is the mechanism; nothing
+ * here needs flex to achieve it. */
 .lk-lk { text-align: right; padding-top: 14px; padding-bottom: 10px; }
 .lk-lk-top { display: flex; align-items: baseline; justify-content: flex-end; height: 32px; }
-.lk-rg { display: block; color: var(--text2); white-space: nowrap; text-align: right; width: 158px; margin: 5px 0 0 auto; }
-/* fixed 50-100 scale on every row, so 89-96 is a short mark hard right and 62-82 is a mark three
- * times as long left of centre. The reader learns the scale once, from the column head. */
-.lk-band { position: relative; display: block; height: 7px; margin-top: 9px; width: 158px; margin-left: auto; }
-.lk-band::before { content: ""; position: absolute; left: 0; right: 0; top: 3px; height: 1px; background: var(--lk-rule); }
-.lk-band i { position: absolute; top: 0; height: 7px; border-radius: 2px; background: var(--brand); min-width: 9px; }
-.lk-axis { position: relative; height: 15px; margin: 3px 0 0 auto; width: 158px; }
-.lk-axis span { position: absolute; bottom: 5px; transform: translateX(-50%); font-stretch: 84%;
-  font-weight: 600; font-size: 9.5px; color: var(--text3); font-variant-numeric: tabular-nums; }
-.lk-axis span::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 1px; height: 4px; background: var(--lk-rule); }
+.lk-rescell { display: flex; justify-content: flex-end; margin-top: 5px; }
+/* The range is a caption now, not the label of a drawn rail, so it takes the width the column
+ * gives it instead of the rail's old fixed 158px -- which was wider than the column itself. */
+.lk-rg { display: block; color: var(--text2); white-space: nowrap; text-align: right; margin: 5px 0 0 auto; }
 .lk-under .lk-figure, .lk-under .lk-rg { color: var(--text3); }
-.lk-under .lk-band i { background: var(--lk-rule); }
 .lk-underw { font-stretch: 88%; font-weight: 600; font-size: 10.5px; color: var(--text3);
   display: block; text-align: right; margin-top: 5px; }
 
@@ -256,57 +283,33 @@ td.lk-cell-lu  { width: 13%; }
      as hairlines across the middle of every one. Inside a card there is nothing to separate. */
   .lk-tbl tbody tr + tr:not(.lk-whyrow) td, .lk-tbl tbody tr td { border-top: 0 !important; }
 
-  /* the gutter: the answer, then its range, top-aligned so they read as one block */
-  td.lk-cell-lk { display: contents; }
-  .lk-lk-top { grid-column: 1; grid-row: 1; height: auto; justify-content: flex-start; align-self: end; }
-  .lk-lk .lk-figure { font-size: 28px; }
-  .lk-rg { grid-column: 1; grid-row: 2; width: auto; margin: 2px 0 0; text-align: left; align-self: start; }
-  .lk-underw { text-align: left; }
+  /* ---------------------------------------------------------------- docs/77
+   * The row folds into four bands rather than becoming a poster. The number moves up beside the
+   * controls, into the only corner the row leaves empty, with the badge over it -- it is the figure
+   * the row delivers and it belongs where the eye lands. That also hands the strip the full width,
+   * which is the other thing it was short of: 203px before, 290px after.
+   *
+   * Band gaps are set to come out EVEN to the eye, not even in the margins. The departure line and
+   * the lineup line carry line-box leading above and below their glyphs, so equal margins read as
+   * unequal gaps: 14 / 27 / 26 measured, against 16 / 18 / 18 with the margins below. */
+  .lk-tbl tbody tr { grid-template-columns: 1fr auto; column-gap: 0; padding: 12px 14px; align-items: start; }
 
-  /* the body */
-  td.lk-cell-who { grid-column: 2; grid-row: 1; min-width: 0; }
-  td.lk-cell-fx { display: none; }
-  .lk-band { grid-column: 2; grid-row: 2; width: auto; margin: 5px 0 0; }
-  td.lk-cell-mk { grid-column: 2; grid-row: 3; margin-top: 7px; }
-  td.lk-cell-run { grid-column: 2; grid-row: 4; margin-top: 8px; }
-  /* Two levels of `display: contents` so the lineup word, the ladder and the Why control can each
-     be placed on the row's own grid. Stacked inside one cell they cost a whole sixth band and ~27px
-     on every row, for no reason other than that the desktop table keeps them in one column. */
-  td.lk-cell-lu { display: contents; }
-  .lk-lucell { display: contents; }
-  .lk-lu { grid-column: 2; grid-row: 1; justify-self: end; align-self: center; }
-  .lk-why { grid-column: 2; grid-row: 4; justify-self: end; align-self: center; margin-top: 8px; padding: 4px 0; }
-  .lk-steps-phone { display: block; grid-column: 2; grid-row: 5; margin: 8px 0 0; }
+  td.lk-cell-who { grid-column: 1; grid-row: 1; min-width: 0; width: 100%; }
+  td.lk-cell-fx  { grid-column: 2; grid-row: 1; display: table-cell; text-align: right; width: auto; }
+  td.lk-cell-mk  { grid-column: 1; grid-row: 2; margin-top: 16px; width: 100%; }
+  td.lk-cell-lk  { grid-column: 2; grid-row: 2; margin-top: 16px; padding-left: 14px; width: auto;
+    display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-end; height: auto; }
+  td.lk-cell-run { grid-column: 1 / -1; grid-row: 3; margin-top: 14px; width: 100%; }
+  td.lk-cell-lu  { grid-column: 1 / -1; grid-row: 4; margin-top: 14px; width: 100%; }
 
-  /* The name owns its line, so the photo stays full size -- it is no longer competing for the
-     name's width, which is what was cutting names before. (PlayerAvatar writes its size as an
-     inline style, so shrinking it from here would lose to that and spill the initials.) */
-  .lk-who { gap: 8px; }
-  .lk-who .lk-name { flex: 0 1 auto; }
-  .lk-lu { margin-left: 10px; max-width: 46%; }
-  /* the position moves into the claim so the lineup word can own the name line's right edge */
-  .lk-pos { display: none; }
-  .lk-pos-inline { display: inline; font-stretch: 80%; font-weight: 700; font-size: 11px;
-    letter-spacing: .04em; color: var(--text3); }
-
-  /* the claim is one line on every row in the set, including "1+ shot on target . at Everton 20:00" */
-  .lk-line { gap: 0; }
-  td.lk-cell-mk .lk-claim { font-size: 13.5px; color: var(--text2); }
-  .lk-fx-inline { display: inline; }
-
-  /* evidence: the strip gets the width it needs because the stepper is no longer beside it */
-  td.lk-cell-run .lk-runwrap { gap: 10px; padding-right: 52px; }
-  td.lk-cell-run .lk-run i { width: 8px; }
-  td.lk-cell-run .lk-runbox { padding-left: 18px; }
-
-  /* the ladder gets its own band, so its width never pushes anything else out of line. Three fit;
-   * the rest scroll, with a fade set by MEASURING overflow (Likely.jsx) -- a fade over a chip that
-   * is the last one is a lie about there being more. */
-  .lk-steps-desk { display: none; }
-  .lk-steps { max-width: 100%; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
-  .lk-steps.lk-more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
-  .lk-step { scroll-snap-align: center; }
+  /* The number is the figure the whole row exists to deliver; at desktop size here it sat under a
+     band of empty space left by the taller chart beside it. Take the space. */
+  .lk-lk .lk-figure { font-size: 40px; letter-spacing: -.035em; }
+  .lk-lk .lk-figure u { font-size: 17px; }
+  .lk-lk-top { height: auto; justify-content: flex-end; }
+  .lk-rg { font-size: 12px; margin-top: 3px; text-align: right; }
+  .lk-tiercell { margin: 0 0 6px; }
+  .lk-rescell { margin-top: 7px; }
 
   /* Each row is its own rounded card. The decade headings that used to separate them are gone:
      they named a grouping the numbers already make obvious, and a card does the separating
@@ -316,6 +319,16 @@ td.lk-cell-lu  { width: 13%; }
   .lk-tbl tbody tr { margin: 0 8px 10px; border: 1px solid var(--border); border-radius: 16px;
     background: var(--surface1); }
   .lk-tbl tbody tr:first-child { margin-top: 2px; }
+
+  /* 25px and 28px measured on a phone. The floor for a coarse pointer is 44 (docs/12 F1). */
+  .lk-mkt, .lk-mkt--one { height: 44px; font-size: 15px; max-width: 180px; }
+  .lk-mktlist { top: 50px; }
+  .lk-step { height: 46px; }
+  .lk-step button { width: 38px; font-size: 17px; }
+  .lk-step b { min-width: 44px; font-size: 15px; }
+  .lk-tbl .lk-why { min-height: 44px; padding: 4px 8px; }
+  .lk-tbl .lk-add, .lk-tbl .lk-lucell .k-save { width: 44px; height: 44px; }
+  .lk-acts { gap: 2px; }
 
   .lk-whyrow { display: block !important; padding: 0 !important; }
   .lk-whyrow td { display: block; padding: 0 14px 14px; }
@@ -339,7 +352,9 @@ td.lk-cell-lu  { width: 13%; }
 /* The save control sits beside Why, in the cell that already holds the row's two buttons. */
 .lk-lucell .k-save { margin-left: 6px; }
 
-.lk-tiercell { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-top: 4px; }
+
+.lk-tiercell { display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end;
+  gap: 4px; height: 22px; margin: 0 0 5px; }
 .lk-tiercell .k-tier { justify-content: flex-end; }
 /* The result sits under the tier, right-flushed with it: same column, same edge, so a row with a
  * result and a row without still line their figures up. */
@@ -354,8 +369,3 @@ td.lk-cell-lu  { width: 13%; }
   border: 1px solid var(--border); border-radius: 999px; background: var(--surface1);
   color: var(--text2); cursor: pointer; flex: none; }
 .lk-add.on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
-/* Steps the MARKET, where the ladder steps the line. */
-.lk-morebtn { display: inline-block; margin-left: 6px; padding: 0; border: 0; background: none;
-  color: var(--brand); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
-  text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
-.lk-linesrow .k-fc-lines { margin: 0; }

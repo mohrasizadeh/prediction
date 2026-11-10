@@ -516,8 +516,37 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
                                      for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
         # the best percentage anywhere in the card, so a "show me 90%+" filter can see past the lead line
         card["best_p"] = max(f["p"] for f in g)
+        card["markets"] = _markets(g, rule, weights, scale, pos_weights)
         out.append(card)
     return out
+
+
+# What the card needs to switch market without asking the server again (docs/77).
+#
+# `more_lines` was a teaser: enough to list what else this subject holds, not enough to DRAW it. The
+# standard card changes market on the card itself, and a market brings its own ten-game strip, its
+# own ladder, its own band per rung and its own grade per rung -- none of which `more_lines` carries.
+#
+# One entry per STAT, not per rung. The rungs are already inside each entry's ladder, so sending a
+# row per rung would be three to six times the payload for data the ladder already holds: measured
+# on a six-market card, eighteen rows against six.
+_MARKET_KEYS = ("id", "fkey", "scope", "stat", "market", "noun", "thr", "p", "lo", "hi", "tier",
+                "tier_note", "p_usual", "edge", "span", "pos", "ladder", "ladder_band", "ladder_tier",
+                "run", "streak", "usual_p", "usual_n", "lineup_badge", "reasons", "is_personal",
+                "starts_recent", "club_recent", "lineup_why", "addable")
+
+
+def _markets(g: list[dict], rule: str, weights, scale: str, pos_weights) -> list[dict]:
+    """One complete forecast per stat: the rung that stat leads with, with everything to redraw the card."""
+    best: dict = {}
+    for f in g:
+        st = f.get("stat")
+        cur = best.get(st)
+        if cur is None or (lead_score(f, rule, weights, scale, pos_weights), f["p"], f["thr"]) > \
+                          (lead_score(cur, rule, weights, scale, pos_weights), cur["p"], cur["thr"]):
+            best[st] = f
+    return sorted(({k: f.get(k) for k in _MARKET_KEYS} for f in best.values()),
+                  key=lambda x: (-(x["p"] or 0), x["stat"] or ""))
 
 
 def lead_stat(fs):

@@ -15,12 +15,10 @@ import { utc } from "../../lib/time";
 import { Crest, PlayerAvatar } from "../Media";
 import { SaveButton } from "../Actions";
 import { TierBadge } from "./Marks";
-import { LineActions } from "./Subject";
 import { fixtureOf, shortName } from "./ForecastCard";
 import { useCombo } from "../../lib/combo";
 import Icon from "../Icon";
 
-const LO = 50;                                   // the bar's fixed scale: every row, every filter
 const RH = 26;                                   // run strip height in px
 const POS = { G: "GK", D: "DEF", M: "MID", F: "FWD" };
 
@@ -62,20 +60,6 @@ function ladderOf(f) {
     .sort((a, b) => a.n - b.n);
 }
 
-function Bar({ p, lo, hi, under }) {
-  const x = Math.max(0, ((lo - LO) / (100 - LO)) * 100);
-  const w = Math.max(0, ((hi - lo) / (100 - LO)) * 100);
-  const span = hi - lo;
-  const judge = span <= 10 ? "Narrow, so this number is well settled."
-    : span >= 18 ? "Wide, so this number is less settled than most on this list." : "";
-  return (
-    <span className="lk-band" role="img" aria-label={`${p} percent. Likely range ${lo} to ${hi} per cent. ${judge}`}>
-      <i style={{ left: `${x.toFixed(2)}%`, width: `${w.toFixed(2)}%` }} />
-      {under && <span className="lk-underw">Below the {under} bar — not listed by default</span>}
-    </span>
-  );
-}
-
 // Nothing is drawn over a bar. The level is carried by each bar's own two-tone split, which lands
 // at the same height across the strip; the dashed rule sits BEHIND the bars, so it shows only in
 // the gaps and above a bar that fell short. Drawn in front it crossed the fill and read as a
@@ -102,30 +86,6 @@ function Run({ games, n }) {
         </span>
       </span>
       <span className="lk-data lk-cnt lk-dim"><b>{cleared}</b> of {known.length}</span>
-    </span>
-  );
-}
-
-function Steps({ rows, cur, onPick, label }) {
-  const el = useRef(null);
-  // The fade means "there is more to the right", so it is set by MEASURING overflow. Counting
-  // chips fades a chip that is the last one, which is a lie about there being more.
-  useEffect(() => {
-    const node = el.current;
-    if (!node) return undefined;
-    const fit = () => node.classList.toggle("lk-more", node.scrollWidth - node.clientWidth - node.scrollLeft > 2);
-    fit();
-    node.addEventListener("scroll", fit, { passive: true });
-    window.addEventListener("resize", fit);
-    return () => { node.removeEventListener("scroll", fit); window.removeEventListener("resize", fit); };
-  }, [rows.length]);
-  if (rows.length < 2) return null;
-  return (
-    <span className="lk-steps" ref={el} role="radiogroup" aria-label={label}>
-      {rows.map((r) => (
-        <button key={r.n} type="button" role="radio" aria-checked={r.n === cur} className="lk-step"
-          onClick={() => onPick(r.n)} data-testid={`lk-step-${r.n}`}>{r.n}+</button>
-      ))}
     </span>
   );
 }
@@ -186,32 +146,111 @@ function Result({ t, outcome, needed, id }) {
   return <span className="lv-chip" data-testid={`${id}-live`}><span className="k-livedot" aria-hidden="true" />{t.current} of {t.needed} so far</span>;
 }
 
+// The market picker (docs/77). "+5 more markets" opened a list BELOW the row, so changing market
+// meant leaving the card, reading a list and coming back. Everything happens on the card now: this
+// names the market a reader is looking at -- which at a glance they could not tell before, the word
+// being the second half of "2+ tackles" in body text -- and switching redraws the whole row.
+//
+// Ordered likeliest first, with each market's own number beside it, so the choice is informed. The
+// percentages come from the server's `markets`, each one that stat's own lead rung.
+function MarketPicker({ markets, stat, onPick, id }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  const here = markets.find((m) => m.stat === stat) || markets[0];
+  const label = here?.market || here?.stat || "Market";
+  if (markets.length < 2) return <span className="lk-mkt lk-mkt--one">{label}</span>;
+  return (
+    <span className="lk-mktwrap" ref={box}>
+      <button type="button" className={"lk-mkt" + (open ? " on" : "")} aria-expanded={open}
+              aria-haspopup="listbox" onClick={() => setOpen(!open)} data-testid={`lk-mkt-${id}`}>
+        <em>{label}</em><Icon name="chevron-down" size={13} />
+      </button>
+      {open && (
+        <span className="lk-mktlist" role="listbox" data-testid={`lk-mktlist-${id}`}>
+          <span className="lk-mkthd">Market · likeliest first</span>
+          {markets.map((m) => (
+            <button key={m.stat} type="button" role="option" aria-selected={m.stat === stat}
+                    className={m.stat === stat ? "on" : ""}
+                    onClick={() => { onPick(m.stat); setOpen(false); }}
+                    data-testid={`lk-mktopt-${id}-${m.stat}`}>
+              {m.market || m.stat}<em>{pct(m.p)}</em>
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// The line, as a stepper rather than a fixed row of chips.
+//
+// It walks the rungs the engine actually answered. It does NOT run past them: a rung we hold no
+// forecast for has no number, no range and no grade, and inventing one on a page about uncertainty
+// is the single thing this product must not do. The ends are disabled rather than hidden, so the
+// control says where the answers stop instead of pretending the line cannot move.
+function Stepper({ rows, cur, onPick, noun, id }) {
+  const i = rows.findIndex((r) => r.n === cur);
+  const go = (d) => { const r = rows[i + d]; if (r) onPick(r.n); };
+  const lo = i <= 0, hi = i < 0 || i >= rows.length - 1;
+  return (
+    <span className="lk-step" role="group" aria-label={`How many ${noun}`}>
+      <button type="button" onClick={() => go(-1)} disabled={lo} aria-label={`Fewer ${noun}`}
+              title={lo ? "No lower line for this market" : ""} data-testid={`lk-step-down-${id}`}>&minus;</button>
+      <b data-testid={`lk-step-n-${id}`}>{cur}+</b>
+      <button type="button" onClick={() => go(1)} disabled={hi} aria-label={`More ${noun}`}
+              title={hi ? "No higher line for this market" : ""} data-testid={`lk-step-up-${id}`}>+</button>
+    </span>
+  );
+}
+
 export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, homeIid, track }) {
+  // Which market the reader is looking at, and which rung of it. Both start at what the server led
+  // with and both are the reader's from then on.
+  const [stat, setStat] = useState(null);
   const [pick, setPick] = useState(null);
-  const [lines, setLines] = useState(false);
   const { has, toggle } = useCombo();
   // Most likely's feed carries `team` and `opp` on every row; a match page's forecasts do not,
   // and the card resolved them from a teams map it was handed. Dropping that map is what left
   // this row drawing an empty shield and the bare word "vs" with nobody after it.
   const fx = fixtureOf(f, teams, homeIid);
-  const lad = useMemo(() => ladderOf(f), [f]);
-  const chosen = need(f.thr);
+  // Every market this subject holds, each one complete enough to redraw the row -- its own ladder,
+  // its own band and grade per rung, and its own ten-game strip (docs/77). A feed that predates
+  // `markets` still works: the lead forecast stands in as the only market.
+  const markets = useMemo(() => (f.markets?.length ? f.markets : [f]), [f]);
+  // `cur` is the forecast on screen. Everything below reads from it, not from `f` -- reading the
+  // lead line while showing another market is how a card ends up contradicting itself.
+  const cur = useMemo(() => markets.find((m) => m.stat === (stat ?? f.stat)) || f, [markets, stat, f]);
+  const lad = useMemo(() => ladderOf(cur), [cur]);
+  const chosen = need(cur.thr);
   const n = pick ?? chosen;
   const rung = lad.find((r) => r.n === n);
-  const p = Math.round(100 * (n === chosen ? f.p : rung?.p ?? f.p));
-  const band = n === chosen ? [f.lo, f.hi] : rung?.band || [f.lo, f.hi];
-  const lo = Math.round(100 * band[0]);
-  const hi = Math.round(100 * band[1]);
+  const p = Math.round(100 * (n === chosen ? cur.p : rung?.p ?? cur.p));
+  // REPORTED: stepping the line moved the percentage and left the range where it was, so the card
+  // showed one rung's number beside another rung's spread. It fell back to the LEAD line's band
+  // whenever the rung it stepped to had none stored. A rung with no band has no range -- say
+  // nothing rather than something borrowed.
+  const band = n === chosen ? [cur.lo, cur.hi] : rung?.band || null;
+  const lo = band?.[0] == null ? null : Math.round(100 * band[0]);
+  const hi = band?.[1] == null ? null : Math.round(100 * band[1]);
   // pct() is the one place a likelihood becomes words (lib/copy), floor included -- a second
   // rounding written out by hand here is how two places on one screen start to disagree.
   const under = p < Math.round(floor * 100) ? pct(floor) : null;
-  const lu = lineupWords(f);
-  const known = (f.run || []).filter((g) => g && g.v != null);
+  const lu = lineupWords(cur);
+  // the strip is per market: tackles and shots are different ten games
+  const known = (cur.run || []).filter((g) => g && g.v != null);
   const cleared = known.filter((g) => g.v >= n).length;
   const who = f.player?.name || fx.team?.name;
-  const res = n === chosen ? (f.outcome || null) : null;
-  const tk = n === chosen ? track?.[f.fkey] : null;
-  const words = lineWords(f, n);
+  const res = n === chosen ? (cur.outcome || f.outcome || null) : null;
+  const tk = n === chosen ? track?.[cur.fkey] : null;
+  const words = lineWords(cur, n);
   const pos = POS[f.pos] || f.pos;
   // A settled match showed its KICK-OFF time, so a game played this morning read as one starting
   // at 09:00. The clock is only news before the whistle; afterwards the news is that it is over.
@@ -219,19 +258,22 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
   const ko = done ? "FT" : (f.kickoff ? utc(f.kickoff).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
   // The four things ForecastCard carried and this row did not. Same fields, same arithmetic and
   // the same words as the card, so a reader who learnt them there reads them here unchanged.
-  const dep = f.p_usual == null ? null : Math.round((f.p - f.p_usual) * 100);
-  const dir = f.p_usual == null ? "" : f.p >= f.p_usual ? "is-up" : "is-down";
-  const clears = f.p_usual == null || f.lo == null || f.hi == null ? null : (f.lo > f.p_usual || f.hi < f.p_usual);
+  const dep = cur.p_usual == null ? null : Math.round((cur.p - cur.p_usual) * 100);
+  const dir = cur.p_usual == null ? "" : cur.p >= cur.p_usual ? "is-up" : "is-down";
+  const clears = cur.p_usual == null || cur.lo == null || cur.hi == null ? null : (cur.lo > cur.p_usual || cur.hi < cur.p_usual);
   const more = [...(f.more_lines || [])].sort((a, b) => b.p - a.p);
   // Named, not teased: a safer line behind "+N more lines" used to be invisible behind a smaller
   // number on the face of the card.
   const topMore = more.length && f.p != null && more[0].p > f.p ? more[0] : null;
   const mine = f.scope === "player" ? "his" : "their";
+  // Changing market changes which rung is the lead one, so a line the reader stepped to in the
+  // old market is meaningless in the new one. Reset it with the market rather than carry it over.
+  const pickMarket = (st) => { setStat(st); setPick(null); };
   // The grade of the rung on screen: the engine's per-rung tier, or the line's own where this is
   // the rung the forecast is about.
   // The backend keys the ladder with "%g", so 1.5 stays "1.5" and 2.0 becomes "2" -- which is what
   // String() gives for the Numbers ladderOf() parsed them back into.
-  const rungTier = (n === chosen && f.tier) || (f.ladder_tier || {})[String(rung?.thr)] || null;
+  const rungTier = (n === chosen && cur.tier) || (cur.ladder_tier || {})[String(rung?.thr)] || null;
   // "vs" with nobody after it is what the match page reported, and six more screens now draw this
   // row from feeds that do not all carry an opponent. No name, no preposition.
   const vs = fx.opp?.name ? `${fx.homeFirst ? "vs" : "at"} ${fx.opp.name}` : "";
@@ -258,56 +300,43 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
         <td className="lk-cell-fx lk-fx">{vs}<small>{ko}</small></td>
         <td className="lk-cell-mk">
           <span className="lk-line">
-            <span className="lk-claim">
-              {pos && <span className="lk-pos-inline">{pos} · </span>}{words}
-              <span className="lk-fx-inline"> · {vs} {ko}</span>
-              {/* The ladder below steps the LINE (2+ shots to 3+); this steps the MARKET (shots to
-                  tackles to fouls). It sits with the market words because that is what it changes,
-                  and because the actions cell cannot hold a fourth control without clipping. */}
-              {extras && more.length > 0 && (
-                <button type="button" className="lk-morebtn" aria-expanded={lines}
-                        onClick={() => setLines(!lines)} data-testid={`lk-more-btn-${f.id}`}>
-                  {lines ? "Fewer markets" : `+${more.length} more market${more.length === 1 ? "" : "s"}`}
-                </button>
-              )}
+            <span className="lk-q">
+              <MarketPicker markets={markets} stat={cur.stat} onPick={pickMarket} id={f.id} />
+              <Stepper rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} />
             </span>
+            {/* the fixture, for the phone, where the fixture cell is folded away */}
+            <span className="lk-fx-inline">{vs} {ko}</span>
             {/* Only on the rung the forecast is actually about: `p_usual` is that rung's usual, so
                 printing it beside a rung the reader stepped to would compare two different lines. */}
             {extras && n === chosen && dep != null && (
               <span className={"lk-dep " + dir} data-testid={`lk-dep-${f.id}`}>
                 <i aria-hidden="true">{dep > 0 ? "\u25b2" : dep < 0 ? "\u25bc" : "\u2013"}</i>
-                <b>{Math.abs(dep)} {Math.abs(dep) === 1 ? "point" : "points"}</b> {dep >= 0 ? "above" : "below"} {mine} usual <b>{pct(f.p_usual)}</b>
+                <b>{Math.abs(dep)} {Math.abs(dep) === 1 ? "point" : "points"}</b> {dep >= 0 ? "above" : "below"} {mine} usual <b>{pct(cur.p_usual)}</b>
                 {clears != null && <> &middot; {clears ? "clear of it" : "the likely range still reaches it"}</>}
               </span>
             )}
-            <span className="lk-steps-desk"><Steps rows={lad} cur={n} onPick={setPick} label={`How many ${nounFor(f, 2)}`} /></span>
           </span>
         </td>
         <td className="lk-cell-lk lk-lk">
+          {/* Badge ON TOP of the number, and the block anchored to its bottom. Anchored to the top
+              instead, a row carrying a badge would push its figure lower than a row without one and
+              the percentages would stop lining up down the column -- the alignment docs/61 exists to
+              protect. Bottom-anchored, every figure sits at one height whether or not a badge sits
+              above it. Measured across eight rows: 27px from the row's bottom, all of them. */}
+          <span className="lk-tiercell">
+            {extras && rungTier && <TierBadge tier={rungTier} testid={`lk-tier-${f.id}`} />}
+          </span>
           <span className="lk-lk-top"><span className="lk-figure">{p}<u>%</u></span></span>
-          <Bar p={p} lo={lo} hi={hi} under={under} />
-          <span className="lk-data lk-rg lk-dim">{lo}–{hi}%</span>
-          {/* Under the figure, not beside it. `.lk-lk-top` is a right-flushed flex, so a badge
-              sharing that line pushes the number left by the badge's own width -- and the badge's
-              width is the length of the word, so "Solid" and "Watch" put the figures of two rows
-              at different x. Measured before this: 651 against 639. The tier still grades the
-              number; it just does it from the line below. */}
-          {/* The badge grades the number it sits on, so it follows the rung the reader picked.
-              `ladder_tier` is the engine's own core.tier applied to each rung with the configured
-              cutoffs, so stepping 2+ -> 3+ shows that rung's grade instead of freezing on the lead
-              line's or disappearing. Falls back to the line's own tier for the rung it is about. */}
-          {(extras && rungTier) || res || tk ? (
-            <span className="lk-tiercell">
-              {extras && rungTier && <TierBadge tier={rungTier} testid={`lk-tier-${f.id}`} />}
-              <Result t={tk} outcome={res} needed={n} id={`lk-${f.id}`} />
-            </span>
-          ) : null}
+          {lo != null && hi != null && (
+            <span className="lk-data lk-rg lk-dim">{lo}&ndash;{hi}%</span>
+          )}
+          {under && <span className="lk-underw">Below the {under} bar &mdash; not listed by default</span>}
+          {(res || tk) && (
+            <span className="lk-rescell"><Result t={tk} outcome={res} needed={n} id={`lk-${f.id}`} /></span>
+          )}
         </td>
-        <td className="lk-cell-run"><Run games={f.run} n={n} /></td>
+        <td className="lk-cell-run"><Run games={cur.run} n={n} /></td>
         <td className="lk-cell-lu">
-          {/* on a phone the ladder gets its own band here, under the evidence: beside the market
-              words its width changed with the number of rungs, and every object after it moved. */}
-          <span className="lk-steps-phone"><Steps rows={lad} cur={n} onPick={setPick} label={`How many ${nounFor(f, 2)}`} /></span>
           <span className="lk-lucell">
             <span className={`lk-lu is-${lu.cls}`} title={lu.why}>
               {lu.cls !== "none" && <s />}{lu.word}
@@ -320,12 +349,12 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
             {/* The card's two controls, which this row lost when it was extracted: follow the
                 line, and put it in a combo. A row that can be read but not kept is a worse row
                 than the card it replaced. */}
-            {extras && f.fkey && <SaveButton fkey={f.fkey} />}
-            {extras && f.fkey && f.addable !== false && (
-              <button type="button" className={"lk-add" + (has?.(f.fkey) ? " on" : "")}
-                      aria-pressed={!!has?.(f.fkey)}
-                      aria-label={`${has?.(f.fkey) ? "Remove" : "Add"} ${who} ${f.market} ${has?.(f.fkey) ? "from" : "to"} your combo`}
-                      onClick={() => toggle({ ...f, team: f.team || fx.team })} data-testid={`lk-add-${f.id}`}>
+            {extras && cur.fkey && <SaveButton fkey={cur.fkey} />}
+            {extras && cur.fkey && cur.addable !== false && (
+              <button type="button" className={"lk-add" + (has?.(cur.fkey) ? " on" : "")}
+                      aria-pressed={!!has?.(cur.fkey)}
+                      aria-label={`${has?.(cur.fkey) ? "Remove" : "Add"} ${who} ${cur.market} ${has?.(cur.fkey) ? "from" : "to"} your combo`}
+                      onClick={() => toggle({ ...cur, player: f.player, team: f.team || fx.team })} data-testid={`lk-add-${f.id}`}>
                 <Icon name={has?.(f.fkey) ? "check" : "plus"} size={16} />
               </button>
             )}
@@ -333,22 +362,9 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
           </span>
         </td>
       </tr>
-      {lines && (
-        <tr className="lk-whyrow lk-linesrow"><td colSpan={6}>
-          <ul className="k-fc-lines has-act" data-testid={`lk-lines-${f.id}`}>
-            {more.map((x) => (
-              <li key={x.fkey}>
-                <span>{x.market}</span>
-                <b>{pct(x.p)}</b>
-                <LineActions line={x} parent={{ ...f, team: f.team || fx.team }} testid={`lk-lines-${f.id}`} />
-              </li>
-            ))}
-          </ul>
-        </td></tr>
-      )}
       {open && (
         <tr className="lk-whyrow"><td colSpan={6}>
-          <Why f={f} n={n} p={p} lo={lo} hi={hi} cleared={cleared} played={known.length} more={more} topMore={topMore} />
+          <Why f={cur} n={n} p={p} lo={lo} hi={hi} cleared={cleared} played={known.length} more={more} topMore={topMore} />
         </td></tr>
       )}
     </>
