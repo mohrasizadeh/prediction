@@ -105,13 +105,26 @@ def assign(db, rec: Record | None, f: dict) -> tuple[str | None, str | None]:
                 # "finished matches" read as this player's matches, which are drawn on the card
                 # right below the note -- ten of them. It never meant those: it means OUR OWN
                 # settled forecasts, the sample the track record is measured on. Say that.
-                t, note = "Solid", "Held at Solid until our record on these lines is measured"
+                t, note = "Solid", "Held back until our record on these lines is measured"
         else:
             if t == "Strong" and est < s_min - 0.02:
                 t, note = ("Solid" if est >= so_min - 0.02 else "Watch"), f"Similar lines happened {round(est * 100)}% of the time"
             if t == "Solid" and est < so_min - 0.02:
                 t, note = "Watch", f"Similar lines happened {round(est * 100)}% of the time"
     return _watch_says_why(t, note, so_min)
+
+
+# The words a reader sees. The STORED values are still Strong / Solid / Watch -- the engine writes
+# them, settings name them, forecast_outcomes keeps them, every filter queries them -- and nothing
+# about the grading changed. Only the labels did, because the old ones taught the wrong thing:
+# "Strong" is a confidence word, so a reader met a 57% card reading Watch beside a 56% one reading
+# Solid and concluded the product was broken. Named for the axis they measure, the pair reads as
+# what it is. Mirrored in the app by lib/copy.js tierLabel; docs/75.
+TIER_LABEL = {"Strong": "Well above usual", "Solid": "Above usual", "Watch": "Near usual"}
+
+
+def label(t: str | None) -> str:
+    return TIER_LABEL.get(t or "", t or "")
 
 
 def _watch_says_why(t: str | None, note: str | None, so_min: float) -> tuple[str | None, str | None]:
@@ -128,7 +141,7 @@ def _watch_says_why(t: str | None, note: str | None, so_min: float) -> tuple[str
     high percentage but not solid".
     """
     if t == "Watch" and note is None:
-        return t, f"Under {round(so_min * 100)}%, where Solid starts"
+        return t, f"Under {round(so_min * 100)}%, where the next grade up starts"
     return t, note
 
 

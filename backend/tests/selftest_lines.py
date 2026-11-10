@@ -161,9 +161,9 @@ check(any(r["tier"] in ("Strong", "Solid") for r in plain) or not plain,
 # introduced ("Solid once the lineup is confirmed", on a line held back by the chance to play rather than by the
 # lineup rule). Match the shapes instead.
 import re as _re
-OK_NOTE = (None, "Held at Solid until our record on these lines is measured",
+OK_NOTE = (None, "Held back until our record on these lines is measured",
            "A small step from their usual game", "The likely range still reaches their usual")
-_SHAPES = (r"^Similar lines happened \d+% of the time$", r"^Under \d+%, where Solid starts$")
+_SHAPES = (r"^Similar lines happened \d+% of the time$", r"^Under \d+%, where the next grade up starts$")
 # The three lineup notes are gone with the lineup caps that produced them. A note that explains a
 # demotion the product no longer makes would be a card apologising for nothing.
 gone = [r["tier_note"] for r in pre if r["tier_note"] and ("lineup" in r["tier_note"] or "bench" in r["tier_note"].lower())]

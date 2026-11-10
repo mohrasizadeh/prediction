@@ -32,6 +32,7 @@ from urllib.parse import quote
 
 import settings_store as S
 import site_studio as SS
+from tiering import TIER_LABEL as TG_LABEL
 
 # Images and one inline stylesheet. No script, no frames, no fonts from anywhere else. The default
 # app CSP is `default-src 'none'`, which would blank this page, so the route sets this instead.
@@ -42,12 +43,10 @@ import site_studio as SS
 CSP = ("default-src 'none'; script-src 'none'; img-src 'self' https: data:; style-src 'unsafe-inline'; "
        "form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
 
-TIER_WORD = {
-    "Strong": "Strong",
-    "Solid": "Solid",
-    "Watch": "Watch",
-    "lower": "No badge",
-}
+# The reader's words, from the one place that decides them (tiering.TIER_LABEL, mirrored in the app
+# by lib/copy.js). A post is the FIRST place most readers meet the badge, so it must not teach a
+# vocabulary the app then contradicts.
+TIER_WORD = {**TG_LABEL, "lower": "No badge"}
 
 # Why each tier is what it is, in a sentence, because a stranger has never seen the badge before and
 # the post is where they meet it. These match docs/52 and the Learn article: the badge grades the
@@ -433,7 +432,9 @@ def render_post(db, post: dict) -> str:
     gap = ""
     miss = [m for m in (post.get("missing") or []) if m in ("Strong", "Solid")]
     if miss:
-        words = " or ".join(esc(m) for m in miss)
+        # The reader's words, not the stored ones: "No Strong forecast" means nothing to someone who
+        # has never seen the old badge.
+        words = " or ".join(esc(TIER_WORD.get(m, m).lower()) for m in miss)
         gap = (f'<p class="note">No {words} forecast for this match. That is the ordinary case rather than '
                f'a gap in the data: the badge grades how far tonight sits from a player\'s usual game, and '
                f'most nights sit close to it.</p>')

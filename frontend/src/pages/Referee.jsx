@@ -26,7 +26,11 @@ function Tiles({ d }) {
 export default function Referee() {
   const { name } = useParams();
   const q = useApi(`/referees/${encodeURIComponent(name)}`);
-  useTitle(name);
+  useTitle(name ? `${name} referee stats: cards per game` : "Referee", {
+    description: name
+      ? `${name}: yellow and red cards per game, penalties, fouls, and the matches he has refereed \u2014 measured against his league rather than counted raw.`
+      : undefined,
+  });
   if (q.loading && !q.data) return <Loading rows={4} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const d = q.data;

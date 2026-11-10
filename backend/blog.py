@@ -202,6 +202,26 @@ def evidence(it: dict, scope: str) -> list[str]:
     return out
 
 
+def _fit(limit: int, *candidates: str) -> str:
+    """The first candidate that fits, else the last one trimmed at a word boundary.
+
+    A hard slice is what produced "Brighton & Hove Albion 0-0 Wolverhampton Wanderers: how our
+    prediction" -- a title cut mid-word, in a search result, on the two clubs with the longest names
+    in the league. Candidates go longest to shortest so the full phrasing is used wherever it fits
+    and the bare fixture is the floor; the trim is the last resort and ends on a word.
+    """
+    for c in candidates:
+        c = c.strip()
+        if len(c) <= limit:
+            return c
+    last = (candidates[-1] if candidates else "").strip()
+    if len(last) <= limit:
+        return last
+    cut = last[:limit].rstrip()
+    sp = cut.rfind(" ")
+    return (cut[:sp] if sp > limit * 0.6 else cut).rstrip(" ,.:;-\u2014")
+
+
 def words(*, final: bool, hn: str, an: str, when: str, score: str, scored_n: int,
           came_in: int, lead: dict) -> tuple[str, str, str]:
     """Title, search description and opening paragraph, for both states of a post.
@@ -212,8 +232,11 @@ def words(*, final: bool, hn: str, an: str, when: str, score: str, scored_n: int
     """
     if final:
         # The score goes in the TITLE: it is what someone searching afterwards types.
-        title = (f"{hn} {score} {an}: how our forecasts did" if score
-                 else f"{hn} v {an}: how our forecasts did")
+        # Post-match the search changes: people look for the score and the stats, so the title leads
+        # with the result and still says what the page uniquely holds.
+        head = f"{hn} {score} {an}" if score else f"{hn} vs {an}"
+        title = _fit(MAX_TITLE, f"{head}: stats and how our predictions did",
+                     f"{head}: how our predictions did", f"{head}: our predictions", head)
         if scored_n:
             desc = (f"{hn} {score} {an}. Of the {scored_n} forecasts in this post, {came_in} came in. "
                     f"Every one is shown either way, with the reasons we gave.")
@@ -223,13 +246,19 @@ def words(*, final: bool, hn: str, an: str, when: str, score: str, scored_n: int
                  + (f", finishing {score}" if score else "")
                  + ". These are forecasts we published before kick-off, shown with what actually "
                  + "happened \u2014 the ones that came in and the ones that did not.")
-        return title[:MAX_TITLE], desc[:MAX_DESC], intro
-    title = f"{hn} v {an} forecasts, {when}".strip().rstrip(",")
-    desc = (f"What we expect from {hn} v {an}: {lead['subject']} {lead['line']} at {lead['pct']}, "
-            f"and the reasons behind it.")
+        return title, _fit(MAX_DESC, desc), intro
+    # "vs", not "v", and "prediction", not "forecasts" (docs/75). Both are what people actually
+    # type, and both clear the copy rules: only the transaction words -- odds, picks, props and the
+    # rest -- are banned (textguard.BANNED). "Forecast" is our word for the thing; "prediction" is
+    # the word someone uses to look for it, and a title that does not contain the search is a page
+    # that does not answer it.
+    title = _fit(MAX_TITLE, f"{hn} vs {an} prediction, stats and team news",
+                 f"{hn} vs {an} prediction and stats", f"{hn} vs {an} prediction", f"{hn} vs {an}")
+    desc = (f"{hn} vs {an} forecasts with the reasons shown: {lead['subject']} {lead['line']} at "
+            f"{lead['pct']}, and what the last ten games say. {when}.")
     intro = (f"{hn} meet {an} on {when}. Here are three of our forecasts for the match, each with "
              f"the reasons behind it and how likely we think it is.")
-    return title[:MAX_TITLE], desc[:MAX_DESC], intro
+    return title, _fit(MAX_DESC, desc), intro
 
 
 def build_post(db, match_iid: int, *, now: datetime | None = None) -> dict | None:

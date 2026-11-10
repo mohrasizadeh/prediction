@@ -32,7 +32,9 @@ function Table({ league }) {
 }
 
 export default function Referees() {
-  useTitle("Referees");
+  useTitle("Referee stats: cards per game", {
+    description: "Cards and penalties per game for every referee we cover, normalised against their own league so two leagues can be compared.",
+  });
   const lq = useApi("/leagues");
   const fav = useFavLeagues();
   const leagues = useMemo(() => favFirst((lq.data?.countries || []).flatMap((c) => c.leagues), fav, (l) => l.id), [lq.data, fav]);

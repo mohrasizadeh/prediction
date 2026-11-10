@@ -5,8 +5,11 @@ from datetime import datetime, timedelta, timezone
 
 import blog as B
 import blog_render as BR
+import textguard as TG
 import seo as SEO
 import settings_store as S
+
+HERE_FE = os.path.join(os.path.dirname(HERE), "frontend")
 
 now = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
 KO = datetime(2026, 11, 14, 17, 30, tzinfo=timezone.utc)
@@ -240,7 +243,7 @@ with TestClient(srv.app) as owner:
     ])
     sp = B.build_post(db, 900, now=now)
     check(sp["final"] is True and sp["score"] == "2\u20131", "a settled post knows the match is over and what the score was")
-    check("2\u20131" in sp["title"] and "how our forecasts did" in sp["title"], f"the score is in the title: {sp['title']!r}")
+    check("2\u20131" in sp["title"] and "predictions did" in sp["title"], f"the score is in the title: {sp['title']!r}")
     check("played" in sp["intro"] and "meet" not in sp["intro"], "the intro is in the past tense")
     check(sp["came_in"] == 2 and sp["scored_n"] == 3, "the tally counts what came in")
     check(sp["items"][0]["result"] == {"reached": True, "actual": 4.0, "played": True}, "each item carries its own result")
@@ -363,9 +366,46 @@ with TestClient(srv.app) as owner:
     done = db.blog_posts.find_one({"slug": url_before}, {"_id": 0})
     check(done["slug"] == url_before, "THE URL DOES NOT CHANGE: the link that was shared still works")
     check(done["status"] == "published" and done["final"] is True, "it is still published, and now marked final")
-    check("how our forecasts did" in done["title"] and "2\u20131" in done["title"], "the title turned over with it")
+    check("predictions did" in done["title"] and "2\u20131" in done["title"], "the title turned over with it")
     check(done["came_in"] == 1 and done["scored_n"] == 2, "and the tally is the scored items only")
     check(done["items"][0]["result"]["reached"] is True, "results are attached by forecast id, item by item")
     check(B.refresh_settled(db, now=now + timedelta(days=1)) == 0, "settling is idempotent")
+
+    # ---------------- docs/75: the tier words, and the one place they are decided
+    import tiering as TI
+    check(TI.TIER_LABEL == {"Strong": "Well above usual", "Solid": "Above usual", "Watch": "Near usual"},
+          "the stored tiers map to the reader's words in one place")
+    check(BR.TIER_WORD["Strong"] == TI.TIER_LABEL["Strong"], "the blog reads that map rather than keeping its own")
+    check(BR.TIER_WORD["lower"] == "No badge", "...and names the no-badge case for a reader who has never seen a badge")
+
+    # The ad canvas draws the same words. It cannot import the app (it runs on a canvas and is kept
+    # free of app imports), so its copy of the map is pinned here instead -- an ad is the FIRST place
+    # a stranger meets the badge, and it must not teach a vocabulary the app contradicts.
+    draw = open(os.path.join(HERE_FE, "src", "admin", "ads", "draw.js"), encoding="utf-8").read()
+    for stored, words in TI.TIER_LABEL.items():
+        check(f'{stored}: "{words}"' in draw, f"the ad canvas draws {words!r} for {stored}")
+    copy_js = open(os.path.join(HERE_FE, "src", "lib", "copy.js"), encoding="utf-8").read()
+    for stored, words in TI.TIER_LABEL.items():
+        check(f'label: "{words}"' in copy_js, f"the app's badge says {words!r} too")
+    # Nothing a reader sees should still carry the old confidence words.
+    for old in ("Strong", "Solid", "Watch"):
+        check(old not in BR.TIER_WORD.values(), f"{old!r} is gone from the words a reader is shown")
+
+    # ---------------- docs/75: titles carry the search
+    t, d, _ = B.words(final=False, hn="Arsenal", an="Chelsea", when="11 November 2026", score="",
+                      scored_n=0, came_in=0, lead={"subject": "Saka", "line": "3+ shots", "pct": "81%"})
+    check(t == "Arsenal vs Chelsea prediction, stats and team news", f"a preview title carries the search: {t!r}")
+    check(" v " not in t, "...with 'vs', which is what people type")
+    check(not TG.scan(t) and not TG.scan(d), "...and clears the copy rules")
+    # Two of the longest names in the league: the title must still fit AND still be a sentence.
+    for a, b in [("Brighton & Hove Albion", "Wolverhampton Wanderers"),
+                 ("Borussia Monchengladbach", "Eintracht Frankfurt")]:
+        for fin, sc in ((False, ""), (True, "0\u20130")):
+            t, d, _ = B.words(final=fin, hn=a, an=b, when="11 November 2026", score=sc, scored_n=3,
+                              came_in=2, lead={"subject": "X", "line": "1+ shots", "pct": "50%"})
+            check(len(t) <= B.MAX_TITLE and len(d) <= B.MAX_DESC, f"{a} v {b}: inside the limits ({len(t)}/{len(d)})")
+            check(not t.split()[-1].lower() in ("our", "and", "the", "how", "with", "of", "a"),
+                  f"...and does not end on a dangling word: {t!r}")
+            check(a in t and b in t, "...with both clubs still named")
 
 print("PASS")

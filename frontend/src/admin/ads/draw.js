@@ -168,9 +168,14 @@ export function tier(ctx, name, x, y, p, fam, scale = 1) {
   if (!name) return 0;
   const dots = { Strong: 3, Solid: 2, Watch: 1 }[name] || 0;
   const col = { Strong: p.tierStrong, Solid: p.tierSolid, Watch: p.tierWatch }[name] || p.text3;
+  // The same words as the app's badge (lib/copy tierLabel). An ad that says "Strong" next to a card
+  // in the product that says "Well above usual" teaches two vocabularies for one thing -- and the ad
+  // is the FIRST of the two a stranger meets. Not imported: this module draws on a canvas and is
+  // kept free of app imports (see the header), so the map is restated and pinned by a test.
+  const words = { Strong: "Well above usual", Solid: "Above usual", Watch: "Near usual" }[name] || name;
   const fs = 26 * scale, pad = 16 * scale, r = 6 * scale, gap = 7 * scale, h = 48 * scale;
   ctx.font = font(fam, 700, fs);
-  const tw = ctx.measureText(name).width;
+  const tw = ctx.measureText(words).width;
   const w = pad + dots * (r * 2 + gap) + tw + pad;
   card(ctx, x, y, w, h, h / 2, alpha(col, 0.16), alpha(col, 0.5));
   let dx = x + pad + r;
@@ -180,7 +185,7 @@ export function tier(ctx, name, x, y, p, fam, scale = 1) {
     if (i < dots) dx += r * 2 + gap;
   }
   ctx.fillStyle = col; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-  ctx.fillText(name, x + pad + dots * (r * 2 + gap), y + h / 2 + 1);
+  ctx.fillText(words, x + pad + dots * (r * 2 + gap), y + h / 2 + 1);
   ctx.textBaseline = "alphabetic";
   return w;
 }

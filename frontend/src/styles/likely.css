@@ -98,8 +98,13 @@ td.lk-cell-lu  { width: 13%; }
  * the 38px avatar already sets -- so this costs no row height in practice. Three lines would, hence
  * the clamp; a name that long is cut, but it is cut after two lines of evidence rather than eight
  * characters. */
-.lk-who .lk-name { text-decoration: none; min-width: 0; flex: 0 1 auto; overflow-wrap: anywhere;
+.lk-who .lk-name { text-decoration: none; min-width: 0; flex: 0 1 auto; overflow-wrap: break-word;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* `break-word`, NOT `anywhere`. They look interchangeable and are not: `anywhere` lets the word
+ * break count towards MIN-CONTENT, so a flex item carrying it can be squeezed to one character per
+ * line. Desktop hid it behind a fixed column width; on a phone the name shares its line with the
+ * lineup word and collapsed to 14px -- "B" over "u.". `break-word` still wraps a long name but
+ * keeps the longest word as the floor, which is the behaviour this was asking for. (docs/75) */
 .lk-who .lk-name:hover { text-decoration: underline; }
 /* The position was three bare letters reading as part of the name. A chip is the shape that says
  * "tag", and it is deliberately colourless: colour here is spent on data, not on taxonomy. */
@@ -264,19 +269,36 @@ td.lk-cell-lu  { width: 13%; }
   .lk-underw { text-align: left; }
 
   /* the body */
-  td.lk-cell-who { grid-column: 2; grid-row: 1; min-width: 0; }
+  /* `width: 100%` is doing real work: a <td> turned into a grid item does not stretch to its track
+   * the way a <div> would, so this cell sized to its content (60px of a 248px column) and the name
+   * inside it was squeezed to 14px -- one letter per line. Measured, not assumed. (docs/75) */
+  td.lk-cell-who { grid-column: 2; grid-row: 1; min-width: 0; width: 100%; }
   td.lk-cell-fx { display: none; }
   .lk-band { grid-column: 2; grid-row: 2; width: auto; margin: 5px 0 0; }
-  td.lk-cell-mk { grid-column: 2; grid-row: 3; margin-top: 7px; }
-  td.lk-cell-run { grid-column: 2; grid-row: 4; margin-top: 8px; }
+  /* The grade, on its own line directly under the number and the bar it grades, right-aligned to
+   * the card edge. It needs a placement of its own and never had one: `td.lk-cell-lk` is
+   * `display: contents` here, so .lk-tiercell is a grid item of the ROW, and an unplaced grid item
+   * is auto-placed into whatever cell happens to be free. The short word "Strong" fitted wherever
+   * it landed and hid the fault; "Well above usual" does not, and three badges measured outside
+   * their own row. It spans both columns because the gutter is 58px and the grade is now a phrase.
+   * (docs/75) */
+  .lk-tiercell { grid-column: 1 / -1; grid-row: 3; justify-self: end; margin: 7px 0 0; }
+  td.lk-cell-mk { grid-column: 2; grid-row: 4; margin-top: 7px; width: 100%; }
+  td.lk-cell-run { grid-column: 2; grid-row: 5; margin-top: 8px; width: 100%; }
   /* Two levels of `display: contents` so the lineup word, the ladder and the Why control can each
      be placed on the row's own grid. Stacked inside one cell they cost a whole sixth band and ~27px
      on every row, for no reason other than that the desktop table keeps them in one column. */
   td.lk-cell-lu { display: contents; }
   .lk-lucell { display: contents; }
   .lk-lu { grid-column: 2; grid-row: 1; justify-self: end; align-self: center; }
-  .lk-why { grid-column: 2; grid-row: 4; justify-self: end; align-self: center; margin-top: 8px; padding: 4px 0; }
-  .lk-steps-phone { display: block; grid-column: 2; grid-row: 5; margin: 8px 0 0; }
+  /* The controls, NOT .lk-why. The rule below used to name .lk-why, and it had stopped reaching
+   * anything: .lk-acts was introduced later to hold Why beside the follow and combo buttons, so
+   * .lk-why is no longer a child of a `display: contents` box and no longer a grid item. Its
+   * placement was dead CSS and the controls were auto-placed into whatever cell was free. Place
+   * the box that is actually the grid item. (docs/75) */
+  .lk-acts { grid-column: 2; grid-row: 5; justify-self: end; align-self: center; margin-top: 8px; }
+  .lk-why { padding: 4px 0; }
+  .lk-steps-phone { display: block; grid-column: 2; grid-row: 6; margin: 8px 0 0; }
 
   /* The name owns its line, so the photo stays full size -- it is no longer competing for the
      name's width, which is what was cutting names before. (PlayerAvatar writes its size as an
