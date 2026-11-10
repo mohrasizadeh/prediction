@@ -6,7 +6,9 @@
 // (TierBadge, LikelihoodBar, ForecastCard, ProbBar) long after every screen had moved to the kit; they
 // had no importers left, so a reader comparing the two had no way to tell which one shipped.
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { fill, head } from "../lib/seo";
+import { useSite } from "../lib/site";
 import { utc } from "../lib/time";
 import { Crest } from "./Media";
 import { WdlBar } from "./ui/Marks";
@@ -60,8 +62,55 @@ export function ColumnPicker({ options, value, onChange, testid }) {
 const POS = { GK: "Goalkeeper", DEF: "Defender", MID: "Midfielder", FWD: "Forward" };
 export const posLabel = (p) => POS[p] || "Position unknown";
 
-export function useTitle(title) {
-  useEffect(() => { if (title) document.title = title; }, [title]);
+// useTitle writes the whole head, not just the tab (docs/71).
+//
+// It set document.title and nothing else, and about twenty screens already called it. Widening it
+// here rather than adding a second hook means every one of those screens gained a description, a
+// canonical URL and og:/twitter: tags without being touched -- and means there is still exactly one
+// place that decides what the head says, which is the whole point of the docs/61 consistency pass.
+// The one-argument calls are unchanged.
+//
+//   useTitle("Insights")
+//   useTitle(name, { description: "...", image: crest, type: "profile" })
+//   useTitle(t, { vars: { team1: home.name, team2: away.name } })   // feeds seo.title_template
+//
+// `vars` are the placeholders the owner's Site Studio templates may name ({name}, {team1}, {team2},
+// {page}, {player}, {league}). A template is only used when the page fills every placeholder it
+// names -- see fill() in lib/seo.js -- so a match page gets the owner's wording and the Finder gets
+// "Forecast Finder · Forecast Zone" instead of a sentence with a hole in it.
+export function useTitle(title, opts = {}) {
+  const site = useSite();
+  const { description, image, type = "website", noindex = false, vars } = opts;
+  const cfg = site?.cfg;
+  const brand = cfg?.brand?.name || "";
+  const seo = cfg?.seo || {};
+  // Site Studio's own preview carries a token in the URL. That page is a draft of the real one, and
+  // two URLs showing the same content is precisely what a canonical tag exists to prevent -- so a
+  // preview is never offered for indexing. /api/site/config already refuses to be cached or indexed
+  // when it serves a draft; this is the page half of the same rule.
+  const preview = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("preview");
+  const { pathname } = useLocation();
+  // `vars` is a fresh object on every render, so depending on it directly would re-run the effect
+  // forever. Compare it by value.
+  const varsKey = JSON.stringify(vars || null);
+
+  useEffect(() => {
+    const v = { name: brand, page: title || "", ...(vars || {}) };
+    const t = fill(seo.title_template, v) || (title && brand ? `${title} · ${brand}` : title || brand);
+    const d = fill(seo.description_template, v) || description || cfg?.brand?.tagline || "";
+    head({
+      title: t,
+      description: d,
+      image: image || seo.og_image || "",
+      type,
+      brand,
+      pathname,
+      noindex: noindex || preview || seo.robots_index === false,
+    });
+    // vars itself is read through varsKey, which is its value rather than its identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description, image, type, noindex, preview, pathname, brand, cfg?.brand?.tagline,
+      seo.title_template, seo.description_template, seo.og_image, seo.robots_index, varsKey]);
 }
 
 export const TacticChip = ({ t, prefix }) => <span className="tchip" data-testid={`tactic-${t}`}>{prefix ? `${prefix}: ` : ""}{TACTICS[t] || t.replace(/_/g, " ")}</span>;

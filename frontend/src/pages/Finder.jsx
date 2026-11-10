@@ -297,7 +297,7 @@ export default function Finder() {
     return (pool.find((x) => x.id === sp2.get("stat")) || { label: sp2.get("stat") }).label;
   };
   const lgLabel = picked.length ? picked.map((id) => leagues.find((l) => l.id === id)?.name || "League").join(", ") : "pick a league";
-  useTitle("Forecast Finder");
+  useTitle("Forecast Finder", { description: "Ask a question about any player or club \u2014 a stat, a line, a match \u2014 and see how likely it is." });
   return (
     <section className="fs" data-testid="finder-page">
       <h1>Forecast Finder</h1>

@@ -17,7 +17,7 @@ import { EmptyState, ErrorState, ForecastRow, Skeleton } from "../components/ui"
 const WINDOWS = [4, 12, 24];
 
 export function Likely() {
-  useTitle("Most likely");
+  useTitle("Most likely", { description: "The forecasts we rate highest right now, across every match we cover." });
   const [win, setWin] = useState(4);
   const [confirmed, setConfirmed] = useState(false);
   const [open, setOpen] = useState(null);

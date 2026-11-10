@@ -119,7 +119,11 @@ export default function Team() {
   const q = useApi(`/teams/${id}`);
   const [tab, setTab] = useState("squad");
   const [squadView, setSquadView] = useState("cards");
-  useTitle(q.data?.team?.name || "Team");
+  const tm = q.data?.team;
+  useTitle(tm?.name || "Team", {
+    image: tm?.image,
+    description: tm?.name ? `${tm.name}: squad, next fixture and the forecasts we have for it, with the reasons shown.` : undefined,
+  });
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const d = q.data;

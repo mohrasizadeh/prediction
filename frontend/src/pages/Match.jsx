@@ -164,7 +164,12 @@ export default function Match() {
   // Four tabs. The first one is the match itself while it is on (Live) or over (Recap); before kick-off it is the forecasts.
   const first = st === "live" ? "live" : st === "final" ? "recap" : null;
   const tab = pick || first || "forecasts";
-  useTitle(d ? `${d.home.name} v ${d.away.name}` : "Match");
+  // The one page seo.title_template was written for, so it is the one that supplies {team1}/{team2}.
+  useTitle(d ? `${d.home.name} v ${d.away.name}` : "Match", {
+    type: "article",
+    vars: d ? { team1: d.home.name, team2: d.away.name } : undefined,
+    description: d ? `How likely each forecast is for ${d.home.name} v ${d.away.name}, and the reasons behind it.` : undefined,
+  });
   if (q.loading && !d) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const n = cardsOf(d).filter((f) => f.p >= 0.5).length;

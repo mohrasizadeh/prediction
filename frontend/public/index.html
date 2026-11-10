@@ -4,7 +4,27 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
-    <title>Forecast</title>
+
+    <!-- docs/71. These are the BRAND-LEVEL fallbacks, and for one class of reader they are the only
+         thing that exists: Slack, WhatsApp, X and Facebook read the HTML they are served and never
+         run JavaScript, so a link shared anywhere previews from exactly these lines. useTitle
+         (components/Football.jsx) overwrites them per page for the tab, the bookmark and Google's
+         rendering pass -- which is every reader except the one that matters most for sharing.
+
+         The title read `Forecast` here for two brands running, on every URL on the site. Keep it the
+         brand, not a page: a stale page name is worse than a general one, because the preview for
+         /match/123 would read like the front page.
+
+         og:image is left out rather than pointed at a placeholder. A card with a broken image
+         renders worse than a card with none, and the real image belongs to Site Studio
+         (seo.og_image), which only the rendered page can read. -->
+    <title>Forecast Zone</title>
+    <meta name="description" content="Football forecasts with the reasons shown: how likely a player or team is to reach a stat line, and why. Statistical analysis for information and entertainment. Not betting advice." />
+    <meta property="og:site_name" content="Forecast Zone" />
+    <meta property="og:title" content="Forecast Zone" />
+    <meta property="og:description" content="Football forecasts with the reasons shown." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
   <!-- v2 (docs/redesign/v2/PLAN.md): the app's own typeface, self-hosted beside the Site Studio font
        library. It is declared here rather than in a bundled stylesheet for two reasons: the CSP is
        default-src 'self' with no font-src, so a font CDN is blocked outright, and webpack cannot

@@ -30,6 +30,7 @@ import popups as PP
 import ratelimit as RL
 import reports as R
 import security
+import seo as SEO
 import settings_store as S
 import site_studio as SS
 import transports as T
@@ -67,6 +68,28 @@ def site_config(request: Request, preview: Optional[str] = None, db=Depends(D.ge
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers={"ETag": etag, "Cache-Control": "public, max-age=30, stale-while-revalidate=300"})
     return Response(body, media_type="application/json", headers={"ETag": etag, "Cache-Control": "public, max-age=30, stale-while-revalidate=300"})
+
+
+# The sitemap and robots (docs/71). Both are public and unauthenticated by definition -- a crawler
+# arrives with no session -- and both are cached for an hour: the contents change when a fixture is
+# ingested, not between two requests a minute apart.
+#
+# Why these live under /api when a crawler looks for them at the document root: this service serves
+# no HTML, the platform serves the static build, and only /api/* reaches here. The real robots.txt
+# is the static file in frontend/public/, and its Sitemap: line points at the route below. That is a
+# valid directive and Google follows it. `GET /api/seo/robots.txt` is the live-settings version of
+# that static file, so the two can be compared when they disagree.
+_SEO_HEAD = {"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"}
+
+
+@public.get("/seo/sitemap.xml")
+def seo_sitemap(db=Depends(D.get_db)):
+    return Response(SEO.sitemap_xml(db), media_type="application/xml", headers=_SEO_HEAD)
+
+
+@public.get("/seo/robots.txt")
+def seo_robots(db=Depends(D.get_db)):
+    return Response(SEO.robots_txt(db), media_type="text/plain", headers=_SEO_HEAD)
 
 
 # Public on purpose: this address is what an e-mail, a page or a popup points at (docs/60). Writing

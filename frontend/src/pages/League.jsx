@@ -167,7 +167,10 @@ export default function League() {
   const { id } = useParams();
   const q = useApi(`/leagues/${id}`);
   const [tab, setTab] = useState("fixtures");
-  useTitle(q.data?.name || "League");
+  useTitle(q.data?.name || "League", {
+    vars: q.data?.name ? { league: q.data.name } : undefined,
+    description: q.data?.name ? `${q.data.name} fixtures, form and the forecasts for each match.` : undefined,
+  });
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const d = q.data;

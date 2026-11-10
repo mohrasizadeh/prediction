@@ -164,7 +164,7 @@ export default function TrackRecord() {
   const lg = useApi("/leagues");
   const leagues = useMemo(() => (lg.data?.countries || []).flatMap((c) => c.leagues), [lg.data]);
   const set = (k, v) => { const n = new URLSearchParams(sp); if (v) n.set(k, v); else n.delete(k); setSp(n, { replace: true }); };
-  useTitle("Track record");
+  useTitle("Track record", { description: "Every forecast we have published and how it turned out \u2014 including the ones that were not reached." });
   return (
     <section className="tr" data-testid="track-record-page">
       {/* The page had no visible title: the h1 was screen-reader only and the page opened with a

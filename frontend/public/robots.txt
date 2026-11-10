@@ -1,0 +1,44 @@
+# robots.txt (docs/71)
+#
+# This file has to sit at the document root to be read at all, and the backend serves no HTML --
+# every route there lives under /api, and the platform serves this build. So it is a static file,
+# and the Sitemap: line below points at the route that generates the real list from live data.
+# That is a valid directive: a sitemap may live at any URL.
+#
+# BECAUSE IT IS STATIC, it cannot follow Site Studio's "robots_index" switch. Turning indexing off
+# empties the sitemap and makes every page write <meta name="robots" content="noindex,nofollow">,
+# which Google honours once it renders the page -- one crawl later than this file would.
+# GET /api/seo/robots.txt returns what this file SHOULD say for the current setting; if the two
+# disagree, this one is stale and wins with crawlers.
+
+User-agent: *
+
+# Behind a session, or a step in one. A crawler cannot see these and should not spend a request on them.
+Disallow: /admin/
+Disallow: /account/
+Disallow: /combos/
+Disallow: /following/
+Disallow: /sign-in/
+Disallow: /sign-up/
+Disallow: /signup/
+Disallow: /verify-email/
+Disallow: /confirm-email/
+Disallow: /enroll-2fa/
+Disallow: /forgot-password/
+Disallow: /reset-password/
+Disallow: /change-password/
+Disallow: /newsletter/confirm/
+Disallow: /unsubscribe/
+Disallow: /welcome/
+
+# Someone else's content rearranged: thin by construction, and infinite.
+Disallow: /search/
+
+# Development only, and already carries its own noindex.
+Disallow: /dev/
+
+# The API is not a set of pages. The two SEO files under it are.
+Disallow: /api/
+Allow: /api/seo/
+
+Sitemap: https://forecast.zone/api/seo/sitemap.xml

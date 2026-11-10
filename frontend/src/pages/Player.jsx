@@ -89,7 +89,13 @@ function Ranks({ id }) {
 export default function Player() {
   const { id } = useParams();
   const q = useApi(`/players/${id}`);
-  useTitle(q.data?.player?.name || "Player");
+  const pl = q.data?.player;
+  useTitle(pl?.name || "Player", {
+    type: "profile",
+    image: pl?.image,
+    vars: pl?.name ? { player: pl.name } : undefined,
+    description: pl?.name ? `${pl.name}: what we expect this match, how it compares with their usual game, and the last games on each line.` : undefined,
+  });
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const { player: p, team, next_match: nx } = q.data;

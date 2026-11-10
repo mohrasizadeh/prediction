@@ -175,7 +175,7 @@ function Group({ league, rows }) {
 }
 
 export default function Today() {
-  useTitle("Today");
+  useTitle("Today", { description: "Today\u2019s football fixtures, and the forecasts we have for each one with the reasons shown." });
   const [day, setDay] = useSessionDay("today-day");
   const [chip, setChip] = useState("all");
   const { user } = useAuth();
