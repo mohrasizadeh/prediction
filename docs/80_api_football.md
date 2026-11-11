@@ -226,3 +226,96 @@ testing the style layer, and the money is better spent on being alive.**
 
 Revisit when the A/B runner says the style layer earns its place and starts asking for the two
 indices this provider cannot give.
+
+---
+
+## 9. The accuracy verdict
+
+Asked directly: what does this do to forecast accuracy. The answer is **nothing, by itself** — and
+the reason is more useful than the answer.
+
+### The switch is accuracy-neutral by construction
+
+Same columns in, same engine. `soccer_brain` reads our collections and cannot tell which provider
+filled them. Where both providers supply a column, the forecast is identical. There is no version of
+this decision where the model gets better because the invoice changed.
+
+### The upside I sketched in docs/79 has already been measured, and it is zero
+
+This is the part that matters, and it is in this repo, not in a vendor's catalogue.
+`docs/validation/` holds a real-data walk-forward harness over StatsBomb events — three leagues,
+1,588 team-matches, z clustered by team-match — plus 14 Premier League seasons for goals and 34,763
+squad rows for the start model. doc 18 §1 records the verdicts:
+
+| Layer | Gain | z | |
+|---|---|---|---|
+| Tactical style indices | −0.0016 | **−3.1** | worse |
+| Style indices + shape | −0.0018 | **−2.9** | worse |
+| Real lineup shape handed to the model | −0.0002 | −0.4 | nothing |
+| Real first-choice score handed to the model | −0.0001 | −0.4 | nothing |
+| Real number of changes handed to the model | −0.0001 | −0.3 | nothing |
+| Rotation → team totals (14 PL seasons) | — | — | "smaller than the noise" |
+| Rotation → **who starts** | +0.0004 to +0.0010 | +0.9 to +2.1 | **real but small** |
+
+**The three oracle rows settle the question.** They hand the model the *true* shape, the *true*
+first-choice score and the *true* number of changes — perfect information, the ceiling no feed can
+exceed — and the gain is zero. A better provider cannot beat an oracle. So richer tactical and
+rotation data has a measured upper bound of nothing at team level, and doc 18 explains why in one
+line: *a team's own shots, corners and tackles already carry its style.*
+
+So the honest expectation from either provider is **no measurable accuracy change**, and the
+difference between SportMonks and API-Football on this axis is the difference between two numbers
+that are both zero.
+
+### Where accuracy actually comes from here
+
+The repo's own history says it twice, and both times it was data quality, not modelling:
+
+- **The missingness bug.** `tackles: null` on a forward who made none → `dropna` deleted the
+  appearance → the engine read a deleted appearance as an absence → `p_play` 0.59 → 0.33, under
+  `min_p_play`, so every card vanished, **position-correlated**. 568 stored rows fell to 395. That
+  is the largest quantified accuracy event in this project.
+- **The thrown-out result.** An early run showed shape helping at z ≈ 7. It was false: 23 Ligue 1
+  matches had empty event feeds, the shape column held 0, and the model learned "shape 0 means zero
+  shots". doc 18 §1 turns it into a rule — *all-zero shots, tackles and corners for a side is a data
+  hole, not football* — and that rule must be carried to the new feed.
+
+Both are missing-data defects. Neither is fixed by a provider; both are made easier or harder by
+one. API-Football's nested objects (`tackles: {total: null}`) distinguish present-but-null from
+absent, which is a better footing for the guard than PitchAPI's group heuristic.
+
+### The three things that would move accuracy, in order
+
+1. **Rebuild the absent-or-zero guard and carry the data-hole filter.** Removes a known
+   position-correlated bias. Costs days, not euros, and is required before the first backfill either
+   way.
+2. **Settle `engine.interactions`.** It is `true` today and it **failed its own test**: the
+   style-matchup terms did not beat the same engine without them, and the measured direction
+   favoured *without* by +0.0010 (z 1.6). doc 18 §22 explicitly leaves the decision to the owner
+   pending a run on real history. Turning a losing feature off is a free accuracy gain that needs no
+   provider at all.
+3. **Buy volume for calibration, not features.** The reliability table in
+   `soccer_brain/backtest_report.txt` shows the top band overstated: Strong **stated 0.906 vs actual
+   0.880**, and the 0.9–1.0 band stated 0.948 vs actual 0.933. `engine.calibration_auto` refits from
+   our own results but waits for `engine.calib_min_scored` = 5,000 scored forecasts. **Thirty leagues
+   reach that roughly six times faster than five.** This is the most user-visible accuracy work
+   available: it makes "Strong" mean what it says.
+
+Point 3 is the one place the provider choice does touch accuracy, and it points at API-Football:
+accuracy here is bought with **league count and time**, not with granularity, and API-Football gives
+every league on every plan.
+
+Point 3 also subsumes the only surviving layer. The start model is the one thing with a positive
+signal, it lives on the critical path for player cards (the most common Strong reason in the sample
+output is "Expected minutes are high"), and its test was run on a calendar with **no cups and no
+Europa League** (README, "Known limits"). An all-leagues plan is exactly what that gate needs to be
+re-run honestly.
+
+### Verdict
+
+**API-Football, Ultra.** Not because it is more accurate — nothing here is — but because accuracy is
+not currently provider-limited, and on the one axis where data does buy accuracy (volume for
+calibration, and a complete calendar for the start model) the cheaper provider is the better one.
+
+Spend the €70 a month saved on nothing. Spend the time on the guard, the `interactions` decision and
+getting 5,000 scored forecasts on the board.

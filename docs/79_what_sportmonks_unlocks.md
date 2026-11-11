@@ -1,5 +1,35 @@
 # 79. What SportMonks unlocks
 
+> ## Correction, 2026-11-11, same day
+>
+> **Sections 2 and 3 of this document are substantially wrong, and `docs/validation/README.md` and
+> docs/18 say so with real-data numbers I should have read before writing them.**
+>
+> This document claimed eight dark layers were "untestable, not disproven". Three of them had
+> already been tested on real football — StatsBomb, three leagues, 1,588 team-matches, z clustered
+> by team-match — and **lost**:
+>
+> | | measured | |
+> |---|---|---|
+> | tactical style indices (§3.1, called "the largest unlock") | **−0.0016, z −3.1** | worse, significantly |
+> | formation shape (§2) | **−0.0018, z −2.9** | worse |
+> | rotation → team totals (§3.5) | **no gain**, 14 PL seasons | "smaller than the noise" |
+> | real shape / first-choice / changes handed to the model (an **oracle** upper bound) | **z −0.4, −0.4, −0.3** | perfect information buys nothing |
+>
+> The oracle row is the one that matters. Handing the model the *true* lineup shape and the *true*
+> number of changes is the ceiling on every idea in §3.1 and §3.5, and the ceiling is zero. No
+> provider can beat perfect information, so no provider unlocks those layers. doc 18 §1 gives the
+> reason in one line: *a team's own shots, corners and tackles already carry its style.*
+>
+> **What survives:** the start model (the calendar changing *who starts*) at +0.0004 to +0.0010 per
+> row, z 0.9–2.1 — real but small, already built and auto-gated. That is the only layer with a
+> positive measured signal, and it is the one whose test was limited by a calendar with no cups
+> (README, "Known limits").
+>
+> Read §§2–3 below as a catalogue of what the data would *permit*, with the measured verdict above
+> overriding every claim about what it would *gain*. §1 (plans, reuse, the provider seam) and §5
+> (the silent biases) stand. The accuracy verdict is in docs/80 §9.
+
 Follows docs/78, which answered "can we move". This answers "what do we get", decided after the
 owner chose a fresh start and the Growth plan.
 
