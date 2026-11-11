@@ -3345,5 +3345,92 @@
     "public": false,
     "applies_at": "immediately",
     "help": "A draft for a match that has already been played is deleted after this many days. Published posts are never deleted."
+  },
+  {
+    "key": "provider.source",
+    "group": "Provider",
+    "label": "Which provider the ingest reads",
+    "type": "enum",
+    "default": "apifootball",
+    "public": false,
+    "applies_at": "next_job",
+    "help": "apifootball | pitchapi. One at a time. Changing this does not migrate anything: the ids differ, so a switch means a rebuild (docs/81)."
+  },
+  {
+    "key": "apifootball.minute_cooldown_s",
+    "group": "Provider",
+    "label": "Pause when the per-minute allowance is gone (seconds)",
+    "type": "number",
+    "default": 20,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "API-Football may BLOCK a key for traffic spikes rather than throttle it, so this is a real stop, not a nicety."
+  },
+  {
+    "key": "apifootball.leagues",
+    "group": "Provider",
+    "label": "Our league to API-Football league id",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "applies_at": "next_job",
+    "help": "{our league iid: api-football league id}. Set in Admin > API-Football. League ids are listed on their dashboard."
+  },
+  {
+    "key": "apifootball.seasons",
+    "group": "Provider",
+    "label": "Seasons to carry, newest first",
+    "type": "json",
+    "default": [],
+    "public": false,
+    "applies_at": "next_job",
+    "help": "4-digit START year: 2024 means the 2024-25 season. Empty = the current season only."
+  },
+  {
+    "key": "provider.apifootball.team_keys",
+    "group": "Provider",
+    "label": "Team stat names in /fixtures/statistics",
+    "type": "json",
+    "default": {
+      "shots": "Total Shots",
+      "sot": "Shots on Goal",
+      "corners": "Corner Kicks",
+      "poss": "Ball Possession",
+      "fouls": "Fouls",
+      "yellow_cards": "Yellow Cards",
+      "red_cards": "Red Cards",
+      "saves": "Goalkeeper Saves",
+      "passes": "Total passes",
+      "passes_acc": "Passes accurate",
+      "shots_box": "Shots insidebox",
+      "shots_outbox": "Shots outsidebox",
+      "shots_blocked": "Blocked Shots",
+      "offsides": "Offsides",
+      "shots_off": "Shots off Goal",
+      "xg": "expected_goals",
+      "tackles": null
+    },
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Their statistic `type` is a DISPLAY STRING, not a stable id, so it can be renamed under us: that is exactly what left half the PitchAPI map null. Admin > API-Football prints the live list from a real answer; a rename shows up there as an unmapped name. `tackles` is null on purpose: API-Football has no team tackles, and normalize sums the players' instead. `xg` is undocumented and present only in some leagues."
+  },
+  {
+    "key": "provider.apifootball.position_map",
+    "group": "Provider",
+    "label": "Their position letter to GK/DEF/MID/FWD",
+    "type": "json",
+    "default": {
+      "G": "GK",
+      "D": "DEF",
+      "M": "MID",
+      "F": "FWD",
+      "Goalkeeper": "GK",
+      "Defender": "DEF",
+      "Midfielder": "MID",
+      "Attacker": "FWD"
+    },
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Lineups and player rows use the single letter; squads use the word. Both are mapped."
   }
 ]
