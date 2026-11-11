@@ -60,7 +60,7 @@
   border: 1px solid var(--border); border-radius: 14px; overflow: hidden; table-layout: fixed; }
 .lk-tbl th { text-align: left; padding: 10px 14px 9px; background: var(--surface1);
   border-bottom: 1px solid var(--border); color: var(--text3); vertical-align: bottom; white-space: nowrap; }
-.lk-tbl td { padding: 12px 14px; vertical-align: middle; border: 0; }
+.lk-tbl td { padding: 20px 7px; vertical-align: middle; border: 0; }
 .lk-tbl tbody tr + tr:not(.lk-whyrow) td { border-top: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
 .lk-tbl tbody tr:hover td { background: var(--surface2); --lk-halo: var(--surface2); }
 .lk-tbl tbody tr:hover .lk-dim { color: var(--text2); }
@@ -85,14 +85,73 @@
  * one thing a cell can say is `width`, so the columns say it. They total 100%.
  *
  * Reported against a real match page, where two of the three visible rows had a cut-off name. */
-td.lk-cell-who { width: 21%; }
-td.lk-cell-fx  { width: 8%; }
-td.lk-cell-mk  { width: 26%; }
-td.lk-cell-lk  { width: 12%; }
-/* docs/77: the ten games are the evidence and the range was out-shouting them. The strip's column
- * grew by the width the range rail gave back, and the range is a caption now. */
-td.lk-cell-run { width: 20%; }
-td.lk-cell-lu  { width: 13%; }
+/* v10: ONE COLUMN PER KIND OF DATA, and the sentence is one of them.
+ *
+ * Splitting the name, the verb, the line and the market into four columns aligned them and stopped
+ * them reading as a sentence, because the verb had to be flung to the right edge of its cell to make
+ * the alignment work -- "Marcus Linday ....... makes". One cell with natural spacing; the seven data
+ * columns after it keep their alignment regardless, which is the whole benefit. */
+/* Eight columns of real content do not fit 1078px with 24px of padding in every cell -- that is
+ * 192px spent on gutters alone, and the name was the thing that paid for it, truncating to "M...".
+ * The padding is 14px per cell now and the sentence takes 44%, which is what it needs to hold
+ * "Marcus Linday makes [2+] [tackles]" on one line. */
+col.lk-c-say  { width: 42%; }
+col.lk-c-run  { width: 16%; }
+col.lk-c-res  { width: 9%; }
+col.lk-c-lk   { width: 6.5%; }
+col.lk-c-tier { width: 8.5%; }
+col.lk-c-why  { width: 5%; }
+col.lk-c-lu   { width: 6.5%; }
+col.lk-c-act  { width: 6.5%; }
+
+/* Headers and content centre on the same axis, so they line up by construction whatever ornament
+ * sits in front of the text -- a chip's padding, a badge's three dots, a status dot. Aligning their
+ * EDGES put the three columns out by 9, 30 and 12px, each by a different amount. Chance keeps its
+ * right edge: it is a column of numbers, and numbers align right or they cannot be compared. */
+td.lk-cell-run, td.lk-cell-res, td.lk-cell-tier, td.lk-cell-why, td.lk-cell-lu { text-align: center; }
+td.lk-cell-run > *, td.lk-cell-res > *, td.lk-cell-tier > *, td.lk-cell-lu > * { justify-content: center; }
+td.lk-cell-lk { text-align: right; }
+td.lk-cell-act { text-align: right; }
+.lk-tbl th.lk-h-lk { text-align: right; }
+.lk-tbl th.lk-h-say { text-align: left; }
+.lk-tbl th { text-align: center; font-size: 10.5px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--text3); background: var(--surface2);
+  border-bottom: 1px solid var(--border); padding: 9px 7px; }
+
+/* The sentence. It runs on ONE line: the two-line clamp below was written for a 21% column and
+ * this one is a third of the table, so wrapping there now only breaks the sentence in half. */
+.lk-say { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.lk-say .lk-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block; -webkit-line-clamp: none; min-width: 92px; }
+.lk-say .lk-ava { flex: none; }
+/* the strip and its count must not sit on top of each other when the column is tight */
+td.lk-cell-run .lk-runwrap { flex-wrap: nowrap; }
+td.lk-cell-run .lk-cnt { flex: none; }
+.lk-verb { font-size: 17px; font-weight: 600; font-stretch: 88%; color: var(--text3);
+  white-space: nowrap; letter-spacing: -.02em; flex: none; }
+.lk-onnarrow { display: none; }
+.lk-evlabel { display: none; }
+
+/* THREE GRADES, THREE FILLS. Strong and Solid were two greens a few points apart in value and read
+ * as the same badge down a column. Fill differs as well as hue, which is what survives a glance, a
+ * small screen and a colour-blind reader. Scoped to this table so no other screen shifts under it. */
+.lk-tbl .k-tier--strong { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.lk-tbl .k-tier--strong .k-dots i { background: var(--on-accent); }
+.lk-tbl .k-tier--solid { background: var(--brand); color: var(--on-brand); border-color: transparent; }
+.lk-tbl .k-tier--solid .k-dots i { background: var(--on-brand); }
+.lk-tbl .k-tier--watch { background: var(--surface1); color: var(--text3); border: 1px solid var(--border-strong); }
+.lk-tbl .k-tier--watch .k-dots i { background: var(--text3); }
+
+/* The result: the grade badge's geometry, a TINT rather than a fill. The grade is a judgement we
+ * are making and the thing the feed sorts by; the result is a fact that has already settled, so it
+ * is present and legible without ever competing with the badge beside it. */
+.lk-tbl .lv-chip { display: inline-flex; align-items: center; gap: 5px; height: 21px; padding: 0 9px;
+  border-radius: 999px; border: 1px solid transparent; font-size: 11px; font-weight: 800;
+  letter-spacing: .01em; white-space: nowrap; }
+.lk-tbl .lv-chip--hit { color: var(--up); background: color-mix(in srgb, var(--up) 10%, var(--surface1));
+  border-color: color-mix(in srgb, var(--up) 22%, transparent); }
+.lk-tbl .lv-chip--miss { color: var(--down); background: color-mix(in srgb, var(--down) 9%, var(--surface1));
+  border-color: color-mix(in srgb, var(--down) 20%, transparent); }
 .lk-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
 /* Wrap to a second line rather than cut. An ellipsis in the middle of a surname is the one piece of
  * a row a reader uses to recognise who it is about, and two lines of a name fit inside the height
@@ -282,62 +341,82 @@ td.lk-cell-lu  { width: 13%; }
  */
 @media (max-width: 760px) {
   .lk-tbl, .lk-tbl tbody { display: block; }
-  .lk-tbl thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .lk-tbl { border-radius: 0; border-left: 0; border-right: 0; }
+  .lk-tbl thead { display: none; }           /* a header needs columns; a card has none */
+  .lk-tbl { border-radius: 0; border-left: 0; border-right: 0; background: none; border: 0; }
 
-  .lk-tbl tbody tr { display: grid; grid-template-columns: 58px minmax(0, 1fr); column-gap: 10px;
-    row-gap: 0; padding: 11px 12px 12px; align-items: center; }
+  /* ONE CARD PER FORECAST (docs/redesign/v10 §3). Rows divided by a hairline inside one container
+     read as a table that has been cut up; each forecast gets its own surface, border and radius. */
+  .lk-tbl tbody { display: flex; flex-direction: column; gap: 12px; padding: 12px; }
+  .lk-tbl tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px; padding: 16px; align-items: start;
+    background: var(--surface1); border: 1px solid var(--border); border-radius: 16px; }
   .lk-tbl tbody tr td { padding: 0; }
-  /* the desktop row separator is more specific than a plain `tr td`, so it leaks into the cards
-     as hairlines across the middle of every one. Inside a card there is nothing to separate. */
   .lk-tbl tbody tr + tr:not(.lk-whyrow) td, .lk-tbl tbody tr td { border-top: 0 !important; }
+  .lk-tbl tbody tr:hover td { background: none; }
 
-  /* ---------------------------------------------------------------- docs/77
-   * The row folds into four bands rather than becoming a poster. The number moves up beside the
-   * controls, into the only corner the row leaves empty, with the badge over it -- it is the figure
-   * the row delivers and it belongs where the eye lands. That also hands the strip the full width,
-   * which is the other thing it was short of: 203px before, 290px after.
-   *
-   * Band gaps are set to come out EVEN to the eye, not even in the margins. The departure line and
-   * the lineup line carry line-box leading above and below their glyphs, so equal margins read as
-   * unequal gaps: 14 / 27 / 26 measured, against 16 / 18 / 18 with the margins below. */
-  .lk-tbl tbody tr { grid-template-columns: 1fr auto; column-gap: 0; padding: 12px 14px; align-items: start; }
+  /* Band 1 -- the sentence, with the answer beside it. Band 2 -- the evidence in a labelled panel.
+     Band 3 -- the result and the lineup. Band 4 -- the controls, under a hairline.
+     One left edge, 16px gutter, and every band closes on the right: anchoring everything left gave
+     the card a hard left edge and a ragged right one, dense on one side and empty on the other. */
+  /* The sentence spans the first two rows of its column, so the badge can sit directly under the
+     figure without stealing a line -- and the evidence panel gets the full width underneath. */
+  td.lk-cell-say  { grid-area: 1 / 1 / 3 / 2; text-align: left; }
+  td.lk-cell-lk   { grid-area: 1 / 2; text-align: right; }
+  td.lk-cell-tier { grid-area: 2 / 2; justify-self: end; text-align: right; }
+  td.lk-cell-run  { grid-area: 3 / 1 / auto / -1; }
+  td.lk-cell-res  { grid-area: 4 / 1; justify-self: start; text-align: left; }
+  td.lk-cell-lu   { grid-area: 4 / 2; justify-self: end; text-align: right; }
+  td.lk-cell-why  { grid-area: 5 / 1; justify-self: start;
+    padding-top: 12px; border-top: 1px solid var(--border) !important; }
+  td.lk-cell-act  { grid-area: 5 / 2; justify-self: end;
+    padding-top: 12px; border-top: 1px solid var(--border) !important; }
 
-  td.lk-cell-who { grid-column: 1; grid-row: 1; min-width: 0; width: 100%; }
-  td.lk-cell-fx  { grid-column: 2; grid-row: 1; display: table-cell; text-align: right; width: auto; }
-  td.lk-cell-mk  { grid-column: 1; grid-row: 2; margin-top: 16px; width: 100%; }
-  td.lk-cell-lk  { grid-column: 2; grid-row: 2; margin-top: 16px; padding-left: 14px; width: auto;
-    display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-end; height: auto; }
-  td.lk-cell-run { grid-column: 1 / -1; grid-row: 3; margin-top: 14px; width: 100%; }
-  td.lk-cell-lu  { grid-column: 1 / -1; grid-row: 4; margin-top: 14px; width: 100%; }
+  /* The sentence wraps; the name may never be truncated. The two changeable words are set at the
+     SIZE AND WEIGHT OF THE WORDS around them -- they were bold pills in regular prose, which reads
+     as machinery dropped into a line of text. */
+  .lk-say { flex-wrap: wrap; align-items: baseline; row-gap: 10px; }
+  .lk-say .lk-name { font-size: 18px; white-space: normal; overflow: visible; }
+  .lk-verb { font-size: 18px; }
+  .lk-onwide { display: none; }
+  .lk-onnarrow { display: inline; }
+  .lk-figure { font-size: 40px; }
 
-  /* The number is the figure the whole row exists to deliver; at desktop size here it sat under a
-     band of empty space left by the taller chart beside it. Take the space. */
-  .lk-lk .lk-figure { font-size: 40px; letter-spacing: -.035em; }
-  .lk-lk .lk-figure u { font-size: 17px; }
-  .lk-lk-top { height: auto; justify-content: flex-end; }
-  .lk-rg { font-size: 12px; margin-top: 3px; text-align: right; }
-  .lk-tiercell { margin: 0 0 6px; }
-  .lk-rescell { margin-top: 7px; }
+  /* The evidence, in a panel of its own, so the proof is visibly a separate object from the claim
+     and the label says what the bars mean without opening Why. */
+  td.lk-cell-run { background: color-mix(in srgb, var(--brand) 4%, var(--surface1));
+    border: 1px solid color-mix(in srgb, var(--brand) 11%, transparent);
+    border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .lk-evlabel { display: block; font-size: 10px; font-weight: 800; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--text3); }
+  td.lk-cell-run .lk-runwrap { width: 100%; }
+  td.lk-cell-run .lk-runbox { flex: 1 1 auto; min-width: 0; padding-left: 22px; }
+  td.lk-cell-run .lk-run { width: auto; flex: 1 1 auto; height: 46px; }
+  td.lk-cell-run .lk-run i { flex: 1 1 0; width: auto; max-width: 22px; min-width: 0; }
 
-  /* Each row is its own rounded card. The decade headings that used to separate them are gone:
-     they named a grouping the numbers already make obvious, and a card does the separating
-     without a word. (That also removes the slot the scored-calibration clause was going to sit
-     in -- when there is a record to state it needs a new home.) */
-  .lk-tbl { background: none; border: 0; }
-  .lk-tbl tbody tr { margin: 0 8px 10px; border: 1px solid var(--border); border-radius: 16px;
-    background: var(--surface1); }
-  .lk-tbl tbody tr:first-child { margin-top: 2px; }
-
-  /* 25px and 28px measured on a phone. The floor for a coarse pointer is 44 (docs/12 F1). */
-  .lk-mkt, .lk-mkt--one { height: 44px; font-size: 15px; max-width: 180px; }
-  .lk-mktlist { top: 50px; }
-  .lk-step { height: 46px; }
-  .lk-step button { width: 38px; font-size: 17px; }
-  .lk-step b { min-width: 44px; font-size: 15px; }
-  .lk-tbl .lk-why { min-height: 44px; padding: 4px 8px; }
-  .lk-tbl .lk-add, .lk-tbl .lk-lucell .k-save { width: 44px; height: 44px; }
-  .lk-acts { gap: 2px; }
+  /* THE TWO CHANGEABLE WORDS ARE WORDS. They were pills: same height as the prose around them but
+     twice the weight and wrapped in a box, so they read as machinery dropped into a line of text.
+     Here they take the size and weight of the sentence and say they are changeable with the brand
+     colour and a dotted rule under them. The 44px target is a pseudo-element that costs no ink --
+     the trick the product already uses for its small controls. */
+  .lk-mkt, .lk-mkt--one, .lk-tk, .lk-tk--one {
+    background: none; border: 0; border-radius: 0; padding: 0 0 2px; min-height: 0; height: auto;
+    max-width: none; font: inherit; font-size: 18px; font-weight: 800; letter-spacing: -.022em;
+    color: var(--brand); position: relative; white-space: nowrap;
+    display: inline-flex; align-items: baseline; gap: 3px;
+    border-bottom: 2px dotted color-mix(in srgb, var(--brand) 42%, transparent); }
+  .lk-mkt::after, .lk-tk::after { content: ""; position: absolute; left: -6px; right: -6px;
+    top: 50%; height: 44px; transform: translateY(-50%); }
+  .lk-mkt em { font-style: normal; }
+  .lk-mkt svg, .lk-tk svg { opacity: .55; margin-left: 1px; }
+  .lk-mkt.on, .lk-tk.on { background: none; color: var(--tier-strong); }
+  .lk-mktwrap, .lk-tkwrap { display: inline-flex; }
+  .lk-step { display: none; }                  /* the stepper is the wide-screen control */
+  .lk-mktlist, .lk-tklist { top: 50px; }
+  .lk-tbl .lk-why { min-height: 44px; padding: 0 14px; }
+  /* The save control is Actions.jsx's `icon-btn`, not a class of this stylesheet's own -- it was
+     36px here while everything beside it was 44. */
+  .lk-tbl .lk-add, .lk-tbl .k-save, .lk-tbl .lk-acts .icon-btn { width: 44px; height: 44px; }
+  .lk-acts { gap: 8px; }
 
   .lk-whyrow { display: block !important; padding: 0 !important; }
   .lk-whyrow td { display: block; padding: 0 14px 14px; }

@@ -347,6 +347,38 @@ STAT_LABEL = {"shots": ("shot", "shots"), "sot": ("shot on target", "shots on ta
               "goals": ("goal", "goals"), "match_goals": ("goal", "goals")}
 
 
+# The VERB each market takes, beside the noun it takes (docs/redesign/v10 §1).
+#
+# The card writes the forecast as a sentence -- "Marcus Linday makes 2+ tackles" -- and the market
+# is a control the reader can change. Change it and the verb has to change with it: a player TAKES
+# shots, MAKES tackles, COMMITS fouls, WINS corners and SCORES goals. "Linday makes 2+ shots" is not
+# English, and a sentence that only parses for the market it was written for breaks at exactly the
+# moment the reader starts exploring, which is the whole point of making the market changeable.
+#
+# Two forms, because the subject's number changes: a player is singular and a club is plural in the
+# product's own voice -- the card already says "their usual" for a club and "his usual" for a player.
+# So: "Linday makes" and "SC Heerenveen take".
+#
+# This lives next to STAT_LABEL because it is the same kind of fact about the same market and
+# travels the same way. In the frontend it would drift the first time a market is added here and
+# nobody thinks to update the card.
+#
+# NOT every market can be a sentence. `match_goals` has the MATCH as its subject, so no verb here
+# fits it, and an admin label from copy.market_labels will not compose either; both fall back to the
+# plain "2+ tackles" form. `verb_for` returns None for those, and the card reads that as "no claim".
+STAT_VERB = {"shots": ("takes", "take"), "sot": ("has", "have"), "tackles": ("makes", "make"),
+             "fouls_committed": ("commits", "commit"), "fouls": ("commits", "commit"),
+             "goal_involvements": ("has", "have"), "saves": ("makes", "make"),
+             "corners": ("wins", "win"), "yellow": ("picks up", "pick up"),
+             "goals": ("scores", "score")}
+
+
+def verb_for(scope: str, stat: str) -> str | None:
+    """The verb this market takes for this kind of subject, or None where it cannot be a sentence."""
+    pair = STAT_VERB.get(stat)
+    return None if pair is None else pair[1 if scope == "team" else 0]
+
+
 def label_for(db, scope, stat, thr, labels) -> str:
     """Words for a line. An admin label in copy.market_labels wins; otherwise the words are built (docs/25)."""
     key = f"{stat}:{thr:g}" if scope == "player" else f"team_{stat}:{thr:g}"

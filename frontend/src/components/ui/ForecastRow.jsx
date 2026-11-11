@@ -20,7 +20,6 @@ import { useCombo } from "../../lib/combo";
 import Icon from "../Icon";
 
 const RH = 26;                                   // run strip height in px
-const POS = { G: "GK", D: "DEF", M: "MID", F: "FWD" };
 
 // `thr` is a 0.5-style line, so 1.5 is the card talking about 2 or more.
 const need = (thr) => Math.floor(Number(thr)) + 1;
@@ -92,11 +91,24 @@ function Run({ games, n }) {
 
 function Why({ f, n, p, lo, hi, cleared, played, more = [], topMore = null }) {
   const lu = lineupWords(f);
+  // The departure used to sit on the face of the row. v10 takes it off -- it is a "now and then"
+  // read, and the row is a sentence plus its evidence -- but it is NOT dropped: it is the more
+  // useful half of what the tier badge used to compress (docs/61), and this is where it lands.
+  const dep = f.p_usual == null ? null : Math.round((f.p - f.p_usual) * 100);
+  const clears = f.p_usual == null || f.lo == null || f.hi == null ? null : (f.lo > f.p_usual || f.hi < f.p_usual);
+  const mine = f.scope === "player" ? "his" : "their";
   return (
     <div className="lk-whybox">
       <h4>Why {pct(p / 100)}</h4>
       <ul>
         <li>He has reached {lineWords(f, n)} in {cleared === played ? `all ${played}` : cleared} of his last {played} appearances.</li>
+        {dep != null && (
+          <li data-testid={`lk-why-dep-${f.id}`}>
+            That is <b>{Math.abs(dep)} {Math.abs(dep) === 1 ? "point" : "points"}</b>{" "}
+            {dep >= 0 ? "above" : "below"} {mine} usual <b>{pct(f.p_usual)}</b>
+            {clears != null && <> &mdash; {clears ? "the likely range is clear of it" : "the likely range still reaches it"}</>}.
+          </li>
+        )}
         {lu.why && <li>{lu.why}</li>}
         {(f.reasons || []).slice(0, 2).map((r, i) => <li key={i}>{r}</li>)}
         {topMore?.market && (
@@ -128,6 +140,9 @@ function Why({ f, n, p, lo, hi, cleared, played, more = [], topMore = null }) {
 //
 // `actual` is shown when we have it, because "did not happen" and "2, where 3 were needed" are
 // different amounts of information and we hold the second.
+// A mark and the number (docs/redesign/v10 §1). "Happened -- 3" in a tinted pill was two things --
+// a verdict and a count -- wrapped in furniture. The mark carries the verdict, "got 3" carries the
+// number, and the mark means colour is never doing that job on its own.
 function Result({ t, outcome, needed, id }) {
   if (outcome) {
     if (outcome.played === false) {
@@ -135,10 +150,10 @@ function Result({ t, outcome, needed, id }) {
     }
     const got = outcome.actual == null ? null : Math.round(outcome.actual * 10) / 10;
     return outcome.reached
-      ? <span className="lv-chip lv-chip--hit" data-testid={`${id}-hit`}><Icon name="check" size={14} />
-          Happened{got == null ? "" : ` \u2014 ${got}`}</span>
-      : <span className="lv-chip lv-chip--miss" data-testid={`${id}-missed`}>
-          Did not happen{got == null ? "" : ` \u2014 ${got} of ${needed}`}</span>;
+      ? <span className="lv-chip lv-chip--hit" data-testid={`${id}-hit`}><Icon name="check" size={13} />
+          {got == null ? "Happened" : `got ${got}`}</span>
+      : <span className="lv-chip lv-chip--miss" data-testid={`${id}-missed`}><Icon name="x" size={13} />
+          {got == null ? "Did not happen" : `got ${got}`}</span>;
   }
   if (!t || t.state === "unknown") return null;
   if (t.state === "hit") return <span className="lv-chip lv-chip--hit" data-testid={`${id}-hit`}><Icon name="check" size={14} />Happened</span>;
@@ -153,7 +168,7 @@ function Result({ t, outcome, needed, id }) {
 //
 // Ordered likeliest first, with each market's own number beside it, so the choice is informed. The
 // percentages come from the server's `markets`, each one that stat's own lead rung.
-function MarketPicker({ markets, stat, onPick, id }) {
+function MarketPicker({ markets, stat, onPick, id, noun }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
   useEffect(() => {
@@ -165,7 +180,10 @@ function MarketPicker({ markets, stat, onPick, id }) {
     return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
   }, [open]);
   const here = markets.find((m) => m.stat === stat) || markets[0];
-  const label = here?.market || here?.stat || "Market";
+  // Inside a sentence the control is the NOUN alone -- "tackles" -- because the line is already a
+  // word of its own beside it, and "2+ tackles" there would say the number twice. Where the row
+  // cannot be a sentence the full label stands on its own, as it always did.
+  const label = noun || here?.market || here?.stat || "Market";
   if (markets.length < 2) return <span className="lk-mkt lk-mkt--one">{label}</span>;
   return (
     <span className="lk-mktwrap" ref={box}>
@@ -207,6 +225,53 @@ function Stepper({ rows, cur, onPick, noun, id }) {
       <b data-testid={`lk-step-n-${id}`}>{cur}+</b>
       <button type="button" onClick={() => go(1)} disabled={hi} aria-label={`More ${noun}`}
               title={hi ? "No higher line for this market" : ""} data-testid={`lk-step-up-${id}`}>+</button>
+    </span>
+  );
+}
+
+// The LINE, as a list of the rungs with their own percentages.
+//
+// The stepper beside it does the same job by walking one rung at a time, and on a wide screen that
+// is the better control: it is three targets and shows the consequence immediately. On a phone the
+// line is set as a WORD inside the sentence (docs/redesign/v10 §3), and a word cannot be stepped --
+// so there it opens this instead, which is also the more informative of the two: it shows the shape
+// of the fall, 94 / 64 / 26, rather than one rung at a time.
+//
+// Both are rendered and the stylesheet shows one per width. That is duplicated markup on purpose:
+// the alternative is a single control that is a stepper at one width and a menu at the other, which
+// is two interaction models wearing one set of ARIA.
+function LinePicker({ rows, cur, onPick, noun, id }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  if (rows.length < 2) return <span className="lk-tk lk-tk--one">{cur}+</span>;
+  return (
+    <span className="lk-tkwrap" ref={box}>
+      <button type="button" className={"lk-tk" + (open ? " on" : "")} aria-expanded={open}
+              aria-haspopup="listbox" aria-label={`How many ${noun}`}
+              onClick={() => setOpen(!open)} data-testid={`lk-line-${id}`}>
+        {cur}+<Icon name="chevron-down" size={11} />
+      </button>
+      {open && (
+        <span className="lk-tklist" role="listbox" data-testid={`lk-linelist-${id}`}>
+          <span className="lk-mkthd">The line</span>
+          {rows.map((r) => (
+            <button key={r.n} type="button" role="option" aria-selected={r.n === cur}
+                    className={r.n === cur ? "on" : ""}
+                    onClick={() => { onPick(r.n); setOpen(false); }}
+                    data-testid={`lk-lineopt-${id}-${r.n}`}>
+              {r.n}+ {noun}<em>{pct(r.p)}</em>
+            </button>
+          ))}
+        </span>
+      )}
     </span>
   );
 }
@@ -261,21 +326,16 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
   const res = n === chosen ? (cur.outcome || f.outcome || null) : null;
   const tk = n === chosen ? track?.[cur.fkey] : null;
   const words = lineWords(cur, n);
-  const pos = POS[f.pos] || f.pos;
   // A settled match showed its KICK-OFF time, so a game played this morning read as one starting
   // at 09:00. The clock is only news before the whistle; afterwards the news is that it is over.
   const done = f.status === "final";
   const ko = done ? "FT" : (f.kickoff ? utc(f.kickoff).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
   // The four things ForecastCard carried and this row did not. Same fields, same arithmetic and
   // the same words as the card, so a reader who learnt them there reads them here unchanged.
-  const dep = cur.p_usual == null ? null : Math.round((cur.p - cur.p_usual) * 100);
-  const dir = cur.p_usual == null ? "" : cur.p >= cur.p_usual ? "is-up" : "is-down";
-  const clears = cur.p_usual == null || cur.lo == null || cur.hi == null ? null : (cur.lo > cur.p_usual || cur.hi < cur.p_usual);
   const more = [...(f.more_lines || [])].sort((a, b) => b.p - a.p);
   // Named, not teased: a safer line behind "+N more lines" used to be invisible behind a smaller
   // number on the face of the card.
   const topMore = more.length && f.p != null && more[0].p > f.p ? more[0] : null;
-  const mine = f.scope === "player" ? "his" : "their";
   // Changing market changes which rung is the lead one, so a line the reader stepped to in the
   // old market is meaningless in the new one. Reset it with the market rather than carry it over.
   const pickMarket = (st) => { setStat(st); setPick(null); };
@@ -287,93 +347,79 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
   // "vs" with nobody after it is what the match page reported, and six more screens now draw this
   // row from feeds that do not all carry an opponent. No name, no preposition.
   const vs = fx.opp?.name ? `${fx.homeFirst ? "vs" : "at"} ${fx.opp.name}` : "";
+  // The sentence the card is about (docs/redesign/v10 §1). The verb belongs to the market and
+  // arrives with it, so changing the market rewrites the claim rather than leaving "Linday makes
+  // 2+ shots" behind. Where a market cannot be a sentence -- `match_goals` has the match as its
+  // subject, and an admin label from copy.market_labels will not compose -- the backend sends no
+  // verb and the row falls back to printing the plain label.
+  const verb = cur.verb || null;
   return (
     <>
       <tr className={`${open ? "lk-open " : ""}${under ? "lk-under" : ""}`} data-testid={`lk-row-${f.id}`}>
-        <td className="lk-cell-who">
-          <span className="lk-who">
-            {/* A team line has no player, so it wears its crest at full size. Giving it a round
-                player avatar with its own crest pinned to the corner said "this is a person at
-                this club" about a club. */}
+        <td className="lk-cell-say">
+          <span className="lk-say">
             {f.player ? (
               <span className="lk-ava">
-                <PlayerAvatar player={f.player} size={38} />
-                <span className="lk-ava-cr"><Crest team={fx.team} size={15} /></span>
+                <PlayerAvatar player={f.player} size={34} />
+                <span className="lk-ava-cr"><Crest team={fx.team} size={14} /></span>
               </span>
             ) : (
-              <span className="lk-ava lk-ava--club"><Crest team={fx.team} size={38} /></span>
+              <span className="lk-ava lk-ava--club"><Crest team={fx.team} size={34} /></span>
             )}
             <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${fx.team?.id}`} title={who}>{shortName(who)}</Link>
-            {pos && <span className="lk-pos">{pos}</span>}
+            {verb ? <span className="lk-verb">{verb}</span> : null}
+            {/* one control, two shapes: a stepper where there is room, a word where there is not */}
+            <span className="lk-onwide"><Stepper rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
+            <span className="lk-onnarrow"><LinePicker rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
+            <MarketPicker markets={markets} stat={cur.stat} onPick={pickMarket} id={f.id} noun={verb ? nounFor(cur, n) : null} />
           </span>
+          {/* the fixture, for the phone, where its own column is folded away */}
+          <span className="lk-fx-inline">{vs} {ko}</span>
         </td>
-        <td className="lk-cell-fx lk-fx">{vs}<small>{ko}</small></td>
-        <td className="lk-cell-mk">
-          <span className="lk-line">
-            <span className="lk-q">
-              <MarketPicker markets={markets} stat={cur.stat} onPick={pickMarket} id={f.id} />
-              <Stepper rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} />
-            </span>
-            {/* the fixture, for the phone, where the fixture cell is folded away */}
-            <span className="lk-fx-inline">{vs} {ko}</span>
-            {/* Only on the rung the forecast is actually about: `p_usual` is that rung's usual, so
-                printing it beside a rung the reader stepped to would compare two different lines. */}
-            {extras && n === chosen && dep != null && (
-              <span className={"lk-dep " + dir} data-testid={`lk-dep-${f.id}`}>
-                <i aria-hidden="true">{dep > 0 ? "\u25b2" : dep < 0 ? "\u25bc" : "\u2013"}</i>
-                <b>{Math.abs(dep)} {Math.abs(dep) === 1 ? "point" : "points"}</b> {dep >= 0 ? "above" : "below"} {mine} usual <b>{pct(cur.p_usual)}</b>
-                {clears != null && <> &middot; {clears ? "clear of it" : "the likely range still reaches it"}</>}
-              </span>
-            )}
-          </span>
+        <td className="lk-cell-run">
+          <span className="lk-evlabel">Last 10 &middot; did {f.scope === "team" ? "they" : "he"} reach it</span>
+          <Run games={cur.run} n={n} />
+        </td>
+        <td className="lk-cell-res">
+          {(res || tk) && <Result t={tk} outcome={res} needed={n} id={`lk-${f.id}`} />}
         </td>
         <td className="lk-cell-lk lk-lk">
-          {/* Badge ON TOP of the number, and the block anchored to its bottom. Anchored to the top
-              instead, a row carrying a badge would push its figure lower than a row without one and
-              the percentages would stop lining up down the column -- the alignment docs/61 exists to
-              protect. Bottom-anchored, every figure sits at one height whether or not a badge sits
-              above it. Measured across eight rows: 27px from the row's bottom, all of them. */}
-          <span className="lk-tiercell">
-            {extras && rungTier && <TierBadge tier={rungTier} testid={`lk-tier-${f.id}`} />}
-          </span>
-          <span className="lk-lk-top"><span className="lk-figure">{p}<u>%</u></span></span>
-          {lo != null && hi != null && (
-            <span className="lk-data lk-rg lk-dim">{lo}&ndash;{hi}%</span>
-          )}
+          {/* The chance, and only the chance. The range is a "now and then" read and Why already
+              closes on it in full -- keeping it here made every row 100px instead of 70px for a
+              number almost nobody acts on in a list. */}
+          <span className="lk-figure">{p}<u>%</u></span>
           {under && <span className="lk-underw">Below the {under} bar &mdash; not listed by default</span>}
-          {(res || tk) && (
-            <span className="lk-rescell"><Result t={tk} outcome={res} needed={n} id={`lk-${f.id}`} /></span>
-          )}
         </td>
-        <td className="lk-cell-run"><Run games={cur.run} n={n} /></td>
+        <td className="lk-cell-tier">
+          {extras && rungTier && <TierBadge tier={rungTier} testid={`lk-tier-${f.id}`} />}
+        </td>
+        <td className="lk-cell-why">
+          <button type="button" className="lk-why" aria-expanded={open} onClick={onToggle} data-testid={`lk-why-${f.id}`}>
+            Why<span className="sr-only"> {who}, {words}, {p} percent</span> {open ? "\u25b4" : "\u25be"}
+          </button>
+        </td>
         <td className="lk-cell-lu">
-          <span className="lk-lucell">
-            <span className={`lk-lu is-${lu.cls}`} title={lu.why}>
-              {lu.cls !== "none" && <s />}{lu.word}
-              {lu.sr && <span className="sr-only">{lu.sr}</span>}
-            </span>
-            <span className="lk-acts">
-            <button type="button" className="lk-why" aria-expanded={open} onClick={onToggle} data-testid={`lk-why-${f.id}`}>
-              Why<span className="sr-only"> {who}, {words}, {p} percent</span> {open ? "▴" : "▾"}
-            </button>
-            {/* The card's two controls, which this row lost when it was extracted: follow the
-                line, and put it in a combo. A row that can be read but not kept is a worse row
-                than the card it replaced. */}
+          <span className={`lk-lu is-${lu.cls}`} title={lu.why}>
+            {lu.cls !== "none" && <s />}{lu.word}
+            {lu.sr && <span className="sr-only">{lu.sr}</span>}
+          </span>
+        </td>
+        <td className="lk-cell-act">
+          <span className="lk-acts">
             {extras && cur.fkey && <SaveButton fkey={cur.fkey} />}
             {extras && cur.fkey && cur.addable !== false && (
               <button type="button" className={"lk-add" + (has?.(cur.fkey) ? " on" : "")}
                       aria-pressed={!!has?.(cur.fkey)}
                       aria-label={`${has?.(cur.fkey) ? "Remove" : "Add"} ${who} ${cur.market} ${has?.(cur.fkey) ? "from" : "to"} your combo`}
                       onClick={() => toggle({ ...cur, player: f.player, team: f.team || fx.team })} data-testid={`lk-add-${f.id}`}>
-                <Icon name={has?.(f.fkey) ? "check" : "plus"} size={16} />
+                <Icon name={has?.(cur.fkey) ? "check" : "plus"} size={16} />
               </button>
             )}
-            </span>
           </span>
         </td>
       </tr>
       {open && (
-        <tr className="lk-whyrow"><td colSpan={6}>
+        <tr className="lk-whyrow"><td colSpan={8}>
           <Why f={cur} n={n} p={p} lo={lo} hi={hi} cleared={cleared} played={known.length} more={more} topMore={topMore} />
         </td></tr>
       )}

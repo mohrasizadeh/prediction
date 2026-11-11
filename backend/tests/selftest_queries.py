@@ -166,6 +166,20 @@ check(abs(tc["tiers"]["Solid"]["stated"] - 0.85) < 0.01,
 check(tc["tiers_scope"] == {"counted": 210, "left_out": 60},
       f"...and the page is told what was left out rather than left to imply the tiers cover everything ({tc['tiers_scope']})")
 db.forecast_outcomes.delete_many({"fkey": {"$regex": "^tco|^tcold|^tcnew"}})
+# --- docs/redesign/v10: the verb belongs to the market -------------------------------------------
+# The card writes the line as a sentence and lets the reader change the market, so the verb has to
+# change with it. "Linday makes 2+ shots" is not English; a player TAKES shots and MAKES tackles.
+import engine_bridge as _EB
+check(_EB.verb_for("player", "tackles") == "makes" and _EB.verb_for("player", "shots") == "takes",
+      "a player makes tackles and takes shots -- the verb follows the market")
+check(_EB.verb_for("team", "shots") == "take" and _EB.verb_for("team", "corners") == "win",
+      "a club is plural in the product's own voice: they take shots and win corners")
+check(_EB.verb_for("player", "fouls") == "commits" and _EB.verb_for("player", "goals") == "scores",
+      "...and every market has its own verb, not a generic one")
+check(_EB.verb_for("player", "match_goals") is None,
+      "match_goals has the MATCH as its subject, so it has no verb and falls back to the plain label")
+check(set(_EB.STAT_VERB) <= set(_EB.STAT_LABEL),
+      "no verb names a market the noun table has never heard of")
 s = Q.search(db, "player 1")
 check(s["players"] and Q.search(db, "(")["players"] == [], "search: partial match, regex characters are escaped")
 check(Q.team_form(db, t, 5)[0]["result"] in "WDL", "team_form")

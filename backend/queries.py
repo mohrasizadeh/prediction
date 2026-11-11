@@ -16,7 +16,7 @@ import referees as RF
 # The one map of stat -> (singular, plural). The "most likely" screen lets a reader move the line,
 # so it needs the words for rungs the engine did not pick a label for; building a second copy of
 # this map in JavaScript is how the two would come to disagree about "1 shot on target".
-from engine_bridge import STAT_LABEL
+from engine_bridge import STAT_LABEL, verb_for
 
 # `carrier` rows exist only so the Finder can answer a line the band did not keep (see
 # engine_bridge.select_lines). They are not forecasts the product published and must never be
@@ -530,7 +530,7 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
 # One entry per STAT, not per rung. The rungs are already inside each entry's ladder, so sending a
 # row per rung would be three to six times the payload for data the ladder already holds: measured
 # on a six-market card, eighteen rows against six.
-_MARKET_KEYS = ("id", "fkey", "scope", "stat", "market", "noun", "thr", "p", "lo", "hi", "tier",
+_MARKET_KEYS = ("id", "fkey", "scope", "stat", "market", "noun", "verb", "thr", "p", "lo", "hi", "tier",
                 "tier_note", "p_usual", "edge", "span", "pos", "ladder", "ladder_band", "ladder_tier",
                 "run", "streak", "usual_p", "usual_n", "lineup_badge", "reasons", "is_personal",
                 "starts_recent", "club_recent", "lineup_why", "addable")
@@ -920,6 +920,10 @@ def _decorate(db, fc):
         f["league_name"] = (lgs.get(f.get("league_iid")) or {}).get("name")
         f["league_id"] = (lgs.get(f.get("league_iid")) or {}).get("id")
         f["noun"] = list(STAT_LABEL.get(f.get("stat"), (f.get("stat"), f.get("stat"))))
+        # The verb travels with the noun, so the card can write the line as a sentence and rewrite
+        # it when the reader changes market (docs/redesign/v10). None where the market cannot be
+        # one -- the card falls back to the plain label.
+        f["verb"] = verb_for(f.get("scope"), f.get("stat"))
     return fc
 
 

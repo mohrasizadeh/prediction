@@ -3,9 +3,9 @@
 Two agreed designs, reached over about twenty rounds with the owner. **Open `desktop.html` at
 1366px and `phone.html` at 390px**; both run from this folder with no build step.
 
-> **This folder is the DESIGN, not the implementation.** `frontend/src/components/ui/ForecastRow.jsx`
-> and `frontend/src/styles/likely.css` still render the previous card (docs/77). Building this is
-> the next piece of work, and the prototypes here are its reference.
+> **Built.** `ForecastRow.jsx`, `ForecastList.jsx` and `likely.css` render this now, and
+> `engine_bridge.STAT_VERB` ships the verb. The prototypes stay as the reference the build was
+> checked against; §7 records where the build had to differ from them.
 
 ---
 
@@ -134,3 +134,48 @@ STAT_VERB = {"tackles": ("makes", "make"), "shots": ("takes", "take"),
 
 Shipped on each market exactly as `noun` already is (`queries.py:922`). A verb table in the frontend
 would drift the first time a market is added to the engine and nobody updates the card.
+
+---
+
+## 7. What building it changed
+
+Four things the prototypes could not tell me, found by rendering the real component:
+
+**The range came off the row.** The prototype's Chance column held only the figure, and I had kept
+`58–71%` under it out of habit. That made every row **100px instead of 70px** for a number almost
+nobody acts on in a list. It is in Why, which already closes on the likely range in full.
+
+**The departure came off the row too, and moved into Why.** The prototype has no departure. Taking
+it off was right; *dropping* it would not have been, because Why never carried it and it is the more
+useful half of what the tier badge used to compress (docs/61). It is now the second bullet of Why.
+
+**The widths live in a `<colgroup>`, not on the cells.** With `table-layout: fixed` a table takes
+its column widths from its **first** row — which is the header now — so widths set on the body's
+cells were ignored and all eight columns came out equal at 135px.
+
+**Eight columns do not fit 1078px with 24px of padding in every cell.** That is 192px spent on
+gutters, and the name paid for it, truncating to `M…`. Cell padding is 14px and the sentence takes
+42%, which is what "Marcus Linday makes 2+ tackles" needs on one line.
+
+One target was also below standard and had been for a while: the save control is Actions.jsx's
+`icon-btn`, not a class of this stylesheet, so it stayed **36px on a phone** while everything beside
+it was 44.
+
+### Pinned
+
+`scripts/v10check.js` in the design folder is the browser suite: **36 checks** against the real
+`ForecastRow` out of the built app, at 1366px and at 390px. The ones worth naming — the row reads as
+a sentence; changing the market changes the verb; no name is truncated; the grades differ in fill;
+a settled row says what they got, with a mark so colour never carries the verdict alone; eight
+columns account for the whole table and the header sits on the body's columns; rows stay near 70px;
+on a phone every target is 44px, each forecast is its own card, and the two changeable words are
+words rather than pills, at the size of the words around them.
+
+The check that pinned the originally reported bug — *stepping the line must move the range* —
+**moved into Why with the range**: it now opens the panel and reads the range there.
+
+**To re-run it.** The suite drives a harness route rather than the live page, so it does not depend
+on fixtures or a signed-in session. `scripts/CardHarness.jsx` is that harness; it is kept here and
+not in the app, because a dev-only route in `src/` is a route that ships. Copy it to
+`frontend/src/CardHarness.jsx`, add `<Route path="/dev/card" element={<CardHarness />} />` to
+`App.js`, build, then run `node docs/redesign/v10/scripts/v10check.js`. Remove both when done.
