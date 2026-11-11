@@ -3432,5 +3432,15 @@
     "public": false,
     "applies_at": "immediately",
     "help": "Lineups and player rows use the single letter; squads use the word. Both are mapped."
+  },
+  {
+    "key": "apifootball.roles",
+    "group": "Provider",
+    "label": "What each competition is for",
+    "type": "json",
+    "default": {},
+    "public": false,
+    "applies_at": "next_job",
+    "help": "{api-football league id: forecast | calendar | off}. forecast = fit models and publish cards, and ONLY these set a club's league. calendar = fixtures, results and lineups for the rotation model and the club page, no cards. Domestic divisions are forecast; cups, continental and national-team competitions are calendar (docs/81)."
   }
 ]
