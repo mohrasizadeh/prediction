@@ -1,0 +1,131 @@
+/* ============================================================================
+   Brand tokens, straight from the product's Site Studio output. Nothing invented.
+   ========================================================================== */
+@font-face { font-family:'Archivo v2'; src:url('../../../frontend/public/fonts/archivo-latin-var.woff2') format('woff2-variations');
+  font-weight:100 900; font-stretch:62% 125%; font-display:block; }
+
+:root{
+  --bg:#F4F7F3; --surface1:#FFFFFF; --surface2:#EBEEEA; --surface3:#E0E3DE;
+  --border:#D3D7D2; --border-strong:#AAAEA7;
+  --text:#22281E; --text2:#3C4238; --text3:#62685F;
+  --brand:#034737; --on-brand:#FFFFFF; --accent:#A9FF9B; --on-accent:#22281E;
+  --tier-strong:#1B8962; --tier-solid:#034737; --tier-watch:#62685F;
+  --up:#106C4F; --down:#A8372B;
+  --lk-rule:#C3CCC2;
+
+  /* ONE spacing scale. Every gap in every variant is a step on it: 4px rhythm,
+     because mixing 6/10/14 is what makes a careful layout read as careless. */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px; --s8:40px;
+
+  /* ONE type scale. Each step is a clear jump, so hierarchy reads at a glance
+     rather than being inferred from a 1px difference. */
+  --t-micro:10.5px; --t-tiny:11.5px; --t-small:12.5px; --t-body:13.5px;
+  --t-lead:15px; --t-sub:17px; --t-hero:38px; --t-hero-lg:44px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:'Archivo v2',system-ui,sans-serif;font-size:var(--t-body);
+  -webkit-font-smoothing:antialiased;}
+
+/* Numbers never reflow between rows. Non-negotiable in a column of figures. */
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* ---- shared atoms ------------------------------------------------------- */
+.av{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-size:var(--t-tiny);font-weight:800;color:#4a3a52;background:#E6D9EC;letter-spacing:.02em}
+.av.b{background:#D6E4F0;color:#2d4a63} .av.c{background:#DCE8DC;color:#33543a}
+.av.club{background:var(--surface2);color:var(--text3)}
+.pos{font-size:var(--t-micro);font-weight:800;letter-spacing:.06em;color:var(--text3);
+  background:var(--surface2);border-radius:4px;padding:2px 5px;flex:none}
+.nm{font-size:var(--t-lead);font-weight:700;letter-spacing:-.015em;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* The market: a control, never prose. */
+.mkt{display:inline-flex;align-items:center;gap:var(--s2);height:34px;padding:0 var(--s2) 0 var(--s3);
+  border:1px solid var(--border);border-radius:9px;background:var(--surface1);cursor:pointer;
+  font:inherit;font-size:var(--t-body);font-weight:800;letter-spacing:-.01em;color:var(--text);white-space:nowrap}
+.mkt svg{opacity:.45;flex:none}
+.mkt:hover{border-color:var(--border-strong)}
+
+/* The line: a stepper over the rungs the engine answered. */
+.step{display:inline-flex;height:34px;border:1px solid var(--border);border-radius:9px;
+  overflow:hidden;background:var(--surface1);flex:none}
+.step button{width:30px;border:0;background:none;color:var(--text2);font:inherit;font-size:15px;
+  font-weight:700;cursor:pointer;display:grid;place-items:center}
+.step button:hover{background:color-mix(in srgb,var(--brand) 10%,transparent);color:var(--brand)}
+.step button:disabled{opacity:.3;cursor:default}
+.step b{min-width:42px;display:grid;place-items:center;font-size:var(--t-body);font-weight:800;
+  border-left:1px solid var(--border);border-right:1px solid var(--border);background:var(--surface2);
+  font-variant-numeric:tabular-nums}
+
+/* The grade. Three dots carry the rank without needing the word to be read. */
+.tier{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;
+  font-size:var(--t-tiny);font-weight:800;letter-spacing:.01em;white-space:nowrap;border:1px solid transparent}
+.tier i{display:flex;gap:2px}
+.tier i s{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.3;text-decoration:none}
+.tier i s.on{opacity:1}
+.tier.strong{background:color-mix(in srgb,var(--tier-strong) 14%,transparent);color:#0F6B4A;border-color:color-mix(in srgb,var(--tier-strong) 28%,transparent)}
+.tier.solid{background:color-mix(in srgb,var(--tier-solid) 10%,transparent);color:var(--tier-solid);border-color:color-mix(in srgb,var(--tier-solid) 24%,transparent)}
+.tier.watch{background:var(--surface2);color:var(--text3);border-color:var(--border)}
+
+/* The figure and its range: one object, one right edge. */
+.fig{font-size:var(--t-hero);font-weight:800;letter-spacing:-.04em;line-height:.92;
+  font-variant-numeric:tabular-nums;display:inline-flex;align-items:baseline}
+.fig u{font-size:.42em;font-weight:700;text-decoration:none;margin-left:2px;letter-spacing:-.01em}
+.rg{font-size:var(--t-small);color:var(--text2);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+
+/* Departure: a metric, not a sentence. */
+.dep{display:inline-flex;align-items:baseline;gap:5px;font-size:var(--t-small);color:var(--text2);white-space:nowrap}
+.dep i{font-style:normal;font-size:9px;line-height:1}
+.dep b{font-weight:800;font-variant-numeric:tabular-nums}
+.dep.up{color:var(--up)} .dep.dn{color:var(--down)}
+.dep em{font-style:normal;color:var(--text3);font-weight:600}
+
+/* Ten games. Word-sized, per Tufte: the height of the text beside it, not a chart. */
+/* THE STRIP IS SIZED, NEVER STRETCHED. Letting the box flex while the bars capped
+ * left a baseline rule running on alone across half the row -- ten small marks at the
+ * left and a long empty line after them, which reads as a chart that failed to load.
+ * Each variant sets ONE width; the bars divide it exactly, so the rule always ends
+ * where the data ends. Tufte's test for a sparkline is that it is word-sized -- about
+ * the height of the text beside it -- so the width is chosen to keep the bars in that
+ * register rather than letting them grow into a chart. */
+.run{display:flex;align-items:flex-end;gap:3px;height:28px;border-bottom:1px solid var(--border);
+  width:var(--strip,168px);flex:none;position:relative}
+.run i{display:block;flex:1 1 0;min-width:0;border-radius:2px 2px 0 0;background:var(--lk-rule);position:relative;z-index:1}
+.run .rule{position:absolute;left:0;right:0;height:1px;z-index:0;
+  background-image:repeating-linear-gradient(to right,var(--text3) 0 3px,transparent 3px 6px)}
+.runwrap{display:flex;align-items:flex-end;gap:var(--s3);min-width:0;flex:none}
+.runbox{position:relative;padding-left:26px;flex:none}
+.need{position:absolute;left:0;width:16px;text-align:right;font-size:var(--t-micro);font-weight:800;color:var(--text2);
+  line-height:1;transform:translateY(50%);font-variant-numeric:tabular-nums}
+.need::after{content:"";position:absolute;left:calc(100% + 3px);top:50%;width:4px;height:1px;background:var(--text2);transform:translateY(-50%)}
+.cnt{font-size:var(--t-small);color:var(--text3);white-space:nowrap;font-weight:600;padding-bottom:1px}
+.cnt b{color:var(--text);font-weight:800;font-variant-numeric:tabular-nums}
+
+/* Lineup: a dot plus a word plus a weight step; never colour alone. */
+.lu{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-small);font-weight:700;white-space:nowrap;color:var(--text2)}
+.lu s{width:8px;height:8px;border-radius:50%;background:var(--text);text-decoration:none;flex:none}
+.lu.bench{color:var(--text3)} .lu.bench s{background:none;border:1.5px solid var(--text3)}
+.lu.club{color:var(--text3)} .lu.club s{display:none}
+
+/* Result of a settled line. */
+.res{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;
+  font-size:var(--t-tiny);font-weight:700;white-space:nowrap;
+  background:color-mix(in srgb,var(--tier-strong) 13%,transparent);color:#0E5C40}
+.res.no{background:var(--surface2);color:var(--text3)}
+
+/* Row actions. */
+.acts{display:flex;align-items:center;gap:var(--s1);flex:none}
+.ico{width:30px;height:30px;border-radius:999px;border:1px solid var(--border);background:var(--surface1);
+  display:grid;place-items:center;cursor:pointer;color:var(--text3);flex:none}
+.ico:hover{border-color:var(--border-strong);color:var(--text)}
+.why{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:999px;
+  border:1px solid transparent;background:none;font:inherit;font-size:var(--t-small);font-weight:700;
+  color:var(--text2);cursor:pointer}
+.why:hover{background:var(--surface2)}
+
+/* The list shell every variant sits in. */
+.list{background:var(--surface1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.row{position:relative}
+.row + .row{border-top:1px solid var(--border)}
+.row:hover{background:color-mix(in srgb,var(--brand) 3%,transparent)}

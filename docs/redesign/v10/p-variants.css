@@ -1,0 +1,65 @@
+/* ===========================================================================
+   THREE REFINEMENTS OF N1. The frame is identical in all three -- face, name
+   and answer on the top line, the sentence with the width to itself, the ten
+   games, then M10's footer. Each varies ONE thing, so the comparison is clean.
+   ========================================================================= */
+.p .card{padding:var(--s4) var(--s4) var(--s3);display:flex;flex-direction:column;gap:var(--s3)}
+.p .face{width:52px;height:52px;font-size:16px}
+.p .nm{font-size:21px}
+.p .claim{font-size:19px}
+.p .top{display:flex;align-items:center;gap:var(--s3)}
+.p .top .end{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.p .ev{display:flex;align-items:flex-end;gap:var(--s3)}
+.p .ev .run{flex:1 1 auto;height:44px}
+.p .state{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.p .foot{display:flex;align-items:center;gap:var(--s3);
+  padding-top:var(--s3);border-top:1px solid var(--border);margin-top:var(--s1)}
+.p .foot .acts{margin-left:auto}
+.p .fig{font-size:30px}
+
+/* ---- P1 · COMPACT ----------------------------------------------------------
+ * The state joins the evidence line instead of taking a band of its own. The
+ * result and the lineup are both short, the count leaves room, and the card
+ * loses a whole row without losing anything on it. */
+.p1 .ev .run{flex:1 1 auto;min-width:0}
+.p1 .ev .cnt,.p1 .ev .res{flex:none}
+.p1 .foot{gap:var(--s3)}
+.p1 .foot .why{margin-left:auto}
+
+/* ---- P2 · FRAMED EVIDENCE --------------------------------------------------
+ * The ten games sit in a tinted panel with a label on it, so the proof is
+ * visibly a separate object from the claim rather than the next thing down.
+ * Costs height; buys a clear boundary between what we say and why. */
+.p2 .proof{background:color-mix(in srgb, var(--brand) 4%, var(--surface1));
+  border:1px solid color-mix(in srgb, var(--brand) 11%, transparent);
+  border-radius:12px;padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2)}
+.p2 .proof s{text-decoration:none;font-size:10px;font-weight:800;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--text3)}
+.p2 .proof .line{display:flex;align-items:flex-end;gap:var(--s3)}
+.p2 .proof .run{flex:1 1 auto;height:46px;border-bottom-color:var(--border-strong)}
+
+/* ---- P3 · BIG ANSWER -------------------------------------------------------
+ * The figure takes the scale the row's own hierarchy says it should: it is the
+ * thing the card exists to deliver, and at 30px it was the same weight as the
+ * name. The grade sits under it rather than beside, so the number keeps the
+ * corner to itself. */
+.p3 .fig{font-size:42px;letter-spacing:-.045em}
+.p3 .top .end{gap:6px}
+.p3 .nm{font-size:19px}
+.p3 .face{width:46px;height:46px;font-size:15px}
+
+/* ---- P4 · P3's answer, P2's evidence panel ---------------------------------
+ * The figure at 42px, and the ten games in the labelled panel from P2. The two
+ * changes work on different parts of the card -- one on the answer, one on the
+ * proof -- so they combine without either giving anything up. */
+.p4 .fig{font-size:42px;letter-spacing:-.045em}
+.p4 .top .end{gap:6px}
+.p4 .nm{font-size:19px}
+.p4 .face{width:46px;height:46px;font-size:15px}
+.p4 .proof{background:color-mix(in srgb, var(--brand) 4%, var(--surface1));
+  border:1px solid color-mix(in srgb, var(--brand) 11%, transparent);
+  border-radius:12px;padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2)}
+.p4 .proof s{text-decoration:none;font-size:10px;font-weight:800;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--text3)}
+.p4 .proof .line{display:flex;align-items:flex-end;gap:var(--s3)}
+.p4 .proof .run{flex:1 1 auto;height:46px;border-bottom-color:var(--border-strong)}

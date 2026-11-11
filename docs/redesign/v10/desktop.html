@@ -1,0 +1,68 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The desktop table — v10</title>
+<link rel="stylesheet" href="v-base.css">
+<link rel="stylesheet" href="v2-atoms.css">
+<link rel="stylesheet" href="v10.css">
+<style>
+  body{padding:var(--s6)} @media(max-width:760px){body{padding:0}}
+  .vh{display:flex;align-items:baseline;gap:var(--s3);margin:0 0 var(--s3)}
+  @media(max-width:760px){.vh{padding:var(--s4) var(--s4) 0}}
+  .vh h2{margin:0;font-size:var(--t-sub);font-weight:800;letter-spacing:-.02em}
+  .vh p{margin:0;font-size:var(--t-small);color:var(--text3);font-weight:600}
+</style></head><body>
+<div class="vh"><h2>The desktop table</h2><p>Locked. Open at 1366px; the phone card is in phone.html.</p></div>
+<div class="list col" id="L"></div>
+<script src="v-data.js"></script><script src="v2-data.js"></script><script src="v4-data.js"></script>
+<script>
+const HEAD = `<div class="grid thead">
+  <span>Forecast</span><span class="c">Last 10</span><span class="c">Result</span>
+  <span class="r">Chance</span><span class="c">Grade</span><span class="c">Why</span>
+  <span class="c">Lineup</span><span class="r">&nbsp;</span></div>`;
+
+// The bars were sized in PIXELS from a height passed in JavaScript, so raising the
+// strip in CSS stretched the box and left the bars where they were -- 22px of data in
+// a 60px frame. They are percentages now, and the single CSS height governs both
+// widths without the two ever disagreeing again.
+function stripPct(g, n) {
+  const mx = Math.max(n, ...g);
+  const y = (n / mx) * 100;
+  const cleared = g.filter((v) => v >= n).length;
+  const bars = g.map((v) => {
+    const h = Math.max(4, (v / mx) * 100), hit = v >= n;
+    const fill = hit
+      ? `linear-gradient(to top, var(--brand) 0 ${Math.min(h, y)}%, var(--tier-strong) ${Math.min(h, y)}% 100%)`
+      : 'var(--lk-rule)';
+    return `<i style="height:${h.toFixed(1)}%;background:${fill}"></i>`;
+  }).join('');
+  return { cleared, html: `<span class="runbox"><span class="run">${bars}</span></span>` };
+}
+
+const tick = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+const cross = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+// "Happened — 3" in a tinted pill was two things: a verdict and a number, wrapped in
+// furniture. A mark carries the verdict in brand colour and "got 3" carries the number,
+// which is the whole of it.
+const outcome = (r) => r.res == null ? '' :
+  `<span class="res ${r.got >= r.n ? 'ok' : 'no'}">${r.got >= r.n ? tick : cross}got ${r.got}</span>`;
+
+const rowFor = (r) => {
+  const v = VERB[r.stat][r.scope === 'team' ? 1 : 0];
+  const n = NOUN[r.stat][r.n === 1 ? 0 : 1];
+  const s = stripPct(r.games, r.n);
+  return `<div class="grid row">
+    <span class="sentence"><span class="who"><span class="av ${r.cls}">${r.av || '◈'}</span>
+      <span class="nm">${r.name}</span><span class="vb">${v}</span></span>
+      <span class="toks"><button class="tok tok--n"><s>−</s><b>${r.n}+</b><s>+</s></button>
+      <button class="tok tok--m"><em>${n}</em>${svg.chev}</button></span></span>
+    <span class="anscell">${figEl(r.p)}${tierEl(r.tier)}</span>
+    <span class="evcell">${s.html}<span class="cnt"><b>${s.cleared}</b> of ${r.games.length}</span></span>
+    <span class="m-state">${outcome(r)}<span class="lud"><s></s>${r.lu}</span></span>
+    <span class="whycell"><button class="why">Why${svg.chevd}</button></span>
+    <span class="acts"><button class="ico">${svg.star}</button>
+      <button class="ico">${svg.plus}</button></span>
+  </div>`;
+};
+document.getElementById('L').innerHTML = HEAD + ROWS4.map(rowFor).join('');
+document.documentElement.setAttribute('data-ready','1');
+</script></body></html>

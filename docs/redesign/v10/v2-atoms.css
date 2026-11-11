@@ -1,0 +1,89 @@
+/* ===========================================================================
+   NEW ATOMS for the second set. Everything else comes from v-base.css, so the
+   spacing scale, type scale, palette and controls are identical to the first
+   five -- what changes here is what the row ENCODES, not where it sits.
+   ========================================================================= */
+
+/* --- the probability meter -------------------------------------------------
+ * The research line on uncertainty is that a point estimate plus an interval is
+ * the classic encoding and that no single form carries uncertainty alone. As
+ * text, "64%  58-71%" makes the reader do the arithmetic and gives them nothing
+ * to compare against. Drawn, the same three facts become spatial: the fill is
+ * the estimate, the paler band is the range, and the ticks are where Watch,
+ * Solid and Strong begin -- so a reader sees not just how likely, but how close
+ * it came to being a better grade. */
+/* The interval is the loudest mark, not the fill. A solid 0-to-p bar reads as a
+ * quantity filling up and buries the range inside itself; the encoding the research
+ * names is a point with an interval around it. So: a faint fill for "how far along",
+ * the LIKELY RANGE solid on top of it, and a hard marker at the number itself.
+ * The tick labels sit BELOW the track -- above, they landed in the same band as the
+ * figure and the range and collided with both. */
+.meter{position:relative;height:12px;border-radius:999px;background:var(--surface3);overflow:visible;width:100%}
+.meter .fillbar{position:absolute;top:0;bottom:0;left:0;border-radius:999px;
+  background:color-mix(in srgb,var(--brand) 20%,transparent)}
+.meter .band{position:absolute;top:0;bottom:0;border-radius:999px;background:var(--brand)}
+.meter .pt{position:absolute;top:-4px;width:3px;height:20px;border-radius:2px;background:var(--text);
+  transform:translateX(-50%);box-shadow:0 0 0 1.5px var(--surface1)}
+.meter .tick{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--border-strong);transform:translateX(-50%)}
+.meter .tick s{position:absolute;bottom:-17px;left:50%;transform:translateX(-50%);font-size:9.5px;font-weight:800;
+  color:var(--text3);text-decoration:none;letter-spacing:.03em;white-space:nowrap}
+.meterwrap{display:flex;flex-direction:column;gap:var(--s2);min-width:0;flex:1 1 auto;padding-bottom:18px}
+.meterlbl{display:flex;align-items:baseline;gap:var(--s2);font-size:var(--t-small);color:var(--text3);font-weight:600}
+.meterlbl b{font-size:var(--t-sub);font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+/* Where the figure is already printed beside the meter, the label must not print it
+   again: one number, said once, is the whole point of the claim. */
+.gauge .meterlbl b, .gauge .meterlbl .lbl,
+.underline .meterlbl b, .underline .meterlbl .lbl,
+.vA3 .meterlbl b, .vA3 .meterlbl .lbl{display:none}
+.meterlbl .rg{margin-left:auto}
+
+/* --- the whole ladder, not one rung ----------------------------------------
+ * The line is the one thing the reader is invited to move, and a stepper shows
+ * the consequence only after they move it. Printing the rungs together turns
+ * the question "what if I asked for one more?" into something already answered
+ * on the row, and shows the SHAPE of the fall -- which is the real content of a
+ * distribution and is invisible in a single number. */
+.lad{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:10px;overflow:hidden;flex:none}
+.lad button{appearance:none;border:0;background:var(--surface1);font:inherit;cursor:pointer;padding:7px 12px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;min-width:66px;color:var(--text3)}
+.lad button + button{border-left:1px solid var(--border)}
+.lad button s{font-size:var(--t-tiny);font-weight:800;text-decoration:none;letter-spacing:.01em}
+.lad button b{font-size:var(--t-lead);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--text2)}
+.lad button:hover{background:var(--surface2)}
+.lad button.on{background:var(--brand);color:color-mix(in srgb,#fff 72%,transparent)}
+.lad button.on b{color:#fff}
+.lad button.off{opacity:.45}
+
+/* --- the tier rail ---------------------------------------------------------
+ * Grade as a 3px edge rather than a pill. It costs no horizontal space, never
+ * moves, and down a long list it is the fastest sort the eye can do. The word
+ * is still printed, because colour alone must never carry meaning. */
+.rail{position:absolute;left:0;top:0;bottom:0;width:3px}
+.rail.strong{background:var(--tier-strong)} .rail.solid{background:var(--tier-solid)}
+.rail.watch{background:var(--border-strong)}
+.tierword{font-size:var(--t-tiny);font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.tierword.strong{color:#0F6B4A} .tierword.solid{color:var(--tier-solid)} .tierword.watch{color:var(--text3)}
+
+/* --- the editorial claim ---------------------------------------------------
+ * The product's output is a sentence -- "he makes two or more tackles" -- and
+ * every layout so far has broken it into labelled parts. Set as a claim it is
+ * read rather than parsed, which is the register the blog and the share image
+ * already use. The variable font's width axis does the work. */
+.claim{font-size:20px;font-weight:700;letter-spacing:-.025em;line-height:1.25;color:var(--text);margin:0}
+.claim em{font-style:normal;font-stretch:88%;color:var(--text3);font-weight:600}
+.claim b{font-weight:800}
+
+/* --- a real column header --------------------------------------------------
+ * Every design so far asks the reader to infer what each column is. A header
+ * says it once, which is the cheapest clarity available and the thing that lets
+ * the rows themselves get short. */
+.thead{display:grid;gap:var(--s4);padding:var(--s2) var(--s5);background:var(--surface2);
+  border-bottom:1px solid var(--border);font-size:var(--t-micro);font-weight:800;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--text3)}
+.thead .r{text-align:right}
+
+/* At 390px the ticks sit ~30px apart and "Solid" and "Strong" run into each other --
+   "SolidStrong" on one line, which is worse than no label at all. On a narrow track the
+   labels move to a legend under it; on a wide one the legend is the redundant thing. */
+.mlegend{display:none;font-size:var(--t-micro);font-weight:700;color:var(--text3);letter-spacing:.02em}
+.mlegend b{font-weight:800;color:var(--text2);font-variant-numeric:tabular-nums}

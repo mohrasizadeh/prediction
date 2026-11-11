@@ -1,0 +1,65 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The phone card — v10</title>
+<link rel="stylesheet" href="v-base.css">
+<link rel="stylesheet" href="m-base.css">
+<link rel="stylesheet" href="p-variants.css">
+<style>body{background:var(--bg)}
+ .vh{padding:var(--s4) var(--s4) 0}
+ .vh h2{margin:0;font-size:16px;font-weight:800;letter-spacing:-.02em}
+ .vh p{margin:2px 0 0;font-size:12px;color:var(--text3);font-weight:600}
+ section{margin-bottom:var(--s5)}</style></head><body>
+<div id="all"></div>
+<script src="v-data.js"></script><script src="v2-data.js"></script><script src="v4-data.js"></script>
+<script>
+const chev='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+const star='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>';
+const plus='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+const tick='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+const crs='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+const bars=(r)=>{const mx=Math.max(r.n,...r.games),y=(r.n/mx)*100;
+ return r.games.map((v)=>{const h=Math.max(5,(v/mx)*100),hit=v>=r.n;
+  return `<i style="height:${h.toFixed(1)}%;background:${hit?`linear-gradient(to top,var(--brand) 0 ${Math.min(h,y)}%,var(--tier-strong) ${Math.min(h,y)}% 100%)`:'var(--lk-rule)'}"></i>`;}).join('');};
+const cl=(r)=>r.games.filter((v)=>v>=r.n).length;
+const face=(r)=>`<span class="face ${r.cls}">${r.av||'◈'}</span>`;
+const nm=(r)=>`<span class="nm">${r.name}</span>`;
+const claim=(r)=>{const v=VERB[r.stat][r.scope==='team'?1:0],n=NOUN[r.stat][r.n===1?0:1];
+ return `<p class="claim"><em>${v}</em> <button class="tk">${r.n}+${chev}</button>
+   <button class="tk">${n}${chev}</button></p>`;};
+const fig=(r)=>`<span class="fig">${r.p}<u>%</u></span>`;
+const tier=(r)=>{const k={strong:3,solid:2,watch:1}[r.tier],w={strong:'Strong',solid:'Solid',watch:'Watch'}[r.tier];
+ return `<span class="tier ${r.tier}"><i>${[1,2,3].map((i)=>`<s class="${i<=k?'on':''}"></s>`).join('')}</i>${w}</span>`;};
+const res=(r)=>r.res==null?'':`<span class="res ${r.got>=r.n?'ok':'no'}">${r.got>=r.n?tick:crs}got ${r.got}</span>`;
+const lu=(r)=>`<span class="lu"><s></s>${r.lu}</span>`;
+const run=(r)=>`<span class="run">${bars(r)}</span>`;
+const cnt=(r)=>`<span class="cnt"><b>${cl(r)}</b> of ${r.games.length}</span>`;
+const foot=()=>`<div class="foot"><button class="why">Why${chev}</button>
+ <span class="acts"><button class="ico">${star}</button><button class="ico">${plus}</button></span></div>`;
+const topRow=(r)=>`<div class="top">${face(r)}${nm(r)}<span class="end">${fig(r)}${tier(r)}</span></div>`;
+
+const V={
+ // the result rides with the count it belongs to, and the lineup moves into the
+ // footer beside Why -- a band disappears instead of merely moving
+ p1:(r)=>`<div class="card">${topRow(r)}${claim(r)}
+   <div class="ev">${run(r)}${cnt(r)}${res(r)}</div>
+   <div class="foot">${lu(r)}<button class="why">Why${chev}</button>
+     <span class="acts"><button class="ico">${star}</button><button class="ico">${plus}</button></span></div></div>`,
+ p2:(r)=>`<div class="card">${topRow(r)}${claim(r)}
+   <div class="proof"><s>Last 10 · did ${r.scope === 'team' ? 'they' : 'he'} reach it</s>
+     <span class="line">${run(r)}${cnt(r)}</span></div>
+   <div class="state">${res(r)}${lu(r)}</div>${foot()}</div>`,
+ p4:(r)=>`<div class="card">${topRow(r)}${claim(r)}
+   <div class="proof"><s>Last 10 · did ${r.scope === 'team' ? 'they' : 'he'} reach it</s>
+     <span class="line">${run(r)}${cnt(r)}</span></div>
+   <div class="state">${res(r)}${lu(r)}</div>${foot()}</div>`,
+ p3:(r)=>`<div class="card">${topRow(r)}${claim(r)}
+   <div class="ev">${run(r)}${cnt(r)}</div>
+   <div class="state">${res(r)}${lu(r)}</div>${foot()}</div>`,
+};
+const T={p4:['The phone card','Locked. 42px figure, labelled evidence panel, footer controls.']};
+const rows=ROWS4.slice(0,3);
+document.getElementById('all').innerHTML=['p4'].map((k)=>
+ `<section id="s-${k}" class="m p ${k}"><div class="vh"><h2>${T[k][0]}</h2><p>${T[k][1]}</p></div>
+  <div class="list">${rows.map((r)=>V[k](r)).join('')}</div></section>`).join('');
+document.documentElement.setAttribute('data-ready','1');
+</script></body></html>

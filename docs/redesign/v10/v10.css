@@ -1,0 +1,249 @@
+/* ===========================================================================
+   DESKTOP: the sentence is ONE column again.
+   ---------------------------------------------------------------------------
+   Splitting the name, the verb, the line and the market into four columns made
+   them align -- and stopped them reading as a sentence, because the verb had to
+   be flung to the right edge of its cell to make the alignment work, which left
+   "Marcus Linday ....... makes". One cell, natural spacing, so it reads the way
+   it is meant to: "Marcus Linday makes 2+ tackles".
+
+   The cell is still a FIXED width, so everything after it -- the ten games, the
+   result, the chance, the grade, the lineup, the controls -- keeps its column.
+   The trade is honest and it is the one asked for: the tokens inside the
+   sentence now sit where the words put them, and the six data columns to their
+   right do not move.
+   ========================================================================= */
+.col{--strip:88px;
+  --c-sentence:500px; --c-ev:150px; --c-res:128px;
+  --c-chance:74px; --c-grade:96px; --c-why:74px; --c-lu:92px; --c-act:84px}
+.col .grid{display:grid;align-items:center;gap:0 var(--s3);
+  grid-template-columns:var(--c-sentence) var(--c-ev) var(--c-res) var(--c-chance)
+                        var(--c-grade) var(--c-why) var(--c-lu) var(--c-act);
+  padding:0 var(--s6)}
+.col .sentence{grid-area:1/1;display:flex;align-items:center;gap:9px;min-width:0}
+.col .evcell{grid-area:1/2} .col .res{grid-area:1/3}
+.col .fig{grid-area:1/4;justify-self:end} .col .tier{grid-area:1/5}
+.col .whycell{grid-area:1/6;justify-self:center}
+.col .lud{grid-area:1/7} .col .acts{grid-area:1/8}
+/* Both wrappers exist for the phone, where these parts group into bands. On desktop
+ * they dissolve so each cell is a grid item in its own right -- without this the
+ * lineup was auto-placed INSIDE the result's column, stacked under the chip, and the
+ * Lineup column sat empty beside it. */
+.col .anscell, .col .m-state{display:contents}
+
+.col .thead{padding-top:var(--s3);padding-bottom:var(--s3);background:var(--surface2);
+  border-bottom:1px solid var(--border);font-size:var(--t-micro);font-weight:800;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--text3)}
+.col .thead .r{text-align:right}
+
+/* CENTRED COLUMNS. With the header and the content both centred on the column's
+ * axis they line up by construction, whatever ornament sits in front of the text --
+ * which is the thing that defeated edge-alignment a moment ago. Chance keeps its
+ * right edge: it is a column of numbers, and numbers align on the right or they
+ * cannot be compared down a page.
+ *
+ * (The ink note below is kept because the insets are now gone.) */
+.col .thead .c{text-align:center}
+.col .evcell, .col .res, .col .tier, .col .lud, .col .whycell{justify-self:center}
+.col .evcell{justify-content:center}
+
+/* ALIGN THE INK, NOT THE BOXES.
+ * Every cell in these three columns puts something in front of its text, and a
+ * different something each time: the result chip has 9px of padding, the grade
+ * badge has 8px of padding AND three dots AND a gap (30px in all), the lineup
+ * has a 6px dot and a 6px gap (12px). The boxes all sat on the column line, so
+ * by the measure that matters -- where the first letter lands -- the header and
+ * the content were out by 9, 30 and 12px respectively, each by a different
+ * amount, which is what reads as three columns that will not line up.
+ *
+ * The headers take the same lead-in as the content beneath them, so label and
+ * word share an edge. Pulling the content left instead would drag the grade
+ * badge 30px into the chance column. */
+
+/* The row breathes, and the graph takes the height with it: at 54px the strip was
+ * 22px and read as a footnote; at 82px it is 38px and reads as the evidence it is,
+ * without the bars getting fat -- height is what makes the shape legible. */
+.col .row{padding-top:var(--s5);padding-bottom:var(--s5)}
+
+.col .nm{font-size:19px;font-weight:700;letter-spacing:-.022em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.col .vb{font-size:19px;font-weight:600;font-stretch:88%;color:var(--text3);
+  white-space:nowrap;letter-spacing:-.02em;flex:none}
+.col .av{width:26px;height:26px;font-size:10px;flex:none}
+
+/* On desktop the two controls are just words in the sentence, so the wrapper that
+ * groups them on a phone dissolves. */
+ /* On desktop the sentence is one flex line, so the two groupings inside it dissolve
+  * and every part -- face, name, verb, line, market -- sits in the same cell. */
+.col .who, .col .toks{display:contents}
+.col .tok{font-size:17px;font-weight:800;letter-spacing:-.02em;padding:4px 9px;flex:none;
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:inherit;color:var(--text)}
+.col .tok:hover{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 8%,transparent)}
+.col .tok s{text-decoration:none;font-size:15px;font-weight:700;color:var(--text3);width:15px;text-align:center}
+.col .tok--n b{min-width:30px;text-align:center;font-variant-numeric:tabular-nums}
+.col .tok--m em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.col .run{height:22px;gap:2px;width:var(--strip);flex:none;align-items:flex-end;
+  border-bottom:1px solid var(--border)}
+.col .run i{width:7px;flex:0 0 7px;border-radius:2px 2px 0 0}
+.col .rule,.col .need{display:none}
+.col .runbox{padding-left:0}
+.col .evcell{display:flex;align-items:flex-end;gap:var(--s2)}
+.col .cnt{font-size:var(--t-small);font-weight:600;color:var(--text3);padding-bottom:1px}
+.col .cnt b{font-weight:800;color:var(--text2)}
+.col .fig{font-size:28px;letter-spacing:-.035em}
+.col .tier{height:21px;padding:0 8px;font-size:11px}
+.col .tier i s{width:3.5px;height:3.5px}
+/* The result takes a shape, so it reads as a sibling of the grade badge rather than
+ * as loose text in a column of chips -- same height, same radius, same padding.
+ *
+ * MUTED ON PURPOSE. The grade is the louder of the two: it is a judgement we are
+ * making and the thing the feed is sorted by. The result is a fact that has already
+ * settled, so it gets a tint of the same brand colours rather than a fill -- present,
+ * legible, and never competing with the badge beside it. The mark carries the verdict
+ * so the colour is never doing that job alone. */
+.col .res{display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 9px;
+  border-radius:999px;border:1px solid transparent;
+  font-size:11px;font-weight:800;letter-spacing:.01em;white-space:nowrap}
+.col .res.ok{color:var(--up);
+  background:color-mix(in srgb, var(--up) 10%, var(--surface1));
+  border-color:color-mix(in srgb, var(--up) 22%, transparent)}
+.col .res.no{color:var(--down);
+  background:color-mix(in srgb, var(--down) 9%, var(--surface1));
+  border-color:color-mix(in srgb, var(--down) 20%, transparent)}
+.col .res svg{flex:none;width:12px;height:12px;stroke-width:3.5}
+.col .lud{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-small);
+  font-weight:600;color:var(--text3);white-space:nowrap}
+.col .lud s{width:6px;height:6px;border-radius:50%;background:var(--text3);text-decoration:none}
+.col .acts{display:flex;align-items:center;gap:var(--s2);justify-content:flex-end}
+
+/* ===========================================================================
+   PHONE: the ten games get the height they are worth.
+   ---------------------------------------------------------------------------
+   26px was a desktop sparkline shrunk onto a phone. Here the strip is the only
+   thing on its line and there is room, so it goes to 56px -- but the bars stay
+   16px wide rather than spreading to a third of the screen each. Height is what
+   makes a shape readable; width past a point just makes it loud, which is the
+   mistake from two rounds ago.
+   ========================================================================= */
+@media (max-width:760px){
+  .col .grid{display:block;padding:0}
+  .col .grid.thead{display:none}
+  .col .row{display:grid;grid-template-columns:minmax(0,1fr) auto;
+    gap:var(--s3) var(--s3);padding:var(--s4);border-top:1px solid var(--border);align-items:start}
+  .col .row:first-child{border-top:0}
+
+  /* EVERY CELL RESTATES ITS ROW. The desktop rules use `grid-area: 1/n`, which sets
+   * the ROW as well as the column -- so overriding only `grid-column` here left the
+   * evidence, the state and the controls all pinned to row 1, drawn on top of the
+   * name. Same family as the fault two steps ago, from the opposite direction. */
+
+  .col .av{width:34px;height:34px;font-size:11px;align-self:center}
+  .col .nm{font-size:17px;white-space:normal;overflow:visible}
+  .col .vb{font-size:17px}
+  .col .tok{min-height:44px;font-size:17px;padding:0 12px}
+  .col .tok s{width:22px;font-size:19px}
+  .col .tok--n b{min-width:34px}
+  /* Both controls belong on the same line: wrapping them individually left "2+" on
+   * one line and "tackles" on the next, which stops being a sentence. The group takes
+   * a line of its own under the name, and the two fit it with room to spare. */
+  /* On a phone the sentence dissolves instead, so its two halves become cells of the
+   * card's own grid: the name keeps column one beside the figure, and the controls get
+   * a full-width row of their own. Boxed inside the sentence's column they could only
+   * ever reach 230px of 358, which is what left the right side of every card empty. */
+  .col .sentence{display:contents}
+  .col .who{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap;grid-area:1/1}
+  .col .toks{display:flex;gap:var(--s2);grid-area:2/1/auto/-1}
+
+  .col .anscell{display:flex;flex-direction:column;align-items:flex-end;gap:5px;
+    grid-area:1/2;justify-self:end}
+  .col .fig{grid-area:auto;font-size:28px} .col .tier{grid-area:auto}
+
+  /* the evidence, at a size worth reading */
+  .col .evcell{grid-area:3/1/auto/-1;gap:var(--s3);align-items:flex-end}
+  .col .runbox{flex:none}
+  .col .run{width:auto;height:56px;gap:3px}
+  .col .run i{width:16px;flex:0 0 16px;border-radius:2px 2px 0 0}
+  .col .cnt{font-size:var(--t-body)}
+
+  .col .m-state{grid-area:4/1/auto/-1;display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+  .col .res{grid-area:auto}
+  .col .lud{grid-area:auto}
+
+  /* Why is its own column on desktop now, so on a phone it has to be told where to
+     go -- left alone it kept `grid-area: 1/6` and landed in the card's top line,
+     squeezing the name into two. It shares the controls band with the other two. */
+  .col .whycell{grid-area:5/1;justify-self:start;padding-top:var(--s2)}
+  .col .acts{grid-area:5/2;justify-self:end;justify-content:flex-end;gap:var(--s2);
+    padding-top:var(--s2)}
+  .col .acts .ico{width:44px;height:44px}
+  .col .acts .why{min-height:44px;padding:0 14px;font-size:var(--t-body)}
+}
+
+
+/* ===========================================================================
+   PHONE: GIVE THE CARD A RIGHT EDGE.
+   ---------------------------------------------------------------------------
+   The imbalance was structural, not decorative. Every band except the first was
+   anchored to the left and ended wherever its content ran out, so the card had a
+   hard left edge and a ragged right one -- dense on one side, empty on the other.
+
+   Each band now has something ON the right edge, so the card is read between two
+   edges instead of trailing off: the count closes the evidence line, the lineup
+   closes the state line, and the two icon buttons close the controls. The market
+   control takes the width left over on its own line, which is what a control of
+   that kind does on a phone anyway.
+   ========================================================================= */
+@media (max-width:760px){
+  .col .toks .tok--n{flex:0 0 auto}
+  .col .toks .tok--m{flex:1 1 auto;justify-content:space-between}
+  /* The desktop centring rules are not inside a media query, so they reached the
+   * phone and squeezed the evidence cell to its content in the middle of the card --
+   * which is why the strip had nowhere to grow into. Undo them here. */
+  .col .evcell{justify-self:stretch;justify-content:space-between}
+  .col .res, .col .tier, .col .lud{justify-self:auto}
+  .col .whycell .why{min-height:44px;padding:0 14px;font-size:var(--t-body)}
+  .col .m-state{justify-content:space-between}
+
+  /* The strip takes the room the count leaves. `width: auto` on the strip plus
+   * `flex-basis: 0` on the bars gave the container no definite size to divide, so
+   * every bar resolved to zero and the graph disappeared -- a blank line with
+   * "6 of 10" beside it. The strip is told to fill its box; the bars divide that. */
+  .col .runbox{flex:1 1 auto;min-width:0}
+  .col .run{flex:1 1 auto;width:100%;height:60px;gap:3px}
+  .col .run i{flex:1 1 0;width:auto;max-width:24px;min-width:0}
+}
+
+
+/* ===========================================================================
+   THE THREE GRADES, TOLD APART AT A GLANCE.
+   ---------------------------------------------------------------------------
+   Strong and Solid were two greens a few points apart in value, so down a long
+   column they read as the same badge. All three now differ in FILL as well as
+   hue -- filled bright, filled dark, outlined -- which is what survives a
+   glance, a small screen and a colour-blind reader, where hue alone does not.
+   Every colour is already in the palette: the accent, the brand green and the
+   neutral surface.
+   ========================================================================= */
+.col .tier{border:1px solid transparent;font-weight:800;letter-spacing:.01em}
+.col .tier.strong{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.col .tier.strong i s{background:var(--on-accent)}
+.col .tier.solid{background:var(--brand);color:var(--on-brand);border-color:transparent}
+.col .tier.solid i s{background:var(--on-brand)}
+.col .tier.watch{background:var(--surface1);color:var(--text3);border-color:var(--border-strong)}
+.col .tier.watch i s{background:var(--text3)}
+
+/* ===========================================================================
+   PHONE: ONE CARD PER FORECAST.
+   Rows separated by a hairline inside one container read as a table that has
+   been cut up. Each forecast is its own card now -- its own surface, its own
+   border, its own radius, with the page showing between them.
+   ========================================================================= */
+@media (max-width:760px){
+  .col.list{background:none;border:0;border-radius:0;overflow:visible;
+    display:flex;flex-direction:column;gap:var(--s3);padding:var(--s3)}
+  .col .row{background:var(--surface1);border:1px solid var(--border);
+    border-radius:14px;border-top:1px solid var(--border)}
+  .col .row:first-child{border-top:1px solid var(--border)}
+}
