@@ -7,14 +7,17 @@ import { Confirm, Drawer, FormError, Switch, useToast } from "../components/Ui";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { LeagueMark } from "../components/Media";
 import Icon from "../components/Icon";
-import { Card, Chip, Cost, Guard, MissingRoutes, PageHead, notMounted, num } from "./parts";
+import { Card, Chip, Cost, MissingRoutes, PageHead, notMounted, num } from "./parts";
 
-function Seasons({ lg, budget, onClose, onSaved }) {
+function Seasons({ lg, budget, perMatch, onClose, onSaved }) {
   const toast = useToast();
   const [pick, setPick] = useState(lg.backfill_seasons);
   const [err, setErr] = useState(null);
   const pending = lg.seasons.filter((s) => pick.includes(s.label) && !s.backfilled);
-  const est = pending.reduce((a, s) => a + 1 + (s.matches || 380) * 3, 0);
+  // perMatch comes from the server, because it depends on the provider: PitchAPI cost three calls
+  // a match, API-Football answers twenty fixtures at once. A literal 3 here would have overstated
+  // every backfill by sixty times (docs/81).
+  const est = pending.reduce((a, s) => a + 1 + (s.matches || 380) * (perMatch ?? 3), 0);
   const save = async () => {
     setErr(null);
     try { await put(`/admin/leagues/${lg.iid}`, { backfill_seasons: pick }); toast("Seasons saved"); onSaved(); onClose(); } catch (x) { setErr(x); }
@@ -42,6 +45,49 @@ function Seasons({ lg, budget, onClose, onSaved }) {
 }
 
 const TONES = [{ id: "top", label: "Top (e.g. Europe)" }, { id: "mid", label: "Middle (e.g. play-offs)" }, { id: "bottom", label: "Bottom (e.g. relegation)" }];
+
+// What a competition is FOR. Only a forecast competition fits models, publishes cards and sets a
+// club's league; a calendar one gives fixtures, results and lineups for the rotation model and the
+// club page. The distinction is not cosmetic: giving a cup the forecast role pools matches of
+// different standard into one frame and lets it restamp every club in the country (docs/81).
+const ROLES = {
+  forecast: { label: "Forecast", hint: "Fits models and publishes cards. Domestic divisions.", tone: "ok" },
+  calendar: { label: "Calendar", hint: "Fixtures, results and lineups only. Feeds rotation and the club page.", tone: "mute" },
+  off: { label: "Off", hint: "Known, not ingested.", tone: "mute" },
+};
+const KINDS = { league: "Division", cup: "Domestic cup", continental: "Continental", international: "National teams" };
+
+function RolePicker({ lg, onChanged }) {
+  const toast = useToast();
+  const [ask, setAsk] = useState(null);
+  const save = async (role) => {
+    try { await put(`/admin/leagues/${lg.iid}`, { role }); toast(`${lg.name}: ${ROLES[role].label}`); onChanged(); }
+    catch (x) { toast(x.message || "Could not save", "err"); }
+  };
+  const pick = (role) => {
+    // Forecast on anything but a division is allowed, and asked about, because it is the one
+    // choice here that can quietly spoil the engine's frames.
+    if (role === "forecast" && lg.kind && lg.kind !== "league") setAsk(role);
+    else save(role);
+  };
+  return (
+    <>
+      <label className="a-field a-field--inline">
+        <span className="a-muted small">Role</span>
+        <select value={lg.role || "off"} onChange={(e) => pick(e.target.value)} data-testid={`league-${lg.iid}-role`}>
+          {Object.entries(ROLES).map(([id, r]) => <option key={id} value={id}>{r.label}</option>)}
+        </select>
+      </label>
+      <Confirm open={!!ask} title={`Forecast on ${lg.name}?`} confirmLabel="Use it for forecasts anyway"
+               testid={`league-${lg.iid}-role-confirm`} onClose={() => setAsk(null)}
+               body={<div className="a-stack">
+                 <p>{KINDS[lg.kind] || lg.kind} competitions mix clubs from different divisions, or national teams with no club history.</p>
+                 <p className="muted small">The engine fits one frame per competition, so a Premier League club's shots against a fourth-tier side would be pooled with its league shots. It also means this competition sets which league its clubs belong to.</p>
+               </div>}
+               onConfirm={async () => { await save(ask); setAsk(null); }} />
+    </>
+  );
+}
 
 function Zones({ lg, onClose, onSaved }) {
   const toast = useToast();
@@ -71,6 +117,82 @@ function Zones({ lg, onClose, onSaved }) {
   );
 }
 
+// The catalogue: the competitions docs/81 says we carry, each resolved against /leagues. Nothing
+// is picked for you unless the match is unambiguous -- a league id that is quietly wrong maps one
+// competition to another and nothing downstream can tell, so Serie A in Italy and Serie A in
+// Brazil both come here rather than to a guess.
+function Catalog({ seasons, onClose, onSaved }) {
+  const toast = useToast();
+  const q = useApi("/admin/apifootball/catalog");
+  const [busy, setBusy] = useState(null);
+  const [chosen, setChosen] = useState({});
+  const confirm = async (row) => {
+    const league_id = chosen[row.key] ?? row.league_id;
+    if (!league_id) return;
+    setBusy(row.key);
+    try {
+      await post("/admin/apifootball/confirm", { key: row.key, league_id, seasons });
+      toast(`${row.name} added, switched off`); q.reload(); onSaved();
+    } catch (x) { toast(x.message || "Could not add", "err"); } finally { setBusy(null); }
+  };
+  return (
+    <Drawer open onClose={onClose} title="Add competitions" testid="af-catalog">
+      {q.loading && !q.data ? <Loading rows={6} /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : (
+        <div className="a-stack">
+          <p className="a-muted small">
+            Seasons checked: {(q.data.seasons || []).join(", ")}. A competition arrives switched off with nothing queued —
+            adding it says which competition it is, not that it has started spending.
+          </p>
+          {(q.data.errors || []).map((e, i) => <FormError key={i} error={{ message: e }} />)}
+          {[1, 2, 3].map((tier) => {
+            const rows = (q.data.rows || []).filter((r) => r.tier === tier);
+            if (!rows.length) return null;
+            return (
+              <section key={tier} className="a-stack" data-testid={`af-tier-${tier}`}>
+                <h3>Tier {tier}</h3>
+                {rows.map((r) => {
+                  const demoted = r.role === "forecast" && r.supportable_role === "calendar";
+                  return (
+                    <article key={r.key} className="a-card a-card--tight" data-testid={`af-row-${r.key}`}>
+                      <div className="a-row a-row--between">
+                        <div>
+                          <strong>{r.name}</strong> <span className="a-muted small">{r.country} · {KINDS[r.kind] || r.kind}</span>
+                          <div className="a-muted small">{ROLES[r.role]?.label}{r.matched_name && r.matched_name !== r.name ? ` · matched “${r.matched_name}”` : ""}</div>
+                        </div>
+                        <Chip tone={r.confirmed ? "ok" : r.status === "auto" ? "info" : "warn"}>
+                          {r.confirmed ? (r.enabled ? "Added · on" : "Added") : r.status === "auto" ? "Match found" : r.status === "review" ? "Choose one" : "Not found"}
+                        </Chip>
+                      </div>
+                      {r.note ? <p className="a-muted small">{r.note}</p> : null}
+                      {r.status === "review" && r.candidates.length > 0 && (
+                        <label className="a-field">
+                          <span className="a-muted small">Which competition is this?</span>
+                          <select value={chosen[r.key] ?? ""} onChange={(e) => setChosen({ ...chosen, [r.key]: Number(e.target.value) })} data-testid={`af-pick-${r.key}`}>
+                            <option value="">Choose…</option>
+                            {r.candidates.map((c) => <option key={c.id} value={c.id}>{c.name} — {c.country} (id {c.id})</option>)}
+                          </select>
+                        </label>
+                      )}
+                      {demoted && <p className="small" data-testid={`af-demoted-${r.key}`}>This season carries no player statistics, so it can only be a calendar competition for now.</p>}
+                      {(r.warnings || []).map((w, i) => <p key={i} className="a-muted small">{w}</p>)}
+                      {!r.confirmed && (r.league_id || chosen[r.key]) && (
+                        <button className="btn btn--secondary btn--sm self-start" disabled={busy === r.key}
+                                onClick={() => confirm(r)} data-testid={`af-add-${r.key}`}>
+                          <Icon name="plus" size={16} />{busy === r.key ? "Adding…" : "Add"}
+                        </button>
+                      )}
+                    </article>
+                  );
+                })}
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </Drawer>
+  );
+}
+
 function LeagueCard({ lg, budget, daily, perMatch, onEdit, onZones, onChanged }) {
   const toast = useToast();
   const [ask, setAsk] = useState(false);
@@ -84,7 +206,11 @@ function LeagueCard({ lg, budget, daily, perMatch, onEdit, onZones, onChanged })
     <article className={"a-card a-league" + (lg.enabled ? " is-on" : "")} data-testid={`league-${lg.iid}`}>
       <header className="a-league-head">
         <LeagueMark league={lg} size={36} decorative />
-        <div><h2>{lg.name}</h2><small>{lg.country_code || "No data"} · id {lg.ext_id}</small></div>
+        <div>
+          <h2>{lg.name}</h2>
+          <small>{lg.country || lg.country_code || "No data"} · id {lg.ext_id}{lg.kind ? ` · ${KINDS[lg.kind] || lg.kind}` : ""}</small>
+        </div>
+        <Chip tone={ROLES[lg.role || "off"]?.tone}>{ROLES[lg.role || "off"]?.label}</Chip>
       </header>
       <Switch label={lg.enabled ? "On" : "Off"} hint={`Fixtures and results sync for leagues that are on · about ${num(daily)} calls a day each`} checked={lg.enabled} onChange={onChange} testid={`league-${lg.iid}-toggle`} />
       <Confirm open={ask} title={`Switch ${lg.name} on?`} confirmLabel="Switch it on" onClose={() => setAsk(false)}
@@ -100,6 +226,7 @@ function LeagueCard({ lg, budget, daily, perMatch, onEdit, onZones, onChanged })
         <div><dt>Calls still needed</dt><dd>{num(lg.estimate_calls)}</dd></div>
         <div><dt>Coverage</dt><dd>{lg.coverage.length ? `${lg.coverage.length} fields tracked` : "No data yet"}</dd></div>
       </dl>
+      <RolePicker lg={lg} onChanged={onChanged} />
       <button className="btn btn--secondary btn--sm self-start" onClick={() => onEdit(lg)} data-testid={`league-${lg.iid}-seasons`}><Icon name="calendar" size={16} />Backfill seasons</button>
       <button className="btn btn--ghost btn--sm self-start" onClick={() => onZones(lg)} data-testid={`league-${lg.iid}-zones`}><Icon name="list" size={16} />Table zones{lg.zones?.length ? ` (${lg.zones.length})` : ""}</button>
     </article>
@@ -108,7 +235,6 @@ function LeagueCard({ lg, budget, daily, perMatch, onEdit, onZones, onChanged })
 
 export default function Leagues() {
   const q = useApi("/admin/leagues");
-  const toast = useToast();
   const [edit, setEdit] = useState(null);
   const [zones, setZones] = useState(null);
   const [filter, setFilter] = useState("");
@@ -116,7 +242,7 @@ export default function Leagues() {
   // Search alone cannot answer "which have I actually switched on", which is the question asked
   // every time after the first.
   const [only, setOnly] = useState("all");
-  const sync = async () => { await post("/admin/jobs/run?job=reference_sync"); toast("League list refresh queued"); };
+  const [catalog, setCatalog] = useState(false);
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (notMounted(q.error)) return <div className="a-page" data-testid="admin-leagues"><PageHead title="Leagues" lead="Switch leagues on and pick seasons to backfill." /><MissingRoutes /></div>;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
@@ -124,14 +250,19 @@ export default function Leagues() {
     .filter((l) => (only === "all" ? true : only === "on" ? l.enabled : !l.enabled))
     .filter((l) => (l.name + " " + (l.country_code || "")).toLowerCase().includes(filter.toLowerCase()));
   const on = q.data.leagues.filter((l) => l.enabled).length;
+  const fc = q.data.leagues.filter((l) => l.role === "forecast").length;
+  const cal = q.data.leagues.filter((l) => l.role === "calendar").length;
   return (
     <div className="a-page" data-testid="admin-leagues">
-      <PageHead title="Leagues" lead={q.data.leagues.length ? `${on} of ${q.data.leagues.length} switched on. New leagues arrive switched off.` : "Switch leagues on and pick seasons to backfill."}
-                actions={<Guard className="btn btn--secondary btn--sm" confirmLabel="Queue the refresh" title="Refresh the league list?"
-                                 body={<Cost calls={1} left={q.data.budget} cap={q.data.budget} lead="This queues the reference sync, which asks PitchAPI for every league it covers. New leagues arrive switched off, so nothing starts spending on its own." />}
-                                 onRun={sync} testid="leagues-sync"><Icon name="refresh" size={16} />Refresh league list</Guard>} />
+      <PageHead title="Leagues"
+                lead={q.data.leagues.length
+                  ? `${on} of ${q.data.leagues.length} switched on · ${fc} forecast, ${cal} calendar. New competitions arrive switched off.`
+                  : "Add the competitions you carry, then switch them on and pick seasons to backfill."}
+                actions={<button className="btn btn--secondary btn--sm" onClick={() => setCatalog(true)} data-testid="leagues-catalog">
+                           <Icon name="plus" size={16} />Add competitions
+                         </button>} />
       {q.data.leagues.length === 0 ? (
-        <Card><Empty icon="trophy" testid="leagues-empty">No leagues yet. Save the PitchAPI key in Keys, then use Refresh league list (one call) or run GET /v1/leagues in the Endpoint explorer.</Empty></Card>
+        <Card><Empty icon="trophy" testid="leagues-empty">No competitions yet. Save the API-Football key in Keys, then use Add competitions: each one is matched against the provider's league list and arrives switched off.</Empty></Card>
       ) : (
         <>
           <div className="a-filters">
@@ -146,8 +277,9 @@ export default function Leagues() {
           {list.length === 0 ? <Empty>No league matches.</Empty> : <div className="a-key-grid">{list.map((l) => <LeagueCard key={l.iid} lg={l} budget={q.data.budget} daily={q.data.daily_calls_per_league} perMatch={q.data.calls_per_match} onEdit={setEdit} onZones={setZones} onChanged={q.reload} />)}</div>}
         </>
       )}
-      {edit && <Seasons lg={edit} budget={q.data.budget} onClose={() => setEdit(null)} onSaved={q.reload} />}
+      {edit && <Seasons lg={edit} budget={q.data.budget} perMatch={q.data.calls_per_match} onClose={() => setEdit(null)} onSaved={q.reload} />}
       {zones && <Zones lg={zones} onClose={() => setZones(null)} onSaved={q.reload} />}
+      {catalog && <Catalog seasons={undefined} onClose={() => setCatalog(false)} onSaved={q.reload} />}
     </div>
   );
 }

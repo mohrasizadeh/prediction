@@ -45,6 +45,7 @@ import settings_store as S
 from apifootball import coverage
 
 FORECAST, CALENDAR, OFF = "forecast", "calendar", "off"
+PROVIDER_KEY = "apifootball"
 
 
 def _e(key, name, country, kind, tier, role, note=""):
@@ -213,15 +214,58 @@ def supportable_role(row: dict, season: str | None = None) -> str:
     return CALENDAR
 
 
+# ------------------------------------------------------------------ what is confirmed, and where
+#
+# THE `leagues` COLLECTION IS THE SOURCE OF TRUTH, not a settings map. It already carries `enabled`
+# and `backfill_seasons` and already drives the admin screen, so a parallel {id: role} setting
+# would be a second place to look and a first place to drift. A confirmed competition is a league
+# row whose `ext_id` is its API-Football id and whose `role` says what it is for.
 def saved_map(db) -> dict:
-    """{our league iid: api-football league id}, as confirmed in admin."""
-    return {int(k): int(v) for k, v in (S.get(db, "apifootball.leagues") or {}).items() if v}
+    """{our league iid: api-football league id}, from the rows admin confirmed."""
+    return {int(r["iid"]): int(r["ext_id"]) for r in
+            db.leagues.find({"provider": PROVIDER_KEY, "ext_id": {"$ne": None}}, {"iid": 1, "ext_id": 1})
+            if str(r.get("ext_id", "")).isdigit()}
 
 
-def roles(db) -> dict:
-    """{api-football league id: role}. A competition we never confirmed is off."""
-    return {int(k): v for k, v in (S.get(db, "apifootball.roles") or {}).items() if v}
+def role_of(db, league_iid: int) -> str:
+    """What this competition of ours is for. Unconfirmed is off, never forecast."""
+    lg = db.leagues.find_one({"iid": int(league_iid)}, {"role": 1}) or {}
+    return lg.get("role") or OFF
 
 
-def is_forecast(db, af_league_id: int) -> bool:
-    return roles(db).get(int(af_league_id)) == FORECAST
+def is_forecast(db, league_iid: int) -> bool:
+    """The gate. Only a forecast competition fits models, publishes cards, or stamps a club's
+    league -- which is what stops the FA Cup moving every English club out of the Premier League."""
+    return role_of(db, league_iid) == FORECAST
+
+
+def forecast_leagues(db) -> list[int]:
+    return [int(r["iid"]) for r in db.leagues.find({"role": FORECAST, "enabled": True}, {"iid": 1})]
+
+
+def calendar_leagues(db) -> list[int]:
+    return [int(r["iid"]) for r in db.leagues.find({"role": CALENDAR, "enabled": True}, {"iid": 1})]
+
+
+def confirm(db, entry: dict, af_league: dict, seasons: list[int] | None = None) -> int:
+    """Write a catalogue row into `leagues` as a real competition, with its seasons.
+
+    Idempotent, and it never silently re-points an existing row at a different competition: the
+    league is keyed on the API-Football id, so confirming the same id twice updates, and
+    confirming a different id creates a new row that admin can see beside the old one.
+    """
+    from ingest import upsert_entity         # local: ingest imports settings, which imports us
+
+    iid = upsert_entity(db, "leagues", str(af_league["id"]), {
+        "name": af_league.get("name") or entry["name"], "provider": PROVIDER_KEY,
+        "country": af_league.get("country") or entry["country"],
+        "image_url": af_league.get("logo"), "catalog_key": entry["key"],
+        "kind": entry["kind"], "tier": entry["tier"], "role": entry["role"],
+        "af_type": af_league.get("type"),
+    }, on_insert={"enabled": False, "backfill_seasons": []})     # a new competition starts OFF
+    for year in sorted(seasons or af_league.get("seasons") or [], reverse=True):
+        db.seasons.update_one({"league_iid": iid, "label": str(year)},
+                              {"$setOnInsert": {"backfilled": False}}, upsert=True)
+    db.leagues.update_one({"iid": iid}, {"$set": {"current_season": str(max(
+        [int(y) for y in (seasons or af_league.get("seasons") or [0])]))}})
+    return iid

@@ -3367,16 +3367,6 @@
     "help": "API-Football may BLOCK a key for traffic spikes rather than throttle it, so this is a real stop, not a nicety."
   },
   {
-    "key": "apifootball.leagues",
-    "group": "Provider",
-    "label": "Our league to API-Football league id",
-    "type": "json",
-    "default": {},
-    "public": false,
-    "applies_at": "next_job",
-    "help": "{our league iid: api-football league id}. Set in Admin > API-Football. League ids are listed on their dashboard."
-  },
-  {
     "key": "apifootball.seasons",
     "group": "Provider",
     "label": "Seasons to carry, newest first",
@@ -3432,15 +3422,5 @@
     "public": false,
     "applies_at": "immediately",
     "help": "Lineups and player rows use the single letter; squads use the word. Both are mapped."
-  },
-  {
-    "key": "apifootball.roles",
-    "group": "Provider",
-    "label": "What each competition is for",
-    "type": "json",
-    "default": {},
-    "public": false,
-    "applies_at": "next_job",
-    "help": "{api-football league id: forecast | calendar | off}. forecast = fit models and publish cards, and ONLY these set a club's league. calendar = fixtures, results and lineups for the rotation model and the club page, no cards. Domestic divisions are forecast; cups, continental and national-team competitions are calendar (docs/81)."
   }
 ]

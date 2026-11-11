@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 import admin_queries as AQ
+import af_leagues as AFL
 import deps as D
 import queries as Q
 import settings_store as S
@@ -29,8 +30,18 @@ ALLOWED = [
     (r"/v1/matches/[A-Za-z0-9_-]+", ()),
     (r"/v1/matches/[A-Za-z0-9_-]+/(players|lineups|stats|h2h|advanced|advanced/players)", ()),
 ]
-CALLS_PER_MATCH = 3          # players + stats + lineups per finished match (docs/08 §5)
+# What a finished match costs to ingest. PitchAPI needed three calls per match (players, stats,
+# lineups). API-Football answers twenty fixtures at a time, WITH events, lineups, statistics and
+# player statistics in the same response, so the real figure is a twentieth of one call -- sixty
+# times cheaper. The screen's estimate reads this, so it has to come from the provider in use and
+# not from a constant that quietly means PitchAPI (docs/81).
+CALLS_PER_MATCH_BY_PROVIDER = {"pitchapi": 3.0, "apifootball": 1.0 / 20}
+CALLS_PER_MATCH = 3          # legacy default; use calls_per_match(db)
 DEFAULT_SEASON_MATCHES = 380
+
+
+def calls_per_match(db) -> float:
+    return CALLS_PER_MATCH_BY_PROVIDER.get(S.get(db, "provider.source") or "pitchapi", 3.0)
 
 
 def utcnow():
@@ -157,12 +168,17 @@ def leagues(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
             n = _season_matches(db, lg["iid"], s["label"])
             seasons.append({"label": s["label"], "backfilled": bool(s.get("backfilled")), "queued": bool(s.get("queued")), "matches": n})
         pending = [s for s in seasons if s["label"] in lg.get("backfill_seasons", []) and not s["backfilled"]]
-        cost = sum(1 + (s["matches"] or DEFAULT_SEASON_MATCHES) * CALLS_PER_MATCH for s in pending)
+        cpm = calls_per_match(db)
+        cost = sum(1 + (s["matches"] or DEFAULT_SEASON_MATCHES) * cpm for s in pending)
         cov = list(db.data_coverage.find({"league_iid": lg["iid"]}, {"_id": 0, "league_iid": 0}))
         out.append({"iid": lg["iid"], "ext_id": lg.get("ext_id"), "name": lg.get("name"), "country_code": lg.get("country_code"),
                     "image": lg.get("image"), "enabled": bool(lg.get("enabled")),
                     "current_season": lg.get("current_season"), "backfill_seasons": lg.get("backfill_seasons", []), "zones": lg.get("zones") or [],
-                    "seasons": seasons, "estimate_calls": cost, "coverage": cov})
+                    "seasons": seasons, "estimate_calls": round(cost, 1), "coverage": cov,
+                    # the competition's job, and what it is: only a forecast league fits models,
+                    # publishes cards and stamps a club's league (docs/81)
+                    "role": lg.get("role") or AFL.OFF, "kind": lg.get("kind"), "tier": lg.get("tier"),
+                    "country": lg.get("country"), "provider": lg.get("provider")})
     # Switching a league on commits a daily cost for as long as it stays on, and the screen could
     # only show the one-off backfill estimate. The list calls are exact and come straight from the
     # two sync intervals; the per-match three are stated separately rather than guessed at.
@@ -170,7 +186,9 @@ def leagues(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     rs_h = max(1, int(S.get(db, "ingest.results_sync_hours") or 24))
     daily = max(1, round(24 / fx_h)) + max(1, round(24 / rs_h))
     return {"leagues": out, "budget": S.get(db, "ingest.daily_call_budget"),
-            "daily_calls_per_league": daily, "calls_per_match": CALLS_PER_MATCH}
+            "daily_calls_per_league": daily, "calls_per_match": calls_per_match(db),
+            "provider": S.get(db, "provider.source"),
+            "roles": {"forecast": AFL.FORECAST, "calendar": AFL.CALENDAR, "off": AFL.OFF}}
 
 
 class Zone(BaseModel):
@@ -184,6 +202,7 @@ class LeagueBody(BaseModel):
     enabled: Optional[bool] = None
     backfill_seasons: Optional[list[str]] = Field(default=None, max_length=30)
     zones: Optional[list[Zone]] = Field(default=None, max_length=8)
+    role: Optional[Literal["forecast", "calendar", "off"]] = None
 
 
 @router.put("/leagues/{iid}")
@@ -204,7 +223,120 @@ def league_put(iid: int, body: LeagueBody, user=Depends(perm("jobs.run")), db=De
         db.seasons.update_many({"league_iid": iid, "label": {"$nin": upd["backfill_seasons"]}}, {"$set": {"queued": False}})
     if body.zones is not None:
         upd["zones"] = sorted(({**z.model_dump(), "end": max(z.start, z.end)} for z in body.zones), key=lambda z: z["start"])
+    if body.role is not None:
+        # Promoting a cup or a national-team competition to `forecast` is allowed but called out,
+        # because it is the decision that pools matches of different standard into one frame and
+        # lets a cup restamp a club's league (docs/81 §2). The screen warns; this records it.
+        if body.role == AFL.FORECAST and (lg.get("kind") or "league") != "league":
+            AQ.audit(db, user, "league.role.forced", str(iid),
+                     {"kind": lg.get("kind"), "note": "forecast role on a non-division competition"})
+        upd["role"] = body.role
     if upd:
         db.leagues.update_one({"iid": iid}, {"$set": upd})
         AQ.audit(db, user, "league.update", str(iid), upd)
     return {"ok": True, **upd}
+
+
+# ------------------------------------------------------------------ API-Football: the catalogue
+# The leagues screen is the same screen it has always been -- enable, pick seasons, see the cost.
+# What changes is where its rows COME from: the catalogue in af_leagues is resolved against
+# /leagues, the owner confirms each match, and confirming writes a real `leagues` row. So there is
+# one list of competitions in the product, not a provider list beside ours (docs/81).
+def _af_client(db):
+    import apifootball as AF
+    return AF.Client(db)
+
+
+@router.get("/apifootball/status")
+def af_status(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Key test and quota, from the one call that is free and does not touch the daily budget."""
+    import apifootball as AF
+    try:
+        st = _af_client(db).status()
+    except AF.Unauthorized as e:
+        return {"ok": False, "reason": "key", "detail": e.detail}
+    except Exception as e:
+        return {"ok": False, "reason": type(e).__name__, "detail": str(e)}
+    sub, req = st.get("subscription") or {}, st.get("requests") or {}
+    return {"ok": True, "plan": sub.get("plan"), "active": sub.get("active"), "ends": sub.get("end"),
+            "used_today": req.get("current"), "limit_day": req.get("limit_day"),
+            "quota": {k: v for k, v in (db.job_state.find_one({"_id": "apifootball_quota"}) or {}).items() if k != "_id"}}
+
+
+@router.get("/apifootball/catalog")
+def af_catalog(seasons: str = "", tier: int = 0, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Every competition in the catalogue: what the provider offers for it, the coverage of each
+    season we care about, and whether its role is supportable. Resolution is cached for the
+    reference TTL, so re-opening the screen is free."""
+    import apifootball as AF
+    want = [int(x) for x in seasons.split(",") if x.strip().isdigit()] or _default_seasons(db)
+    rows, errors = [], []
+    confirmed = {int(r["ext_id"]): r for r in db.leagues.find(
+        {"provider": AFL.PROVIDER_KEY}, {"_id": 0, "iid": 1, "ext_id": 1, "role": 1, "enabled": 1, "name": 1})
+        if str(r.get("ext_id", "")).isdigit()}
+    for entry in AFL.CATALOG:
+        if tier and entry["tier"] != tier:
+            continue
+        try:
+            row = AFL.plan_row(_af_client(db), entry, want)
+        except (AF.BudgetExhausted, AF.BreakerOpen) as e:
+            errors.append(str(e))
+            break                                   # stop early: the rest would all fail the same way
+        except AF.APIFootballError as e:
+            row = {**entry, "candidates": [], "league_id": None, "status": "error",
+                   "coverage": {}, "warnings": [str(e)]}
+        mine = confirmed.get(row.get("league_id") or -1)
+        row["confirmed"] = bool(mine)
+        row["iid"] = (mine or {}).get("iid")
+        row["enabled"] = bool((mine or {}).get("enabled"))
+        row["saved_role"] = (mine or {}).get("role")
+        row["supportable_role"] = AFL.supportable_role(row)
+        rows.append(row)
+    return {"seasons": want, "rows": rows, "errors": errors,
+            "counts": {"auto": sum(1 for r in rows if r["status"] == "auto"),
+                       "review": sum(1 for r in rows if r["status"] == "review"),
+                       "none": sum(1 for r in rows if r["status"] in ("none", "error")),
+                       "confirmed": sum(1 for r in rows if r["confirmed"])}}
+
+
+def _default_seasons(db) -> list[int]:
+    want = S.get(db, "apifootball.seasons") or []
+    if want:
+        return [int(x) for x in want]
+    y = datetime.now(timezone.utc).year
+    # Their season key is the START year, so before July the current season began last year.
+    cur = y if datetime.now(timezone.utc).month >= 7 else y - 1
+    return [cur, cur - 1, cur - 2]
+
+
+class AfConfirm(BaseModel):
+    key: str = Field(min_length=1, max_length=60)      # catalogue key, e.g. "eng.pl"
+    league_id: int = Field(ge=1)
+    seasons: Optional[list[int]] = Field(default=None, max_length=20)
+    role: Optional[Literal["forecast", "calendar", "off"]] = None
+
+
+@router.post("/apifootball/confirm")
+def af_confirm(body: AfConfirm, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Confirm one catalogue row to one API-Football league id, and write it into `leagues`.
+
+    The competition arrives switched OFF with no seasons queued, exactly as a league always has:
+    confirming says which competition it is, not that we have started paying for it."""
+    import apifootball as AF
+    entry = AFL.BY_KEY.get(body.key)
+    if not entry:
+        raise D.err(404, "NOT_FOUND", f"No catalogue entry '{body.key}'.")
+    rows = _af_client(db).fetch("/leagues", {"id": body.league_id},
+                                ttl=timedelta(days=S.get(db, "cache.ttl.reference_days")), purpose="confirm")
+    if not rows:
+        raise D.err(400, "BAD_VALUE", f"API-Football has no league {body.league_id}.")
+    lg, ctry = rows[0].get("league") or {}, rows[0].get("country") or {}
+    years = sorted({int(s["year"]) for s in (rows[0].get("seasons") or []) if s.get("year")}, reverse=True)
+    af = {"id": int(lg.get("id")), "name": lg.get("name"), "type": lg.get("type"),
+          "logo": lg.get("logo"), "country": ctry.get("name"), "seasons": years}
+    entry = {**entry, "role": body.role or entry["role"]}
+    iid = AFL.confirm(db, entry, af, body.seasons or years)
+    AQ.audit(db, user, "league.confirm", str(iid),
+             {"catalog": body.key, "af_id": af["id"], "name": af["name"], "role": entry["role"]})
+    return {"ok": True, "iid": iid, "league_id": af["id"], "name": af["name"],
+            "role": entry["role"], "seasons": body.seasons or years}

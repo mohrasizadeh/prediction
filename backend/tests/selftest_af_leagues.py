@@ -131,18 +131,44 @@ def t_missing_lineups_warns():
 
 
 # ---------------------------------------------------------------- the role gate
+def t_confirm_writes_a_league():
+    c = client([lg(39, "Premier League", "England", seasons=[2024, 2023, 2022])])
+    db = c.db
+    af = {"id": 39, "name": "Premier League", "type": "League", "logo": "x", "country": "England",
+          "seasons": [2024, 2023, 2022]}
+    iid = L.confirm(db, L.BY_KEY["eng.pl"], af)
+    row = db.leagues.find_one({"iid": iid})
+    check("confirming writes a real league row keyed on the API-Football id", row["ext_id"] == "39")
+    check("it carries the role, kind and tier so the screen can show them",
+          row["role"] == L.FORECAST and row["kind"] == "league" and row["tier"] == 1)
+    check("a newly confirmed competition starts switched OFF, with nothing queued",
+          row["enabled"] is False and row["backfill_seasons"] == [])
+    check("its seasons are created so the existing backfill picker works",
+          db.seasons.count_documents({"league_iid": iid}) == 3)
+    check("current_season is the newest", row["current_season"] == "2024")
+    again = L.confirm(db, L.BY_KEY["eng.pl"], af)
+    check("confirming the same competition twice updates rather than duplicating",
+          again == iid and db.leagues.count_documents({}) == 1)
+
+
 def t_roles_gate():
-    db = mongomock.MongoClient()["af"]
-    db.settings.insert_one({"key": "apifootball.roles", "value": {"39": "forecast", "45": "calendar"}})
-    check("a forecast competition answers yes", L.is_forecast(db, 39))
+    c = client([])
+    db = c.db
+    pl = L.confirm(db, L.BY_KEY["eng.pl"], {"id": 39, "name": "Premier League", "seasons": [2024]})
+    fa = L.confirm(db, L.BY_KEY["eng.facup"], {"id": 45, "name": "FA Cup", "seasons": [2024]})
+    check("a forecast competition answers yes", L.is_forecast(db, pl))
     check("a calendar competition answers no -- this is what stops the FA Cup restamping every English club",
-          not L.is_forecast(db, 45))
+          not L.is_forecast(db, fa))
     check("a competition nobody confirmed answers no", not L.is_forecast(db, 999))
+    db.leagues.update_many({}, {"$set": {"enabled": True}})
+    check("the forecast list holds the division only", L.forecast_leagues(db) == [pl])
+    check("the calendar list holds the cup only", L.calendar_leagues(db) == [fa])
+    check("saved_map pairs our id with theirs", L.saved_map(db) == {pl: 39, fa: 45})
 
 
 for fn in (t_catalogue, t_same_name_other_country, t_ambiguous_goes_to_review, t_no_match,
            t_thin_coverage_demotes, t_good_coverage_keeps_forecast, t_season_not_on_plan,
-           t_missing_lineups_warns, t_roles_gate):
+           t_missing_lineups_warns, t_confirm_writes_a_league, t_roles_gate):
     print(fn.__name__)
     fn()
 
