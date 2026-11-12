@@ -781,6 +781,56 @@ def t_the_engine_gets_every_column_it_asks_for():
 
 
 
+# ------------------------------------------------------------------ 17. pictures cost nothing
+def t_images_need_no_provider_call_and_the_dead_queue_goes():
+    """Two things the owner asked about after seeing no images and a queue stuck at "19 pending"."""
+    import images as IMG
+    db = seed()
+    lg = league_row(db)
+    tm = _I().upsert_entity(db, "teams", "42", {"name": "Arsenal", "league_iid": lg["iid"]})
+    for ext in ("101", "102"):
+        _I().upsert_entity(db, "players", ext, {"name": f"P{ext}", "team_iid": tm})
+    # the queue pitch_photos wrote and nothing drains any more
+    for i in range(19):
+        db.ingest_queue.insert_one({"task": "league_logo", "key": f"L{i}", "status": "pending"})
+
+    png = bytes.fromhex("89504e470d0a1a0a") + b"\x00" * 300
+    media, api = [], []
+    class _R:
+        def __init__(self, url):
+            self.url, self.status_code = url, 200
+            self.headers = {"content-type": "image/png" if "media." in url else "application/json"}
+            self.content = png
+        def json(self):
+            return {"errors": [], "response": [], "paging": {"current": 1, "total": 1}}
+    class _H:
+        def get(self, url, **k):
+            (media if "media." in url else api).append(url)
+            return _R(url)
+        def close(self):
+            pass
+    IMG.set_http_factory(lambda: _H())
+    IMG.set_sleep(lambda s: None)
+    out = IMG.run_sync(db, max_seconds=10)
+
+    # run_sync already skipped the squad call for a club whose players are mapped, keyed on
+    # `team_iid` -- and identity_map wrote the player row WITHOUT that field, so the guard never
+    # fired and every club paid a /players/squads call for ids we had just written.
+    check(f"no provider call is spent on pictures ({api or 'none'})", not api)
+    check(f"...and every image still arrives ({len(media)})", len(media) == 4)
+    check("...for leagues, clubs and players alike",
+          any("/leagues/" in u for u in media) and any("/teams/" in u for u in media)
+          and sum("/players/" in u for u in media) == 2)
+    check(f"the orphaned photo queue is cleared ({out.get('orphans_cleared')})",
+          db.ingest_queue.count_documents({"task": "league_logo"}) == 0)
+
+
+def _I():
+    import ingest
+    return ingest
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
@@ -791,7 +841,8 @@ for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_w
            t_no_endpoint_reaches_a_retired_provider,
            t_a_fresh_install_runs_api_football,
            t_backfill_survives_a_second_season,
-           t_the_engine_gets_every_column_it_asks_for):
+           t_the_engine_gets_every_column_it_asks_for,
+           t_images_need_no_provider_call_and_the_dead_queue_goes):
     print(fn.__name__)
     fn()
 

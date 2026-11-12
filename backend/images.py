@@ -297,6 +297,20 @@ def _season_candidates(db, league: dict) -> list[int]:
     return [y, y - 1, y - 2]
 
 
+def drop_orphaned_photo_tasks(db) -> int:
+    """Clear the `league_logo` / `team_crest` / `player_photo` queue, which nothing drains any more.
+
+    `pitch_photos.plan` wrote these and `ingest.process_queue` worked them; the tick runs neither
+    now -- pictures come from api-football.com through this module and nowhere else (docs/88). The
+    tasks are therefore unreachable, and they are not harmless: the Jobs screen counts the queue, so
+    it reported "19 pending" for ever, which reads as work in progress rather than work that cannot
+    happen. A number nobody can act on is worse than no number.
+    """
+    return db.ingest_queue.delete_many(
+        {"task": {"$in": ["league_logo", "team_crest", "player_photo"]},
+         "status": {"$ne": "done"}}).deleted_count
+
+
 def identity_map(db) -> dict:
     """When the entities CAME FROM API-Football, their id is already ours. No matching, no calls.
 
@@ -345,7 +359,13 @@ def identity_map(db) -> dict:
         # No club, or a club we cannot trace to an API-Football league: not ours to claim.
         if not team_ok.get(row.get("team_iid")) or not str(row.get("ext_id", "")).isdigit():
             continue
+        # `team_iid` MATTERS. run_sync already skips the squad call for a club whose players are
+        # mapped -- `count_documents({"kind": "player", "team_iid": ...})` -- and this wrote the row
+        # without that field, so the count was always 0 and every club paid a /players/squads call
+        # to discover ids we had already written one line above. The guard was there; the row was
+        # not answering it.
         _put_map(db, "player", row["iid"], af_id=int(row["ext_id"]), our_name=row.get("name"),
+                 team_iid=row.get("team_iid"),
                  status="auto", score=1.0, note="ingested from API-Football: the id is ours")
         n["player"] += 1
     return n
@@ -466,6 +486,7 @@ def run_sync(db, client: AFClient | None = None, http=None, max_seconds: float =
         # the right answer for a row that carries an API-Football id. It still runs for anything
         # left over from a previous provider, which is the only reason it survives at all.
         stats["identity"] = identity_map(db)
+        stats["orphans_cleared"] = drop_orphaned_photo_tasks(db)
         for lg in leagues:
             if db.image_map.find_one({"kind": "league", "our_iid": lg["iid"], "af_id": {"$ne": None}}):
                 continue
