@@ -62,17 +62,15 @@ def results(date: str, response: Response, db=Depends(D.get_db)):
 
 # ------------------------------------------------------------------ which provider ticks
 def _tick(db):
-    """One live tick, from whichever provider feeds the tables.
+    """One live tick. API-Football, and nothing else.
 
-    Same switch as the job tick (`provider.source`, docs/88). Two live feeds writing
-    `live_fixtures` at once would be two rows a match keyed differently -- SportAPI by its own
-    `sid`, API-Football by our `ext_id` -- and the pages read whichever they find first.
+    There is no provider switch here on purpose. Live scores and live events come from
+    api-football.com or they do not come at all: a second feed writing `live_fixtures` would be two
+    rows a match keyed differently -- SportAPI by its own `sid`, API-Football by our `ext_id` --
+    and the pages would read whichever they found first.
     """
-    import settings_store as _S
-    if _S.get(db, "provider.source") == "apifootball":
-        import live_af as LA
-        return LA.live_tick(db)
-    return SP.live_tick(db)
+    import live_af as LA
+    return LA.live_tick(db)
 
 
 @public.post("/jobs/live")

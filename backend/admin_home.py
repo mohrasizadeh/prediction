@@ -10,7 +10,6 @@ import alerts as AL
 import calibration as CAL
 import security
 import settings_store as S
-import sportapi as SP
 
 
 # admin_queries.health() already warns at 3 hours with no job of any kind. A feed is given longer
@@ -37,6 +36,25 @@ def _age_tone(last, limit, *, never="red"):
     return "red" if age > limit else "amber" if age > 0.8 * limit else "green"
 
 
+def _af_status(db, now) -> dict:
+    """What the two provider tiles need, from API-Football's own counters.
+
+    Reads the stored quota rather than asking: `apifootball_quota` is written from the headers of
+    every answer, so the tiles cost nothing to draw.
+    """
+    import settings_store as _S
+    q = db.job_state.find_one({"_id": "apifootball_quota"}) or {}
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    used = db.api_call_log.count_documents({"at": {"$gte": start}, "provider": "apifootball"})
+    cap = q.get("day_limit") or _S.get(db, "apifootball.daily_cap")
+    by_kind = {r["_id"]: r["n"] for r in db.api_call_log.aggregate([
+        {"$match": {"at": {"$gte": start}, "provider": "apifootball"}},
+        {"$group": {"_id": "$purpose", "n": {"$sum": 1}}}])}
+    return {"used": used, "cap": int(cap or 0), "by_kind": by_kind,
+            "live_on": bool(_S.get(db, "features.live")),
+            "live_now": db.live_fixtures.count_documents({"in_play": True})}
+
+
 def _worst(*tones):
     return "red" if "red" in tones else "amber" if "amber" in tones else "green"
 
@@ -47,17 +65,23 @@ def tiles(db, now: datetime) -> list[dict]:
     h = AQ.health(db, now)
     sync = db.job_runs.find_one({"job": {"$in": ["fixtures_sync", "results_sync"]}, "status": "ok"}, {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
     last_sync = (sync or {}).get("finished_at") or (sync or {}).get("started_at")
-    data = {"id": "data", "module": "pitchapi", "title": "Data",
-            "tone": "red" if h["breaker_open"] else _worst(_tone(h["api_calls_today"], h["api_budget"]),
+    # BOTH TILES NAME API-FOOTBALL, because that is what serves both. They used to say PitchAPI and
+    # SportAPI and open those screens; the screens are gone, so a tile still pointing at them was a
+    # dead link on the first page of the admin. A test pins that every tile's module exists, which
+    # is how this was caught rather than found by clicking.
+    af = _af_status(db, now)
+    data = {"id": "data", "module": "apifootball", "title": "Data",
+            "tone": "red" if h["breaker_open"] else _worst(_tone(af["used"], af["cap"]),
                                                            _age_tone(last_sync, STALE_SYNC)),
-            "provider": "PitchAPI", "used": h["api_calls_today"], "cap": h["api_budget"], "reset_at": reset,
+            "provider": "API-Football", "used": af["used"], "cap": af["cap"], "reset_at": reset,
             "last_sync": last_sync, "breaker_open": h["breaker_open"]}
-    sp = SP.status(db, now)
-    # The tiles name the provider actually serving them, which is still SportAPI for live and
-    # PitchAPI for history. They move to API-Football in the change that moves the pipeline.
-    live = {"id": "live", "module": "sportapi", "title": "Live", "tone": _tone(sp["calls_today"], sp["cap"]) if sp["enabled"] else "off",
-            "provider": "SportAPI", "enabled": sp["enabled"], "used": sp["calls_today"], "cap": sp["cap"], "by_kind": sp["by_kind"], "reset_at": reset,
-            "live_now": sp["live_now"], "review": sp["teams"].get("review", 0)}
+    live = {"id": "live", "module": "apifootball", "title": "Live",
+            "tone": _tone(af["used"], af["cap"]) if af["live_on"] else "off",
+            "provider": "API-Football", "enabled": af["live_on"], "used": af["used"], "cap": af["cap"],
+            "by_kind": af["by_kind"], "reset_at": reset, "live_now": af["live_now"],
+            # No review queue any more: their live fixture IS our fixture, so nothing is matched by
+            # name and nothing can need a human to decide it (docs/88).
+            "review": 0}
     run = db.job_runs.find_one({"job": {"$regex": "^engine"}}, {"_id": 0, "started_at": 1, "status": 1}, sort=[("started_at", -1)])
     bad = db.job_runs.count_documents({"job": {"$regex": "^engine"}, "status": "error", "started_at": {"$gte": now - timedelta(hours=24)}})
     own = db.engine_calibration.find_one({"active": True}, {"_id": 1})
@@ -80,10 +104,10 @@ def tiles(db, now: datetime) -> list[dict]:
 
 
 def feeds(db, now: datetime | None = None) -> dict:
-    """Both football feeds side by side: what each one is for, whether it is working, and what it costs today.
+    """The football feed: what it is for, whether it is working, and what it costs today.
 
-    The two providers do different jobs and their controls used to be in different parts of the menu, so the first
-    question in any live problem -- which feed is at fault -- had no screen that answered it (docs/43). Nothing here
+    It described two providers side by side, because the first question in any live problem was
+    which of them was at fault and no screen answered it (docs/43). There is one now. Nothing here
     calls a provider.
     """
     now = now or datetime.now(timezone.utc)
@@ -92,26 +116,29 @@ def feeds(db, now: datetime | None = None) -> dict:
     sync = db.job_runs.find_one({"job": {"$in": ["fixtures_sync", "results_sync"]}, "status": "ok"},
                                 {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
     queued = db.ingest_queue.count_documents({"status": "queued"})
-    # One provider does every football pull now: history, backfill, live, lineups, injuries and
-    # images. The panel keeps two rows because the two JOBS are still different -- the backfill
-    # spends a budget, the live tick watches a clock -- but both point at the one screen (docs/81).
-    pitch = {"id": "pitchapi", "name": "PitchAPI", "module": "pitchapi", "route": "/admin/data/pitchapi",
-             "feeds": ["Match and player history", "Season backfill", "Depth analytics the forecasts are built from"],
-             "enabled": not S.get(db, "ingest.paused_reason"), "key_saved": bool(security.get_provider_key(db, "pitchapi", env_fallback="PITCHAPI_KEY")),
-             "used": h["api_calls_today"], "cap": h["api_budget"], "reset_at": reset, "breaker_open": h["breaker_open"],
-             "paused_reason": S.get(db, "ingest.paused_reason") or None, "queued": queued,
-             "last_at": (sync or {}).get("finished_at") or (sync or {}).get("started_at"),
-             "tone": "red" if h["breaker_open"] else _tone(h["api_calls_today"], h["api_budget"])}
-    sp = SP.status(db, now)
-    fx = sp.get("fixtures") or {}
-    live = {"id": "sportapi", "name": "SportAPI", "module": "sportapi", "route": "/admin/data/sportapi",
-            "feeds": ["Live scores and the minute", "Match events that feed the cards", "Lineups", "Final scores"],
-            "enabled": sp["enabled"], "key_saved": sp["key_saved"], "used": sp["calls_today"], "cap": sp["cap"],
-            "reset_at": reset, "last_at": sp.get("last_tick"), "last_result": sp.get("last_result"),
-            "live_now": sp["live_now"], "review": (sp.get("teams") or {}).get("review", 0),
-            "unlinked": fx.get("unlinked", 0), "unlinked_live": fx.get("unlinked_live", 0),
-            "tone": ("red" if fx.get("unlinked_live") else _tone(sp["calls_today"], sp["cap"])) if sp["enabled"] else "off"}
-    return {"now": now, "providers": [pitch, live]}
+    af = _af_status(db, now)
+    # ONE PROVIDER, ONE ROW. This used to return two, named PitchAPI and SportAPI, each linking to
+    # its own screen -- and those screens are gone (docs/88). The panel exists to answer "which feed
+    # is at fault" in a live problem (docs/43); with one feed the honest answer is one row, and two
+    # rows pointing at the same screen would be theatre.
+    provider = {
+        "id": "apifootball", "name": "API-Football", "module": "apifootball",
+        "route": "/admin/data/apifootball",
+        "feeds": ["Match and player history", "Season backfill", "Live scores and the minute",
+                  "Match events that feed the cards", "Lineups", "Final scores",
+                  "Crests, logos and player photos"],
+        "enabled": not S.get(db, "ingest.paused_reason"),
+        "key_saved": bool(security.get_provider_key(db, "apifootball", env_fallback="APIFOOTBALL_KEY")),
+        "used": af["used"], "cap": af["cap"], "reset_at": reset,
+        "breaker_open": bool(db.job_locks.find_one({"_id": "af_breaker"})),
+        "paused_reason": S.get(db, "ingest.paused_reason") or None, "queued": queued,
+        "last_at": (sync or {}).get("finished_at") or (sync or {}).get("started_at"),
+        "live_now": af["live_now"], "by_kind": af["by_kind"],
+        # Nothing to review: their fixture IS our fixture, so nothing is matched by name.
+        "review": 0, "unlinked": 0, "unlinked_live": 0,
+        "tone": "red" if db.job_locks.find_one({"_id": "af_breaker"}) else _tone(af["used"], af["cap"]),
+    }
+    return {"now": now, "providers": [provider]}
 
 
 def needs(db, user, now: datetime) -> list[dict]:

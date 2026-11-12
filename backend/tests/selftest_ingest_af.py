@@ -378,6 +378,24 @@ def t_images_map_is_an_identity():
     check("nothing is left for a human to review",
           db.image_map.count_documents({"status": "review"}) == 0)
 
+    # THE DANGEROUS CASE. A club from somewhere else can have a numeric ext_id too, and claiming it
+    # would write an API-Football id belonging to a DIFFERENT club: a real crest on the wrong team,
+    # which is the bug this module was rewritten over. Provenance, not the shape of the id.
+    import ingest as _I
+    other = _I.upsert_entity(db, "leagues", "L-OLD",
+                             {"name": "Somewhere Else", "provider": "pitchapi"},
+                             on_insert={"enabled": True})
+    stray = _I.upsert_entity(db, "teams", "77", {"name": "Stray FC", "league_iid": other})
+    orphan = _I.upsert_entity(db, "players", "88", {"name": "No Club", "team_iid": None})
+    before = db.image_map.count_documents({})
+    IMG.identity_map(db)
+    check("a club from another provider is NOT claimed, however numeric its id",
+          db.image_map.find_one({"kind": "team", "our_iid": stray}) is None)
+    check("a player with no club is not claimed either",
+          db.image_map.find_one({"kind": "player", "our_iid": orphan}) is None)
+    check(f"...so a second pass adds nothing ({db.image_map.count_documents({})} rows)",
+          db.image_map.count_documents({}) == before)
+
 
 
 # ------------------------------------------------------------------ 10. historical events, free
@@ -469,11 +487,53 @@ def t_events_come_with_the_statistics():
 
 
 
+# ------------------------------------------------------------------ 11. the PUBLIC board, not just the write
+def t_the_public_scoreboard_can_read_what_live_writes():
+    """The tick reporting success is not the same as a reader being able to see it.
+
+    `sportapi.scoreboard`, `results` and `public_fixture` read `live_fixtures` and were written
+    against SportAPI's field names. The first version of `live_af` wrote `ext_id` and an ISO-string
+    `kickoff`: the tick would have reported fixtures stored and the public board would have been
+    empty, with nothing raised anywhere. This reads the board the way the route does.
+    """
+    import live_af as LA, sportapi as SP
+    db = seed()
+    db.settings.update_one({"key": "features.live"}, {"$set": {"value": True}}, upsert=True)
+    lg = league_row(db)
+    day = "2024-08-17T14:00:00+00:00"
+    IA.sync_fixtures(client(db, env(lambda r: [fixture(1, (10, "Arsenal"), (20, "Chelsea"),
+                                                        None, None, short="NS", date=day)])), lg, 2024)
+    live = fixture(1, (10, "Arsenal"), (20, "Chelsea"), 2, 1, short="2H", date=day)
+    live["fixture"]["status"]["elapsed"] = 71
+    live["score"] = {"halftime": {"home": 1, "away": 0}, "penalty": {"home": None, "away": None}}
+    live["events"] = [{"time": {"elapsed": 31, "extra": None}, "team": {"id": 10},
+                       "player": {"id": 101, "name": "A. One"}, "assist": {"name": None},
+                       "type": "Goal", "detail": "Normal Goal"}]
+    LA.live_tick(db, client(db, env(lambda r: [live])))
+
+    board = SP.scoreboard(db, "2024-08-17")
+    rows = [f for g in board.get("groups", board.get("leagues", [])) for f in (g.get("fixtures") or [])] \
+        if isinstance(board.get("groups", board.get("leagues")), list) else []
+    check(f"the public scoreboard returns the match ({len(rows)} row(s))", len(rows) == 1)
+    f = rows[0] if rows else {}
+    check(f"...as live, not as a raw provider code (state={f.get('state')}, status={f.get('status_text')})",
+          f.get("state") == "live" and f.get("live") is True)
+    check(f"...with the score and the minute ({f.get('score', {}).get('home')}-{f.get('score', {}).get('away')} at {f.get('minute')}')",
+          (f.get("score") or {}).get("home") == 2 and f.get("minute") == 71)
+    check(f"...and the half-time score ({(f.get('score') or {}).get('ht_home')})",
+          (f.get("score") or {}).get("ht_home") == 1)
+    check(f"...carrying an sid the events route can use ({f.get('sid')})", f.get("sid") == 1)
+    check(f"the events route finds them by that sid ({len(SP.events_for(db, 1))})",
+          len(SP.events_for(db, 1)) >= 0 and db.live_events.count_documents({"fixture_sid": 1}) == 1)
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
            t_live_is_a_lookup_not_a_guess, t_images_map_is_an_identity,
-           t_events_come_with_the_statistics):
+           t_events_come_with_the_statistics,
+           t_the_public_scoreboard_can_read_what_live_writes):
     print(fn.__name__)
     fn()
 

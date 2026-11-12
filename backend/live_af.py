@@ -43,6 +43,24 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _dt(iso):
+    """Their ISO date into an aware datetime. `scoreboard` range-queries `kickoff`, so a string
+    stored there matches nothing and the board comes back empty with no error raised anywhere."""
+    if not iso:
+        return None
+    try:
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _winner(teams: dict) -> str | None:
+    for side in ("home", "away"):
+        if (teams.get(side) or {}).get("winner") is True:
+            return side
+    return None
+
+
 def _our_match(db, fixture_id) -> dict | None:
     """Their live fixture is our fixture. A lookup, not a guess -- see the module note."""
     return db.matches.find_one({"ext_id": str(fixture_id)})
@@ -55,7 +73,7 @@ def _event_rows(fixture: dict, match: dict | None) -> list[dict]:
     for e in (fixture.get("events") or []):
         t = e.get("time") or {}
         rows.append({
-            "fixture_ext": fid,
+            "sid": int(fid), "fixture_sid": int(fid), "fixture_ext": str(fid),
             "match_iid": (match or {}).get("iid"),
             "minute": t.get("elapsed"), "extra": t.get("extra"),
             "team_ext": str((e.get("team") or {}).get("id")),
@@ -75,36 +93,61 @@ def _store(db, fixture: dict, now: datetime) -> dict:
     teams, goals = fixture.get("teams") or {}, fixture.get("goals") or {}
     st = (fx.get("status") or {}).get("short")
     match = _our_match(db, fid)
-    old = db.live_fixtures.find_one({"ext_id": str(fid)}) or {}
+    old = db.live_fixtures.find_one({"sid": int(fid)}) or {}
 
+    # THE SHAPE THE READERS ALREADY EXPECT.
+    #
+    # `sportapi.public_fixture`, `scoreboard`, `results` and `queries.py` all read this collection
+    # and were written against SportAPI's field names. The first version of this wrote `ext_id` and
+    # an ISO-string `kickoff` and nothing else, which would have left the public scoreboard EMPTY
+    # while the tick reported success: the data arriving, and no reader able to see it.
+    #
+    # `sid` is their fixture id as an int, so /api/live/{sid}/events keeps working. `kickoff` is a
+    # datetime because `scoreboard` RANGE-QUERIES it, and a string there matches nothing. `date` is
+    # the day string `results` looks up.
+    #
+    # The status words need no translation: `sportapi.FINAL`, `NOT_YET` and `DEAD` already list
+    # API-Football's shorts, and `in_play` is "none of those three", so 1H, HT and ET read as live
+    # with no table at all. docs/42 made that provider-agnostic on purpose, and it paid off here.
+    lg = fixture.get("league") or {}
+    score = fixture.get("score") or {}
+    ko = _dt(fx.get("date"))
     doc = {
-        "ext_id": str(fid), "provider": PROVIDER,
-        "league_ext": str((fixture.get("league") or {}).get("id")),
+        "sid": int(fid), "ext_id": str(fid), "provider": PROVIDER,
+        "league_sid": lg.get("id"), "league_ext": str(lg.get("id")), "league_name": lg.get("name"),
         "league_iid": (match or {}).get("league_iid"),
         "match_iid": (match or {}).get("iid"),
-        "kickoff": fx.get("date"),
-        "status": st, "in_play": AF.is_in_play(st) if hasattr(AF, "is_in_play") else st in AF.IN_PLAY,
+        "kickoff": ko, "date": ko.strftime("%Y-%m-%d") if ko else None,
+        "status": st, "in_play": st in AF.IN_PLAY,
         "minute": (fx.get("status") or {}).get("elapsed"),
         "hs": goals.get("home"), "as": goals.get("away"),
+        "ht_home": (score.get("halftime") or {}).get("home"),
+        "ht_away": (score.get("halftime") or {}).get("away"),
+        "pen_home": (score.get("penalty") or {}).get("home"),
+        "pen_away": (score.get("penalty") or {}).get("away"),
+        "winner": _winner(teams),
+        "home_sid": (teams.get("home") or {}).get("id"), "away_sid": (teams.get("away") or {}).get("id"),
         "home_ext": str((teams.get("home") or {}).get("id")),
         "away_ext": str((teams.get("away") or {}).get("id")),
         "home_name": (teams.get("home") or {}).get("name"),
         "away_name": (teams.get("away") or {}).get("name"),
+        "home_short": (teams.get("home") or {}).get("name"),
+        "away_short": (teams.get("away") or {}).get("name"),
         "home_iid": (match or {}).get("home_iid"), "away_iid": (match or {}).get("away_iid"),
         "polled_at": now,
     }
     changed = (not old) or any(old.get(k) != doc[k] for k in ("status", "hs", "as", "minute"))
     if old.get("status") != st and str(st or "").upper() in NAF.FINAL_SHORTS:
         doc["final_at"] = now
-    db.live_fixtures.update_one({"ext_id": str(fid)}, {"$set": doc}, upsert=True)
+    db.live_fixtures.update_one({"sid": int(fid)}, {"$set": doc}, upsert=True)
 
     rows = _event_rows(fixture, match)
     if rows:
         # Replace rather than append: their feed restates the whole list each poll, so appending
         # would write a goal again on every tick for the rest of the match.
-        db.live_events.delete_many({"fixture_ext": str(fid)})
+        db.live_events.delete_many({"fixture_sid": int(fid)})
         db.live_events.insert_many(rows)
-    db.live_fixtures.update_one({"ext_id": str(fid)},
+    db.live_fixtures.update_one({"sid": int(fid)},
                                 {"$set": {"events_at": now, "events_n": len(rows)}})
 
     if match:                       # the light mirror the Today and match pages read

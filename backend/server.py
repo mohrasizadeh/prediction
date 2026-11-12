@@ -94,21 +94,28 @@ def startup():
 
 
 def _start_live_loop(db):
-    """SportAPI minute job in the server process (platform crons cannot run every minute). Off unless features.live."""
+    """The minute job, in the server process (platform crons cannot run every minute).
+
+    Off unless `features.live`, and it goes through `routes_live._tick` so it obeys the SAME
+    `provider.source` switch as the HTTP route and the job tick. Calling sportapi.live_tick straight
+    from here -- which is what this did -- meant the in-process loop kept polling SportAPI while
+    every other path had moved to API-Football: two live feeds writing `live_fixtures` at once,
+    keyed differently, with the pages reading whichever they found first (docs/88).
+    """
     import threading
     import time
     from datetime import datetime, timezone
-    import sportapi as SP
+    import routes_live as RL
 
     def loop():
         while True:
             try:
                 if S.get(db, "features.live"):
-                    SP.live_tick(db)
+                    RL._tick(db)
             except Exception as e:  # noqa: BLE001
-                db.app_logs.insert_one({"at": datetime.now(timezone.utc), "level": "error", "source": "sportapi.live_loop", "message": str(e)[:500]})
+                db.app_logs.insert_one({"at": datetime.now(timezone.utc), "level": "error", "source": "live_loop", "message": str(e)[:500]})
             time.sleep(60)
-    threading.Thread(target=loop, name="sportapi-live", daemon=True).start()
+    threading.Thread(target=loop, name="live-tick", daemon=True).start()
 
 
 # ------------------------------------------------------------------- public

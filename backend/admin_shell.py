@@ -21,16 +21,13 @@ MODULES = [
     ("needs", "Needs you", "Overview", "bell", "/admin/needs", ("logs.read",)),
     ("analytics", "Analytics", "Overview", "bar-chart", "/admin/analytics", ("analytics.read",)),
 
-    # Football data. THREE PROVIDER ENTRIES, ON PURPOSE AND NOT FOR LONG. API-Football is the one
-    # we are moving to and the only one with a mapping and a quota screen, but the jobs still call
-    # PitchClient and the live tick still calls SportAPI (docs/81 §4), so those two keep their
-    # screens: the live tick's status and its team-mapping review queue are operational controls for
-    # a feed that is running right now, and taking them out of the menu while they run would leave
-    # them reachable only by typing a URL. They go when the pipeline goes, in that same change.
+    # ONE PROVIDER. The comment that stood here explained why PitchAPI and SportAPI still had
+    # screens: the jobs called PitchClient and the live tick called SportAPI, so their status and
+    # their team-mapping review queue were operational controls for feeds that were running. They
+    # are not running now -- the ingest, the live tick, the events and the pictures all come from
+    # api-football.com and from nowhere else (docs/88) -- so the screens went with the feeds.
     ("feeds", "Feeds", "Football data", "plug", "/admin/data/feeds", ("logs.read", "jobs.run")),
     ("apifootball", "API-Football", "Football data", "activity", "/admin/data/apifootball", ("logs.read", "jobs.run")),
-    ("pitchapi", "PitchAPI", "Football data", "book", "/admin/data/pitchapi", ("jobs.run",)),
-    ("sportapi", "SportAPI", "Football data", "radio", "/admin/data/sportapi", ("logs.read", "jobs.run")),
     ("leagues", "Competitions", "Football data", "trophy", "/admin/data/leagues", ("jobs.run",)),
     ("jobs", "Jobs", "Football data", "clock", "/admin/data/jobs", ("jobs.run",)),
 

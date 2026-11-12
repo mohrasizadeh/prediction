@@ -315,25 +315,39 @@ def identity_map(db) -> dict:
     """
     n = {"league": 0, "team": 0, "player": 0}
     leagues = {l["iid"]: l for l in db.leagues.find({"provider": "apifootball"}, {"iid": 1, "ext_id": 1, "name": 1})}
+    if not leagues:
+        return n          # nothing came from API-Football yet: leave every row to the matching below
     for lg in leagues.values():
         if str(lg.get("ext_id", "")).isdigit():
             _put_map(db, "league", lg["iid"], af_id=int(lg["ext_id"]), our_name=lg.get("name"),
                      status="auto", score=1.0, note="ingested from API-Football: the id is ours")
             n["league"] += 1
-    for kind, coll in (("team", db.teams), ("player", db.players)):
-        for row in coll.find({}, {"iid": 1, "ext_id": 1, "name": 1, "league_iid": 1}):
-            if not str(row.get("ext_id", "")).isdigit():
-                continue
-            if kind == "team" and row.get("league_iid") not in leagues:
-                continue
-            if kind == "player":
-                tm = db.teams.find_one({"iid": row.get("team_iid")}, {"league_iid": 1}) if row.get("team_iid") else None
-                if tm and tm.get("league_iid") not in leagues:
-                    continue
-            _put_map(db, kind, row["iid"], af_id=int(row["ext_id"]), our_name=row.get("name"),
-                     league_iid=row.get("league_iid"), status="auto", score=1.0,
-                     note="ingested from API-Football: the id is ours")
-            n[kind] += 1
+    # THE GUARD HAS TO PROVE PROVENANCE, not just that the id looks like a number.
+    #
+    # A PitchAPI club can have a numeric ext_id too, and mapping one of those would write an
+    # API-Football id that belongs to a DIFFERENT club -- a real crest on the wrong team, which is
+    # the exact bug this whole module was rewritten over. So an entity is only mapped when it can be
+    # traced to an API-Football league, and anything that cannot be traced is left to the name
+    # matching below. The first version let a player with no club through, because the check was
+    # `if tm and ...`: no team meant no `tm`, so the guard did not fire and the row was mapped.
+    af_leagues = set(leagues)
+    team_ok = {}
+    for row in db.teams.find({}, {"iid": 1, "ext_id": 1, "name": 1, "league_iid": 1}):
+        ok = row.get("league_iid") in af_leagues and str(row.get("ext_id", "")).isdigit()
+        team_ok[row["iid"]] = ok
+        if not ok:
+            continue
+        _put_map(db, "team", row["iid"], af_id=int(row["ext_id"]), our_name=row.get("name"),
+                 league_iid=row.get("league_iid"), status="auto", score=1.0,
+                 note="ingested from API-Football: the id is ours")
+        n["team"] += 1
+    for row in db.players.find({}, {"iid": 1, "ext_id": 1, "name": 1, "team_iid": 1}):
+        # No club, or a club we cannot trace to an API-Football league: not ours to claim.
+        if not team_ok.get(row.get("team_iid")) or not str(row.get("ext_id", "")).isdigit():
+            continue
+        _put_map(db, "player", row["iid"], af_id=int(row["ext_id"]), our_name=row.get("name"),
+                 status="auto", score=1.0, note="ingested from API-Football: the id is ours")
+        n["player"] += 1
     return n
 
 
@@ -447,11 +461,11 @@ def run_sync(db, client: AFClient | None = None, http=None, max_seconds: float =
     http = http or _FACTORY()
     try:
         leagues = list(db.leagues.find({"enabled": True}, {"_id": 0}))
-        # Entities ingested from API-Football need no matching at all: their id IS ours. This costs
-        # nothing and writes the map directly, so the name scoring below only ever runs for rows
-        # that really did come from somewhere else.
-        if S.get(db, "provider.source") == "apifootball":
-            stats["identity"] = identity_map(db)
+        # Their id IS ours, so there is nothing to match. Unconditional: pictures come from
+        # api-football.com and nowhere else, so there is no case where the name scoring below is
+        # the right answer for a row that carries an API-Football id. It still runs for anything
+        # left over from a previous provider, which is the only reason it survives at all.
+        stats["identity"] = identity_map(db)
         for lg in leagues:
             if db.image_map.find_one({"kind": "league", "our_iid": lg["iid"], "af_id": {"$ne": None}}):
                 continue

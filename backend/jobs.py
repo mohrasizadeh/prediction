@@ -155,12 +155,10 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
         if left() and S.get(db, "ingest.match_extra_detail"):
             import cards_model as CM
             _run(db, "referee_watch", lambda: CM.plan_referees(db, now), now)
-        # Images: API-Football carries the logo as a URL on the entity, so `images.py` needs no
-        # provider call at all and `pitch_photos` (cdn.pitchapi.dev, one call per player) is not
-        # just redundant there -- it is a second source of truth for the same crest.
-        if not af and left():
-            import pitch_photos as PP
-            _run(db, "photo_plan", lambda: PP.plan(db), now)
+        # No photo_plan step. Pictures come from api-football.com and nowhere else: the logo is a
+        # URL on the entity, so `images.py` below needs no provider call to find one, and
+        # `pitch_photos` (cdn.pitchapi.dev, a call per player) was a SECOND source of truth for the
+        # same crest. Two sources for one picture is how a club ends up wearing another's badge.
         if not af and left():
             res = _run(db, "queue", lambda: I.process_queue(client, max_tasks=200), now)
             if res and (res["done"] or res["skipped"]): out["ran"].append("queue")

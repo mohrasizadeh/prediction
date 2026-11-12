@@ -235,10 +235,12 @@ with TestClient(srv.app) as owner:
     ids = {m["id"] for m in sh["modules"]}
     check({"studio", "popups", "integrations", "staff", "keys", "settings", "users", "analytics"} <= ids and sh["groups"][0] == "Overview"
           and {"Football data", "Marketing", "Website"} <= set(sh["groups"]), "owner menu: every module, in groups")
-    # API-Football is in the menu because its key, quota and mapping screens are needed to set the
-    # move up; PitchAPI and SportAPI are still there because the jobs still use them (docs/81 §4).
-    check({"feeds", "apifootball", "pitchapi", "sportapi", "leagues"} <= ids,
-          "the owner's menu reaches every football feed, the one being moved to and the two in use")
+    # One provider. This expected PitchAPI and SportAPI beside API-Football, which was right while
+    # the jobs called one and the live tick called the other; neither is called now (docs/88).
+    check({"feeds", "apifootball", "leagues"} <= ids,
+          "the owner's menu reaches the football feed")
+    check(not ({"pitchapi", "sportapi"} & ids),
+          "...and offers no screen for a provider we no longer call")
     check(1 < len(sh["mobile_tabs"]) <= 4 and all(t in ids for t in sh["mobile_tabs"]), "phone bottom bar: up to 4 modules plus More")
     a_ids = {m["id"] for m in admin.get("/api/admin/shell").json()["modules"]}
     check("staff" not in a_ids and "studio" in a_ids and "keys" in a_ids, "admin menu: no Staff; Keys is viewable but owner-only to change")
