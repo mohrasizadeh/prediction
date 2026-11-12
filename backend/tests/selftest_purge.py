@@ -28,7 +28,7 @@ def seeded():
     db = mongomock.MongoClient()["purge"]
     for name in P.FOOTBALL + P.DERIVED + P.MINE + P.KEPT:
         db[name].insert_one({"seeded": True})
-    for name in P.COUNTERS:
+    for name in P.MONOTONIC_IDS:
         db.counters.update_one({"_id": name}, {"$set": {"seq": 42}}, upsert=True)
     for key in P.JOB_KEYS:
         db.job_locks.update_one({"_id": key}, {"$set": {"reason": "x"}}, upsert=True)
@@ -54,12 +54,49 @@ def t_the_groups_are_sane():
 def t_the_things_a_drop_would_have_cost():
     """Each of these is a reason not to let the host discard the database."""
     for name, why in (("users", "the owner's own sign-in"), ("settings", "300 tuned values"),
-                      ("provider_keys", "the keys"), ("media", "images already downloaded (docs/79)"),
+                      ("provider_keys", "the keys"),
+                      ("site_assets", "the owner's own uploads, which are NOT the provider's crests"),
                       ("site_assets", "the Site Studio"), ("content_pages", "pages built by hand"),
                       ("subscriptions", "billing, tied to live Stripe objects"),
                       ("payments", "billing"), ("blog_posts", "the blog"),
                       ("email_templates", "the e-mail templates"), ("audit_log", "the audit trail")):
         check(f"{name} is kept -- {why}", name in P.KEPT and name not in P.FOOTBALL + P.DERIVED + P.MINE)
+
+
+def t_images_go_because_they_are_keyed_on_our_ids():
+    """The owner reported wrong league badges, and this is why. `media` is keyed {kind, iid} where
+    iid is OUR integer id, so a kept crest attaches to whichever entity next holds that id. docs/79
+    §1 said keep them -- right about the bytes, wrong about the key."""
+    check("media is cleared with the football data", "media" in P.FOOTBALL)
+    check("...and is no longer on the keep list", "media" not in P.KEPT)
+    check("site_assets IS kept: those are the owner's uploads, not the provider's crests",
+          "site_assets" in P.KEPT and "site_asset_chunks" in P.KEPT)
+    db = seeded()
+    P.run(db, P.CONFIRM)
+    check("after a purge no crest, logo or photo survives to be mis-attached",
+          db.media.count_documents({}) == 0)
+    check("the owner's own uploads are untouched", db.site_assets.count_documents({}) == 1
+          and db.site_asset_chunks.count_documents({}) == 1)
+
+
+def t_ids_are_never_reused():
+    """The mechanism behind the wrong badge, removed rather than worked around. A reused id does not
+    break a lookup, it silently resolves to a different entity -- so ids only ever climb."""
+    db = seeded()
+    for n in P.MONOTONIC_IDS:
+        db.counters.update_one({"_id": n}, {"$set": {"seq": 847}}, upsert=True)
+    P.run(db, P.CONFIRM)
+    for n in P.MONOTONIC_IDS:
+        check(f"{n}: the next id carries on from 847, it does not restart at 1",
+              (db.counters.find_one({"_id": n}) or {}).get("seq") == 847)
+    # the whole point: a row that survives and points at a cleared entity dangles, it does not
+    # resolve to something else
+    db2 = seeded()
+    db2.notes.insert_one({"player_iid": 1, "text": "mine"})
+    P.run(db2, P.CONFIRM)                                  # MINE is kept by default
+    check("a kept note still points at id 1, which is now nobody rather than somebody else",
+          db2.notes.find_one({"text": "mine"})["player_iid"] == 1
+          and db2.players.count_documents({"iid": 1}) == 0)
 
 
 def t_user_data_is_opt_in():
@@ -120,8 +157,8 @@ def t_run_clears_the_right_things():
     kept_ok = [n for n in P.KEPT if n not in ("settings", "admin_notes", "job_locks", "job_state", "counters")]
     check(f"all {len(kept_ok)} kept collections still have their rows",
           all(db[n].count_documents({}) == 1 for n in kept_ok))
-    check("the counters are reset, so the first new league is id 1 again",
-          all(db.counters.find_one({"_id": n}) is None for n in P.COUNTERS))
+    check("the counters are NOT reset, so an id can never be handed out twice",
+          all((db.counters.find_one({"_id": n}) or {}).get("seq") == 42 for n in P.MONOTONIC_IDS))
     check("the feed breakers and tick state are cleared",
           all(db.job_locks.find_one({"_id": k}) is None for k in P.JOB_KEYS))
     check("a fresh start starts unpaused",
@@ -138,7 +175,8 @@ def t_run_with_mine():
     check("asked for explicitly, follows and notes go too",
           all(db[n].count_documents({}) == 0 for n in P.MINE))
     check("and the kept list is still untouched", db.users.count_documents({}) == 1
-          and db.media.count_documents({}) == 1 and db.provider_keys.count_documents({}) == 1)
+          and db.site_assets.count_documents({}) == 1 and db.provider_keys.count_documents({}) == 1
+          and db.settings.count_documents({}) >= 1)
 
 
 def t_indexes_survive():
@@ -154,7 +192,8 @@ def t_indexes_survive():
           and db.matches.count_documents({}) == 0)
 
 
-for fn in (t_the_groups_are_sane, t_the_things_a_drop_would_have_cost, t_user_data_is_opt_in,
+for fn in (t_the_groups_are_sane, t_the_things_a_drop_would_have_cost,
+           t_images_go_because_they_are_keyed_on_our_ids, t_ids_are_never_reused, t_user_data_is_opt_in,
            t_unknown_collection_is_surfaced, t_plan_changes_nothing, t_confirmation_is_required,
            t_run_clears_the_right_things, t_run_with_mine, t_indexes_survive):
     print(fn.__name__)

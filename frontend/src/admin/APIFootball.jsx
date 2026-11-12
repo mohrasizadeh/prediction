@@ -298,17 +298,20 @@ function Fresh() {
       <Card>
         <h2>Clear the football data</h2>
         <p className="a-muted">
-          Everything a provider gave us, and everything the engine computed from it. The ids differ
-          between providers, so this data cannot be carried across — it is re-fetched, not migrated.
+          Everything a provider gave us, and everything the engine computed from it, including the
+          crests, logos and player photos. The ids differ between providers, so none of it can be
+          carried across — it is re-fetched, not migrated.
         </p>
         <p className="a-muted small">
           This is not a database drop. Your sign-in, the {num((d.keep || []).length)} kept collections
           below, your settings, your keys, the images already downloaded, the Site Studio and billing
-          are all left alone.
+          are all left alone. Your own uploaded images and video are in the Media library and stay;
+          what goes is the crests and photos downloaded from a provider, which are keyed on ids that
+          are about to change.
         </p>
         <dl className="a-dl a-dl--tight">
           <div><dt>Rows to clear</dt><dd>{num(d.total)} across {(d.clear || []).length} collections</dd></div>
-          <div><dt>Counters reset</dt><dd>{(d.counters || []).join(", ")}</dd></div>
+          <div><dt>Ids</dt><dd>Never reused — the next league carries on from the last, so no kept row can resolve to a different entity</dd></div>
         </dl>
         {(d.unknown || []).length > 0 && (
           <div data-testid="af-purge-unknown">

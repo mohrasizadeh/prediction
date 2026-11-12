@@ -50,6 +50,15 @@ load-bearing**. Build the database from SportMonks ids and the problem is gone, 
 
 ### Reuse: keep the pictures, re-pull the statistics
 
+> **Corrected, 2026-11-12.** "Keep the pictures" was wrong, and the owner found it: he reported
+> wrong league badges. It is right about the bytes and wrong about the KEY. `media` rows are keyed
+> `{kind, iid}` on OUR integer id, so a kept crest attaches to whichever club next holds that id —
+> a real badge on the wrong team, which is worse than a missing one because nothing looks broken.
+> The cost argument has gone too: on API-Football a logo is a URL on the entity and image requests
+> do not count against the quota, where PitchAPI needed a call per image. Images are cleared with
+> the football data (`purge.py`), and our ids are no longer reused at all. The paragraph below
+> stands only for the owner's own uploads in `site_assets`.
+
 Two different answers, for a reason.
 
 **Images: keep them.** `images.py` already downloads each file once into our own `media` collection

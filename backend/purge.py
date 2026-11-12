@@ -8,8 +8,9 @@ is what is wanted — and also every one of these, which is not:
   * `users`, `sessions`, `auth_tokens` — the owner's own sign-in, the staff, anyone who has signed up
   * `settings`, `settings_history` — every tuned engine threshold, every copy change, 300 values
   * `provider_keys` — the keys themselves, so the first thing after the drop would be re-entering them
-  * `media` — the images already downloaded and served from our own address. docs/79 §1 settled that
-    these are KEPT: they are pixels, not a provider's data model, and re-downloading is pure cost
+  * `site_assets`, `site_asset_chunks` — the owner's own uploads, used by the Site Studio, the ad
+    builder and the blog. Not to be confused with `media`, which holds only provider crests, logos
+    and player photos (see below)
   * `site_assets`, `site_versions`, `content_pages` — the whole Site Studio, built by hand
   * `plans`, `subscriptions`, `payments`, `coupons` — billing, which is tied to live Stripe objects.
     Dropping our side does not drop theirs, so the two would disagree
@@ -34,6 +35,23 @@ collections. So this does the targeted thing instead, and names every collection
 
 Everything else is left alone, and `unknown()` lists any collection this module has never heard of
 so a new one cannot be silently missed in either direction.
+
+## Why the images go too, reversing docs/79 §1
+
+docs/79 §1 said to keep them: pixels are provider-neutral and re-downloading is pure cost. That was
+right about the BYTES and wrong about the KEY. `media` rows are keyed `{kind, iid}` where `iid` is
+OUR integer id (`images.py` line 247, read back in `routes_images.py` line 39). Clear the entities
+and re-ingest, and a new club takes an id an old club used to hold — so it inherits that club's
+crest. A real badge on the wrong team, which is worse than no badge, because nothing looks broken.
+
+The owner found exactly this and reported wrong league badges.
+
+The cost that justified keeping them has also gone. On PitchAPI each image needed an API call to
+find (about 22 a league, docs/19). On API-Football the logo is a URL on the entity itself and image
+requests do not count against the daily quota at all (docs/82 §9), so re-downloading is close to
+free.
+
+`site_assets` is a different collection and is kept: those are the owner's own uploads.
 """
 from __future__ import annotations
 
@@ -52,6 +70,8 @@ FOOTBALL = [
     "live_fixtures", "live_events", "live_lineups", "live_stats",
     # provider plumbing: responses, the call log, the id maps
     "api_cache", "api_call_log", "image_api_cache", "image_api_calls", "image_map", "image_runs",
+    # THE IMAGES THEMSELVES. See "Why the images go too" below -- this reverses docs/79 §1.
+    "media",
     "sportapi_cache", "sportapi_calls", "sportapi_dates", "sportapi_state", "sportapi_team_map",
     # the ingest's own queue and complaints
     "ingest_queue", "ingest_issues",
@@ -61,10 +81,20 @@ DERIVED = ["forecasts", "forecast_outcomes", "engine_runs", "engine_gates", "eng
 
 MINE = ["follows", "follow_alerts", "notes", "saved_forecasts", "combos", "booking_alerts"]
 
-# Reset so the first new league is iid 1 again. Only the counters of entities we are clearing: a
-# counter left high is harmless, but a counter reset while its rows survive would hand out an id
-# that is already taken.
-COUNTERS = ["leagues", "seasons", "teams", "players", "matches"]
+# NOT reset, and the reason is the bug that made the owner ask for this.
+#
+# Resetting them would make the first new league iid 1 again, which is tidy and wrong. Our integer
+# ids are the key for things that survive a purge, and a REUSED id does not break a lookup -- it
+# silently resolves to a different entity. That is how a crest ends up on the wrong club: a real
+# badge, confidently wrong, which is worse than a missing one.
+#
+# Leaving them to climb costs nothing. A surviving row that points at a cleared entity becomes a
+# dangling id, which resolves to nothing and shows as missing. Dangling is recoverable; reused is
+# not, because nothing downstream can tell it happened.
+#
+# This also protects the collections a purge deliberately keeps (`MINE`: follows, notes, saved
+# cards) when it is run without them, and any collection added later that keys on an iid.
+MONOTONIC_IDS = ["leagues", "seasons", "teams", "players", "matches"]
 
 # Breaker and tick state for the feeds. Not the whole of `job_locks`/`job_state`, which also hold
 # locks for e-mail and billing jobs that have nothing to do with football.
@@ -74,7 +104,7 @@ JOB_KEYS = ["pitch_breaker", "af_breaker", "apifootball_quota", "sportapi_tick",
 # honest is the point of the whole module.
 KEPT = [
     "users", "sessions", "auth_tokens", "auth_log", "settings", "settings_history", "provider_keys",
-    "media", "site_assets", "site_asset_chunks", "site_versions", "site_state", "site_counter",
+    "site_assets", "site_asset_chunks", "site_versions", "site_state", "site_counter",
     "content_pages", "blog_posts", "popups", "popup_stats", "announcements", "social_posts",
     "ad_designs", "plans", "subscriptions", "payments", "coupons", "newsletter", "waitlist_sends",
     "email_campaigns", "email_log", "email_suppressions", "email_templates", "contact_messages",
@@ -122,7 +152,7 @@ def plan(db, include_mine: bool = False) -> dict:
     return {
         "clear": rows, "total": total,
         "keep": sorted(kept, key=lambda r: -r["documents"]),
-        "counters": COUNTERS, "job_keys": JOB_KEYS,
+        "monotonic_ids": MONOTONIC_IDS, "job_keys": JOB_KEYS,
         "unknown": unknown(db),
         "include_mine": include_mine,
         "mine_total": sum(r["documents"] for r in rows if r["group"] == "mine"),
@@ -146,8 +176,7 @@ def run(db, confirm: str, include_mine: bool = False, actor: str = "") -> dict:
     for name in groups(include_mine):
         if name in db.list_collection_names():
             deleted[name] = db[name].delete_many({}).deleted_count
-    for name in COUNTERS:
-        db.counters.delete_one({"_id": name})
+    # The counters are deliberately left alone: see MONOTONIC_IDS.
     for key in JOB_KEYS:
         db.job_locks.delete_one({"_id": key})
         db.job_state.delete_one({"_id": key})
