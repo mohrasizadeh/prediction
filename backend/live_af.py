@@ -158,6 +158,52 @@ def _store(db, fixture: dict, now: datetime) -> dict:
             "orphan": match is None}
 
 
+def _store_lineups(db, fixture: dict, now: datetime) -> int:
+    """The announced eleven, into `live_lineups`, which otherwise has no writer at all.
+
+    `GET /api/live/{sid}/lineups` reads this collection. After the move nothing wrote to it, so the
+    endpoint answered with an empty object and no error -- a feature that stopped existing quietly
+    (docs/89 section 2). The live payload carries no lineups, so they come from the fixture bundle,
+    the same place the confirmed eleven comes from for a finished match.
+
+    THE SHAPE IS THE READER'S, not a fresh one. `sportapi.lineups_for` wants one row a side with a
+    `players` list, each carrying `started`, `player_iid`, `name`, `position` and `shirt`. Writing
+    `starters`/`bench` instead would have left the endpoint returning nothing while the tick
+    reported lineups stored -- exactly the mistake the scoreboard caught (docs/88).
+    """
+    fid = (fixture.get("fixture") or {}).get("id")
+    if fid is None:
+        return 0
+
+    def rows(block, started):
+        key = "startXI" if started else "substitutes"
+        out = []
+        for p in (block.get(key) or []):
+            pl = p.get("player") or {}
+            ours = db.players.find_one({"ext_id": str(pl.get("id"))}, {"iid": 1}) if pl.get("id") is not None else None
+            out.append({"started": started, "player_iid": (ours or {}).get("iid"),
+                        "name": pl.get("name"), "position": pl.get("pos"),
+                        "shirt": pl.get("number"), "captain": False, "mins": None,
+                        "grid": pl.get("grid"), "ext_id": str(pl.get("id")) if pl.get("id") is not None else None})
+        return out
+
+    n = 0
+    for side_i, block in enumerate(fixture.get("lineups") or []):
+        side = "home" if side_i == 0 else "away"
+        players = rows(block, True) + rows(block, False)
+        if not players:
+            continue
+        tid = (block.get("team") or {}).get("id")
+        db.live_lineups.update_one(
+            {"fixture_sid": int(fid), "side": side},
+            {"$set": {"fixture_sid": int(fid), "sid": int(fid), "side": side,
+                      "team_sid": tid, "team_ext": str(tid),
+                      "formation": block.get("formation"), "players": players, "at": now}},
+            upsert=True)
+        n += 1
+    return n
+
+
 def live_tick(db, client=None, now: datetime | None = None) -> dict:
     """One call for every in-play fixture in our competitions, plus statistics where they exist."""
     now = now or utcnow()
@@ -175,7 +221,7 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
     except (AF.BudgetExhausted, AF.BreakerOpen, AF.Unauthorized, AF.PlanLimited) as e:
         return {"skipped": f"{type(e).__name__}: {e}", "fixtures": 0}
 
-    out = {"fixtures": len(fixtures), "changed": 0, "events": 0, "orphans": 0, "stats": 0}
+    out = {"fixtures": len(fixtures), "changed": 0, "events": 0, "orphans": 0, "stats": 0, "lineups": 0}
     for f in fixtures:
         r = _store(db, f, now)
         out["changed"] += bool(r.get("changed"))
@@ -193,6 +239,7 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
                                                "statistics": fixture.get("statistics") or []}},
                                      upsert=True)
             out["stats"] += 1
+            out["lineups"] = out.get("lineups", 0) + _store_lineups(db, fixture, now)
     db.job_state.update_one({"_id": "live_tick"},
                             {"$set": {"at": now, "provider": PROVIDER, **out}}, upsert=True)
     return out

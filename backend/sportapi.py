@@ -657,7 +657,8 @@ def overlay(db, ms: list[dict]) -> list[dict]:
             if m.get("hg") is None:
                 m["hg"], m["ag"] = f["hs"], f["as"]
         m["phase"] = phase
-        m["source"] = "sportapi"
+        # Not "sportapi". `live_af` writes these rows now and this label was shown as provenance.
+        m["source"] = f.get("provider") or "apifootball"
         # `playing` is the flag the screens use; `status` is kept for older ones and for the admin (docs/42)
         m["live"] = {"status": f.get("status"), "playing": phase == "live", "state": fixture_state(f.get("status")), "minute": f.get("minute"), "hs": f.get("hs"), "as": f.get("as"),
                      "pen_home": f.get("pen_home"), "pen_away": f.get("pen_away"), "sid": f["sid"], "at": f.get("polled_at"),

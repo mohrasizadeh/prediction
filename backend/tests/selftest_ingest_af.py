@@ -582,13 +582,58 @@ def t_the_jobs_screen_offers_jobs_that_can_run():
 
 
 
+# ------------------------------------------------------------------ 13. the endpoint audit, pinned
+def t_no_endpoint_reaches_a_retired_provider():
+    """docs/89. The audit asked for the first time, as a test so it cannot rot.
+
+    Each of these was found by enumerating the route decorators and grepping them, which is the
+    check docs/87 should have been and was not.
+    """
+    import pathlib, re as _re
+    root = pathlib.Path(__file__).resolve().parent.parent
+
+    # 1. the Endpoint explorer sent PitchAPI requests from the API-Football screen
+    rda = (root / "routes_data_admin.py").read_text()
+    check("the explorer has an API-Football allow-list at all", "AF_ALLOWED" in rda)
+    check("...and picks the list by provider", "_lists(db)" in rda or "_lists(" in rda)
+    check("...and builds the API-Football client when that is the provider", "_af_explore" in rda)
+
+    # 2. live_lineups had no writer, so the endpoint could only answer empty
+    la = (root / "live_af.py").read_text()
+    check("live_af writes live_lineups", "live_lineups" in la)
+    check("...in the shape sportapi.lineups_for reads (`players`, not `starters`)",
+          '"players": players' in la)
+
+    # 3. eight SportAPI admin endpoints stayed mounted and one could spend a call
+    rl = (root / "routes_live.py").read_text()
+    gone = ['@admin.get("")', '@admin.get("/leagues")', '@admin.post("/teams/{sid}")',
+            '@admin.post("/backfill")', '@admin.get("/live-stats")',
+            '@admin.get("/stats-probe/{sid}")', '@admin.post("/stats-keys")']
+    still = [g for g in gone if g in rl]
+    check(f"the SportAPI admin endpoints are gone, not merely unlinked ({still or 'all removed'})",
+          not still)
+    # CODE, NOT PROSE. This matched the comment that explains the removal -- the same mistake made
+    # two commits earlier with `pitch_photos`, so strip comments before looking rather than keep
+    # wording around them. A test that forbids naming a thing forbids explaining it.
+    rl_code = "\n".join(l.split("#")[0] for l in rl.splitlines())
+    check("SP.Client is not reachable from any route", "SP.Client(" not in rl_code)
+    check("...and no admin route calls into sportapi at all",
+          not _re.search(r"@admin\.[a-z]+\([^)]*\)[^@]*?\bSP\.", rl_code, _re.S))
+
+    # 4. overlay told every public page the data came from SportAPI
+    sp = (root / "sportapi.py").read_text()
+    check('overlay no longer hardcodes source="sportapi"', 'm["source"] = "sportapi"' not in sp)
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
            t_live_is_a_lookup_not_a_guess, t_images_map_is_an_identity,
            t_events_come_with_the_statistics,
            t_the_public_scoreboard_can_read_what_live_writes,
-           t_the_jobs_screen_offers_jobs_that_can_run):
+           t_the_jobs_screen_offers_jobs_that_can_run,
+           t_no_endpoint_reaches_a_retired_provider):
     print(fn.__name__)
     fn()
 

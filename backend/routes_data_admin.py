@@ -53,11 +53,65 @@ def make_client(db) -> PitchClient:
     return PitchClient(db)
 
 
-def _allowed(path: str, params: dict) -> bool:
-    for pattern, keys in ALLOWED:
+# API-Football's own surface. The explorer had ONE allow-list -- PitchAPI's `/v1/...` paths -- and
+# built a PitchClient, on a tab that lives on the API-Football screen. So the Endpoint explorer
+# there sent PitchAPI requests, judged them against PitchAPI's allow-list, and reported PitchAPI
+# errors. Nothing hid it; it was never looked at (docs/89 §1).
+#
+# Read-only endpoints only, and no write path exists on their API anyway. `?live=` is here because
+# it is the one call worth watching by hand during a match.
+AF_ALLOWED = [
+    (r"/status", ()),
+    (r"/leagues", ("id", "name", "country", "season", "current", "type", "search")),
+    (r"/teams", ("id", "league", "season", "name", "country", "search")),
+    (r"/teams/statistics", ("league", "season", "team", "date")),
+    (r"/players", ("id", "team", "league", "season", "search", "page")),
+    (r"/players/squads", ("team", "player")),
+    (r"/fixtures", ("id", "ids", "live", "date", "league", "season", "team", "last", "next",
+                    "from", "to", "round", "status", "timezone")),
+    (r"/fixtures/events", ("fixture", "team", "player", "type")),
+    (r"/fixtures/lineups", ("fixture", "team", "player", "type")),
+    (r"/fixtures/statistics", ("fixture", "team", "type")),
+    (r"/fixtures/players", ("fixture", "team")),
+    (r"/fixtures/headtohead", ("h2h", "date", "league", "season", "last", "next")),
+    (r"/standings", ("league", "season", "team")),
+    (r"/injuries", ("league", "season", "fixture", "team", "player", "date")),
+]
+
+
+def _lists(db):
+    """The allow-list of the provider actually in use."""
+    return AF_ALLOWED if S.get(db, "provider.source") == "apifootball" else ALLOWED
+
+
+def _allowed(path: str, params: dict, db=None) -> bool:
+    for pattern, keys in (_lists(db) if db is not None else ALLOWED):
         if re.fullmatch(pattern, path):
             return all(k in keys for k in params)
     return False
+
+
+def _af_explore(db, user, body, params):
+    """The same screen, against API-Football. Its errors are theirs, not PitchAPI's."""
+    import apifootball as AF
+    client = AF.Client(db)
+    try:
+        data = client.fetch(body.path, params or None, ttl=timedelta(days=1),
+                            purpose="explorer", force=body.force)
+    except AF.Unauthorized as e:
+        raise D.upstream("AF_KEY", f"API-Football did not accept the key: {e}")
+    except AF.PlanLimited as e:
+        raise D.upstream("AF_PLAN", f"Not on your plan: {e}")
+    except AF.BudgetExhausted as e:
+        raise D.upstream("BUDGET_SPENT", str(e))
+    except AF.BreakerOpen as e:
+        raise D.upstream("BREAKER_OPEN", f"Calls are paused: {e}")
+    except AF.APIFootballError as e:
+        raise D.upstream("PROVIDER", str(e))
+    if body.force:
+        AQ.audit(db, user, "explorer.force", body.path)
+    return {"path": body.path, "params": params, "from_cache": client.calls_made == 0,
+            "cost": client.calls_made, "data": data}
 
 
 class ExplorerBody(BaseModel):
@@ -69,8 +123,10 @@ class ExplorerBody(BaseModel):
 @router.post("/explorer")
 def explorer(body: ExplorerBody, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     params = {k: v for k, v in body.params.items() if v != ""}
-    if not _allowed(body.path, params):
+    if not _allowed(body.path, params, db):
         raise D.err(400, "NOT_ALLOWED", "That call or parameter is not on the allow-list.")
+    if S.get(db, "provider.source") == "apifootball":
+        return _af_explore(db, user, body, params)
     client = make_client(db)
     try:
         data = client.fetch(body.path, params or None, ttl=timedelta(days=1), purpose="explorer", force=body.force)
@@ -200,7 +256,7 @@ def leagues(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
             "by_provider": by_provider,
             "providers_on": {"apifootball": bool(security.get_provider_key(db, "apifootball", env_fallback="APIFOOTBALL_KEY")),
                              "pitchapi": bool(S.get(db, "pitchapi.enabled")),
-                             "sportapi": bool(S.get(db, "sportapi.enabled"))},
+                             "sportapi": False},   # retired; the field stays so an older screen does not crash on its absence
             "roles": {"forecast": AFL.FORECAST, "calendar": AFL.CALENDAR, "off": AFL.OFF}}
 
 
