@@ -684,10 +684,10 @@
     "group": "Cache",
     "label": "Upcoming list TTL on match days (hours)",
     "type": "number",
-    "default": 2,
+    "default": 1,
     "public": false,
     "applies_at": "next_ingest_run",
-    "help": ""
+    "help": "Fixtures update every 15 seconds on this provider, so a matchday list goes stale fast. The live tick does NOT read this: it calls /fixtures?live=all uncached (docs/82 section 3). This is for the day's fixture list that the standings and backfill planners share."
   },
   {
     "key": "cache.ttl.lineups_far_hours",
@@ -3472,5 +3472,35 @@
     "public": false,
     "applies_at": "immediately",
     "help": "Used only until the first answer of the session carries X-RateLimit-Limit, after which the pace comes from the plan itself. Conservative on purpose: a free key allows ten calls a minute and a spike can get a key blocked."
+  },
+  {
+    "key": "cache.ttl.standings_hours",
+    "group": "Provider",
+    "label": "Standings cache (hours)",
+    "type": "number",
+    "default": 1,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "They update standings hourly, and only for competitions with a fixture that day. Asked for today's leagues only (docs/82 section 7)."
+  },
+  {
+    "key": "cache.ttl.live_stats_s",
+    "group": "Provider",
+    "label": "Live statistics cache (seconds)",
+    "type": "number",
+    "default": 60,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Fixture and player statistics update every minute, and only while the ball is moving: not at half time."
+  },
+  {
+    "key": "cache.ttl.squads_days",
+    "group": "Provider",
+    "label": "Teams, coaches, squads, transfers cache (days)",
+    "type": "number",
+    "default": 21,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "They recommend saving these your side and refreshing once or twice a month. Team ids never change, so only names and venues drift."
   }
 ]

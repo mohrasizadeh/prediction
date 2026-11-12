@@ -39,7 +39,7 @@ and nothing downstream could tell.
 """
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import settings_store as S
 from apifootball import coverage
@@ -188,6 +188,14 @@ def plan_row(client, entry: dict, seasons: list[int]) -> dict:
         if not cov.get("found"):
             row["warnings"].append(f"{season}: not available on this plan")
             continue
+        # A SEASON THAT HAS NOT KICKED OFF REPORTS EVERYTHING FALSE, and their documentation says so:
+        # "a competition that hasn't started yet will have all the fields in FALSE, that's why you
+        # have to call this endpoint at least once a week" (docs/82 §8). Reporting that as "no player
+        # statistics" reads on the Competitions screen as "this league is thin" when it means "come
+        # back in August", and the owner maps leagues off these warnings.
+        if not _has_started(cov):
+            row["warnings"].append(f"{season}: season has not started, so coverage reads empty until it does")
+            continue
         if entry["role"] == FORECAST:
             if not cov.get("players_statistics"):
                 row["warnings"].append(f"{season}: no player statistics -- player markets cannot run")
@@ -196,6 +204,20 @@ def plan_row(client, entry: dict, seasons: list[int]) -> dict:
         if not cov.get("fixtures_lineups"):
             row["warnings"].append(f"{season}: no lineups -- the start model and the confirmed eleven are blind")
     return row
+
+
+def _has_started(cov: dict, today=None) -> bool:
+    """Has this season begun? The coverage row carries `start`, so the two reasons a field reads
+    false -- not tracked, and not started -- are told apart rather than guessed at. No start date
+    means we cannot tell, and we assume it has, because that is the case that gets a real warning."""
+    start = cov.get("start")
+    if not start:
+        return True
+    today = today or datetime.now(timezone.utc).date()
+    try:
+        return datetime.strptime(str(start)[:10], "%Y-%m-%d").date() <= today
+    except ValueError:
+        return True
 
 
 def supportable_role(row: dict, season: str | None = None) -> str:

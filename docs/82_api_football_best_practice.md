@@ -196,3 +196,25 @@ them.
 
 1 and 2 are defects. 3 to 8 are the live and backfill design, and all of it lands before the first
 real call, so none of it is rework.
+
+---
+
+## Built
+
+All eight, in `apifootball.py` and `af_leagues.py`, pinned by **77 checks** in
+`selftest_apifootball.py` (up from 45) and **37** in `selftest_af_leagues.py`.
+
+| | What landed |
+|---|---|
+| 1 | `RateLimited`, raised from `_unwrap` on `errors.rateLimit` and handled in the retry loop exactly as a 429: cool down, retry, trip the breaker on repetition. `min_remaining` is forced to 0 so the pace drops even if the answer omitted the header. It is deliberately *not* confused with a spent quota or a bad key — neither pauses ingest. |
+| 2 | `per_second_limit()` derives the ceiling as the per-minute limit over sixty, which matches their table for every plan (300/5, 450/7.5, 900/15, 1200/20), so it needs no plan-name lookup. `min_gap()` clamps the pace between **consecutive** calls, not over a window — an average can be legal while two calls 10ms apart are not. The clamp is tested at `minute_safety` 1.0, which is where the old code would have sat exactly on the limit. |
+| 3 | `live_fixtures()` calls `/fixtures?live=…` and is never cached. `needs_stats()` reads the inline events and returns only the fixtures worth a statistics call. |
+| 4 | `PLAYING` beside `IN_PLAY`, and `worth_refreshing_stats()`. The test asserts both halves: `HT`, `BT`, `SUSP` and `INT` stay live for the forecast (docs/42) *and* are skipped for statistics. |
+| 5 | `lineup_ttl()` returns `FOREVER` once a non-empty lineup is present, and the short poll only while it is absent. |
+| 6 | `cache.ttl.standings_hours` (1), `cache.ttl.live_stats_s` (60), `cache.ttl.squads_days` (21); `cache.ttl.fixtures_matchday_hours` 2 → 1, with its help text now saying the live tick does not read it. |
+| 7 | `leagues_playing_on()` and `standings()`, which skips a league whose `coverage.standings` is false rather than asking and being answered empty. |
+| 8 | `_has_started()` reads the season's `start` date out of the same coverage answer, so "has not started" and "not covered" are told apart. A season under way with no statistics is still called out and still demoted. |
+
+One thing the work surfaced that was not in their docs: `check()` in the test harness accepted a
+truthy non-boolean, and `a and b` over two lists returns a list, which broke the pass tally rather
+than failing a check. It coerces now.

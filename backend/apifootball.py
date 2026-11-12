@@ -58,6 +58,13 @@ NOT_YET = {"TBD", "NS"}                            # not started
 IN_PLAY = {"1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE"}
 NOT_PLAYING = FINAL | DEAD | NOT_YET
 
+# The ball is actually moving. A DIFFERENT question from `in_play`, and the difference costs calls:
+# their guidance is to refresh statistics "only if the fixture is in progress, it's not necessary to
+# update them when the fixture status is at half time" (docs/82 §4). `in_play` holds HT, BT, SUSP and
+# INT because a forecast must keep ticking through a break -- that was the whole point of docs/42 --
+# but none of those periods produces a new shot or tackle, so polling through them buys nothing.
+PLAYING = {"1H", "2H", "ET", "LIVE"}
+
 
 def in_play(status) -> bool:
     """Is this match being played right now? The one rule, for every screen (docs/42)."""
@@ -71,6 +78,11 @@ def is_final(status) -> bool:
 def is_over(status) -> bool:
     """Finished, or called off and never coming back."""
     return bool(status) and str(status).upper() in (FINAL | DEAD)
+
+
+def worth_refreshing_stats(status) -> bool:
+    """Would calling for this fixture's statistics return anything new? Half time would not."""
+    return bool(status) and str(status).upper() in PLAYING
 
 
 def stale_not_started(status, kickoff, now=None, hours: float = 3.0) -> bool:
@@ -98,6 +110,7 @@ class APIFootballError(Exception):
 
 class Unauthorized(APIFootballError): ...
 class PlanLimited(APIFootballError): ...      # the key is fine; this league/season is not on the plan
+class RateLimited(APIFootballError): ...      # too fast. Arrives as HTTP 200, see _unwrap (docs/82 §1)
 class BudgetExhausted(Exception): ...
 class BreakerOpen(Exception): ...
 
@@ -234,7 +247,25 @@ class Client:
             headroom = max(0.01, min(1.0, float(S.get(self.db, "apifootball.minute_headroom"))))
             if share < headroom:                          # the last of the bucket is spent slowest
                 gap *= headroom / max(share, 0.02)
-        return gap
+        return max(gap, self.min_gap())
+
+    def per_second_limit(self) -> float | None:
+        """The plan's calls-a-SECOND ceiling, which no header reports (docs/82 §2).
+
+        Their plan table gives it beside the per-minute figure, and across every plan it is exactly
+        the per-minute limit divided by sixty: Pro 300/5, Ultra 450/7.5, Mega 900/15, Custom
+        1200/20. So it needs no plan-name lookup and no number typed in here — it is derived, and it
+        stays right if they add a plan.
+        """
+        lim = self.quota().get("min_limit")
+        return (float(lim) / 60.0) if lim else None
+
+    def min_gap(self) -> float:
+        """The shortest gap the plan permits. Even pacing is what makes the per-second ceiling hold:
+        the average could be legal while two calls 10ms apart were not, so the ceiling is enforced
+        between CONSECUTIVE calls rather than over a window."""
+        per_s = self.per_second_limit()
+        return (1.0 / per_s) if per_s else 0.0
 
     def _pace(self) -> None:
         q = self.quota()
@@ -282,6 +313,17 @@ class Client:
             if "requests" in errs:
                 self._trip_breaker("quota reached")
                 raise BudgetExhausted(blob)
+            if "rateLimit" in errs or "ratelimit" in {k.lower() for k in errs}:
+                # THE PER-MINUTE LIMIT ARRIVES AS HTTP 200 (docs/82 §1). Before this case existed it
+                # fell through to the generic error below: no backoff, no retry, and the job carried
+                # on at the same pace -- which is how their documentation says a key, and the IP
+                # behind it, gets firewalled. The caller retries after a cooldown.
+                #
+                # The answer usually carries X-RateLimit-Remaining: 0 and _note_quota has already
+                # stored it, so _pace slows down on its own. Where it does not, say so ourselves.
+                self.db.job_state.update_one({"_id": "apifootball_quota"},
+                                             {"$set": {"min_remaining": 0, "at": utcnow()}}, upsert=True)
+                raise RateLimited("rateLimit", blob)
             raise APIFootballError("errors", f"{path}: {blob}")
         pg = body.get("paging") or {}
         self._paging = {"current": pg.get("current"), "total": pg.get("total")}
@@ -334,7 +376,16 @@ class Client:
                 return []
             if r.status_code != 200:
                 raise APIFootballError("http", f"{r.status_code} on {path}")
-            return self._unwrap(body, path)
+            try:
+                return self._unwrap(body, path)
+            except RateLimited as e:
+                # Same handling as a 429, because it IS one: it just arrived with a 200.
+                attempts += 1
+                if attempts > 3:
+                    self._trip_breaker("per-minute rate limit")
+                    raise BreakerOpen(f"per-minute rate limit: {e.detail}")
+                self._sleep(float(S.get(self.db, "apifootball.minute_cooldown_s")))
+                continue
 
     def _log(self, path, status, t0, purpose, code):
         self.db.api_call_log.insert_one({"at": utcnow(), "path": path, "status": status, "code": code,
@@ -444,6 +495,74 @@ def fixtures_bundle(client: Client, fixture_ids: list[int], ttl=FOREVER, purpose
             if fid is not None:
                 out[int(fid)] = row
     return out
+
+
+# ------------------------------------------------------------------ live, in one call
+#
+# "To update fixtures and events, a single call to the fixtures/live endpoint is enough as it returns
+# all current fixtures AND THEIR EVENTS, this avoids calling the endpoint events for each fixtures"
+# (docs/82 §3). On a Saturday with twenty live matches that is one call where a fixture list plus a
+# per-match events call would be twenty-one. Never cached: the whole point is freshness.
+def live_fixtures(client: Client, league_ids: list[int] | None = None) -> list[dict]:
+    """Every in-play fixture, with its events inline. `league_ids` narrows it to ours."""
+    param = "-".join(str(int(i)) for i in league_ids) if league_ids else "all"
+    return client.fetch("/fixtures", {"live": param}, ttl=timedelta(seconds=0), purpose="live", force=True)
+
+
+def needs_stats(fixtures: list[dict]) -> list[int]:
+    """Of those live fixtures, the ones actually producing statistics right now (§4)."""
+    out = []
+    for f in fixtures:
+        st = ((f.get("fixture") or {}).get("status") or {}).get("short")
+        fid = (f.get("fixture") or {}).get("id")
+        if fid is not None and worth_refreshing_stats(st):
+            out.append(int(fid))
+    return out
+
+
+# ------------------------------------------------------------------ lineups: fetch until present
+def lineup_ttl(client: Client, fixture: dict):
+    """How long a fixture's lineup answer may be cached.
+
+    "As the lineups are updated only once and do not change during the fixture, once you have
+    retrieved the data it is no longer necessary to update them" (docs/82 §5). So a lineup we have
+    is cached FOR EVER, and only an absent one is polled again — they appear 20 to 40 minutes before
+    kick-off, and in some competitions only after the match.
+    """
+    if (fixture.get("lineups") or []):
+        return FOREVER
+    mins = float(S.get(client.db, "cache.ttl.lineups_near_minutes"))
+    return timedelta(minutes=mins)
+
+
+# ------------------------------------------------------------------ standings: today's leagues only
+def leagues_playing_on(client: Client, date: str) -> list[int]:
+    """The distinct leagues with a fixture on `date` (YYYY-MM-DD), from one call.
+
+    Their standings pattern (docs/82 §7): read the day's fixtures once, collect the league ids, and
+    ask for those tables only. Twelve leagues on a Saturday, two on a Tuesday, rather than every
+    league we carry every hour.
+    """
+    rows = client.fetch("/fixtures", {"date": date},
+                        ttl=timedelta(hours=float(S.get(client.db, "cache.ttl.fixtures_matchday_hours"))),
+                        purpose="day_fixtures")
+    seen = []
+    for r in rows:
+        lid = (r.get("league") or {}).get("id")
+        if lid is not None and int(lid) not in seen:
+            seen.append(int(lid))
+    return seen
+
+
+def standings(client: Client, league_id: int, season: int, skip_uncovered: bool = True) -> list:
+    """One league's table, skipped entirely where the competition does not carry standings — an
+    uncovered league answers empty, and a call that was always going to answer empty is the kind
+    their guidance exists to stop us making."""
+    if skip_uncovered and not coverage(client, league_id, season).get("standings", True):
+        return []
+    return client.fetch("/standings", {"league": int(league_id), "season": int(season)},
+                        ttl=timedelta(hours=float(S.get(client.db, "cache.ttl.standings_hours"))),
+                        purpose="standings")
 
 
 def media_url(kind: str, ext_id) -> str:

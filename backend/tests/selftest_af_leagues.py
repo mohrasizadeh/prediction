@@ -10,6 +10,8 @@ import os, sys, base64
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 os.environ.setdefault("APP_ENCRYPTION_KEY", base64.b64encode(os.urandom(32)).decode())
 
+import datetime as dt
+
 import httpx
 import mongomock
 
@@ -39,13 +41,13 @@ def env(response):
     return {"errors": [], "results": len(response), "paging": {"current": 1, "total": 1}, "response": response}
 
 
-def lg(lid, name, country, typ="League", seasons=None, cov=None):
+def lg(lid, name, country, typ="League", seasons=None, cov=None, start="2024-08-01"):
     cov = cov or {}
     fx = {"events": cov.get("events", True), "lineups": cov.get("lineups", True),
           "statistics_fixtures": cov.get("stats", True), "statistics_players": cov.get("pstats", True)}
     return {"league": {"id": lid, "name": name, "type": typ, "logo": ""},
             "country": {"name": country},
-            "seasons": [{"year": y, "current": y == max(seasons or [2024]),
+            "seasons": [{"year": y, "current": y == max(seasons or [2024]), "start": start,
                          "coverage": {"fixtures": fx, "standings": True, "players": True,
                                       "injuries": cov.get("injuries", True), "top_scorers": True}}
                         for y in (seasons or [2024])]}
@@ -131,6 +133,29 @@ def t_missing_lineups_warns():
 
 
 # ---------------------------------------------------------------- the role gate
+def t_unstarted_season_is_not_a_thin_league():
+    """docs/82 section 8: a competition that has not kicked off reports every coverage field false.
+    Calling that "no player statistics" reads on the mapping screen as "this league is thin" when it
+    means "come back in August" -- and the owner maps leagues off these warnings."""
+    future = (dt.date.today() + dt.timedelta(days=60)).isoformat()
+    c = client([lg(39, "Premier League", "England", seasons=[2026],
+                   cov={"pstats": False, "stats": False, "lineups": False}, start=future)])
+    row = L.plan_row(c, L.BY_KEY["eng.pl"], [2026])
+    check("an unstarted season says so, in those words",
+          any("has not started" in w for w in row["warnings"]))
+    check("...and does not claim the league lacks player statistics",
+          not any("no player statistics" in w for w in row["warnings"]))
+    check("...nor that its lineups are missing", not any("no lineups" in w for w in row["warnings"]))
+    # the same emptiness on a season that IS under way is a real finding and still reported
+    past = (dt.date.today() - dt.timedelta(days=60)).isoformat()
+    c2 = client([lg(307, "Pro League", "Saudi-Arabia", seasons=[2025],
+                    cov={"pstats": False, "stats": False}, start=past)])
+    row2 = L.plan_row(c2, L.BY_KEY["ksa.proleague"], [2025])
+    check("a season under way with no statistics is still called out",
+          any("no player statistics" in w for w in row2["warnings"]))
+    check("...and is still demoted to calendar", L.supportable_role(row2) == L.CALENDAR)
+
+
 def t_confirm_writes_a_league():
     c = client([lg(39, "Premier League", "England", seasons=[2024, 2023, 2022])])
     db = c.db
@@ -168,7 +193,8 @@ def t_roles_gate():
 
 for fn in (t_catalogue, t_same_name_other_country, t_ambiguous_goes_to_review, t_no_match,
            t_thin_coverage_demotes, t_good_coverage_keeps_forecast, t_season_not_on_plan,
-           t_missing_lineups_warns, t_confirm_writes_a_league, t_roles_gate):
+           t_missing_lineups_warns, t_unstarted_season_is_not_a_thin_league,
+           t_confirm_writes_a_league, t_roles_gate):
     print(fn.__name__)
     fn()
 

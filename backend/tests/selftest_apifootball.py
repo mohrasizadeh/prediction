@@ -27,6 +27,7 @@ import settings_store as S
 
 OK = []
 def check(name, cond):
+    cond = bool(cond)          # a `a and b` over two lists returns a list, which breaks sum(OK)
     OK.append(cond)
     print(("  ok     " if cond else "  FAIL   ") + name)
 
@@ -117,6 +118,143 @@ def t_quota_headers():
     q = c.quota()
     check("the daily and per-minute quota headers are stored",
           q.get("day_remaining") == 41 and q.get("min_remaining") == 7 and q.get("day_limit") == 7500)
+
+
+# ---------------------------------------------------------------- docs/82: their own best practice
+def t_ratelimit_arrives_as_200():
+    """THE BUG docs/82 section 1 found. Their per-minute limit is reported as HTTP 200 with
+    errors.rateLimit; before this case existed it fell through to a generic error with no backoff,
+    no retry and no breaker, and the job carried on at the same pace -- which is how their
+    documentation says a key, and the IP behind it, gets firewalled."""
+    db = seed()
+    slept, calls = [], {"n": 0}
+    limited = {"get": "", "parameters": [], "results": 0, "paging": {"current": 1, "total": 1},
+               "errors": {"rateLimit": "Too many requests. You have reached your per-minute request limit."},
+               "response": []}
+    def h(req):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(200, json=limited, headers={**ULTRA, "X-RateLimit-Remaining": "0"})
+        return httpx.Response(200, json=envelope([{"a": 1}]), headers=ULTRA)
+    c = AF.Client(db, transport(h), sleep=lambda s: slept.append(s))
+    rows = c.fetch("/fixtures", {"live": "all"}, purpose="t")
+    check("a 200 carrying errors.rateLimit is retried, not raised as a generic failure", rows == [{"a": 1}])
+    check("...after a cooldown, not immediately", any(s >= 10 for s in slept))
+    check("...and it is not mistaken for a spent quota or a bad key",
+          db.job_locks.find_one({"_id": "af_breaker"}) is None
+          and not (db.settings.find_one({"key": "ingest.paused_reason"}) or {}).get("value"))
+
+
+def t_ratelimit_repeated_trips_the_breaker():
+    db = seed()
+    limited = {"errors": {"rateLimit": "Too many requests."}, "response": [], "paging": {}}
+    def h(req):
+        return httpx.Response(200, json=limited, headers={**ULTRA, "X-RateLimit-Remaining": "0"})
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    try:
+        c.fetch("/fixtures", {"live": "all"}, purpose="t")
+        check("a rate limit that will not clear trips the breaker rather than hammering on", False)
+    except AF.BreakerOpen:
+        check("a rate limit that will not clear trips the breaker rather than hammering on", True)
+    check("...and stops after a bounded number of tries", c.calls_made <= 4)
+
+
+def t_per_second_ceiling():
+    """docs/82 section 2: the per-second limit is in NO header. Across their whole plan table it is
+    the per-minute figure over sixty, so it is derived rather than typed."""
+    db = seed()
+    def h(req):
+        return httpx.Response(200, json=envelope([{"a": 1}]), headers=ULTRA)
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    c.fetch("/leagues", {"id": 1}, purpose="t")
+    check(f"Ultra's 450/min yields the documented 7.5 calls a second ({c.per_second_limit()})",
+          abs(c.per_second_limit() - 7.5) < 1e-9)
+    check("the pace is clamped so no two consecutive calls can break it",
+          c._gap() >= c.min_gap() - 1e-9)
+    # the clamp has to bite even if someone turns the safety factor off
+    db.settings.insert_one({"key": "apifootball.minute_safety", "value": 1.0})
+    check("...even at a safety factor of 1.0, which would otherwise sit exactly on the limit",
+          1.0 / c._gap() <= 7.5 + 1e-9)
+
+
+def t_per_second_for_other_plans():
+    for per_min, per_sec in ((300, 5.0), (450, 7.5), (900, 15.0), (1200, 20.0)):
+        db = seed()
+        def h(req, pm=per_min):
+            return httpx.Response(200, json=envelope([{"a": 1}]),
+                                  headers={**ULTRA, "X-RateLimit-Limit": str(pm)})
+        c = AF.Client(db, transport(h), sleep=lambda s: None)
+        c.fetch("/leagues", {"id": 1}, purpose="t")
+        check(f"{per_min}/min derives {per_sec}/s, matching their plan table",
+              abs(c.per_second_limit() - per_sec) < 1e-9)
+
+
+def t_stats_not_at_half_time():
+    """docs/82 section 4. in_play must keep meaning what docs/42 made it mean -- a forecast ticks
+    through a break -- while the stats trigger asks a different question."""
+    for st in ("1H", "2H", "ET"):
+        check(f"{st}: statistics are worth asking for", AF.worth_refreshing_stats(st))
+    for st in ("HT", "BT", "SUSP", "INT"):
+        check(f"{st}: live for the forecast, but no new statistics to fetch",
+              AF.in_play(st) and not AF.worth_refreshing_stats(st))
+    for st in ("FT", "NS", "PST"):
+        check(f"{st}: neither", not AF.worth_refreshing_stats(st))
+
+
+def t_live_returns_events_inline():
+    """docs/82 section 3: one call, not one per match."""
+    db = seed()
+    asked = []
+    def h(req):
+        asked.append(dict(req.url.params))
+        return httpx.Response(200, json=envelope([
+            {"fixture": {"id": 1, "status": {"short": "1H"}}, "events": [{"type": "Goal"}]},
+            {"fixture": {"id": 2, "status": {"short": "HT"}}, "events": []},
+            {"fixture": {"id": 3, "status": {"short": "2H"}}, "events": [{"type": "Card"}]},
+        ]), headers=ULTRA)
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    rows = AF.live_fixtures(c, [39, 61])
+    check("one call gets every live fixture", len(rows) == 3 and c.calls_made == 1)
+    check("...with its events inline, so no per-match events call is needed",
+          bool(rows[0]["events"]) and bool(rows[2]["events"]))
+    check("...narrowed to our leagues", asked[0].get("live") == "39-61")
+    check("only the fixtures actually playing are queued for statistics: half time is skipped",
+          AF.needs_stats(rows) == [1, 3])
+    AF.live_fixtures(c, [39, 61])
+    check("live is never served from cache -- freshness is the whole point", c.calls_made == 2)
+
+
+def t_lineup_cached_once_present():
+    db = seed()
+    def h(req):
+        return httpx.Response(200, json=envelope([{"a": 1}]), headers=ULTRA)
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    check("a fixture with no lineup yet is polled again",
+          AF.lineup_ttl(c, {"lineups": []}) is not AF.FOREVER)
+    check("a lineup we already have is cached for ever: it cannot change (docs/82 section 5)",
+          AF.lineup_ttl(c, {"lineups": [{"team": {"id": 1}}]}) is AF.FOREVER)
+
+
+def t_standings_only_where_covered():
+    db = seed()
+    paths = []
+    def h(req):
+        paths.append(req.url.path)
+        if req.url.path == "/fixtures":
+            return httpx.Response(200, json=envelope([
+                {"league": {"id": 39}}, {"league": {"id": 61}}, {"league": {"id": 39}}]), headers=ULTRA)
+        if req.url.path == "/leagues":
+            lid = int(req.url.params.get("id"))
+            return httpx.Response(200, json=envelope([{"league": {"id": lid}, "seasons": [
+                {"year": 2024, "start": "2024-08-01",
+                 "coverage": {"fixtures": {}, "standings": lid == 39}}]}]), headers=ULTRA)
+        return httpx.Response(200, json=envelope([{"table": "x"}]), headers=ULTRA)
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    ids = AF.leagues_playing_on(c, "2026-03-07")
+    check("one call gives the distinct leagues playing today, no duplicates", ids == [39, 61])
+    check("a covered league's table is fetched", AF.standings(c, 39, 2024) == [{"table": "x"}])
+    check("an uncovered league is skipped rather than asked and answered empty",
+          AF.standings(c, 61, 2024) == [] and paths.count("/standings") == 1)
 
 
 # ---------------------------------------------------------------- the Ultra plan's limits
@@ -351,6 +489,9 @@ def t_coverage():
 
 
 for fn in (t_envelope, t_errors_are_200, t_bad_key, t_empty_errors_list,
+           t_ratelimit_arrives_as_200, t_ratelimit_repeated_trips_the_breaker,
+           t_per_second_ceiling, t_per_second_for_other_plans, t_stats_not_at_half_time,
+           t_live_returns_events_inline, t_lineup_cached_once_present, t_standings_only_where_covered,
            t_budget_follows_the_plan, t_reserve_is_kept, t_pacing_respects_the_minute,
            t_pitchapi_rps_does_not_govern_here, t_slows_as_the_bucket_empties, t_retry_after_is_obeyed,
            t_quota_headers, t_their_count_wins, t_minute_cooldown, t_status_is_free,
