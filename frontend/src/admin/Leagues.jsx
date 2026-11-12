@@ -121,7 +121,7 @@ function Zones({ lg, onClose, onSaved }) {
 // "add" step any more: the list is the screen and each row has a switch. Their own advice is to
 // save the league list rather than fetch it per view (docs/82 section 6), so opening this costs
 // nothing and only Refresh calls out.
-function Browser({ perMatch, onChanged }) {
+function Browser({ perMatch, anyOn, onChanged }) {
   const toast = useToast();
   const [q, setQ] = useState("");
   const [country, setCountry] = useState("");
@@ -200,6 +200,14 @@ function Browser({ perMatch, onChanged }) {
       <ul className="a-list a-list--rows" data-testid="af-cat-rows">
         {r.data.rows.map((row) => (
           <li key={row.league_id} className="a-row a-row--between" data-testid={`af-cat-${row.league_id}`}>
+            {/* NO BADGES HERE, and `catalog_page` carries `logo` and `flag` on every row.
+                Drawing them means <img src="https://media.api-sports.io/..."> on a thousand rows,
+                which collides with two decisions already made: the page CSP is
+                `img-src 'self' data:`, so they render broken rather than pretty; and the app does
+                not hot-link the provider at all (`pitch_photos`, docs/08 B2) -- `images.py`
+                downloads and stores the pictures the public pages show. Storing a thousand logos
+                to decorate an admin list is not worth a thousand downloads, and weakening the CSP
+                for decoration is worse. The country name does the work the flag would. */}
             <div>
               <strong>{row.name}</strong>{" "}
               {row.recommended && <Chip tone="info">Suggested{row.tier ? ` · tier ${row.tier}` : ""}</Chip>}{" "}
@@ -234,8 +242,8 @@ function Browser({ perMatch, onChanged }) {
       )}
       <p className="a-muted small">
         Turning one on costs nothing by itself and creates no forecasts: it starts syncing fixtures,
-        and about {num(perMatch)} calls go on each match that finishes. Pick its backfill seasons on
-        its card above.
+        and about {num(perMatch)} calls go on each match that finishes.
+        {anyOn ? " Pick its backfill seasons on its card above." : " Once one is on, its card appears above with its backfill seasons."}
       </p>
     </Card>
   );
@@ -294,13 +302,13 @@ export default function Leagues() {
   const [edit, setEdit] = useState(null);
   const [zones, setZones] = useState(null);
   const [filter, setFilter] = useState("");
-  // A full refresh brings back every league PitchAPI covers -- hundreds of them, nearly all off.
-  // Search alone cannot answer "which have I actually switched on", which is the question asked
-  // every time after the first.
+  // A refresh brings back every competition API-Football carries -- over a thousand, nearly all
+  // off. Search alone cannot answer "which have I actually switched on", which is the question
+  // asked every time after the first.
   const [only, setOnly] = useState("all");
   const [prov, setProv] = useState("any");
   if (q.loading && !q.data) return <Loading rows={5} />;
-  if (notMounted(q.error)) return <div className="a-page" data-testid="admin-leagues"><PageHead title="Leagues" lead="Switch leagues on and pick seasons to backfill." /><MissingRoutes /></div>;
+  if (notMounted(q.error)) return <div className="a-page" data-testid="admin-leagues"><PageHead title="Competitions" lead="Switch competitions on and pick seasons to backfill." /><MissingRoutes /></div>;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const afCount = (q.data.by_provider || {}).apifootball || 0;
   const legacy = q.data.leagues.length - afCount;
@@ -313,13 +321,22 @@ export default function Leagues() {
   const cal = q.data.leagues.filter((l) => l.role === "calendar").length;
   return (
     <div className="a-page" data-testid="admin-leagues">
-      <PageHead title="Leagues"
+      {/* "Competitions", because that is what the menu calls it. It said "Leagues" here and
+          "Competitions" there for the same screen, and a cup is not a league. */}
+      <PageHead title="Competitions"
                 lead={q.data.leagues.length
                   ? `${on} on · ${fc} forecast, ${cal} calendar${legacy ? ` · ${legacy} from the old provider` : ""}. New competitions arrive switched off.`
-                  : "Add the competitions you carry, then switch them on and pick seasons to backfill."}
+                  /* The lead used to begin "Add the competitions you carry". There has been no Add
+                     button since 39dd576 -- the list IS the screen -- so it named a control that
+                     was not there. */
+                  : "Every competition API-Football carries is listed below. Turn on the ones you want."}
 />
       {q.data.leagues.length === 0 ? (
-        <Card><Empty icon="trophy" testid="leagues-empty">Nothing switched on yet. Every competition the provider carries is listed below — search it and turn on the ones you want.</Empty></Card>
+        /* No second empty state. This card used to sit above the browser saying "every competition
+           is listed below", directly on top of the browser's own card saying the list had not been
+           fetched yet -- two trophies, stacked, the first contradicting the second. The browser
+           speaks for itself when nothing is on. */
+        null
       ) : (
         <>
           <div className="a-filters">
@@ -346,7 +363,7 @@ export default function Leagues() {
           {list.length === 0 ? <Empty>No league matches.</Empty> : <div className="a-key-grid">{list.map((l) => <LeagueCard key={l.iid} lg={l} budget={q.data.budget} daily={q.data.daily_calls_per_league} perMatch={q.data.calls_per_match} onEdit={setEdit} onZones={setZones} onChanged={q.reload} />)}</div>}
         </>
       )}
-      <Browser perMatch={q.data.calls_per_match} onChanged={q.reload} />
+      <Browser perMatch={q.data.calls_per_match} anyOn={on > 0} onChanged={q.reload} />
       {edit && <Seasons lg={edit} budget={q.data.budget} perMatch={q.data.calls_per_match} onClose={() => setEdit(null)} onSaved={q.reload} />}
       {zones && <Zones lg={zones} onClose={() => setZones(null)} onSaved={q.reload} />}
     </div>
