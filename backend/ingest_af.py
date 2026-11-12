@@ -139,17 +139,23 @@ def ingest_bundle(client, matches: list[dict]) -> dict:
             I.issue(db, "fixture_missing", f"{ext} was not in the answer",
                     match_iid=match["iid"], league_iid=match["league_iid"])
             continue
+        # ONE FIXTURE'S FAULT IS ONE FIXTURE'S FAULT. The normalizer was guarded and the WRITE was
+        # not, so anything raising inside write_match -- a DuplicateKeyError, a bad field -- escaped
+        # drain entirely and the batch of twenty stayed `status: "running"` for ever: the
+        # update_many that marks them done never ran, nothing on this path calls release_stuck, and
+        # `_mark_finished_seasons` needs "done", so the season never completed either. The whole
+        # write is inside the guard now.
         try:
             out = NAF.normalize_match(fixture, settings)
-        except Exception as e:                      # a normalizer fault is about THIS fixture only
+            for i in out["issues"]:
+                I.issue(db, i["kind"], i["detail"], match_iid=match["iid"], league_iid=match["league_iid"])
+            I.write_match(db, match, out)
+            _write_events(db, match, out.get("events") or [])
+        except Exception as e:
             I.issue(db, "normalize_failed", f"{ext}: {type(e).__name__}: {e}",
                     match_iid=match["iid"], league_iid=match["league_iid"])
             failed += 1
             continue
-        for i in out["issues"]:
-            I.issue(db, i["kind"], i["detail"], match_iid=match["iid"], league_iid=match["league_iid"])
-        I.write_match(db, match, out)
-        _write_events(db, match, out.get("events") or [])
         written += 1
     return {"asked": len(by_ext), "written": written,
             "missing": len(by_ext) - written - failed, "failed": failed}
@@ -191,7 +197,12 @@ def drain(client, max_seconds: float = 40.0, batch: int = AF.IDS_PER_CALL) -> di
     db = client.db
     import time
     t0 = time.monotonic()
-    done = {"batches": 0, "written": 0, "failed": 0, "missing": 0}
+    done = {"batches": 0, "written": 0, "failed": 0, "missing": 0,
+            # Tasks an earlier crash left mid-flight. `ingest.release_stuck` exists for exactly
+            # this and its only caller is `process_queue`, which the API-Football tick never runs,
+            # so nothing recovered them. Without this a single bad batch takes twenty matches out
+            # of the backfill permanently and the season can never be marked backfilled.
+            "released": I.release_stuck(db)}
     while time.monotonic() - t0 < max_seconds:
         # `next_run_at`, which is what `ingest.enqueue` writes. Querying `run_at` matched nothing
         # and the drain reported an empty queue while the queue was full -- a silent no-op, not an
