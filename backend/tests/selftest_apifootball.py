@@ -528,6 +528,49 @@ def t_breaker_row_without_an_expiry():
 
 
 
+# ---------------------------------------------------------------- the endpoint that does not page
+def t_page_is_not_sent_for_the_first_page():
+    """Their words, from the live account: "page: The Page field do not exist."
+
+    `/leagues` returns every competition in one answer and REFUSES `page` rather than ignoring it,
+    as HTTP 200 with an `errors` object. `fetch_all` used to set `page` on every request, including
+    the first, so `sync_catalog` -- one call, every competition -- could never succeed, and the
+    Competitions screen stayed empty with the provider blamed for it.
+    """
+    db = seed()
+    seen = []
+    def h(req):
+        seen.append(dict(req.url.params))
+        if "page" in req.url.params:
+            # exactly what the live account answered
+            return httpx.Response(200, headers=HDR, json=envelope(
+                [], errors={"page": "The Page field do not exist."}))
+        return httpx.Response(200, json=envelope([{"league": {"id": 39}}]), headers=HDR)
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    # A refusal here must be REPORTED, not raised: a test that dies takes the rest of the file with
+    # it and says less than one that prints the provider's own sentence.
+    try:
+        rows, why = c.fetch_all("/leagues", {}, purpose="t"), ""
+    except AF.APIFootballError as e:
+        rows, why = None, f" -- {e}"
+    check(f"an endpoint that does not page is not sent `page`{why}", seen and "page" not in seen[0])
+    check("...so the call that fetches every competition succeeds", rows == [{"league": {"id": 39}}])
+
+    # and a real paginated endpoint still gets every page
+    db2 = seed()
+    pages = []
+    def h2(req):
+        pg = int(req.url.params.get("page", 1))
+        pages.append(pg)
+        return httpx.Response(200, headers=HDR,
+                              json=envelope([{"n": pg}], paging={"current": pg, "total": 3}))
+    c2 = AF.Client(db2, transport(h2), sleep=lambda s: None)
+    got = c2.fetch_all("/players", {"team": 1}, purpose="t")
+    check("a paginated endpoint still walks every page", [r["n"] for r in got] == [1, 2, 3])
+    check("...and only pages after the first carry the field", pages == [1, 2, 3])
+
+
+
 for fn in (t_envelope, t_errors_are_200, t_bad_key, t_empty_errors_list,
            t_ratelimit_arrives_as_200, t_ratelimit_repeated_trips_the_breaker,
            t_per_second_ceiling, t_per_second_for_other_plans, t_stats_not_at_half_time,
@@ -535,7 +578,7 @@ for fn in (t_envelope, t_errors_are_200, t_bad_key, t_empty_errors_list,
            t_budget_follows_the_plan, t_reserve_is_kept, t_pacing_respects_the_minute,
            t_pitchapi_rps_does_not_govern_here, t_slows_as_the_bucket_empties, t_retry_after_is_obeyed,
            t_quota_headers, t_their_count_wins, t_minute_cooldown, t_status_is_free,
-           t_bundle_chunks_at_20, t_cache_costs_nothing, t_paging, t_breaker_row_without_an_expiry,
+           t_bundle_chunks_at_20, t_cache_costs_nothing, t_paging, t_page_is_not_sent_for_the_first_page, t_breaker_row_without_an_expiry,
            t_status_words, t_ns_after_kickoff, t_coverage):
     print(fn.__name__)
     fn()

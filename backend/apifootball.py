@@ -429,11 +429,25 @@ class Client:
     def fetch_all(self, path: str, params: dict | None = None, ttl: timedelta | None = FOREVER,
                   purpose: str = "", max_pages: int = 50) -> list:
         """Every page of a paginated endpoint. Each page is one call against the quota, so this is
-        used only where the endpoint really pages (`/players`, `/players/profiles`)."""
+        used only where the endpoint really pages (`/players`, `/players/profiles`).
+
+        `page` IS NOT SENT FOR THE FIRST PAGE. Page 1 is the default on every paginated endpoint, so
+        sending it says nothing -- and the endpoints that do not page REFUSE the field rather than
+        ignore it:
+
+            errors: /leagues: page: The Page field do not exist.
+
+        That arrives as HTTP 200 with an `errors` object, which is a refusal, not a page of data. It
+        is how the Competitions screen came up empty with the provider blamed: `sync_catalog` asks
+        for every competition in one call, and the one call could never succeed. Omitting the field
+        until it is actually wanted works for both kinds of endpoint, so this needs no list of which
+        is which -- a list that would have to be right about an API we do not control.
+        """
         params = dict(params or {})
         out, page = [], 1
         while page <= max_pages:
-            params["page"] = page
+            if page > 1:
+                params["page"] = page
             out.extend(self.fetch(path, params, ttl=ttl, purpose=purpose))
             total = (self._paging or {}).get("total")
             if not total or page >= int(total):
