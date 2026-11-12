@@ -26,7 +26,9 @@
       "chart3": "#FF9F0A",
       "chart4": "#FF375F",
       "chart5": "#5E5CE6",
-      "chart6": "#BF5AF2"
+      "chart6": "#BF5AF2",
+      "cardYellow": "#FFD60A",
+      "cardRed": "#FF453A"
     },
     "light": {
       "bg": "#F2F2F7",
@@ -51,7 +53,9 @@
       "chart3": "#B25000",
       "chart4": "#D30F45",
       "chart5": "#5856D6",
-      "chart6": "#8944AB"
+      "chart6": "#8944AB",
+      "cardYellow": "#FFCC00",
+      "cardRed": "#FF3B30"
     }
   },
   "font": {
