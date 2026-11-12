@@ -3512,5 +3512,15 @@
     "public": false,
     "applies_at": "immediately",
     "help": "Off stops every PitchAPI call: the ingest, the backfill and the image lookups. Default ON because it is the provider the jobs still use (docs/81 section 4). Turn it off once API-Football is backfilling, not before, or the site stops getting data."
+  },
+  {
+    "key": "provider.apifootball.exclude_extra_time",
+    "group": "Provider",
+    "label": "Keep extra-time matches out of the engine's frames",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "API-Football's fixture statistics cover the WHOLE match including extra time, with nothing to mark it, so a 120-minute cup tie reports inflated shots, corners and tackles. Fitted beside 90-minute matches it drags every team-total model upward and makes cup fixtures look fast-paced. On: the match is still ingested, shown and graded, only kept out of the frames the engine fits. Off biases the models; it exists so the choice can be measured rather than assumed (docs/85)."
   }
 ]

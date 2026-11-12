@@ -61,7 +61,13 @@ MARKET_POSITIONS = {"saves": ("GK",)}
 
 # ------------------------------------------------------------------ frames
 def build_frames(db, league_iid: int, history_rounds: int):
+    # A match that ran past 90 minutes reports its team totals for the WHOLE match, including extra
+    # time, with nothing in the numbers to say so (docs/85). Fitting those beside 90-minute matches
+    # drags every team-total model upward. The match is still stored, shown and graded; it is only
+    # kept out of the frame the models are fitted on.
+    et_filter = {} if not S.get(db, "provider.apifootball.exclude_extra_time") else {"extra_time": {"$ne": True}}
     ms = pd.DataFrame(list(db.matches.find({"league_iid": league_iid, "status": "final", "round": {"$ne": None},
+                                            **et_filter,
                                             "ingested_at": {"$ne": None}},
                                            {"_id": 0, "iid": 1, "round": 1, "home_iid": 1, "away_iid": 1, "hg": 1, "ag": 1})))
     if ms.empty:
