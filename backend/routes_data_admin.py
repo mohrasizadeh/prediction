@@ -83,7 +83,7 @@ def explorer(body: ExplorerBody, user=Depends(perm("jobs.run")), db=Depends(D.ge
     except BudgetExhausted:
         raise D.err(503, "BUDGET_SPENT", "Today's call budget is spent.")
     except PitchError as e:
-        raise D.err(502, "PITCH_ERROR", f"PitchAPI error {e.code} ({e.status}).")
+        raise D.upstream("PITCH_ERROR", f"PitchAPI error {e.code} ({e.status}).")
     if body.force:
         AQ.audit(db, user, "explorer.force", body.path)
     return {"path": body.path, "params": params, "from_cache": client.calls_made == 0, "cost": client.calls_made, "data": data}
@@ -289,7 +289,7 @@ def af_catalog_sync(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     except (AF.BudgetExhausted, AF.BreakerOpen, AF.Unauthorized, AF.PlanLimited) as e:
         raise D.err(409, "PROVIDER", str(e))
     except AF.APIFootballError as e:
-        raise D.err(502, "PROVIDER", str(e))
+        raise D.upstream("PROVIDER", str(e))
 
 
 @router.get("/apifootball/catalog")

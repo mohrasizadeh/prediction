@@ -199,7 +199,13 @@ class Client:
 
     def _check_guards(self) -> None:
         br = self.db.job_locks.find_one({"_id": "af_breaker"})
-        if br and _aware(br["expires_at"]) > utcnow():
+        # `fetch` guards this value and this did not: a breaker row without `expires_at`, or with a
+        # null one, raised KeyError or compared None with a datetime. Neither is an APIFootballError,
+        # so the route could not translate it and it surfaced as a bare 500 with no reason -- the
+        # exact failure this module exists to make legible. A row we cannot read an expiry from is
+        # treated as expired, because the breaker's job is to open on evidence, not on a damaged row.
+        exp = _aware((br or {}).get("expires_at"))
+        if br and exp is not None and exp > utcnow():
             raise BreakerOpen(br.get("reason", "breaker open"))
         q = self.quota()
         reserve = int(S.get(self.db, "apifootball.daily_reserve"))

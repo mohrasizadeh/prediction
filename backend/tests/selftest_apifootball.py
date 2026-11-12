@@ -488,6 +488,46 @@ def t_coverage():
           missing["found"] is False and 2024 in (missing.get("seasons") or []))
 
 
+# ---------------------------------------------------------------- a damaged breaker row
+def t_breaker_row_without_an_expiry():
+    """The guard read `br["expires_at"]` where `fetch` reads it defensively.
+
+    A row missing that field, or holding a null, raised KeyError or compared None with a datetime.
+    Neither is an APIFootballError, so `routes_data_admin` could not translate it and the screen got
+    a bare 500 with an empty trace -- no reason, nothing to act on. A row whose expiry cannot be read
+    is treated as expired: the breaker opens on evidence, not on a damaged row.
+    """
+    for label, row in (("no expires_at at all", {"_id": "af_breaker", "reason": "x"}),
+                       ("a null expires_at", {"_id": "af_breaker", "reason": "x", "expires_at": None})):
+        db = seed()
+        db.job_locks.insert_one(dict(row))
+        c = AF.Client(db, transport(lambda r: httpx.Response(200, json=envelope([{"a": 1}]), headers=HDR)),
+                      sleep=lambda s: None)
+        try:
+            rows = c.fetch("/leagues", {}, purpose="t")
+            ok = rows == [{"a": 1}]
+            why = ""
+        except AF.APIFootballError as e:
+            ok, why = False, f"raised {type(e).__name__}"
+        except Exception as e:
+            ok, why = False, f"raised {type(e).__name__}, which no route can translate"
+        check(f"a breaker row with {label} does not crash the call{(' -- ' + why) if why else ''}", ok)
+
+    # and a live breaker still stops the call
+    db = seed()
+    db.job_locks.insert_one({"_id": "af_breaker", "reason": "key rejected",
+                             "expires_at": AF.utcnow() + timedelta(minutes=5)})
+    c = AF.Client(db, transport(lambda r: httpx.Response(200, json=envelope([]), headers=HDR)),
+                  sleep=lambda s: None)
+    try:
+        c.fetch("/leagues", {}, purpose="t")
+        opened = False
+    except AF.BreakerOpen:
+        opened = True
+    check("an unexpired breaker still stops the call", opened)
+
+
+
 for fn in (t_envelope, t_errors_are_200, t_bad_key, t_empty_errors_list,
            t_ratelimit_arrives_as_200, t_ratelimit_repeated_trips_the_breaker,
            t_per_second_ceiling, t_per_second_for_other_plans, t_stats_not_at_half_time,
@@ -495,7 +535,7 @@ for fn in (t_envelope, t_errors_are_200, t_bad_key, t_empty_errors_list,
            t_budget_follows_the_plan, t_reserve_is_kept, t_pacing_respects_the_minute,
            t_pitchapi_rps_does_not_govern_here, t_slows_as_the_bucket_empties, t_retry_after_is_obeyed,
            t_quota_headers, t_their_count_wins, t_minute_cooldown, t_status_is_free,
-           t_bundle_chunks_at_20, t_cache_costs_nothing, t_paging,
+           t_bundle_chunks_at_20, t_cache_costs_nothing, t_paging, t_breaker_row_without_an_expiry,
            t_status_words, t_ns_after_kickoff, t_coverage):
     print(fn.__name__)
     fn()

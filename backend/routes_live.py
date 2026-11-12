@@ -82,7 +82,7 @@ def sportapi_leagues(user=Depends(D.require_perm("settings.read")), db=Depends(D
     except SP.NoKey as e:
         raise D.err(400, "NO_KEY", str(e))
     except SP.SportAPIError as e:
-        raise D.err(502, "PROVIDER_ERROR", str(e))
+        raise D.upstream("PROVIDER_ERROR", str(e))
 
 
 class TeamDecision(BaseModel):
@@ -160,7 +160,7 @@ def sportapi_stats_probe(sid: int, user=Depends(D.require_perm("jobs.run")), db=
     except SP.NoKey as e:
         raise D.err(400, "NO_KEY", str(e))
     except SP.SportAPIError as e:
-        raise D.err(502, "PROVIDER_ERROR", str(e))
+        raise D.upstream("PROVIDER_ERROR", str(e))
     AQ.audit(db, user, "sportapi.stats_probe", str(sid), {})
     read = SP.parse_stats(raw, S.get(db, "sportapi.stats_keys"))
     found = sorted({k for side in read["teams"].values() for k in side} | {k for p in read["players"] for k in p if k in SP.BUILTIN_STAT_NAMES})

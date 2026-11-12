@@ -36,7 +36,19 @@ export async function api(path, { method = "GET", body, raw, query, signal, quie
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = (data && data.error) || {};
-    const err = new ApiError(res.status, e.code || "SERVER_ERROR", e.message, e.request_id);
+    // A body that will not parse is NOT our server reporting a fault, and calling both
+    // "SERVER_ERROR" hid a real provider message behind a gateway's HTML error page: the API-Football
+    // sync answered 409/502 with {"code":"PROVIDER","message":"<what they said>"}, something in front
+    // of the app replaced the body, and the admin screen blamed us. Say which of the two it was and
+    // keep the status, so the screen can show something an operator can act on.
+    const unreadable = data === null;
+    const code = e.code || (unreadable ? "UNREADABLE_ERROR" : "SERVER_ERROR");
+    const message = e.message || (unreadable ? `The server answered ${res.status} and the reply could not be read.` : undefined);
+    // When the body is gone the request id went with it, so fall back to the header the security
+    // middleware sets on every response. It is the one thing that ties what the reader saw to a row
+    // in the log, and it survives a gateway that keeps the headers and replaces the body.
+    const rid = e.request_id || res.headers.get("X-Request-ID") || undefined;
+    const err = new ApiError(res.status, code, message, rid);
     if (e.problems) err.problems = e.problems;
     if (!quiet) listeners.forEach((fn) => fn(err));
     throw err;

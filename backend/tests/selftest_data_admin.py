@@ -121,4 +121,30 @@ with TestClient(srv.app) as owner:
     check(db.seasons.find_one({"league_iid": iid, "label": "2024/2025"})["queued"] is False, "un-picking a season un-queues it")
     check(support.put(f"/api/admin/leagues/{iid}", json={"enabled": False}).status_code == 403, "support cannot change leagues")
     check(db.audit_log.count_documents({"action": "league.update"}) == 2, "league changes are audited")
+
+    # ---------------------------------------------------------------- a provider's refusal must ARRIVE
+    #
+    # The sync answered 502 with {"code": "PROVIDER", "message": "<what they said>"}. A hosting
+    # ingress replaces the BODY of a 5xx with its own error page, so the browser got something that
+    # would not parse and `lib/api.js` fell back to "SERVER_ERROR" -- a message about OUR server for
+    # a refusal by THEIRS, with the reason lost in transit and an empty trace in the app log.
+    #
+    # The status is for the operator reading the screen. These pin it below 500, which is the whole
+    # point: a reason that does not arrive is not a reason.
+    import apifootball as AF, af_leagues as AFL
+    for exc, what in ((AF.APIFootballError("errors", "/leagues: Bug report sent"), "a provider error"),
+                      (AF.Unauthorized("token", "bad key"), "a rejected key"),
+                      (AF.BudgetExhausted("no calls left"), "a spent budget"),
+                      (AF.PlanLimited("plan", "not on your plan"), "a plan limit")):
+        AFL_sync = AFL.sync_catalog
+        AFL.sync_catalog = lambda *a, _e=exc, **k: (_ for _ in ()).throw(_e)
+        try:
+            r = admin.post("/api/admin/apifootball/catalog/sync")
+        finally:
+            AFL.sync_catalog = AFL_sync
+        j = r.json()
+        check(r.status_code < 500,
+              f"{what} is reported below 500 (got {r.status_code}), so the body survives the gateway")
+        check(j.get("error", {}).get("message"),
+              f"{what} carries the provider's own words to the screen: {j.get('error', {}).get('message')!r}")
 print("data admin self-test passed")

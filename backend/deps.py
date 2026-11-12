@@ -25,6 +25,29 @@ def err(status: int, code: str, message: str = ""):
     return HTTPException(status, detail={"code": code, "message": message})
 
 
+# An upstream service refused us -- a data provider, mostly. This is deliberately NOT a 5xx.
+#
+# 502 was the obvious choice and it cost a day of blind guessing. A hosting ingress replaces the
+# BODY of a 5xx with its own error page, so our
+#     {"error": {"code": "PROVIDER", "message": "<what the provider actually said>"}}
+# never reached the browser. `lib/api.js` then fell back to "SERVER_ERROR", which is what it says
+# when a body will not parse -- so the admin screen reported a fault in OUR server for a refusal by
+# THEIRS, and the one useful sentence was thrown away in transit. The app log showed 502 with an
+# empty trace and no reason, because a deliberate error is not a crash.
+#
+# 409 is what the provider errors that DO arrive intact already use (budget spent, breaker open,
+# key rejected, plan limited), which is the evidence that it passes through. The status here is
+# read by an operator looking at a screen, and what they need is the reason, not the number.
+#
+# docs/86.
+UPSTREAM = 409
+
+
+def upstream(code: str, message: str = ""):
+    """An upstream said no. Carries their reason through to the screen; see UPSTREAM."""
+    return err(UPSTREAM, code, message)
+
+
 def set_session_cookie(response: Response, token: str, max_age: int | None = None) -> None:
     response.set_cookie(COOKIE, token, httponly=True, secure=SECURE, samesite="lax", path="/", max_age=max_age)
 
