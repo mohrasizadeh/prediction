@@ -277,3 +277,23 @@
   .mc-page .mc-fc-min { flex-basis: 100%; }
   .mc-page .mc-fc-tiers { flex-basis: 100%; }
 }
+/* v2's section heading carries a 56px top margin meant for page sections; under the controls panel
+   it opened a gap taller than the panel itself. Group headings get a group's spacing. */
+.mc-page .mc-fc-group > .v2-sec-head { margin-top: 20px; }
+.mc-page .mc-fc-ctl + .mc-fc-group > .v2-sec-head { margin-top: 4px; }
+@media (max-width: 520px) { .mc-form5 { gap: 2px; } .mc-form5 .fp { width: 17px; height: 17px; font-size: 10px; border-radius: 4px; } }
+/* Phone: the hero is the whole first screen unless it is kept tight. Follow and Share become the
+   two round icon buttons in its top corners (the place the mockup puts Follow), so the row they
+   held goes; their words stay in the DOM at font-size 0, which keeps each button's accessible name.
+   The kick-off time steps down so five form pills fit under each club without wrapping. */
+@media (max-width: 520px) {
+  .mc-page .mc-hero { position: relative; }
+  .mc-page .mc-when { padding: 0 46px; min-height: 36px; }
+  .mc-page .mc-foot .mc-actions { position: absolute; top: 10px; left: 10px; right: 10px; justify-content: space-between; pointer-events: none; }
+  .mc-page .mc-foot .mc-actions .btn { pointer-events: auto; width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50%; font-size: 0; gap: 0; justify-content: center; }
+  .mc-page .mc-foot .mc-actions .btn .ico, .mc-page .mc-foot .mc-actions .btn svg { width: 18px; height: 18px; }
+  .mc-page .mc-foot .mc-actions .btn:only-child { margin-left: auto; }
+  .mc-page .mc-row { gap: 8px; }
+  .mc-ko { font-size: 24px; }
+  .mc-form5 { flex-wrap: nowrap; }
+}
