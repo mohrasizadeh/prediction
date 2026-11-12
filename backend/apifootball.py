@@ -118,6 +118,21 @@ def _unpack(blob):
     return json.loads(zlib.decompress(bytes(blob)).decode())
 
 
+def _retry_after(value, default: float, cap: float = 60.0) -> float:
+    """Seconds to wait from a Retry-After header: seconds, or an HTTP date. Anything odd falls back
+    to the default, and the whole thing is capped so one answer cannot hold a job lock for an hour
+    (the same rule as cached_fetch, docs/36 H4)."""
+    try:
+        wait = float(value)
+    except (TypeError, ValueError):
+        try:
+            from email.utils import parsedate_to_datetime
+            wait = (parsedate_to_datetime(value) - utcnow()).total_seconds()
+        except Exception:
+            wait = default
+    return max(0.0, min(wait, cap))
+
+
 def cache_key(path: str, params: dict | None) -> str:
     q = json.dumps(sorted((params or {}).items()), separators=(",", ":"))
     return hashlib.sha256(f"GET {path}?{q}".encode()).hexdigest()
@@ -152,17 +167,37 @@ class Client:
         """What the provider last told us about our quota. Their numbers, not ours."""
         return self.db.job_state.find_one({"_id": "apifootball_quota"}) or {}
 
+    def day_budget(self) -> int:
+        """How many calls we will make today, leaving a reserve.
+
+        The PLAN's number, not a number we typed: `x-ratelimit-requests-limit` says 75,000 on Ultra
+        and something else on another plan, and reading it means the budget follows the subscription
+        instead of going stale the day it changes. `apifootball.daily_cap` is only the fallback for
+        before the first answer of the day has taught us the real one.
+
+        This is deliberately NOT `ingest.daily_call_budget`: that one is 2,000, PitchAPI's figure,
+        and sharing it would cap an Ultra plan at under 3% of what it allows.
+        """
+        q = self.quota()
+        limit = q.get("day_limit") if q.get("day") == utcnow().strftime("%Y-%m-%d") else None
+        if not limit:
+            limit = int(S.get(self.db, "apifootball.daily_cap"))
+        return max(0, int(limit) - int(S.get(self.db, "apifootball.daily_reserve")))
+
     def _check_guards(self) -> None:
         br = self.db.job_locks.find_one({"_id": "af_breaker"})
         if br and _aware(br["expires_at"]) > utcnow():
             raise BreakerOpen(br.get("reason", "breaker open"))
         q = self.quota()
-        # Their count wins over ours (docs/19). `day_remaining` is only trusted for today.
+        reserve = int(S.get(self.db, "apifootball.daily_reserve"))
+        # Their count wins over ours (docs/19), and we stop at the reserve rather than at zero, so
+        # a live tick or a key test still has calls left when a backfill has eaten the day.
         if q.get("day") == utcnow().strftime("%Y-%m-%d") and q.get("day_remaining") is not None:
-            if int(q["day_remaining"]) <= 0:
-                raise BudgetExhausted("API-Football says the daily quota is spent")
-        if self._calls_today() >= S.get(self.db, "ingest.daily_call_budget"):
-            raise BudgetExhausted("our own daily call budget is spent")
+            if int(q["day_remaining"]) <= reserve:
+                raise BudgetExhausted(
+                    f"API-Football says {q['day_remaining']} calls are left, at or under the {reserve} reserve")
+        if self._calls_today() >= self.day_budget():
+            raise BudgetExhausted(f"our own count reached today's budget of {self.day_budget()}")
 
     def _trip_breaker(self, reason: str) -> None:
         mins = S.get(self.db, "ingest.breaker_minutes")
@@ -170,14 +205,43 @@ class Client:
                                      {"$set": {"reason": reason, "expires_at": utcnow() + timedelta(minutes=mins)}},
                                      upsert=True)
 
+    def _gap(self) -> float:
+        """Seconds to leave between calls, from the provider's OWN per-minute allowance.
+
+        `X-RateLimit-Limit` is the calls-per-minute ceiling for the plan. Spreading requests at
+        that rate times a safety factor means the minute bucket is never emptied, which matters
+        here more than politeness: their rate-limit policy blocks a key for "abnormal traffic
+        spikes" rather than throttling it, and a burst that drains the bucket is exactly that.
+
+        `ingest.rps` is deliberately NOT consulted. It is 3, PitchAPI's figure, and letting it
+        govern here would cap an Ultra plan at 180 calls a minute out of the 450 it allows — a
+        backfill two and a half times slower than it needs to be, for a limit that belongs to
+        another provider. Until the first answer teaches us the real ceiling we use
+        `apifootball.rps_unknown`, which is conservative on purpose.
+
+        As the bucket empties the gap stretches in proportion: sprinting to zero and then stalling
+        for a cooldown is the same burst with a pause after it.
+        """
+        unknown = 1.0 / max(float(S.get(self.db, "apifootball.rps_unknown")), 0.05)
+        q = self.quota()
+        lim, left = q.get("min_limit"), q.get("min_remaining")
+        if not lim:
+            return unknown                                # nothing learned yet: go slowly
+        safety = max(0.05, min(1.0, float(S.get(self.db, "apifootball.minute_safety"))))
+        gap = 60.0 / (float(lim) * safety)
+        if left is not None and float(lim) > 0:
+            share = max(0.0, float(left)) / float(lim)
+            headroom = max(0.01, min(1.0, float(S.get(self.db, "apifootball.minute_headroom"))))
+            if share < headroom:                          # the last of the bucket is spent slowest
+                gap *= headroom / max(share, 0.02)
+        return gap
+
     def _pace(self) -> None:
-        """Our own requests-per-second floor, plus a full stop when the provider's per-minute
-        allowance is gone. The second half matters more than the first: their firewall reacts to
-        spikes, and a burst that empties the minute bucket is exactly a spike."""
         q = self.quota()
         if q.get("min_remaining") is not None and int(q["min_remaining"]) <= 0:
+            # Nothing left this minute. Their window is not published, so wait out a whole one.
             self._sleep(float(S.get(self.db, "apifootball.minute_cooldown_s")))
-        gap = 1.0 / max(S.get(self.db, "ingest.rps"), 0.1)
+        gap = self._gap()
         with self._lock:
             wait = self._last + gap - time.monotonic()
             if wait > 0:
@@ -256,7 +320,9 @@ class Client:
                 if attempts > 3:
                     self._trip_breaker("429 rate limit")
                     raise BreakerOpen("429 rate limit")
-                self._sleep(2 ** attempts)
+                # If they say how long to wait, wait that long: guessing shorter is what turns a
+                # throttle into a block. Capped so one answer cannot hold the job lock for an hour.
+                self._sleep(_retry_after(r.headers.get("Retry-After"), default=2 ** attempts))
                 continue
             if r.status_code >= 500:
                 attempts += 1

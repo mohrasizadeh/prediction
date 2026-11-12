@@ -119,6 +119,105 @@ def t_quota_headers():
           q.get("day_remaining") == 41 and q.get("min_remaining") == 7 and q.get("day_limit") == 7500)
 
 
+# ---------------------------------------------------------------- the Ultra plan's limits
+ULTRA = {"x-ratelimit-requests-limit": "75000", "x-ratelimit-requests-remaining": "74999",
+         "X-RateLimit-Limit": "450", "X-RateLimit-Remaining": "449"}
+
+
+def t_budget_follows_the_plan():
+    db = seed()
+    def h(req):
+        return httpx.Response(200, json=envelope([{"a": 1}]), headers=ULTRA)
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    before = c.day_budget()
+    check("before any answer, the budget is the fallback cap minus the reserve",
+          before == 75000 - 500)
+    c.fetch("/leagues", {"id": 1}, purpose="t")
+    check("after one answer the budget comes from the PLAN's own header, not a setting we typed",
+          c.day_budget() == 75000 - 500)
+    # and the point of not sharing PitchAPI's budget
+    check("the budget is not ingest.daily_call_budget, which is PitchAPI's 2,000",
+          c.day_budget() > 70000 and int(S.get(db, "ingest.daily_call_budget")) == 2000)
+
+
+def t_reserve_is_kept():
+    db = seed()
+    def h(req):
+        return httpx.Response(200, json=envelope([{"a": 1}]),
+                              headers={**ULTRA, "x-ratelimit-requests-remaining": "500"})
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    c.fetch("/leagues", {"id": 1}, purpose="t")
+    try:
+        c.fetch("/leagues", {"id": 2}, purpose="t")
+        check("we stop at the reserve, not at zero, so a live tick still has calls", False)
+    except AF.BudgetExhausted as e:
+        check("we stop at the reserve, not at zero, so a live tick still has calls", "reserve" in str(e))
+
+
+def t_pacing_respects_the_minute():
+    db = seed()
+    def h(req):
+        return httpx.Response(200, json=envelope([{"a": 1}]), headers=ULTRA)
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    check("with nothing learned yet, the pace is the conservative starting rate", abs(c._gap() - 0.5) < 1e-6)
+    c.fetch("/leagues", {"id": 1}, purpose="t")
+    # 450 a minute at 80% is 360, which is 6 a second: a gap of 1/6 s.
+    check(f"once the plan's 450/min is known, the gap paces to 80% of it ({c._gap():.4f}s)",
+          abs(c._gap() - 60.0 / (450 * 0.8)) < 1e-6)
+    rate = 1.0 / c._gap()
+    check(f"...which is {rate:.0f} calls a second, under the {450 / 60:.1f} the plan allows",
+          rate < 450 / 60)
+
+
+def t_pitchapi_rps_does_not_govern_here():
+    """ingest.rps is PitchAPI's 3/s. Letting it govern would cap Ultra at 180 calls a minute out
+    of 450 -- a backfill two and a half times slower than it needs to be, for another provider's
+    limit. Neither raising it nor lowering it may move this client's pace."""
+    for rps in (50, 1):
+        db = seed()
+        db.settings.insert_one({"key": "ingest.rps", "value": rps})
+        def h(req):
+            return httpx.Response(200, json=envelope([{"a": 1}]), headers=ULTRA)
+        c = AF.Client(db, transport(h), sleep=lambda s: None)
+        c.fetch("/leagues", {"id": 1}, purpose="t")
+        check(f"ingest.rps={rps} does not move the pace: the plan's ceiling decides",
+              abs(c._gap() - 60.0 / (450 * 0.8)) < 1e-6)
+
+
+def t_slows_as_the_bucket_empties():
+    db = seed()
+    state = {"left": 449}
+    def h(req):
+        return httpx.Response(200, json=envelope([{"a": 1}]),
+                              headers={**ULTRA, "X-RateLimit-Remaining": str(state["left"])})
+    c = AF.Client(db, transport(h), sleep=lambda s: None)
+    c.fetch("/leagues", {"id": 1}, purpose="t")
+    full = c._gap()
+    state["left"] = 45                                               # 10% left, under the headroom
+    c.fetch("/leagues", {"id": 2}, purpose="t")
+    low = c._gap()
+    check(f"the last of the minute is spent slowest ({full:.3f}s -> {low:.3f}s)", low > full * 1.5)
+    state["left"] = 9                                                # 2% left
+    c.fetch("/leagues", {"id": 3}, purpose="t")
+    check("and slower still as it runs out", c._gap() > low)
+
+
+def t_retry_after_is_obeyed():
+    db = seed()
+    slept, calls = [], {"n": 0}
+    def h(req):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(429, json={}, headers={**ULTRA, "Retry-After": "12"})
+        return httpx.Response(200, json=envelope([{"a": 1}]), headers=ULTRA)
+    c = AF.Client(db, transport(h), sleep=lambda s: slept.append(s))
+    c.fetch("/leagues", {"id": 1}, purpose="t")
+    check("a 429 waits as long as Retry-After says, not a guess of our own", 12 in slept)
+    check("...and the call is then retried and succeeds", calls["n"] == 2)
+    check("a Retry-After is capped, so one answer cannot hold a job lock for an hour",
+          AF._retry_after("99999", default=2) == 60.0)
+
+
 def t_their_count_wins():
     db = seed()
     def h(req):
@@ -252,6 +351,8 @@ def t_coverage():
 
 
 for fn in (t_envelope, t_errors_are_200, t_bad_key, t_empty_errors_list,
+           t_budget_follows_the_plan, t_reserve_is_kept, t_pacing_respects_the_minute,
+           t_pitchapi_rps_does_not_govern_here, t_slows_as_the_bucket_empties, t_retry_after_is_obeyed,
            t_quota_headers, t_their_count_wins, t_minute_cooldown, t_status_is_free,
            t_bundle_chunks_at_20, t_cache_costs_nothing, t_paging,
            t_status_words, t_ns_after_kickoff, t_coverage):

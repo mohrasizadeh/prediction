@@ -3422,5 +3422,55 @@
     "public": false,
     "applies_at": "immediately",
     "help": "Lineups and player rows use the single letter; squads use the word. Both are mapped."
+  },
+  {
+    "key": "apifootball.daily_cap",
+    "group": "Provider",
+    "label": "Daily calls to assume before the plan tells us",
+    "type": "number",
+    "default": 75000,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Only a fallback. Every answer carries x-ratelimit-requests-limit, so the real budget follows the subscription (75,000 on Ultra) and this is used only before the first answer of the day. NOT ingest.daily_call_budget, which is 2,000 and belongs to PitchAPI."
+  },
+  {
+    "key": "apifootball.daily_reserve",
+    "group": "Provider",
+    "label": "Calls to keep in reserve each day",
+    "type": "number",
+    "default": 500,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "We stop at the reserve rather than at zero, so a live tick or a key test still has calls left on a day a backfill has eaten."
+  },
+  {
+    "key": "apifootball.minute_safety",
+    "group": "Provider",
+    "label": "Share of the per-minute allowance we will use",
+    "type": "number",
+    "default": 0.8,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Requests are spread at this share of X-RateLimit-Limit, so the minute bucket is never emptied. Their policy BLOCKS a key for traffic spikes rather than throttling it, so the headroom is the point."
+  },
+  {
+    "key": "apifootball.minute_headroom",
+    "group": "Provider",
+    "label": "When to start slowing down (share of the minute left)",
+    "type": "number",
+    "default": 0.25,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Below this share of the per-minute allowance the gap between calls stretches in proportion. Sprinting to zero and then pausing is the same spike with a gap after it."
+  },
+  {
+    "key": "apifootball.rps_unknown",
+    "group": "Provider",
+    "label": "Calls a second before the plan's per-minute limit is known",
+    "type": "number",
+    "default": 2,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Used only until the first answer of the session carries X-RateLimit-Limit, after which the pace comes from the plan itself. Conservative on purpose: a free key allows ten calls a minute and a spike can get a key blocked."
   }
 ]

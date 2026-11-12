@@ -31,6 +31,33 @@ blocked "without prior notice", permanently. So an empty per-minute allowance is
 **`/status` is free** and does not count against the quota, which makes it the right key test: the
 test never spends the budget it reports on.
 
+### The budget and the pace are the plan's, not ours
+
+The owner is on **Ultra: 75,000 calls a day, 450 a minute**, at
+`https://v3.football.api-sports.io`. Neither number is typed into the code as a fact.
+
+**The budget follows the subscription.** `x-ratelimit-requests-limit` arrives on every answer, so
+`day_budget()` reads it and subtracts `apifootball.daily_reserve` (500). `apifootball.daily_cap`
+(75,000) is only the fallback for before the first answer of the day. It is deliberately **not**
+`ingest.daily_call_budget`, which is 2,000 — PitchAPI's figure, and sharing it would cap an Ultra
+plan at under 3% of what it allows. We stop at the reserve rather than at zero, so a live tick or a
+key test still has calls on a day a backfill has eaten.
+
+**The pace follows the per-minute ceiling.** `X-RateLimit-Limit` is the calls-a-minute cap, and
+`_gap()` spreads requests at `apifootball.minute_safety` (0.8) of it — 360 a minute, 6 a second, on
+Ultra. Below `apifootball.minute_headroom` (25% of the bucket) the gap stretches in proportion,
+because sprinting to zero and then stalling for a cooldown is the same burst with a pause after it.
+A 429 waits as long as `Retry-After` says, capped at a minute.
+
+`ingest.rps` is **not** consulted. It is 3, which would cap Ultra at 180 a minute out of 450 — a
+backfill two and a half times slower than it needs to be, for another provider's limit.
+`apifootball.rps_unknown` (2 a second) covers only the gap before the first answer teaches us the
+real ceiling, and is conservative because a free key allows ten calls a minute and a spike gets a
+key blocked rather than throttled.
+
+At those settings the whole three-season backfill — twelve forecast leagues, 13,680 matches, 720
+calls after bundling — takes about **two minutes and 1% of a day's budget**.
+
 ### One call replaces sixty
 
 `/fixtures?ids=a-b-c` takes **twenty** fixture ids and answers with events, lineups, statistics *and*
