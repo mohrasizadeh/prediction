@@ -117,79 +117,127 @@ function Zones({ lg, onClose, onSaved }) {
   );
 }
 
-// The catalogue: the competitions docs/81 says we carry, each resolved against /leagues. Nothing
-// is picked for you unless the match is unambiguous -- a league id that is quietly wrong maps one
-// competition to another and nothing downstream can tell, so Serie A in Italy and Serie A in
-// Brazil both come here rather than to a guess.
-function Catalog({ seasons, onClose, onSaved }) {
+// Every competition the provider carries, from the copy synced into our own database. There is no
+// "add" step any more: the list is the screen and each row has a switch. Their own advice is to
+// save the league list rather than fetch it per view (docs/82 section 6), so opening this costs
+// nothing and only Refresh calls out.
+function Browser({ perMatch, onChanged }) {
   const toast = useToast();
-  const q = useApi("/admin/apifootball/catalog");
+  const [q, setQ] = useState("");
+  const [country, setCountry] = useState("");
+  const [kind, setKind] = useState("");
+  const [only, setOnly] = useState("recommended");
+  const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(null);
-  const [chosen, setChosen] = useState({});
-  const confirm = async (row) => {
-    const league_id = chosen[row.key] ?? row.league_id;
-    if (!league_id) return;
-    setBusy(row.key);
-    try {
-      await post("/admin/apifootball/confirm", { key: row.key, league_id, seasons });
-      toast(`${row.name} added, switched off`); q.reload(); onSaved();
-    } catch (x) { toast(x.message || "Could not add", "err"); } finally { setBusy(null); }
+  const url = `/admin/apifootball/catalog?q=${encodeURIComponent(q)}&country=${encodeURIComponent(country)}&kind=${kind}&only=${only}&page=${page}`;
+  const r = useApi(url);
+  const [syncing, setSyncing] = useState(false);
+  const sync = async () => {
+    setSyncing(true);
+    try { const out = await post("/admin/apifootball/catalog/sync"); toast(`${out.competitions} competitions, ${out.calls} call`); r.reload(); }
+    catch (x) { toast(x.message || "Could not refresh the list", "err"); } finally { setSyncing(false); }
   };
+  const flip = async (row, on) => {
+    setBusy(row.league_id);
+    try {
+      await post("/admin/apifootball/competitions", { league_id: row.league_id, on });
+      toast(`${row.name} ${on ? "on" : "off"}`); r.reload(); onChanged();
+    } catch (x) { toast(x.message || "Could not save", "err"); } finally { setBusy(null); }
+  };
+  const meta = r.data?.meta || {};
+  const refresh = (
+    <button className="btn btn--secondary btn--sm" disabled={syncing} onClick={sync} data-testid="af-cat-sync">
+      <Icon name="refresh" size={16} />{syncing ? "Refreshing…" : "Refresh the list"}
+    </button>
+  );
+  if (r.loading && !r.data) return <Card><Loading rows={6} /></Card>;
+  if (r.error) return <Card><ErrorBox error={r.error} onRetry={r.reload} /></Card>;
+  if (!meta.total) {
+    return (
+      <Card>
+        <Empty icon="trophy" testid="af-cat-empty">
+          The competition list has not been fetched yet. Save the API-Football key in Keys, then
+          refresh: one call stores every competition it carries, and the list is read from here
+          afterwards.
+        </Empty>
+        {refresh}
+      </Card>
+    );
+  }
   return (
-    <Drawer open onClose={onClose} title="Add competitions" testid="af-catalog">
-      {q.loading && !q.data ? <Loading rows={6} /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : (
-        <div className="a-stack">
-          <p className="a-muted small">
-            Seasons checked: {(q.data.seasons || []).join(", ")}. A competition arrives switched off with nothing queued —
-            adding it says which competition it is, not that it has started spending.
-          </p>
-          {(q.data.errors || []).map((e, i) => <FormError key={i} error={{ message: e }} />)}
-          {[1, 2, 3].map((tier) => {
-            const rows = (q.data.rows || []).filter((r) => r.tier === tier);
-            if (!rows.length) return null;
-            return (
-              <section key={tier} className="a-stack" data-testid={`af-tier-${tier}`}>
-                <h3>Tier {tier}</h3>
-                {rows.map((r) => {
-                  const demoted = r.role === "forecast" && r.supportable_role === "calendar";
-                  return (
-                    <article key={r.key} className="a-card a-card--tight" data-testid={`af-row-${r.key}`}>
-                      <div className="a-row a-row--between">
-                        <div>
-                          <strong>{r.name}</strong> <span className="a-muted small">{r.country} · {KINDS[r.kind] || r.kind}</span>
-                          <div className="a-muted small">{ROLES[r.role]?.label}{r.matched_name && r.matched_name !== r.name ? ` · matched “${r.matched_name}”` : ""}</div>
-                        </div>
-                        <Chip tone={r.confirmed ? "ok" : r.status === "auto" ? "info" : "warn"}>
-                          {r.confirmed ? (r.enabled ? "Added · on" : "Added") : r.status === "auto" ? "Match found" : r.status === "review" ? "Choose one" : "Not found"}
-                        </Chip>
-                      </div>
-                      {r.note ? <p className="a-muted small">{r.note}</p> : null}
-                      {r.status === "review" && r.candidates.length > 0 && (
-                        <label className="a-field">
-                          <span className="a-muted small">Which competition is this?</span>
-                          <select value={chosen[r.key] ?? ""} onChange={(e) => setChosen({ ...chosen, [r.key]: Number(e.target.value) })} data-testid={`af-pick-${r.key}`}>
-                            <option value="">Choose…</option>
-                            {r.candidates.map((c) => <option key={c.id} value={c.id}>{c.name} — {c.country} (id {c.id})</option>)}
-                          </select>
-                        </label>
-                      )}
-                      {demoted && <p className="small" data-testid={`af-demoted-${r.key}`}>This season carries no player statistics, so it can only be a calendar competition for now.</p>}
-                      {(r.warnings || []).map((w, i) => <p key={i} className="a-muted small">{w}</p>)}
-                      {!r.confirmed && (r.league_id || chosen[r.key]) && (
-                        <button className="btn btn--secondary btn--sm self-start" disabled={busy === r.key}
-                                onClick={() => confirm(r)} data-testid={`af-add-${r.key}`}>
-                          <Icon name="plus" size={16} />{busy === r.key ? "Adding…" : "Add"}
-                        </button>
-                      )}
-                    </article>
-                  );
-                })}
-              </section>
-            );
-          })}
+    <Card>
+      <div className="a-row a-row--between">
+        <div>
+          <h2>All competitions</h2>
+          <small className="a-muted">
+            {num(meta.total)} from the provider · {num(meta.with_player_stats)} carry player statistics
+            {meta.synced_at ? ` · list refreshed ${String(meta.synced_at).slice(0, 10)}` : ""}
+          </small>
+        </div>
+        {refresh}
+      </div>
+      <div className="a-filters">
+        <div className="a-search"><Icon name="search" size={18} />
+          <input type="search" placeholder="Search competition or country" aria-label="Search competitions"
+                 value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} data-testid="af-cat-search" />
+        </div>
+        <select aria-label="Country" value={country} onChange={(e) => { setCountry(e.target.value); setPage(1); }} data-testid="af-cat-country">
+          <option value="">Every country</option>
+          {(meta.countries || []).map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select aria-label="Kind" value={kind} onChange={(e) => { setKind(e.target.value); setPage(1); }} data-testid="af-cat-kind">
+          <option value="">Any kind</option>
+          {(meta.kinds || []).map((k) => <option key={k} value={k}>{KINDS[k] || k}</option>)}
+        </select>
+      </div>
+      <div className="a-seg" role="group" aria-label="Show">
+        {[["recommended", `Suggested ${num(meta.recommended)}`], ["", `All ${num(meta.total)}`],
+          ["stats", `With player stats ${num(meta.with_player_stats)}`], ["on", "On"], ["off", "Off"]].map(([id, label]) => (
+          <button key={id || "all"} type="button" aria-pressed={only === id}
+                  onClick={() => { setOnly(id); setPage(1); }} data-testid={`af-cat-only-${id || "all"}`}>{label}</button>
+        ))}
+      </div>
+      <ul className="a-list a-list--rows" data-testid="af-cat-rows">
+        {r.data.rows.map((row) => (
+          <li key={row.league_id} className="a-row a-row--between" data-testid={`af-cat-${row.league_id}`}>
+            <div>
+              <strong>{row.name}</strong>{" "}
+              {row.recommended && <Chip tone="info">Suggested{row.tier ? ` · tier ${row.tier}` : ""}</Chip>}{" "}
+              {row.on && <Chip tone="ok">On</Chip>}
+              <div className="a-muted small">
+                {row.country} · {KINDS[row.kind] || row.kind} · {ROLES[row.role]?.label}
+                {row.years?.length ? ` · ${row.years.slice(0, 3).join(", ")}` : ""}
+              </div>
+              <div className="a-muted small">
+                {row.has_player_stats ? "Player statistics" : "No player statistics"}
+                {row.has_team_stats ? " · team statistics" : ""}
+                {row.has_lineups ? " · lineups" : ""}
+                {!row.has_player_stats && row.role === "forecast"
+                  ? " — so it can only be a calendar competition for now"
+                  : ""}
+              </div>
+            </div>
+            <button className={"btn btn--sm " + (row.on ? "btn--ghost" : "btn--secondary")}
+                    disabled={busy === row.league_id} onClick={() => flip(row, !row.on)}
+                    data-testid={`af-cat-${row.league_id}-toggle`}>
+              {busy === row.league_id ? "…" : row.on ? "Turn off" : "Turn on"}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {r.data.pages > 1 && (
+        <div className="btn-row" data-testid="af-cat-pager">
+          <button className="btn btn--ghost btn--sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Back</button>
+          <span className="a-muted small">Page {r.data.page} of {r.data.pages}</span>
+          <button className="btn btn--ghost btn--sm" disabled={page >= r.data.pages} onClick={() => setPage(page + 1)}>Next</button>
         </div>
       )}
-    </Drawer>
+      <p className="a-muted small">
+        Turning one on costs nothing by itself and creates no forecasts: it starts syncing fixtures,
+        and about {num(perMatch)} calls go on each match that finishes. Pick its backfill seasons on
+        its card above.
+      </p>
+    </Card>
   );
 }
 
@@ -250,7 +298,6 @@ export default function Leagues() {
   // Search alone cannot answer "which have I actually switched on", which is the question asked
   // every time after the first.
   const [only, setOnly] = useState("all");
-  const [catalog, setCatalog] = useState(false);
   const [prov, setProv] = useState("any");
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (notMounted(q.error)) return <div className="a-page" data-testid="admin-leagues"><PageHead title="Leagues" lead="Switch leagues on and pick seasons to backfill." /><MissingRoutes /></div>;
@@ -268,13 +315,11 @@ export default function Leagues() {
     <div className="a-page" data-testid="admin-leagues">
       <PageHead title="Leagues"
                 lead={q.data.leagues.length
-                  ? `${on} of ${q.data.leagues.length} switched on · ${fc} forecast, ${cal} calendar${legacy ? ` · ${legacy} from the old provider` : ""}. New competitions arrive switched off.`
+                  ? `${on} on · ${fc} forecast, ${cal} calendar${legacy ? ` · ${legacy} from the old provider` : ""}. New competitions arrive switched off.`
                   : "Add the competitions you carry, then switch them on and pick seasons to backfill."}
-                actions={<button className="btn btn--secondary btn--sm" onClick={() => setCatalog(true)} data-testid="leagues-catalog">
-                           <Icon name="plus" size={16} />Add competitions
-                         </button>} />
+/>
       {q.data.leagues.length === 0 ? (
-        <Card><Empty icon="trophy" testid="leagues-empty">No competitions yet. Save the API-Football key in Keys, then use Add competitions: each one is matched against the provider's league list and arrives switched off.</Empty></Card>
+        <Card><Empty icon="trophy" testid="leagues-empty">Nothing switched on yet. Every competition the provider carries is listed below — search it and turn on the ones you want.</Empty></Card>
       ) : (
         <>
           <div className="a-filters">
@@ -301,9 +346,9 @@ export default function Leagues() {
           {list.length === 0 ? <Empty>No league matches.</Empty> : <div className="a-key-grid">{list.map((l) => <LeagueCard key={l.iid} lg={l} budget={q.data.budget} daily={q.data.daily_calls_per_league} perMatch={q.data.calls_per_match} onEdit={setEdit} onZones={setZones} onChanged={q.reload} />)}</div>}
         </>
       )}
+      <Browser perMatch={q.data.calls_per_match} onChanged={q.reload} />
       {edit && <Seasons lg={edit} budget={q.data.budget} perMatch={q.data.calls_per_match} onClose={() => setEdit(null)} onSaved={q.reload} />}
       {zones && <Zones lg={zones} onClose={() => setZones(null)} onSaved={q.reload} />}
-      {catalog && <Catalog seasons={undefined} onClose={() => setCatalog(false)} onSaved={q.reload} />}
     </div>
   );
 }

@@ -39,6 +39,7 @@ and nothing downstream could tell.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 
 import settings_store as S
@@ -291,3 +292,189 @@ def confirm(db, entry: dict, af_league: dict, seasons: list[int] | None = None) 
     db.leagues.update_one({"iid": iid}, {"$set": {"current_season": str(max(
         [int(y) for y in (seasons or af_league.get("seasons") or [0])]))}})
     return iid
+
+
+# ==================================================================
+# The whole provider catalogue, held locally
+#
+# The curated CATALOG above resolves thirty-nine competitions by name and asks for each to be
+# confirmed. The owner wants the other thousand too: every competition API-Football carries, listed,
+# with a switch. That is also what the provider recommends -- "It is recommended to save this
+# information on your side so that you don't have to call the endpoint leagues again. Ideally, this
+# data should be updated once a week" (docs/82 §6) -- so the list is SYNCED, not fetched per view.
+#
+# One call gets all of it, with each competition's seasons and the coverage of each season, so the
+# screen can say what a competition actually carries before it is switched on. The thirty-nine stay
+# as a recommendation flag on the rows they match, because knowing which of a thousand competitions
+# matter is the part a list cannot tell you.
+# ==================================================================
+CATALOG_COLL = "af_catalog"
+
+
+def _suggested_role(af_type: str, country: str) -> str:
+    """The role a competition gets before anybody chooses.
+
+    API-Football's own `type` is only League or Cup. A Cup mixes divisions and a competition whose
+    country is "World" is continental or international, and docs/81 §2 is why neither can be a
+    forecast competition: the engine fits one frame per competition, and pooling clubs of different
+    standard — or national teams with no club history — biases it.
+    """
+    if str(country or "").strip().lower() == "world":
+        return CALENDAR
+    return FORECAST if str(af_type or "").strip().lower() == "league" else CALENDAR
+
+
+def _kind(af_type: str, country: str) -> str:
+    if str(country or "").strip().lower() == "world":
+        return "continental"                     # or international; the screen does not need to split it
+    return "league" if str(af_type or "").strip().lower() == "league" else "cup"
+
+
+def sync_catalog(client, max_pages: int = 20) -> dict:
+    """Fetch every competition the provider carries and store it. One call, in practice.
+
+    Idempotent: a competition already stored is updated, and `enabled_iid` — the link to a `leagues`
+    row, if the owner has switched it on — is preserved, because that is ours and not theirs.
+    """
+    from datetime import timedelta
+    rows = client.fetch_all("/leagues", {},
+                            ttl=timedelta(days=float(S.get(client.db, "cache.ttl.reference_days"))),
+                            purpose="catalog_sync", max_pages=max_pages)
+    db = client.db
+    recommended = {}
+    for e in CATALOG:                            # which of the thousand we have an opinion about
+        recommended.setdefault(_norm(e["name"]) + "|" + _norm(e["country"]), e)
+    seen, n_new = [], 0
+    for r in rows:
+        lg, ctry = r.get("league") or {}, r.get("country") or {}
+        lid = lg.get("id")
+        if lid is None:
+            continue
+        lid = int(lid)
+        seasons = []
+        for s in (r.get("seasons") or []):
+            cov = s.get("coverage") or {}
+            fx = cov.get("fixtures") or {}
+            seasons.append({
+                "year": s.get("year"), "start": s.get("start"), "end": s.get("end"),
+                "current": bool(s.get("current")),
+                "events": bool(fx.get("events")), "lineups": bool(fx.get("lineups")),
+                "team_stats": bool(fx.get("statistics_fixtures")),
+                "player_stats": bool(fx.get("statistics_players")),
+                "standings": bool(cov.get("standings")), "injuries": bool(cov.get("injuries")),
+            })
+        seasons.sort(key=lambda s: -(s["year"] or 0))
+        rec = recommended.get(_norm(lg.get("name")) + "|" + _norm(ctry.get("name")))
+        doc = {
+            "_id": lid, "name": lg.get("name"), "af_type": lg.get("type"), "logo": lg.get("logo"),
+            "country": ctry.get("name"), "country_code": ctry.get("code"), "flag": ctry.get("flag"),
+            "seasons": seasons,
+            "years": [s["year"] for s in seasons if s["year"]],
+            "kind": _kind(lg.get("type"), ctry.get("name")),
+            "suggested_role": _suggested_role(lg.get("type"), ctry.get("name")),
+            # does any season carry what a forecast competition needs? the screen sorts on this,
+            # because "has player statistics somewhere" is the question that decides whether a
+            # competition can carry cards at all (docs/81 §2)
+            "has_player_stats": any(s["player_stats"] for s in seasons),
+            "has_team_stats": any(s["team_stats"] for s in seasons),
+            "has_lineups": any(s["lineups"] for s in seasons),
+            "recommended": bool(rec), "catalog_key": (rec or {}).get("key"),
+            "tier": (rec or {}).get("tier"),
+            "synced_at": datetime.now(timezone.utc),
+        }
+        before = db[CATALOG_COLL].find_one({"_id": lid}, {"_id": 1})
+        if not before:
+            n_new += 1
+        db[CATALOG_COLL].update_one({"_id": lid}, {"$set": doc}, upsert=True)
+        seen.append(lid)
+    return {"competitions": len(seen), "new": n_new, "calls": client.calls_made,
+            "recommended": db[CATALOG_COLL].count_documents({"recommended": True})}
+
+
+def catalog_page(db, q: str = "", country: str = "", kind: str = "", only: str = "",
+                 page: int = 1, per_page: int = 50) -> dict:
+    """One page of the stored catalogue, with the owner's on/off state joined on.
+
+    A thousand competitions is too many to scroll, so the screen gets search, a country filter, a
+    kind filter and `only`: recommended, on, off, or those that carry player statistics.
+    """
+    sel: dict = {}
+    if q:
+        sel["$or"] = [{"name": {"$regex": re.escape(q), "$options": "i"}},
+                      {"country": {"$regex": re.escape(q), "$options": "i"}}]
+    if country:
+        sel["country"] = country
+    if kind:
+        sel["kind"] = kind
+    if only == "recommended":
+        sel["recommended"] = True
+    elif only == "stats":
+        sel["has_player_stats"] = True
+
+    # which of them the owner has switched on, by API-Football id
+    mine = {}
+    for lg in db.leagues.find({"provider": PROVIDER_KEY}, {"_id": 0, "iid": 1, "ext_id": 1,
+                                                           "enabled": 1, "role": 1, "backfill_seasons": 1}):
+        if str(lg.get("ext_id", "")).isdigit():
+            mine[int(lg["ext_id"])] = lg
+    if only in ("on", "off"):
+        ids = [i for i, l in mine.items() if bool(l.get("enabled")) == (only == "on")]
+        if only == "on":
+            sel["_id"] = {"$in": ids}
+        else:
+            sel["_id"] = {"$nin": [i for i, l in mine.items() if l.get("enabled")]}
+
+    total = db[CATALOG_COLL].count_documents(sel)
+    page = max(1, int(page))
+    cur = (db[CATALOG_COLL].find(sel)
+           .sort([("recommended", -1), ("tier", 1), ("has_player_stats", -1), ("name", 1)])
+           .skip((page - 1) * per_page).limit(per_page))
+    out = []
+    for c in cur:
+        m = mine.get(c["_id"]) or {}
+        out.append({
+            "league_id": c["_id"], "name": c.get("name"), "country": c.get("country"),
+            "logo": c.get("logo"), "flag": c.get("flag"), "af_type": c.get("af_type"),
+            "kind": c.get("kind"), "suggested_role": c.get("suggested_role"),
+            "years": (c.get("years") or [])[:6],
+            "has_player_stats": bool(c.get("has_player_stats")),
+            "has_team_stats": bool(c.get("has_team_stats")),
+            "has_lineups": bool(c.get("has_lineups")),
+            "recommended": bool(c.get("recommended")), "tier": c.get("tier"),
+            "iid": m.get("iid"), "on": bool(m.get("enabled")),
+            "role": m.get("role") or c.get("suggested_role"),
+            "backfill_seasons": m.get("backfill_seasons") or [],
+        })
+    return {"rows": out, "total": total, "page": page, "per_page": per_page,
+            "pages": max(1, -(-total // per_page))}
+
+
+def catalog_meta(db) -> dict:
+    """What the filters offer, and when the list was last synced."""
+    one = db[CATALOG_COLL].find_one({}, {"synced_at": 1}, sort=[("synced_at", -1)])
+    return {"countries": sorted(c for c in db[CATALOG_COLL].distinct("country") if c),
+            "kinds": sorted(k for k in db[CATALOG_COLL].distinct("kind") if k),
+            "total": db[CATALOG_COLL].count_documents({}),
+            "with_player_stats": db[CATALOG_COLL].count_documents({"has_player_stats": True}),
+            "recommended": db[CATALOG_COLL].count_documents({"recommended": True}),
+            "synced_at": (one or {}).get("synced_at")}
+
+
+def switch(db, league_id: int, on: bool, seasons: list[int] | None = None, role: str | None = None) -> dict:
+    """Turn a competition on or off.
+
+    Turning one ON for the first time creates its `leagues` row from what the sync already stored,
+    so no provider call is needed: the catalogue has the name, the seasons and the coverage.
+    """
+    c = db[CATALOG_COLL].find_one({"_id": int(league_id)})
+    if not c:
+        raise KeyError(f"competition {league_id} is not in the stored catalogue -- sync it first")
+    entry = {"key": c.get("catalog_key") or f"af.{league_id}", "name": c.get("name"),
+             "country": c.get("country"), "kind": c.get("kind"), "tier": c.get("tier") or 3,
+             "role": role or c.get("suggested_role")}
+    af = {"id": int(league_id), "name": c.get("name"), "type": c.get("af_type"),
+          "logo": c.get("logo"), "country": c.get("country"), "seasons": c.get("years") or []}
+    iid = confirm(db, entry, af, seasons or (c.get("years") or [])[:3])
+    db.leagues.update_one({"iid": iid}, {"$set": {"enabled": bool(on)}})
+    db[CATALOG_COLL].update_one({"_id": int(league_id)}, {"$set": {"enabled_iid": iid}})
+    return {"iid": iid, "league_id": int(league_id), "on": bool(on), "role": entry["role"]}

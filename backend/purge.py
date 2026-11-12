@@ -73,6 +73,8 @@ FOOTBALL = [
     # THE IMAGES THEMSELVES. See "Why the images go too" below -- this reverses docs/79 §1.
     "media",
     "sportapi_cache", "sportapi_calls", "sportapi_dates", "sportapi_state", "sportapi_team_map",
+    # the provider's own competition list, synced weekly and re-syncable in one call
+    "af_catalog",
     # the ingest's own queue and complaints
     "ingest_queue", "ingest_issues",
 ]

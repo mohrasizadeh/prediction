@@ -276,83 +276,48 @@ def af_status(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
             "quota": {k: v for k, v in (db.job_state.find_one({"_id": "apifootball_quota"}) or {}).items() if k != "_id"}}
 
 
-@router.get("/apifootball/catalog")
-def af_catalog(seasons: str = "", tier: int = 0, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
-    """Every competition in the catalogue: what the provider offers for it, the coverage of each
-    season we care about, and whether its role is supportable. Resolution is cached for the
-    reference TTL, so re-opening the screen is free."""
+@router.post("/apifootball/catalog/sync")
+def af_catalog_sync(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Fetch every competition the provider carries and store it. One call, refreshed weekly.
+
+    Their own advice: save the league list your side rather than calling for it per view (docs/82
+    §6). So the screen reads the stored copy and this is the only thing that calls out.
+    """
     import apifootball as AF
-    want = [int(x) for x in seasons.split(",") if x.strip().isdigit()] or _default_seasons(db)
-    rows, errors = [], []
-    confirmed = {int(r["ext_id"]): r for r in db.leagues.find(
-        {"provider": AFL.PROVIDER_KEY}, {"_id": 0, "iid": 1, "ext_id": 1, "role": 1, "enabled": 1, "name": 1})
-        if str(r.get("ext_id", "")).isdigit()}
-    for entry in AFL.CATALOG:
-        if tier and entry["tier"] != tier:
-            continue
-        try:
-            row = AFL.plan_row(_af_client(db), entry, want)
-        except (AF.BudgetExhausted, AF.BreakerOpen) as e:
-            errors.append(str(e))
-            break                                   # stop early: the rest would all fail the same way
-        except AF.APIFootballError as e:
-            row = {**entry, "candidates": [], "league_id": None, "status": "error",
-                   "coverage": {}, "warnings": [str(e)]}
-        mine = confirmed.get(row.get("league_id") or -1)
-        row["confirmed"] = bool(mine)
-        row["iid"] = (mine or {}).get("iid")
-        row["enabled"] = bool((mine or {}).get("enabled"))
-        row["saved_role"] = (mine or {}).get("role")
-        row["supportable_role"] = AFL.supportable_role(row)
-        rows.append(row)
-    return {"seasons": want, "rows": rows, "errors": errors,
-            "counts": {"auto": sum(1 for r in rows if r["status"] == "auto"),
-                       "review": sum(1 for r in rows if r["status"] == "review"),
-                       "none": sum(1 for r in rows if r["status"] in ("none", "error")),
-                       "confirmed": sum(1 for r in rows if r["confirmed"])}}
+    try:
+        return AFL.sync_catalog(_af_client(db))
+    except (AF.BudgetExhausted, AF.BreakerOpen, AF.Unauthorized, AF.PlanLimited) as e:
+        raise D.err(409, "PROVIDER", str(e))
+    except AF.APIFootballError as e:
+        raise D.err(502, "PROVIDER", str(e))
 
 
-def _default_seasons(db) -> list[int]:
-    want = S.get(db, "apifootball.seasons") or []
-    if want:
-        return [int(x) for x in want]
-    y = datetime.now(timezone.utc).year
-    # Their season key is the START year, so before July the current season began last year.
-    cur = y if datetime.now(timezone.utc).month >= 7 else y - 1
-    return [cur, cur - 1, cur - 2]
+@router.get("/apifootball/catalog")
+def af_catalog(q: str = "", country: str = "", kind: str = "", only: str = "",
+               page: int = 1, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """A page of the stored catalogue, with on/off state. Reads the database, calls nothing."""
+    return {**AFL.catalog_page(db, q=q, country=country, kind=kind, only=only, page=page),
+            "meta": AFL.catalog_meta(db)}
 
 
-class AfConfirm(BaseModel):
-    key: str = Field(min_length=1, max_length=60)      # catalogue key, e.g. "eng.pl"
+class AfSwitch(BaseModel):
     league_id: int = Field(ge=1)
+    on: bool
     seasons: Optional[list[int]] = Field(default=None, max_length=20)
     role: Optional[Literal["forecast", "calendar", "off"]] = None
 
 
-@router.post("/apifootball/confirm")
-def af_confirm(body: AfConfirm, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
-    """Confirm one catalogue row to one API-Football league id, and write it into `leagues`.
-
-    The competition arrives switched OFF with no seasons queued, exactly as a league always has:
-    confirming says which competition it is, not that we have started paying for it."""
-    import apifootball as AF
-    entry = AFL.BY_KEY.get(body.key)
-    if not entry:
-        raise D.err(404, "NOT_FOUND", f"No catalogue entry '{body.key}'.")
-    rows = _af_client(db).fetch("/leagues", {"id": body.league_id},
-                                ttl=timedelta(days=S.get(db, "cache.ttl.reference_days")), purpose="confirm")
-    if not rows:
-        raise D.err(400, "BAD_VALUE", f"API-Football has no league {body.league_id}.")
-    lg, ctry = rows[0].get("league") or {}, rows[0].get("country") or {}
-    years = sorted({int(s["year"]) for s in (rows[0].get("seasons") or []) if s.get("year")}, reverse=True)
-    af = {"id": int(lg.get("id")), "name": lg.get("name"), "type": lg.get("type"),
-          "logo": lg.get("logo"), "country": ctry.get("name"), "seasons": years}
-    entry = {**entry, "role": body.role or entry["role"]}
-    iid = AFL.confirm(db, entry, af, body.seasons or years)
-    AQ.audit(db, user, "league.confirm", str(iid),
-             {"catalog": body.key, "af_id": af["id"], "name": af["name"], "role": entry["role"]})
-    return {"ok": True, "iid": iid, "league_id": af["id"], "name": af["name"],
-            "role": entry["role"], "seasons": body.seasons or years}
+@router.post("/apifootball/competitions")
+def af_switch(body: AfSwitch, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Turn a competition on or off. Creates its league row the first time, from the stored
+    catalogue, so switching one on costs no provider call."""
+    try:
+        res = AFL.switch(db, body.league_id, body.on, body.seasons, body.role)
+    except KeyError as e:
+        raise D.err(404, "NOT_SYNCED", str(e))
+    AQ.audit(db, user, "competition.switch", str(body.league_id),
+             {"on": body.on, "role": res["role"]})
+    return res
 
 
 @router.get("/apifootball/types")
