@@ -28,14 +28,24 @@ const lineWords = (f, n) => `${n}+ ${nounFor(f, n)}`;
 
 // The lineup words are about HIM and are facts that can be checked. "Confirmed" never said
 // confirmed what; "Lineup not sure" never said who was unsure, and it was us.
+//
+// They are also SHORT, which is a layout constraint and not a style preference: this word shares a
+// 70px column with the favourite star, and a word wider than the cell does not wrap or clip -- it
+// paints straight over its neighbour, because the table clips only at its own outer edge. Measured
+// at 1366px, "On the bench" crossed by 24px, "Usually starts" by 27px and "No team news yet" by
+// 48px; the owner reported exactly that, as a star sitting on top of the word. Nothing is lost by
+// the short form because `why` carries the full sentence one tap down.
+//
+// Budget: 54px of text (the cell is 70px, less a 9px dot and a 7px gap). Check a new word against
+// scripts/collide.js before adding it -- six characters is about the limit at this size.
 function lineupWords(f) {
   if (f.scope === "team") return { cls: "none", word: "Club line", why: "", sr: "No lineup question: this is a team line." };
   const b = f.lineup_badge;
   const rec = f.starts_recent != null && f.club_recent
     ? `He has started ${f.starts_recent} of his club's last ${f.club_recent}.` : "";
   if (b === "confirmed") return { cls: "confirmed", word: "Starting", why: "He is in the announced eleven." };
-  if (b === "bench") return { cls: "bench", word: "On the bench", why: "The eleven is out and he is not in it." };
-  if (b === "likely") return { cls: "likely", word: "Usually starts", why: `No lineup yet. ${rec}` };
+  if (b === "bench") return { cls: "bench", word: "Bench", why: "The eleven is out and he is not in it." };
+  if (b === "likely") return { cls: "likely", word: "Regular", why: `No lineup yet. ${rec}` };
   if (b === "unsure") {
     // docs/63: which rule fired. A stated doubt and a thin start record are different facts, and
     // the honest word for one is a lie about the other.
@@ -43,7 +53,7 @@ function lineupWords(f) {
       ? { cls: "doubt", word: "Doubtful", why: "He is carrying a stated doubt, so his record is not the answer here." }
       : { cls: "unsure", word: "Rotated", why: `No lineup yet. ${rec}` };
   }
-  return { cls: "none", word: "No team news yet", why: "We have no lineup for this club, and no record of starts we trust enough to read." };
+  return { cls: "none", word: "No news", why: "We have no lineup for this club, and no record of starts we trust enough to read." };
 }
 
 // The ladder the engine already stores, trimmed to the rungs worth offering: up to one beyond his
