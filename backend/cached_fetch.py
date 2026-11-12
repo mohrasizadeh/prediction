@@ -51,6 +51,15 @@ class BudgetExhausted(Exception): ...
 class BreakerOpen(Exception): ...
 
 
+class Disabled(BreakerOpen):
+    """PitchAPI is switched off in admin.
+
+    A subclass of BreakerOpen on purpose: jobs.py already catches that, so switching the provider
+    off stops it spending without a new exception to thread through every caller. The distinct type
+    is so the admin can say "off" rather than "breaker open", which would read like a fault.
+    """
+
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -98,6 +107,10 @@ class PitchClient:
         return self.db.api_call_log.count_documents({"at": {"$gte": start}})
 
     def _check_guards(self) -> None:
+        # The off switch. Checked before the breaker and the budget, because an off provider should
+        # say so plainly rather than report whatever other state it happens to be in (docs/84).
+        if not S.get(self.db, "pitchapi.enabled"):
+            raise Disabled("PitchAPI is switched off in admin")
         br = self.db.job_locks.find_one({"_id": "pitch_breaker"})
         if br and _aware(br["expires_at"]) > utcnow():
             raise BreakerOpen(br.get("reason", "breaker open"))

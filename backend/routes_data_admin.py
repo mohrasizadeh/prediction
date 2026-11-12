@@ -13,6 +13,7 @@ import admin_queries as AQ
 import af_leagues as AFL
 import deps as D
 import queries as Q
+import security
 import settings_store as S
 from cached_fetch import BreakerOpen, BudgetExhausted, NotFound, PitchClient, PitchError, Unauthorized, _unpack
 
@@ -178,16 +179,28 @@ def leagues(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
                     # the competition's job, and what it is: only a forecast league fits models,
                     # publishes cards and stamps a club's league (docs/81)
                     "role": lg.get("role") or AFL.OFF, "kind": lg.get("kind"), "tier": lg.get("tier"),
-                    "country": lg.get("country"), "provider": lg.get("provider")})
+                    "country": lg.get("country"),
+                    # A row with no `provider` predates the move: ingest.sync_leagues never wrote
+                    # the field, so every league already in the database came from PitchAPI and its
+                    # `ext_id` is a PitchAPI id. Reported, not migrated -- these rows go with the
+                    # purge, and writing to them to tidy a label would be a write for nothing.
+                    "provider": lg.get("provider") or "pitchapi"})
     # Switching a league on commits a daily cost for as long as it stays on, and the screen could
     # only show the one-off backfill estimate. The list calls are exact and come straight from the
     # two sync intervals; the per-match three are stated separately rather than guessed at.
     fx_h = max(1, int(S.get(db, "ingest.fixtures_sync_hours") or 24))
     rs_h = max(1, int(S.get(db, "ingest.results_sync_hours") or 24))
     daily = max(1, round(24 / fx_h)) + max(1, round(24 / rs_h))
+    by_provider = {}
+    for r in out:
+        by_provider[r["provider"]] = by_provider.get(r["provider"], 0) + 1
     return {"leagues": out, "budget": S.get(db, "ingest.daily_call_budget"),
             "daily_calls_per_league": daily, "calls_per_match": calls_per_match(db),
             "provider": S.get(db, "provider.source"),
+            "by_provider": by_provider,
+            "providers_on": {"apifootball": bool(security.get_provider_key(db, "apifootball", env_fallback="APIFOOTBALL_KEY")),
+                             "pitchapi": bool(S.get(db, "pitchapi.enabled")),
+                             "sportapi": bool(S.get(db, "sportapi.enabled"))},
             "roles": {"forecast": AFL.FORECAST, "calendar": AFL.CALENDAR, "off": AFL.OFF}}
 
 

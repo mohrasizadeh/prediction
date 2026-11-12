@@ -3502,5 +3502,15 @@
     "public": false,
     "applies_at": "immediately",
     "help": "They recommend saving these your side and refreshing once or twice a month. Team ids never change, so only names and venues drift."
+  },
+  {
+    "key": "pitchapi.enabled",
+    "group": "Provider",
+    "label": "PitchAPI on",
+    "type": "boolean",
+    "default": true,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Off stops every PitchAPI call: the ingest, the backfill and the image lookups. Default ON because it is the provider the jobs still use (docs/81 section 4). Turn it off once API-Football is backfilling, not before, or the site stops getting data."
   }
 ]

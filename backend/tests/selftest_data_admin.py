@@ -73,6 +73,45 @@ with TestClient(srv.app) as owner:
     # an API-Football backfill by sixty times, because that provider answers twenty fixtures in one
     # call (docs/81 §1).
     cpm = body["calls_per_match"]
+
+    # ---------------- the Competitions list must say which provider each row came from
+    # Every league already in the database arrived through ingest.sync_leagues, which never wrote a
+    # provider field, so its ext_id is a PitchAPI id. Listing those unlabelled made the screen look
+    # like it was pulling PitchAPI ids into an API-Football list (docs/84).
+    body = admin.get("/api/admin/leagues").json()
+    check(all(l.get("provider") for l in body["leagues"]), "every league row says where it came from")
+    check(body["leagues"][0]["provider"] == "pitchapi",
+          "a row with no provider field is reported as PitchAPI's, not left blank or claimed for the new one")
+    check(body["by_provider"].get("pitchapi") == len(body["leagues"]),
+          "the counts let the screen offer a filter rather than mixing them")
+    import af_leagues as AFL
+    AFL.confirm(db, AFL.BY_KEY["eng.pl"], {"id": 39, "name": "Premier League", "seasons": [2024]})
+    body = admin.get("/api/admin/leagues").json()
+    check(body["by_provider"].get("apifootball") == 1 and body["by_provider"].get("pitchapi") == 1,
+          "a confirmed API-Football competition is counted apart from the old rows")
+    af = next(l for l in body["leagues"] if l["provider"] == "apifootball")
+    check(af["role"] == "forecast" and af["kind"] == "league",
+          "...and carries the role and kind the old rows cannot have")
+
+    # ---------------- the off switches
+    check(body["providers_on"]["pitchapi"] is True, "PitchAPI reports as on, which is what the jobs still use")
+    check(body["providers_on"]["sportapi"] is False, "SportAPI reports its own enabled setting")
+    r = admin.put("/api/admin/settings/pitchapi.enabled", json={"value": False})
+    check(r.status_code == 200, "PitchAPI can be switched off from admin")
+    import cached_fetch as CF
+    try:
+        CF.PitchClient(db, http=None)._check_guards()
+        check(False, "a switched-off provider refuses to spend a call")
+    except CF.Disabled as e:
+        check(True, f"a switched-off provider refuses to spend a call ({e})")
+    check(issubclass(CF.Disabled, CF.BreakerOpen),
+          "...and the refusal is a BreakerOpen, so jobs.py already handles it")
+    admin.put("/api/admin/settings/pitchapi.enabled", json={"value": True})
+    check(admin.get("/api/admin/leagues").json()["providers_on"]["pitchapi"] is True,
+          "switching it back on is one call and spends nothing")
+
+    body = admin.get("/api/admin/leagues").json()
+    lg = next(l for l in body["leagues"] if l["provider"] == "pitchapi")
     check(lg["enabled"] is True and lg["backfill_seasons"] == ["2024/2025"]
           and lg["estimate_calls"] == round(1 + 380 * cpm, 1),
           f"estimate for the queued season, at {cpm} calls a match")

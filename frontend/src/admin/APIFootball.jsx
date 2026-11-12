@@ -3,9 +3,9 @@
 // provider does both plus images and injuries. Three tabs, the tab in the URL so Back works.
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { post } from "../lib/api";
+import { post, put } from "../lib/api";
 import { useApi } from "../lib/useApi";
-import { Tabs, useToast } from "../components/Ui";
+import { Confirm, Tabs, useToast } from "../components/Ui";
 import { ErrorBox, Loading } from "../components/States";
 import Icon from "../components/Icon";
 import { Card, Chip, PageHead, num } from "./parts";
@@ -38,6 +38,7 @@ function Status() {
   const d = q.data;
   if (!d.ok) {
     return (
+      <div className="a-stack">
       <Card>
         <h2>No working key yet</h2>
         <p className="a-muted">{d.reason === "key" ? "API-Football refused the key." : d.reason}{d.detail ? ` — ${d.detail}` : ""}</p>
@@ -46,6 +47,8 @@ function Status() {
           <Icon name="refresh" size={16} />{busy ? "Testing…" : "Test the key"}
         </button>
       </Card>
+      <OtherProviders />
+      </div>
     );
   }
   const qt = d.quota || {};
@@ -73,7 +76,63 @@ function Status() {
         </button>
         <p className="a-muted small">Testing is free: it calls /status, which does not count against the quota it reports.</p>
       </Card>
+      <OtherProviders />
     </div>
+  );
+}
+
+// The two providers API-Football replaces, with their switches. They are still running -- jobs.py
+// calls PitchClient and the live tick calls SportAPI (docs/81 section 4) -- so turning either off
+// stops the site getting that data. The switches exist so the owner can retire them deliberately,
+// in order, once the replacement is backfilling.
+function OtherProviders({ onChanged }) {
+  const toast = useToast();
+  const q = useApi("/admin/leagues");
+  const [ask, setAsk] = useState(null);
+  if (q.loading && !q.data) return null;
+  if (q.error) return null;
+  const on = q.data.providers_on || {};
+  const set = async (key, value) => {
+    try {
+      await put(`/admin/settings/${key}`, { value });
+      toast(value ? "Switched on" : "Switched off");
+      q.reload(); if (onChanged) onChanged();
+    } catch (x) { toast(x.message || "Could not save", "err"); }
+  };
+  const ROWS = [
+    { key: "pitchapi.enabled", name: "PitchAPI", on: on.pitchapi,
+      does: "Match and player history, the season backfill, and the image lookups.",
+      off: "Off stops every PitchAPI call. The engine keeps running on the data already stored, but nothing new arrives and no new match is ingested." },
+    { key: "sportapi.enabled", name: "SportAPI", on: on.sportapi,
+      does: "Live scores, the minute, match events and lineups.",
+      off: "Off stops the live tick. Scores and the clock stop updating, and no new lineup is confirmed." },
+  ];
+  return (
+    <Card>
+      <h2>The providers this one replaces</h2>
+      <p className="a-muted small">
+        Both still run: the ingest calls PitchAPI and the live tick calls SportAPI. Turn them off
+        once API-Football is backfilling, in that order — not before, or the site stops getting data.
+      </p>
+      {ROWS.map((r) => (
+        <div key={r.key} className="a-stack a-stack--tight" data-testid={`off-${r.key}`}>
+          <div className="a-row a-row--between">
+            <div><strong>{r.name}</strong><div className="a-muted small">{r.does}</div></div>
+            <Chip tone={r.on ? "ok" : "mute"}>{r.on ? "On" : "Off"}</Chip>
+          </div>
+          <button className={"btn btn--sm self-start " + (r.on ? "btn--danger" : "btn--secondary")}
+                  onClick={() => (r.on ? setAsk(r) : set(r.key, true))}
+                  data-testid={`off-${r.key}-toggle`}>
+            {r.on ? `Turn ${r.name} off` : `Turn ${r.name} back on`}
+          </button>
+        </div>
+      ))}
+      <Confirm open={!!ask} title={`Turn ${ask?.name} off?`} confirmLabel={`Turn ${ask?.name} off`}
+               testid="off-confirm" onClose={() => setAsk(null)}
+               body={<div className="a-stack"><p>{ask?.off}</p>
+                 <p className="muted small">Switching it back on takes one click and spends nothing by itself.</p></div>}
+               onConfirm={async () => { await set(ask.key, false); setAsk(null); }} />
+    </Card>
   );
 }
 

@@ -210,8 +210,16 @@ function LeagueCard({ lg, budget, daily, perMatch, onEdit, onZones, onChanged })
           <h2>{lg.name}</h2>
           <small>{lg.country || lg.country_code || "No data"} · id {lg.ext_id}{lg.kind ? ` · ${KINDS[lg.kind] || lg.kind}` : ""}</small>
         </div>
-        <Chip tone={ROLES[lg.role || "off"]?.tone}>{ROLES[lg.role || "off"]?.label}</Chip>
+        {lg.provider === "apifootball"
+          ? <Chip tone={ROLES[lg.role || "off"]?.tone}>{ROLES[lg.role || "off"]?.label}</Chip>
+          : <Chip tone="warn">Old provider</Chip>}
       </header>
+      {lg.provider !== "apifootball" && (
+        <p className="a-muted small" data-testid={`league-${lg.iid}-legacy`}>
+          From PitchAPI, so its id is a PitchAPI id and it cannot be matched to API-Football. It clears
+          with Fresh start, under API-Football.
+        </p>
+      )}
       <Switch label={lg.enabled ? "On" : "Off"} hint={`Fixtures and results sync for leagues that are on · about ${num(daily)} calls a day each`} checked={lg.enabled} onChange={onChange} testid={`league-${lg.iid}-toggle`} />
       <Confirm open={ask} title={`Switch ${lg.name} on?`} confirmLabel="Switch it on" onClose={() => setAsk(false)}
                testid={`league-${lg.iid}-toggle-confirm`}
@@ -226,7 +234,7 @@ function LeagueCard({ lg, budget, daily, perMatch, onEdit, onZones, onChanged })
         <div><dt>Calls still needed</dt><dd>{num(lg.estimate_calls)}</dd></div>
         <div><dt>Coverage</dt><dd>{lg.coverage.length ? `${lg.coverage.length} fields tracked` : "No data yet"}</dd></div>
       </dl>
-      <RolePicker lg={lg} onChanged={onChanged} />
+      {lg.provider === "apifootball" && <RolePicker lg={lg} onChanged={onChanged} />}
       <button className="btn btn--secondary btn--sm self-start" onClick={() => onEdit(lg)} data-testid={`league-${lg.iid}-seasons`}><Icon name="calendar" size={16} />Backfill seasons</button>
       <button className="btn btn--ghost btn--sm self-start" onClick={() => onZones(lg)} data-testid={`league-${lg.iid}-zones`}><Icon name="list" size={16} />Table zones{lg.zones?.length ? ` (${lg.zones.length})` : ""}</button>
     </article>
@@ -243,10 +251,14 @@ export default function Leagues() {
   // every time after the first.
   const [only, setOnly] = useState("all");
   const [catalog, setCatalog] = useState(false);
+  const [prov, setProv] = useState("any");
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (notMounted(q.error)) return <div className="a-page" data-testid="admin-leagues"><PageHead title="Leagues" lead="Switch leagues on and pick seasons to backfill." /><MissingRoutes /></div>;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  const afCount = (q.data.by_provider || {}).apifootball || 0;
+  const legacy = q.data.leagues.length - afCount;
   const list = q.data.leagues
+    .filter((l) => (prov === "any" ? true : l.provider === prov))
     .filter((l) => (only === "all" ? true : only === "on" ? l.enabled : !l.enabled))
     .filter((l) => (l.name + " " + (l.country_code || "")).toLowerCase().includes(filter.toLowerCase()));
   const on = q.data.leagues.filter((l) => l.enabled).length;
@@ -256,7 +268,7 @@ export default function Leagues() {
     <div className="a-page" data-testid="admin-leagues">
       <PageHead title="Leagues"
                 lead={q.data.leagues.length
-                  ? `${on} of ${q.data.leagues.length} switched on · ${fc} forecast, ${cal} calendar. New competitions arrive switched off.`
+                  ? `${on} of ${q.data.leagues.length} switched on · ${fc} forecast, ${cal} calendar${legacy ? ` · ${legacy} from the old provider` : ""}. New competitions arrive switched off.`
                   : "Add the competitions you carry, then switch them on and pick seasons to backfill."}
                 actions={<button className="btn btn--secondary btn--sm" onClick={() => setCatalog(true)} data-testid="leagues-catalog">
                            <Icon name="plus" size={16} />Add competitions
@@ -273,6 +285,18 @@ export default function Leagues() {
                         onClick={() => setOnly(id)} data-testid={`leagues-only-${id}`}>{label}</button>
               ))}
             </div>
+            {/* Every league already in the database came from PitchAPI: sync_leagues never wrote a
+                provider field. Mixing them in unlabelled made the screen look like it was pulling
+                PitchAPI ids into an API-Football list, which is exactly what it was doing. */}
+            {legacy > 0 && (
+              <div className="a-seg" role="group" aria-label="Provider">
+                {[["any", `Both ${q.data.leagues.length}`], ["apifootball", `API-Football ${afCount}`],
+                  ["pitchapi", `Old ${legacy}`]].map(([id, label]) => (
+                  <button key={id} type="button" aria-pressed={prov === id}
+                          onClick={() => setProv(id)} data-testid={`leagues-prov-${id}`}>{label}</button>
+                ))}
+              </div>
+            )}
           </div>
           {list.length === 0 ? <Empty>No league matches.</Empty> : <div className="a-key-grid">{list.map((l) => <LeagueCard key={l.iid} lg={l} budget={q.data.budget} daily={q.data.daily_calls_per_league} perMatch={q.data.calls_per_match} onEdit={setEdit} onZones={setZones} onChanged={q.reload} />)}</div>}
         </>
