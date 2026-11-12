@@ -13,7 +13,7 @@
 //       for these, so they read as a neutral "Card" in the centre rather than a guessed colour on a guessed side.
 // `normEvent` reads all three into one shape; nothing below it looks at the raw rows.
 import { Link } from "react-router-dom";
-import { EmptyState } from "./ui";
+import { EmptyState } from "./ui/StateViews";   // not "./ui": ui/LiveBits imports this file
 
 const KINDS = {
   goal: "Goal", pen_goal: "Penalty goal", own_goal: "Own goal", pen_miss: "Penalty missed",
@@ -47,9 +47,11 @@ export function normEvent(e) {
   const [base, added] = minuteOf(e);
   const sub = kind === "sub";
   // A recap substitution names the player going off in `player` and the one coming on in `player_in`.
-  const name = sub && (e.player_in || e.in_name) ? e.player_in?.name || e.in_name : e.player?.name || e.player_name || "";
+  // API-Football's own "subst" rows (no in/out keys) name the player going OFF, not the one coming on.
+  const afSub = sub && raw === "subst" && !e.in_name && !e.out_name;
+  const name = afSub ? "" : sub && (e.player_in || e.in_name) ? e.player_in?.name || e.in_name : e.player?.name || e.player_name || "";
   const id = sub && (e.player_in || e.in_name) ? e.player_in?.id : e.player?.id;
-  const out = sub ? (e.player_in || e.in_name ? e.player?.name || e.player_name : e.out_name) : null;
+  const out = afSub ? e.player_name : sub ? (e.player_in || e.in_name ? e.player?.name || e.player_name : e.out_name) : null;
   const outId = sub && (e.player_in || e.in_name) ? e.player?.id : null;
   // An own goal is filed under the player's club and counts for the other one (match_extras: first_goal_side).
   const side = e.side === "home" || e.side === "away" ? e.side : null;
@@ -123,7 +125,8 @@ function Row({ e, names, i, testid }) {
     );
   }
   const k = kindLabel(e.kind);
-  const side = e.side || "mid";
+  // An own goal sits with the club it counted for, beside the score it changed (the convention readers know).
+  const side = (e.kind === "own_goal" ? e.scorer : e.side) || "mid";
   const body = (
     <span className="tl-body">
       <EvIcon kind={e.kind} />
@@ -139,7 +142,7 @@ function Row({ e, names, i, testid }) {
   );
   return (
     <li className={`tl-row tl-row--${side} tl-row--${e.kind}${GOALS.has(e.kind) ? " is-goal" : ""}`} data-testid={`${testid}-${i}`}>
-      <span className="sr-only">{e.side ? `${names[e.side]}. ` : ""}</span>
+      <span className="sr-only">{side !== "mid" ? `${names[side]}. ` : ""}</span>
       <span className="tl-cell tl-cell--home">{side === "home" && body}</span>
       <span className="tl-min">{e.label}</span>
       <span className="tl-cell tl-cell--away">{side === "away" && body}</span>
@@ -151,9 +154,10 @@ function Row({ e, names, i, testid }) {
 // Newest first while the match is on: the reader comes back for what just happened, and it should be the
 // first line without a scroll (the score is already in the hero). Once it is over the timeline reads as the
 // story of the match, top to bottom, with half-time and full time where they fell.
-export default function MatchEvents({ events = [], testid = "live-events", score, phase = "live", status, home = "Home", away = "Away", order, emptyText }) {
+export default function MatchEvents({ events = [], testid = "live-events", score, phase = "live", status, home = "Home", away = "Away", order, emptyText, show }) {
   if (!events.length) return <EmptyState icon="activity" title="No events yet" testid={`${testid}-empty`}>{emptyText || "Goals, cards and substitutions appear here as they happen."}</EmptyState>;
-  const rows = buildTimeline(events, { score, phase, status });
+  // The filter runs after the timeline is built, so the running score and the dividers still come from every goal.
+  const rows = buildTimeline(events, { score, phase, status }).filter((r) => r.div || !show || show(r.kind));
   const newest = (order || (phase === "live" ? "newest" : "oldest")) === "newest";
   if (newest) rows.reverse();
   return (

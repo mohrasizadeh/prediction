@@ -101,7 +101,7 @@
 .k-lc-team { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; } .k-lc-team span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .k-lc-team--a { justify-content: flex-end; text-align: right; }
 .k-lc-score { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.k-lc-last { margin: 0; font-size: 13px; color: var(--text2); }
+.k-lc-last { margin: 0; font-size: 13px; color: var(--text2); display: flex; align-items: center; gap: 6px; min-width: 0; } .k-lc-last span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .k-momentum { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .k-momentum span { display: flex; height: 4px; border-radius: 999px; overflow: hidden; gap: 2px; }
 .k-momentum b { background: var(--brand); } .k-momentum i { background: var(--tier-strong); }
 

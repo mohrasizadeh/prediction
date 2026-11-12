@@ -13,6 +13,8 @@ export default function FirstGoal({ team, compact, testid = "first-goal" }) {
   if (q.loading && !q.data) return <Skeleton shape="row" count={2} testid={`${testid}-loading`} />;
   if (q.error) return <ErrorState message="We could not load the first-goal record." onRetry={q.reload} testid={`${testid}-error`} />;
   const d = q.data;
+  // Side by side on the match page, two full empty states stacked a screen of nothing; one quiet line says it.
+  if (!d?.played && compact) return <p className="fg-empty" data-testid={`${testid}-empty`}><Crest team={team} size={20} />No first-goal records for {team?.name} yet this season.</p>;
   if (!d?.played) return <EmptyState icon="activity" title="No first-goal records yet" testid={`${testid}-empty`}>Nothing for {team?.name} so far this season.</EmptyState>;
   return (
     <section className="fg card" data-testid={testid}>

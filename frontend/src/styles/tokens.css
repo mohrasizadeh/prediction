@@ -23,6 +23,8 @@
   --c-chart4: #FF375F;
   --c-chart5: #5E5CE6;
   --c-chart6: #BF5AF2;
+  --c-card-yellow: #FFD60A;
+  --c-card-red: #FF453A;
   --shadow-card: none;
   --font: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-features: 'tnum' 1;
@@ -79,6 +81,8 @@
   --c-chart4: #D30F45;
   --c-chart5: #5856D6;
   --c-chart6: #8944AB;
+  --c-card-yellow: #FFCC00;
+  --c-card-red: #FF3B30;
   --shadow-card: none;
 }
 @media (prefers-color-scheme: light) {
@@ -106,6 +110,8 @@
     --c-chart4: #D30F45;
     --c-chart5: #5856D6;
     --c-chart6: #8944AB;
+    --c-card-yellow: #FFCC00;
+    --c-card-red: #FF3B30;
     --shadow-card: none;
   }
 }

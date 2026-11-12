@@ -230,13 +230,14 @@
   .mc-page .mc-foot { gap: 10px; }
 }
 
-/* ---- The compact bar. Its height is taken back from the margin under the sticky block, so the
-   page below does not move when it appears: the bar only ever shows when the block is already
-   stuck, so all it covers is content that is scrolling under it anyway. */
-.mc-mini { display: none; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; height: 52px; border-bottom: .5px solid var(--hig-separator, var(--border)); }
+/* ---- The compact bar (MiniBar). It never takes height in the page, so nothing below it moves when
+   it appears: on a phone it lies over the site header -- the bottom tab bar is the navigation
+   there, and the header comes back with the hero -- and from 769px, where the header carries the
+   navigation and the search, it sits at the right end of the tab row, in space the four tabs never
+   use. An earlier version stacked it above the tabs and borrowed its height back with a negative
+   margin; the arithmetic left the top of every tab 34px under the bar. */
+.mc-mini { display: none; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; }
 .mc-mini.is-shown { display: grid; animation: mc-mini-in .18s ease-out; }
-.mc-page.is-mini .mc-sticky { margin-bottom: calc(18px - 52px); }
-@media (min-width: 900px) { .mc-page.is-mini .mc-sticky { margin-bottom: calc(20px - 52px); } }
 .mc-mini-t { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text); }
 .mc-mini-t--a { justify-content: flex-start; }
 .mc-mini-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -246,10 +247,21 @@
 .mc-mini--live .mc-mini-mid small { color: var(--down); }
 @keyframes mc-mini-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .mc-mini.is-shown { animation: none; } }
-/* The Analysis jump chips and section anchors sit under the sticky block, which is 52px taller
-   while the compact bar shows. */
-.mc-page.is-mini .an-jump { top: calc(var(--header-h) + 49px + 52px + env(safe-area-inset-top)); }
-.mc-page.is-mini .an-sec { scroll-margin-top: calc(var(--header-h) + 110px + 52px); }
+@media (max-width: 768px) {
+  /* The sticky block is a stacking context at z 15, under the header's 20; while the bar is up the
+     block has to sit above the header or the bar is drawn behind it. */
+  .mc-page.is-mini .mc-sticky { z-index: 21; }
+  .mc-mini { position: fixed; z-index: 25; top: 0; left: 0; right: 0; padding: env(safe-area-inset-top) 16px 0;
+    height: calc(var(--header-h) + env(safe-area-inset-top)); background: var(--surface1); border-bottom: .5px solid var(--hig-separator, var(--border)); }
+}
+@media (min-width: 769px) {
+  .mc-sticky { display: flex; align-items: stretch; gap: 16px; border-bottom: .5px solid var(--hig-separator, var(--border)); }
+  .mc-sticky .mc-tabs { flex: 1 1 auto; min-width: 0; border-bottom: 0; }
+  .mc-sticky .mc-tabs .tab { flex: 0 0 auto; }
+  .mc-mini { flex: none; gap: 8px; padding: 0 4px; }
+  .mc-mini-n { max-width: 140px; }
+}
+@media (prefers-contrast: more) { .mc-mini { border-bottom: 1px solid var(--border-strong); } }
 
 /* ---- Forecasts tab controls: one quiet panel instead of five stacked rows (see MatchCentre). */
 .mc-page .mc-fc-ctl { display: grid; gap: 10px; padding: 0 0 14px; margin-bottom: 4px; border-bottom: .5px solid var(--hig-separator, var(--border)); }
@@ -296,4 +308,20 @@
   .mc-page .mc-row { gap: 8px; }
   .mc-ko { font-size: 24px; }
   .mc-form5 { flex-wrap: nowrap; }
+}
+/* On a phone the actions leave the footer; with nothing else in it (a postponed match) the footer
+   was an empty row under a rule. */
+@media (max-width: 520px) { .mc-page .mc-foot:has(.mc-meta:empty) { display: none; } }
+.mc-page .mc-fc-tiers .k-link { flex: none; white-space: nowrap; min-height: 44px; padding: 0 4px; }
+/* Its own class: `.mc-recap` is also the Recap tab's grid (live.css), which laid this one sentence
+   out as five stacked rows. */
+.mc-hero-recap { margin: 0; text-align: center; padding: 10px 14px; border-radius: 12px; background: var(--surface2); font-size: 14px; color: var(--text); }
+.mc-hero-recap b { font-variant-numeric: tabular-nums; }
+/* The site header shrinks to 44px while scrolling down (shell.css .header--small) but --header-h
+   stays 56px, so everything stuck at --header-h left a 12px slot through which the page showed
+   above the tab bar. Follow the header down.
+   On a phone the compact bar covers the header at its full 56px, so there the offsets stay. */
+@media (min-width: 769px) {
+  body:has(.header--small) .mc-sticky { top: calc(44px + env(safe-area-inset-top)); }
+  body:has(.header--small) .an-jump { top: calc(44px + 49px + env(safe-area-inset-top)); }
 }

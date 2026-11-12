@@ -13,7 +13,7 @@ import TeamNews from "./TeamNews";
 import { ShareCard } from "./Share";
 import { num1 } from "./Football";
 import BuildForMe from "./BuildForMe";
-import { ChipsRow, EmptyState, ErrorState, ForecastRow, RangeSlider, Segmented, Skeleton, WdlBar } from "./ui";
+import { ChipsRow, EmptyState, ErrorState, ForecastList, RangeSlider, Segmented, Skeleton, WdlBar } from "./ui";
 import { fxState, mLive } from "../lib/live";
 
 const cardsOf = (d) => d.cards || d.forecasts;
@@ -48,12 +48,12 @@ const situationChips = (d) => [[d.home, d.match.home_iid], [d.away, d.match.away
 // (sportapi.events_for, type goal / own_goal / penalty) while it is on. An own goal is listed with
 // the side it COUNTS for -- the rule the stored events follow (side is the scorer's club; see
 // tests/test_phase5_extras). A live row with no side says nothing we can place, so it is left out.
-const LIVE_GOAL = { goal: "", penalty: "pen", own_goal: "OG" };
+const LIVE_GOAL = { goal: "", penalty: "pen", own_goal: "" };   // an own goal says "(OG)" by the name
 const minOf = (m, extra) => (m == null ? "" : `${String(m).replace(/'$/, "")}${extra && /^\d+$/.test(String(extra)) ? `+${extra}` : ""}'`);
 function scorers(d) {
   const ev = (d.events || []).filter((e) => e.type === "goal");
   const rows = ev.length
-    ? ev.map((e) => ({ side: e.side, og: !!e.own_goal, tag: e.own_goal ? "OG" : e.penalty ? "pen" : "", name: e.player?.name || e.player_name, min: minOf(e.minute, e.added) }))
+    ? ev.map((e) => ({ side: e.side, og: !!e.own_goal, tag: e.own_goal ? "" : e.penalty ? "pen" : "", name: e.player?.name || e.player_name, min: minOf(e.minute, e.added) }))
     : (d.live_events || []).filter((e) => String(e.type).toLowerCase() in LIVE_GOAL && (e.side === "home" || e.side === "away"))
       .map((e) => { const t = String(e.type).toLowerCase(); return { side: e.side, og: t === "own_goal", tag: LIVE_GOAL[t], name: e.player_name, min: minOf(e.minute) }; });
   const out = { home: [], away: [] };
@@ -149,7 +149,7 @@ export function Hero({ d }) {
         <Side team={d.away} align="away">{pre ? <FormRow form={ta.data?.form} testid="match-form-away" /> : <Scorers list={goals.away} align="away" />}</Side>
       </div>
       {pre && d.probs && <WdlBar home={d.probs.p_home} draw={d.probs.p_draw} away={d.probs.p_away} homeName={d.home.name} awayName={d.away.name} showDraw testid="match-wdl" />}
-      {st === "final" && d.recap?.scored > 0 && <p className="mc-recap" data-testid="match-recap">How our forecasts did: <b>{d.recap.hit} of {d.recap.scored}</b> Strong and Solid forecasts came true
+      {st === "final" && d.recap?.scored > 0 && <p className="mc-hero-recap" data-testid="match-recap">How our forecasts did: <b>{d.recap.hit} of {d.recap.scored}</b> Strong and Solid forecasts came true
         {["Strong", "Solid"].filter((t) => d.recap.by_tier[t][1]).map((t) => ` · ${tierLabel(t)} ${d.recap.by_tier[t][0]}/${d.recap.by_tier[t][1]}`).join("")}</p>}
       <div className="mc-foot">
         <div className="mc-meta">
@@ -201,8 +201,14 @@ export function MatchNotes({ d }) {
   );
 }
 
+// A By market heading is the market's name, not one rung of it: "1+ shot" became "shot · 2", lower
+// case and singular above a list of 2+ and 3+ lines. "Shots · 2".
+const marketHead = (m) => {
+  const w = (m || "").replace(/^\s*\d+\+\s*/, "").replace(/^(\S*[^s\s])(?=\s|$)/, "$1s");
+  return w ? w[0].toUpperCase() + w.slice(1) : "";
+};
+
 export function Forecasts({ d, matchId }) {
-  const [openRow, setOpenRow] = useState(null);
   // Without this the row cannot name the opponent or draw either crest: a match page's forecasts
   // carry team_iid/opp_iid, not the clubs themselves. ForecastCard resolved them from here, and
   // removing the card made this look unused rather than unwired.
@@ -247,7 +253,7 @@ export function Forecasts({ d, matchId }) {
     ? [["Both teams", rows.filter((f) => f.stat?.startsWith("match_")), null],
        [d.home.name, rows.filter((f) => f.team_iid === d.match.home_iid && !f.stat?.startsWith("match_")), d.home],
        [d.away.name, rows.filter((f) => f.team_iid === d.match.away_iid && !f.stat?.startsWith("match_")), d.away]]
-    : [...new Set(rows.map((f) => f.stat))].map((s) => [rows.find((f) => f.stat === s)?.market?.replace(/^\d+\+\s*/, "") || s, rows.filter((f) => f.stat === s), null]);
+    : [...new Set(rows.map((f) => f.stat))].map((s) => [marketHead(rows.find((f) => f.stat === s)?.market) || s, rows.filter((f) => f.stat === s), null]);
   return (
     <div className="mc-fc" data-testid="match-forecasts">
       {/* A postponed or cancelled match keeps its forecasts on file, but none of them can come true
@@ -280,13 +286,11 @@ export function Forecasts({ d, matchId }) {
             {/* The same row Most likely draws, from the shared kit. A grid of cards and this row
                 were two presentations of one object, and the card was on ten surfaces only because
                 the agreed one had never been extracted from that page. */}
-            <table className="lk-tbl" data-testid={`match-fc-${title}`}><tbody>
-              {xs.map((f) => (
-                <ForecastRow key={f.id} f={f} floor={0} teams={fxTeams} homeIid={d.match.home_iid}
-                             track={track} open={openRow === f.id}
-                             onToggle={() => setOpenRow(openRow === f.id ? null : f.id)} />
-              ))}
-            </tbody></table></section>
+            {/* Through ForecastList, not a bare <table>: the list carries the colgroup that gives the
+                fixed-layout table its column widths. Without it all eight columns came out equal
+                (135px each at 1366px), so the run strip sat on top of the line stepper and the
+                market shrank to "s". It also brings the column headings Most likely has. */}
+            <ForecastList rows={xs} teams={fxTeams} homeIid={d.match.home_iid} track={track} testid={`match-fc-${title}`} /></section>
         ))}
     </div>
   );

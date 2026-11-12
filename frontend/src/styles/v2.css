@@ -667,9 +667,12 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .mrow-best { grid-area: best; justify-self: end; }
 @media (max-width: 640px) {
   .mrow {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "time time" "home v" "away away" "bar bar" "best best";
+    /* Home, v and away stay on one line: two columns put the away club on a line of its own,
+       right-aligned under the "v", so a fixture read as two unrelated rows. */
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "time time time" "home v away" "bar bar bar" "best best best";
   }
+  .mrow .team { min-width: 0; overflow-wrap: anywhere; }
   .mrow-best { justify-self: start; }
   .mrow-bar { max-width: none; }
 }
