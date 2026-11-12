@@ -132,10 +132,18 @@ that was not in it and everything in it that we map to nothing.
 `tackles` is `null` on purpose: there is no team tackles statistic, and `normalize.normalize_match`
 already sums the players' instead — a fallback written for PitchAPI that covers this exactly.
 
-**The menu** has one provider entry where it had two. `MOVED` keeps `pitchapi` and `sportapi` pointing
-at the screen that now does their job, so an old bookmark lands somewhere sensible. The Home tiles
-and the feeds panel name API-Football; the panel keeps two rows because the two *jobs* are still
-different — the backfill spends a budget, the live tick watches a clock.
+**The menu has THREE provider entries, on purpose and not for long.** API-Football is there because
+its key, quota and mapping screens are how the move gets set up. PitchAPI and SportAPI are still
+there because the jobs still call them (§4): the live tick's status and its team-mapping review
+queue are controls for a feed running right now, and taking them out of the menu before the
+pipeline moves would leave them reachable only by typing a URL. The Home tiles and the feeds panel
+name the provider actually serving each one, so the health board never claims a feed we have not
+moved. All of that goes in the same change that moves the pipeline.
+
+`provider.source` defaults to `pitchapi` for the same reason. It only feeds the admin's cost
+estimate today, and pointing it at API-Football while the ingest still spends three calls a match
+would understate every backfill by sixty times — the exact inverse of the bug the estimate already
+had.
 
 ## 4. What is NOT built yet
 

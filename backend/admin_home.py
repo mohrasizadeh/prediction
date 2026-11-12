@@ -47,17 +47,16 @@ def tiles(db, now: datetime) -> list[dict]:
     h = AQ.health(db, now)
     sync = db.job_runs.find_one({"job": {"$in": ["fixtures_sync", "results_sync"]}, "status": "ok"}, {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
     last_sync = (sync or {}).get("finished_at") or (sync or {}).get("started_at")
-    data = {"id": "data", "module": "apifootball", "title": "Data",
+    data = {"id": "data", "module": "pitchapi", "title": "Data",
             "tone": "red" if h["breaker_open"] else _worst(_tone(h["api_calls_today"], h["api_budget"]),
                                                            _age_tone(last_sync, STALE_SYNC)),
-            "provider": "API-Football", "used": h["api_calls_today"], "cap": h["api_budget"], "reset_at": reset,
+            "provider": "PitchAPI", "used": h["api_calls_today"], "cap": h["api_budget"], "reset_at": reset,
             "last_sync": last_sync, "breaker_open": h["breaker_open"]}
     sp = SP.status(db, now)
-    # Live used to be its own provider and its own tile. It is the same provider now, so the tile
-    # stays (the question "is anything live right now" is still worth a tile) but it opens the one
-    # screen that answers it (docs/81).
-    live = {"id": "live", "module": "apifootball", "title": "Live", "tone": _tone(sp["calls_today"], sp["cap"]) if sp["enabled"] else "off",
-            "provider": "API-Football", "enabled": sp["enabled"], "used": sp["calls_today"], "cap": sp["cap"], "by_kind": sp["by_kind"], "reset_at": reset,
+    # The tiles name the provider actually serving them, which is still SportAPI for live and
+    # PitchAPI for history. They move to API-Football in the change that moves the pipeline.
+    live = {"id": "live", "module": "sportapi", "title": "Live", "tone": _tone(sp["calls_today"], sp["cap"]) if sp["enabled"] else "off",
+            "provider": "SportAPI", "enabled": sp["enabled"], "used": sp["calls_today"], "cap": sp["cap"], "by_kind": sp["by_kind"], "reset_at": reset,
             "live_now": sp["live_now"], "review": sp["teams"].get("review", 0)}
     run = db.job_runs.find_one({"job": {"$regex": "^engine"}}, {"_id": 0, "started_at": 1, "status": 1}, sort=[("started_at", -1)])
     bad = db.job_runs.count_documents({"job": {"$regex": "^engine"}, "status": "error", "started_at": {"$gte": now - timedelta(hours=24)}})
@@ -96,18 +95,16 @@ def feeds(db, now: datetime | None = None) -> dict:
     # One provider does every football pull now: history, backfill, live, lineups, injuries and
     # images. The panel keeps two rows because the two JOBS are still different -- the backfill
     # spends a budget, the live tick watches a clock -- but both point at the one screen (docs/81).
-    pitch = {"id": "history", "name": "API-Football · history", "module": "apifootball",
-             "route": "/admin/data/apifootball/status",
-             "feeds": ["Fixtures and results", "Team and player statistics per match", "Season backfill"],
-             "enabled": not S.get(db, "ingest.paused_reason"), "key_saved": bool(security.get_provider_key(db, "apifootball", env_fallback="APIFOOTBALL_KEY")),
+    pitch = {"id": "pitchapi", "name": "PitchAPI", "module": "pitchapi", "route": "/admin/data/pitchapi",
+             "feeds": ["Match and player history", "Season backfill", "Depth analytics the forecasts are built from"],
+             "enabled": not S.get(db, "ingest.paused_reason"), "key_saved": bool(security.get_provider_key(db, "pitchapi", env_fallback="PITCHAPI_KEY")),
              "used": h["api_calls_today"], "cap": h["api_budget"], "reset_at": reset, "breaker_open": h["breaker_open"],
              "paused_reason": S.get(db, "ingest.paused_reason") or None, "queued": queued,
              "last_at": (sync or {}).get("finished_at") or (sync or {}).get("started_at"),
              "tone": "red" if h["breaker_open"] else _tone(h["api_calls_today"], h["api_budget"])}
     sp = SP.status(db, now)
     fx = sp.get("fixtures") or {}
-    live = {"id": "live", "name": "API-Football · live", "module": "apifootball",
-            "route": "/admin/data/apifootball/status",
+    live = {"id": "sportapi", "name": "SportAPI", "module": "sportapi", "route": "/admin/data/sportapi",
             "feeds": ["Live scores and the minute", "Match events that feed the cards", "Lineups", "Final scores"],
             "enabled": sp["enabled"], "key_saved": sp["key_saved"], "used": sp["calls_today"], "cap": sp["cap"],
             "reset_at": reset, "last_at": sp.get("last_tick"), "last_result": sp.get("last_result"),

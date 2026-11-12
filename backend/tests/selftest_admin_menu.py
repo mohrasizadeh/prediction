@@ -36,14 +36,16 @@ for g, items in BY_GROUP.items():
 
 # ---------------------------------------------------------------- the football feeds
 feeds = [mid for mid, _, g, _, _ in [(m[0], m[1], m[2], m[3], m[4]) for m in M.MODULES] if g == "Football data"]
-check(feeds == ["feeds", "apifootball", "leagues", "jobs"],
-      f"one group holds every football pull, the provider first: {feeds}")
+check(feeds == ["feeds", "apifootball", "pitchapi", "sportapi", "leagues", "jobs"],
+      f"one group holds every football pull: {feeds}")
 check(MODS["apifootball"][4] == "/admin/data/apifootball",
       "API-Football has a route of its own, so it can be linked and pinned")
-check("pitchapi" not in MODS and "sportapi" not in MODS,
-      "the two providers it replaces are gone from the menu, not sitting beside it")
-check(M.MOVED.get("pitchapi") and M.MOVED.get("sportapi"),
-      "...but an old bookmark for either still lands on the screen that now does that job")
+# Three provider entries is the transitional state, not the end state. The jobs still call
+# PitchClient and the live tick still calls SportAPI (docs/81 section 4), and the live tick's
+# status and its team-mapping review queue are controls for a feed running right now. Dropping
+# them from the menu before the pipeline moves would leave them URL-only.
+check("pitchapi" in MODS and "sportapi" in MODS,
+      "the providers the jobs actually use keep their screens until the pipeline moves")
 check(MODS["leagues"][1] == "Competitions",
       "the leagues entry is called Competitions, because half of them are cups and tournaments")
 check(MODS["engine"][2] == "Forecasts", "the engine is not a data feed and is not in that group")
@@ -65,12 +67,10 @@ for gone in ("stats", "cache", "quality", "explorer"):
 # ---------------------------------------------------------------- the home tiles point at the right screens
 now = dt.datetime.now(dt.timezone.utc)
 tiles = {t["id"]: t for t in AH.tiles(db, now)}
-check(tiles["data"]["module"] == "apifootball", "the Data tile on Home opens the provider screen, not the job list")
-check(tiles["live"]["module"] == "apifootball",
-      "the Live tile opens the same provider screen: one provider does both now, and the original "
-      "complaint was that it opened Integrations")
-check(tiles["data"]["provider"] == "API-Football" and tiles["live"]["provider"] == "API-Football",
-      "both tiles name the provider actually in use")
+check(tiles["data"]["module"] == "pitchapi", "the Data tile on Home opens its provider, not the job list")
+check(tiles["live"]["module"] == "sportapi", "the Live tile opens SportAPI, not Integrations: this was the complaint")
+check(tiles["data"]["provider"] == "PitchAPI" and tiles["live"]["provider"] == "SportAPI",
+      "each tile names the provider actually serving it, so the board does not claim a feed we have not moved")
 for t in tiles.values():
     check(t["module"] in MODS, f"the {t['title']} tile points at a module that exists ({t['module']})")
 
@@ -79,14 +79,12 @@ f = AH.feeds(db, now)
 names = [p["name"] for p in f["providers"]]
 # One provider does every pull now, but the two JOBS are still different -- the backfill spends a
 # budget, the live tick watches a clock -- so the panel keeps two rows and both name the provider.
-check(names == ["API-Football · history", "API-Football · live"], f"both feeds, backfill first: {names}")
+check(names == ["PitchAPI", "SportAPI"], f"both feeds, backfill first: {names}")
 for p in f["providers"]:
     check(p["feeds"] and all(isinstance(x, str) for x in p["feeds"]), f"{p['name']} says what it is for")
     check(p["route"].startswith(MODS[p["module"]][4]), f"{p['name']} links to its own screen")
     check(p["cap"] and p["tone"] in ("green", "amber", "red", "off"), f"{p['name']} carries its budget and a tone")
 check("Live scores and the minute" in f["providers"][1]["feeds"], "the second row is the live one")
 check(any("backfill" in x.lower() for x in f["providers"][0]["feeds"]), "the first row is the backfill one")
-check(all(p["module"] == "apifootball" for p in f["providers"]),
-      "both rows point at the one provider screen: there is no second provider to open")
 
 print("\nALL ADMIN MENU CHECKS PASSED")

@@ -3351,10 +3351,10 @@
     "group": "Provider",
     "label": "Which provider the ingest reads",
     "type": "enum",
-    "default": "apifootball",
+    "default": "pitchapi",
     "public": false,
     "applies_at": "next_job",
-    "help": "apifootball | pitchapi. One at a time. Changing this does not migrate anything: the ids differ, so a switch means a rebuild (docs/81)."
+    "help": "apifootball | pitchapi. The provider the INGEST reads. It is pitchapi until normalize_af and the backfill runner exist (docs/81 section 4): the jobs still call PitchClient, so defaulting this to apifootball would only make the admin's cost estimate wrong -- a twentieth of a call a match against the three the ingest really spends. Switch it in the same change that switches the pipeline. Changing it does not migrate anything: the ids differ, so a switch means a rebuild."
   },
   {
     "key": "apifootball.minute_cooldown_s",
