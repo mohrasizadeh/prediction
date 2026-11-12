@@ -22,7 +22,9 @@ export function TierBadge({ tier, testid = "ui-tier" }) {
   );
 }
 
-export function WdlBar({ home, draw, away, homeName = "Home", awayName = "Away", testid = "ui-wdl" }) {
+// `showDraw` prints the middle number too. A feed row has no room for it; the match hero does, and
+// there the draw is one of the three answers the page is about, not a gap between two of them.
+export function WdlBar({ home, draw, away, homeName = "Home", awayName = "Away", showDraw = false, testid = "ui-wdl" }) {
   if (home == null || away == null) return null;
   const fav = home >= away ? "home" : "away";
   const label = `${homeName} ${pct(home)}, draw ${pct(draw)}, ${awayName} ${pct(away)}`;
@@ -33,6 +35,7 @@ export function WdlBar({ home, draw, away, homeName = "Home", awayName = "Away",
       </div>
       <div className="k-wdl-txt" aria-hidden="true">
         <span className={fav === "home" ? "k-wdl-fav" : ""}>{homeName} {pct(home)}</span>
+        {showDraw && draw != null && <span className="k-wdl-draw">Draw {pct(draw)}</span>}
         <span className={fav === "away" ? "k-wdl-fav k-wdl-fav--a" : ""}>{awayName} {pct(away)}</span>
       </div>
     </div>

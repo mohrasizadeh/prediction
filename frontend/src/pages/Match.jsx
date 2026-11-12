@@ -1,13 +1,13 @@
 // Screen 2, Match (docs/34): hero with win/draw/loss, then four tabs: Live or Recap (while on / after), Forecasts, Lineups (pitch + notes), Analysis (form, H2H, first goal, players, style).
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { Crest, PlayerAvatar } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { MatchRow, Seg, TacticChip, num1, posLabel, useTitle } from "../components/Football";
 import FirstGoal from "../components/FirstGoal";
-import { Forecasts, Form, Hero, MatchNotes, matchState } from "../components/MatchCentre";
+import { Forecasts, Form, Hero, MatchNotes, MiniBar, matchState } from "../components/MatchCentre";
 import MatchEvents from "../components/MatchEvents";
 import LiveLineups from "../components/LiveLineups";
 import { ProLock } from "../components/ui";
@@ -156,36 +156,73 @@ export default function Match() {
   const { id } = useParams();
   const [poll, setPoll] = useState(0);
   const q = useApi(`/matches/${id}`, undefined, { every: poll });
-  const [pick, setTab] = useState(null);
+  // The tab lives in the URL (?tab=), so a tab can be linked to and shared, a reload keeps it, and
+  // Back returns to the tab before -- each switch is a history entry, the way a reader treats a
+  // tab that changes the whole page below the hero. The default tab is NOT written: a plain
+  // /match/:id always opens on the tab its state calls for, and that changes as the match does.
+  const [sp, setSp] = useSearchParams();
+  const pick = sp.get("tab");
   const d = q.data;
   const isLive = isLiveNow(d?.match);
   useEffect(() => setPoll(isLive ? 30000 : 0), [isLive]);                  // live score, events and minute refresh by themselves
   const st = d ? matchState(d) : "before";
+  // Once the hero has scrolled under the header, a compact score bar takes its place above the tabs.
+  const heroRef = useRef(null);
+  const [mini, setMini] = useState(false);
+  const hasD = !!d;
+  useEffect(() => {
+    const el = heroRef.current?.querySelector("[data-testid='match-hero']");
+    if (!el || typeof IntersectionObserver === "undefined") return undefined;
+    const hh = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--header-h"), 10) || 64;
+    const io = new IntersectionObserver(([e]) => setMini(!e.isIntersecting && e.boundingClientRect.top < hh), { rootMargin: `-${hh}px 0px 0px 0px` });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasD, id]);
   // Four tabs. The first one is the match itself while it is on (Live) or over (Recap); before kick-off it is the forecasts.
   const first = st === "live" ? "live" : st === "final" ? "recap" : null;
-  const tab = pick || first || "forecasts";
   // The one page seo.title_template was written for, so it is the one that supplies {team1}/{team2}.
   useTitle(d ? `${d.home.name} v ${d.away.name}` : "Match", {
     type: "article",
     vars: d ? { team1: d.home.name, team2: d.away.name } : undefined,
     description: d ? `How likely each forecast is for ${d.home.name} v ${d.away.name}, and the reasons behind it.` : undefined,
   });
+  const paneRef = useRef(null);
   if (q.loading && !d) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const n = cardsOf(d).filter((f) => f.p >= 0.5).length;
   const confirmed = (d.starters || []).length > 0 && d.starters.every((s) => s.confirmed);
   const tabs = [
     ...(first ? [{ id: first, label: first === "live" ? "Live" : "Recap" }] : []),
-    { id: "forecasts", label: "Forecasts", badge: n || null },
-    { id: "lineups", label: "Lineups", badge: confirmed ? "✓" : null },
+    { id: "forecasts", label: "Forecasts", badge: n || null, badgeLabel: n ? `${n} forecasts` : undefined },
+    { id: "lineups", label: "Lineups", badge: confirmed ? "✓" : null, badgeLabel: "confirmed" },
     { id: "analysis", label: "Analysis" },
   ];
+  // A ?tab= this state does not have (recap on a match not yet played, an old link) opens the default.
+  const def = first || "forecasts";
+  const tab = tabs.some((t) => t.id === pick) ? pick : def;
+  const setTab = (t) => {
+    if (t === tab) return;
+    const next = new URLSearchParams(sp);
+    if (t === def) next.delete("tab"); else next.set("tab", t);
+    setSp(next, { preventScrollReset: true });
+    // Switching while deep in a long tab used to leave the reader wherever the old tab's height put
+    // them -- often in the footer of the new one. Keep the tab bar where it is and start the new tab
+    // at its top, the way an app's segmented tabs behave. Above that point nothing moves.
+    const pane = paneRef.current;
+    if (pane && mini) {
+      const top = pane.getBoundingClientRect().top + window.scrollY - (document.querySelector(".mc-sticky")?.offsetHeight || 0) - (parseInt(getComputedStyle(document.documentElement).getPropertyValue("--header-h"), 10) || 64);
+      if (window.scrollY > top) requestAnimationFrame(() => window.scrollTo({ top, behavior: "auto" }));
+    }
+  };
   return (
-    <section data-testid="match-page">
+    <section className={`mc-page${mini ? " is-mini" : ""}`} data-testid="match-page">
       <h1 className="sr-only">{d.home.name} v {d.away.name}</h1>
-      <Hero d={d} />
-      <Tabs value={tab} onChange={setTab} testid="match-tabs" className="mc-tabs" tabs={tabs} />
-      <div className="mc-pane" role="tabpanel">
+      <div ref={heroRef}><Hero d={d} /></div>
+      <div className="mc-sticky">
+        <MiniBar d={d} shown={mini} />
+        <Tabs value={tab} onChange={setTab} testid="match-tabs" className="mc-tabs" tabs={tabs} label="Match sections" panel="match-panel" />
+      </div>
+      <div className="mc-pane" role="tabpanel" id="match-panel" aria-labelledby={`match-tabs-tab-${tab}`} ref={paneRef} data-testid={`match-pane-${tab}`}>
         {tab === "live" && (d.live?.sid ? <LiveTab d={d} /> : <Events d={d} />)}
         {tab === "recap" && <Events d={d} />}
         {tab === "forecasts" && <Forecasts d={d} matchId={id} />}

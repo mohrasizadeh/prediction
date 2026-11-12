@@ -79,8 +79,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .k-seg { padding: 2px; gap: 0; border-radius: 9px; background: var(--hig-fill-strong); }
 .k-seg button { min-height: 32px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--text); transition: background-color .2s var(--hig-ease); }
 .k-seg button.on { background: var(--surface1); font-weight: 600; box-shadow: 0 3px 8px rgba(0,0,0,.12), 0 3px 1px rgba(0,0,0,.04); }
-:root[data-theme="dark"] .k-seg button.on { background: var(--surface3); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .k-seg button.on { background: var(--surface3); } }
+/* The colour goes with the fill: v2.css sets the chosen segment to --on-brand for its brand fill, and
+   this dark fill (more specific, so it wins) kept that dark text on a dark grey -- 1.5:1. */
+:root[data-theme="dark"] .k-seg button.on { background: var(--surface3); color: var(--text); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .k-seg button.on { background: var(--surface3); color: var(--text); } }
 @media (pointer: coarse) { .k-seg button { min-height: 44px; } }   /* docs/36 A11Y-6: the project's own 44 px rule */
 
 /* ---------- Text fields: filled, rounded, focus ring in the tint */

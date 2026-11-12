@@ -145,13 +145,17 @@
 .lv-sum { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--down) 8%, var(--surface1)); font-size: 13px; font-weight: 600; }
 
 /* ---- Match page, four tabs (docs/34) ---- */
-.mc-tabs { position: sticky; top: calc(var(--header-h) + env(safe-area-inset-top)); z-index: 15; gap: 0; margin: 0 -16px 18px; padding: 0 16px; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; }
+/* The sticky block is the tab bar plus, once the hero has scrolled away, the compact score bar
+   above it (.mc-mini). One sticky element, so the two can never drift apart or overlap. */
+.mc-sticky { position: sticky; top: calc(var(--header-h) + env(safe-area-inset-top)); z-index: 15; margin: 0 -16px 18px; padding: 0 16px; background: var(--bg); }
+.mc-tabs { gap: 0; margin: 0; padding: 0; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.mc-tabs::-webkit-scrollbar { display: none; }
 .mc-tabs .tab { flex: 1 0 auto; justify-content: center; min-height: 48px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: var(--text2); font-size: 15px; }
 .mc-tabs .tab.is-on { background: transparent; color: var(--text); border-bottom-color: var(--brand); }
 .mc-tabs .tab:focus-visible { outline: 2px solid var(--brand); outline-offset: -4px; border-radius: 8px; }
 .tab-badge { font-style: normal; font-size: 11px; font-weight: 800; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--surface2, var(--surface1)); color: var(--text2); font-variant-numeric: tabular-nums; }
 .mc-tabs .tab.is-on .tab-badge { background: var(--brand); color: var(--bg); }
-@media (min-width: 900px) { .mc-tabs { margin: 0 0 20px; padding: 0; } .mc-tabs .tab { flex: 0 0 auto; padding: 0 22px; } }
+@media (min-width: 900px) { .mc-sticky { margin: 0 0 20px; padding: 0; } .mc-tabs .tab { flex: 0 0 auto; padding: 0 22px; } }
 .mc-pane { display: grid; gap: 18px; min-width: 0; }
 .mc-lineups { display: grid; gap: 18px; }
 @media (min-width: 900px) { .mc-lineups { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } .mc-lineups .mc-notes { position: sticky; top: calc(var(--header-h) + 72px); } }
@@ -178,7 +182,7 @@
 .lv-lines-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .lv-lines .lv-sum { margin: 0; }
 /* four tabs always fit on a phone */
-@media (max-width: 520px) { .mc-tabs { padding: 0 8px; } .mc-tabs .tab { flex: 1 1 0; min-width: 0; padding: 0 6px; font-size: 14px; gap: 4px; } .tab-badge { padding: 1px 5px; min-width: 18px; } }
+@media (max-width: 520px) { .mc-tabs .tab { flex: 1 1 0; min-width: 0; padding: 0 6px; font-size: 14px; gap: 4px; } .tab-badge { padding: 1px 5px; min-width: 18px; } }
 
 .tr-how { margin-top: 10px; } .tr-how summary { cursor: pointer; font-weight: 600; color: var(--text2); min-height: 32px; }
 .tr-how ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; color: var(--text2); }
@@ -191,3 +195,85 @@
 .ins-row-p { display: grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; }
 
 .mc-fc-group .v2-sec { display: flex; align-items: center; gap: 9px; }
+
+/* ---- Match hero, FotMob-shaped inside the HIG system: crest | score or kick-off | crest, the status
+   right under the number, and under each club what is news for it -- its last five before kick-off,
+   its scorers after. */
+.mc-page .mc-hero { gap: 12px; }
+.mc-page .mc-when { flex-wrap: wrap; text-align: center; line-height: 1.5; }
+.mc-comp { color: var(--text2); text-decoration: none; font-weight: 600; }
+.mc-comp:hover { color: var(--text); text-decoration: underline; }
+.mc-comp:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+.mc-side { display: grid; justify-items: center; align-content: start; gap: 8px; min-width: 0; }
+.mc-page .mc-row { align-items: start; }
+.mc-page .mc-mid { padding-top: 10px; gap: 4px; }
+.mc-team:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 12px; }
+.mc-ko { font-size: 34px; line-height: 1.1; font-weight: 600; color: var(--text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-page .mc-cd { font-size: 13px; font-weight: 600; color: var(--text2); }
+.mc-sub { font-size: 12.5px; color: var(--text2); font-variant-numeric: tabular-nums; }
+.mc-page .mc-last { font-size: 12.5px; color: var(--text2); max-width: 140px; }
+.mc-form5 { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; justify-content: center; }
+.mc-form5 { flex-wrap: wrap; gap: 3px; }
+.mc-form5 .fp { width: 20px; height: 20px; border-radius: 5px; font-size: 11px; }
+.mc-scorers { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12.5px; line-height: 1.35; color: var(--text2); text-align: center; }
+.mc-scorer { color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+.mc-scorer-min { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-page .k-wdl-txt { align-items: baseline; gap: 8px; }
+.k-wdl-draw { color: var(--text2); }
+.mc-page .mc-meta { gap: 3px; }
+.mc-page .mc-meta a { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; }
+.mc-page .status-chip--off { background: color-mix(in srgb, var(--tier-watch) 14%, transparent); color: var(--text); }
+@media (max-width: 520px) {
+  .mc-ko { font-size: 28px; }
+  .mc-page .mc-mid { min-width: 88px; padding-top: 8px; }
+  .mc-page .mc-team b { font-size: 15px; }
+  .mc-page .mc-foot { gap: 10px; }
+}
+
+/* ---- The compact bar. Its height is taken back from the margin under the sticky block, so the
+   page below does not move when it appears: the bar only ever shows when the block is already
+   stuck, so all it covers is content that is scrolling under it anyway. */
+.mc-mini { display: none; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; height: 52px; border-bottom: .5px solid var(--hig-separator, var(--border)); }
+.mc-mini.is-shown { display: grid; animation: mc-mini-in .18s ease-out; }
+.mc-page.is-mini .mc-sticky { margin-bottom: calc(18px - 52px); }
+@media (min-width: 900px) { .mc-page.is-mini .mc-sticky { margin-bottom: calc(20px - 52px); } }
+.mc-mini-t { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.mc-mini-t--a { justify-content: flex-start; }
+.mc-mini-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-mini-mid { display: grid; justify-items: center; line-height: 1.1; }
+.mc-mini-mid b { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-mini-mid small { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--text2); font-variant-numeric: tabular-nums; }
+.mc-mini--live .mc-mini-mid small { color: var(--down); }
+@keyframes mc-mini-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mc-mini.is-shown { animation: none; } }
+/* The Analysis jump chips and section anchors sit under the sticky block, which is 52px taller
+   while the compact bar shows. */
+.mc-page.is-mini .an-jump { top: calc(var(--header-h) + 49px + 52px + env(safe-area-inset-top)); }
+.mc-page.is-mini .an-sec { scroll-margin-top: calc(var(--header-h) + 110px + 52px); }
+
+/* ---- Forecasts tab controls: one quiet panel instead of five stacked rows (see MatchCentre). */
+.mc-page .mc-fc-ctl { display: grid; gap: 10px; padding: 0 0 14px; margin-bottom: 4px; border-bottom: .5px solid var(--hig-separator, var(--border)); }
+.mc-page .mc-fc-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 0; border: 0; margin: 0; }
+.mc-fc-build { display: inline-flex; align-items: center; gap: 10px; }
+.mc-fc-hint { font-size: 13px; color: var(--text2); }
+.mc-page .mc-fc-build .btn { min-height: 44px; }
+.mc-page .mc-fc-filters { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
+.mc-page .mc-fc-min { flex: 0 1 300px; min-width: 220px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; max-width: none; }
+.mc-fc-minval { font-size: 13px; color: var(--text2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mc-fc-minval b { color: var(--text); font-weight: 600; display: inline-block; min-width: 3ch; }
+/* The value is printed beside the slider, so the floating tag above the thumb is not needed, and
+   the 72px box it reserved collapses to the 44px touch row. */
+.mc-page .mc-fc-min .k-range { height: 44px; padding-top: 0; }
+.mc-page .mc-fc-min .k-range-tip { display: none; }
+.mc-page .mc-fc-min .k-range-track { top: 19px; }
+.mc-page .mc-fc-min .k-range-in { top: 0; }
+.mc-page .mc-fc-tiers { flex: 1 1 260px; margin: 0; min-width: 0; flex-wrap: nowrap; }
+.mc-page .mc-fc-tiers .k-chips { flex-wrap: nowrap; overflow-x: auto; padding: 2px; }
+.mc-page .mc-fc-tiers .k-chip { flex: none; }
+.mc-page .mc-fc-ctl + .mc-fc-group { margin-top: 8px; }
+.mc-fc-note { margin: 0; padding: 12px 14px; border-radius: 12px; font-size: 14px; color: var(--text); background: color-mix(in srgb, var(--tier-watch) 12%, var(--surface1)); }
+@media (max-width: 640px) {
+  .mc-fc-hint { display: none; }
+  .mc-page .mc-fc-min { flex-basis: 100%; }
+  .mc-page .mc-fc-tiers { flex-basis: 100%; }
+}

@@ -28,12 +28,12 @@ export default function Standings({ id, season, zones = [] }) {
     <div className="tm-scroll" data-testid="league-table">
       <table className="tm-grid st-table">
         <caption className="sr-only">League table from finished matches this season</caption>
-        <thead><tr><th scope="col">#</th><th scope="col" className="tm-sticky">Club</th><th scope="col">P</th><th scope="col">W</th><th scope="col">D</th><th scope="col">L</th><th scope="col">GD</th><th scope="col">Pts</th><th scope="col">Form</th></tr></thead>
+        <thead><tr><th scope="col">#</th><th scope="col" className="tm-sticky">Club</th><th scope="col">P</th><th scope="col" className="st-wdl">W</th><th scope="col" className="st-wdl">D</th><th scope="col" className="st-wdl">L</th><th scope="col">GD</th><th scope="col">Pts</th><th scope="col">Form</th></tr></thead>
         <tbody>{rows.map((r, i) => { const z = zones.find((x) => i + 1 >= x.start && i + 1 <= x.end); return (
           <tr key={r.team.id} className={z ? `st-zone st-zone--${z.tone}` : undefined} title={z?.label} data-testid={`table-row-${r.team.id}`}>
             <td>{i + 1}</td>
             <th scope="row" className="tm-sticky"><Link to={`/team/${r.team.id}`} className="tm-cell-team"><Crest team={r.team} size={22} />{r.team.name}</Link></th>
-            <td>{r.p}</td><td>{r.w}</td><td>{r.d}</td><td>{r.l}</td><td>{r.gd > 0 ? `+${r.gd}` : r.gd}</td><td><b>{r.pts}</b></td>
+            <td>{r.p}</td><td className="st-wdl">{r.w}</td><td className="st-wdl">{r.d}</td><td className="st-wdl">{r.l}</td><td>{r.gd > 0 ? `+${r.gd}` : r.gd}</td><td><b>{r.pts}</b></td>
             <td><span className="st-form" aria-label={`Last results: ${r.form.join(", ")}`}>{r.form.map((k, j) => <i key={j} className={`st-${k}`}>{k}</i>)}</span></td>
           </tr>
         ); })}</tbody>

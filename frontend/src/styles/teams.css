@@ -17,7 +17,7 @@
 .tm-v { text-align: right; font-variant-numeric: tabular-nums; }
 .tm-all { justify-self: start; }
 .tm-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--surface1);
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+  -webkit-mask-image: linear-gradient(90deg, black calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, black calc(100% - 28px), transparent); }
 .tm-grid { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
 .tm-grid th, .tm-grid td { padding: 0 10px; height: 44px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .tm-grid thead th { position: sticky; top: 0; background: var(--surface1); font-size: 12px; color: var(--text2); font-weight: 700; }
@@ -65,3 +65,73 @@ figure.tr { margin: 0; display: grid; justify-items: center; gap: 8px; } figure.
 .lean-a .ea { background: var(--brand); } .lean-b .eb { background: var(--tier-strong); }
 .lean-a > b:first-child { color: var(--brand); } .lean-b > b:last-child { color: var(--tier-strong); }
 @media (max-width: 560px) { .cp-hero { grid-template-columns: 1fr; } .cp-swap { justify-self: center; } }
+
+/* ============================================================ Team page (/team/:id)
+   Scoped to .team-page so the shared football.css / you.css rules other screens use stay as they are. */
+.team-page .team-panel { margin-top: 12px; min-width: 0; }
+.team-page .team-cap a { color: var(--brand); font-weight: 600; }
+
+/* Squad cards, grouped by position, each with the last five games for the chosen stat. */
+.team-page .sq-groups { display: grid; gap: 4px; margin-top: 12px; }
+.team-page .sq-pos { margin: 14px 0 0; }
+.team-page .sq-cards { margin-top: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.team-page .sq-card { grid-template-columns: auto minmax(0, 1fr) auto; }
+.sq-spark { display: grid; justify-items: end; gap: 2px; }
+.sq-spark small { font-size: 11px; color: var(--text3); }
+.sq-bars { display: flex; align-items: flex-end; gap: 3px; height: 30px; }
+.sq-bars i { width: 8px; height: max(4px, calc(var(--h, 0) * 100%)); border-radius: 3px; background: var(--surface3); }
+.sq-bars i.on { background: var(--brand); }
+/* Did not play: an outline, not a bar, so it cannot be read as a zero. */
+.sq-bars i.dnp { height: 8px; background: transparent; box-shadow: inset 0 0 0 1px var(--border-strong); }
+.sq-spark--none { width: 0; }
+
+/* Squad grid: a cell fills when the line is reached and deepens when it is passed twice over;
+   a dashed cell is a game he did not play (team_squad_grid.png). */
+.team-page .grid .gcell.hit { background: color-mix(in srgb, var(--brand) 16%, transparent); }
+.team-page .grid .gcell.hit--2 { background: color-mix(in srgb, var(--brand) 30%, transparent); }
+.team-page .grid .gcell.dnp { outline: 1px dashed var(--border-strong); outline-offset: -7px; }
+.team-page .grid .gcell-hit { white-space: nowrap; color: var(--text2); } .team-page .grid .gcell-hit b { color: var(--text); }
+/* The × was a 24px target in a header row; the visible mark stays small, the hit area is 44px. */
+.team-page .gcol-hide { position: relative; width: 28px; height: 28px; }
+.team-page .gcol-hide::after { content: ""; position: absolute; inset: -8px; }
+
+/* Totals: key first, numbers beside the bars on the page colour rather than printed on the fill. */
+.team-page .team-totals { padding: 16px; }
+.team-page .totals-key { display: flex; gap: 18px; margin: 0 0 12px; color: var(--text2); font-weight: 600; }
+.team-page .totals-key span { display: inline-flex; align-items: center; gap: 6px; }
+.tk { width: 10px; height: 10px; border-radius: 3px; } .tk--for { background: var(--chart1); } .tk--ag { background: var(--chart2); }
+.team-page .totals { margin: 0; padding: 0; gap: 12px; }
+.team-page .totals li { grid-template-columns: minmax(0, 220px) minmax(0, 1fr) minmax(0, 1fr); gap: 6px 20px; }
+.team-page .totals .team { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.team-page .totals-opp { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-page .totals .team small { flex: none; }
+.team-page .tbar { height: auto; background: none; overflow: visible; display: grid; grid-template-columns: minmax(0, 1fr) 2.6em; gap: 8px; align-items: center; border-radius: 0; }
+.team-page .tbar > .tbar-track { position: relative; inset: auto; display: block; height: 10px; border-radius: 999px; background: var(--surface3); overflow: hidden; }
+.team-page .tbar-track > span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
+.team-page .tbar-for { background: var(--chart1); } .team-page .tbar-ag { background: var(--chart2); }
+.team-page .tbar b { padding: 0; text-align: right; font-size: 14px; color: var(--text); }
+@media (max-width: 600px) {
+  .team-page .totals li { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .team-page .totals .team { grid-column: 1 / -1; }
+}
+
+/* Recent results on the Fixtures tab. */
+.team-page .team-results li + li { border-top: 1px solid var(--border); }
+.team-res { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; min-height: 52px; color: var(--text); text-decoration: none; }
+.team-res:hover .team-res-opp span { color: var(--brand); }
+.team-res-opp { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.team-res-opp span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-res-score { font-variant-numeric: tabular-nums; }
+
+/* League Teams tab on a phone: the stat chips are one scrolling row, as in league_teams_phone.png.
+   Wrapped, twelve chips took five rows and pushed the ranking itself below the fold. */
+@media (max-width: 899px) {
+  .tm .k-chips { flex-wrap: nowrap; overflow-x: auto; padding-right: 24px;
+    -webkit-mask-image: linear-gradient(90deg, black calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, black calc(100% - 28px), transparent); }
+  .tm .k-chips .k-chip { flex: none; }
+}
+.tm-caption { margin: 0; font-size: 13px; color: var(--text2); }
+.tm-tray-crests { display: inline-flex; margin-right: -6px; } .tm-tray-crests > * + * { margin-left: -6px; }
+/* League table on a narrow phone: W, D and L give way so the points column is not under the
+   scroll fade. P, GD, Pts and form still say where a club stands. */
+@media (max-width: 480px) { .st-table .st-wdl { display: none; } }

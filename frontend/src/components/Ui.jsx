@@ -41,12 +41,27 @@ export function Switch({ checked, onChange, label, hint, disabled, testid }) {
   );
 }
 
-export function Tabs({ tabs, value, onChange, testid = "tabs", className = "" }) {
+// The ARIA tabs pattern: one tab in the Tab order (the selected one), arrows/Home/End move between
+// them and select (automatic activation, which is right when a panel is cheap to show). Without it
+// a keyboard user had to Tab through every tab to reach the content. `panel` names the tabpanel's
+// id when the caller renders one, so each tab can point at it and the panel can name its tab.
+export function Tabs({ tabs, value, onChange, testid = "tabs", className = "", label, panel }) {
+  const keys = (e) => {
+    const i = tabs.findIndex((t) => t.id === value);
+    const j = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (j == null) return;
+    e.preventDefault();
+    const t = tabs[(j + tabs.length) % tabs.length];
+    onChange(t.id);
+    e.currentTarget.querySelector(`[data-testid="${testid}-${t.id}"]`)?.focus();
+  };
   return (
-    <div className={`tabs ${className}`.trim()} role="tablist" data-testid={testid}>
+    <div className={`tabs ${className}`.trim()} role="tablist" aria-label={label} onKeyDown={keys} data-testid={testid}>
       {tabs.map((t) => (
-        <button key={t.id} role="tab" type="button" aria-selected={value === t.id} className={"tab" + (value === t.id ? " is-on" : "")} onClick={() => onChange(t.id)} data-testid={`${testid}-${t.id}`}>
-          {t.icon && <Icon name={t.icon} size={16} />}{t.label}{t.badge != null && <em className="tab-badge">{t.badge}</em>}
+        <button key={t.id} id={`${testid}-tab-${t.id}`} role="tab" type="button" aria-selected={value === t.id} aria-controls={panel && value === t.id ? panel : undefined}
+          tabIndex={value === t.id || (!tabs.some((x) => x.id === value) && t === tabs[0]) ? 0 : -1}
+          className={"tab" + (value === t.id ? " is-on" : "")} onClick={() => onChange(t.id)} data-testid={`${testid}-${t.id}`}>
+          {t.icon && <Icon name={t.icon} size={16} />}{t.label}{t.badge != null && <em className="tab-badge" aria-hidden={t.badgeLabel ? true : undefined}>{t.badge}</em>}{t.badge != null && t.badgeLabel && <span className="sr-only">, {t.badgeLabel}</span>}
         </button>
       ))}
     </div>
