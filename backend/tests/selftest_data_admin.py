@@ -66,8 +66,18 @@ with TestClient(srv.app) as owner:
     check(admin.put(f"/api/admin/leagues/{iid}", json={"backfill_seasons": ["1999/2000"]}).status_code == 400, "unknown season refused")
     r = admin.put(f"/api/admin/leagues/{iid}", json={"enabled": True, "backfill_seasons": ["2024/2025"]})
     check(r.status_code == 200 and db.seasons.find_one({"league_iid": iid, "label": "2024/2025"})["queued"] is True, "enable and queue a season for backfill")
-    lg = admin.get("/api/admin/leagues").json()["leagues"][0]
-    check(lg["enabled"] is True and lg["backfill_seasons"] == ["2024/2025"] and lg["estimate_calls"] == 1 + 380 * 3, "estimate for the queued season")
+    body = admin.get("/api/admin/leagues").json()
+    lg = body["leagues"][0]
+    # The estimate is read against the SAME per-match figure the route reports, not a literal: it
+    # depends on the provider, and a hard-coded 3 (PitchAPI's players + stats + lineups) overstated
+    # an API-Football backfill by sixty times, because that provider answers twenty fixtures in one
+    # call (docs/81 §1).
+    cpm = body["calls_per_match"]
+    check(lg["enabled"] is True and lg["backfill_seasons"] == ["2024/2025"]
+          and lg["estimate_calls"] == round(1 + 380 * cpm, 1),
+          f"estimate for the queued season, at {cpm} calls a match")
+    check(body["provider"] and cpm == (1 / 20 if body["provider"] == "apifootball" else 3.0),
+          f"the per-match cost follows the provider in use ({body['provider']})")
     admin.put(f"/api/admin/leagues/{iid}", json={"backfill_seasons": []})
     check(db.seasons.find_one({"league_iid": iid, "label": "2024/2025"})["queued"] is False, "un-picking a season un-queues it")
     check(support.put(f"/api/admin/leagues/{iid}", json={"enabled": False}).status_code == 403, "support cannot change leagues")
