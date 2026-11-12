@@ -312,9 +312,168 @@ def t_the_tick_runs_one_provider_only():
 
 
 
+# ------------------------------------------------------------------ 8. live, without the mapping
+def t_live_is_a_lookup_not_a_guess():
+    """SportAPI needed `map_team`, `link_match`, a cache of guesses and a review queue, because it
+    was a SECOND provider with its own ids. API-Football's live feed returns OUR fixtures, so the
+    join is `matches.ext_id` and all of that disappears."""
+    import live_af as LA
+    db = seed()
+    db.settings.update_one({"key": "features.live"}, {"$set": {"value": True}}, upsert=True)
+    lg = league_row(db)
+    IA.sync_fixtures(client(db, env(lambda r: [fixture(1, (10, "A"), (20, "B"), None, None, short="NS")])), lg, 2024)
+    ours = db.matches.find_one({"ext_id": "1"})
+
+    live = fixture(1, (10, "A"), (20, "B"), 1, 0, short="2H")
+    live["fixture"]["status"]["elapsed"] = 67
+    live["events"] = [{"time": {"elapsed": 23, "extra": None}, "team": {"id": 10},
+                       "player": {"id": 101, "name": "A. One"}, "assist": {"name": "B. Two"},
+                       "type": "Goal", "detail": "Normal Goal", "comments": None},
+                      {"time": {"elapsed": 55, "extra": None}, "team": {"id": 20},
+                       "player": {"id": 201, "name": "C. Three"}, "assist": {"name": None},
+                       "type": "Card", "detail": "Yellow Card", "comments": None}]
+    calls = []
+    def body(req):
+        calls.append(dict(req.url.params))
+        return [live]
+
+    out = LA.live_tick(db, client(db, env(body)))
+    check(f"one call covers every match in play ({len(calls)})", len(calls) == 1)
+    check("...asked for as a live query", "live" in (calls[0] if calls else {}))
+    row = db.live_fixtures.find_one({"ext_id": "1"})
+    check(f"the live row joins OUR match by id, with no name matching ({row.get('match_iid')})",
+          row and row["match_iid"] == ours["iid"])
+    check(f"the score and minute are carried ({row.get('hs')}-{row.get('as')} at {row.get('minute')}')",
+          row["hs"] == 1 and row["as"] == 0 and row["minute"] == 67)
+    check(f"events arrive inline, costing no second call ({db.live_events.count_documents({})})",
+          db.live_events.count_documents({}) == 2)
+    check("a goal keeps its scorer",
+          db.live_events.find_one({"type": "Goal"}).get("player_name") == "A. One")
+    check("the match carries a light live mirror for the pages",
+          (db.matches.find_one({"iid": ours["iid"]}).get("live") or {}).get("minute") == 67)
+
+    # polled again: their feed restates the whole event list, so appending would duplicate it
+    LA.live_tick(db, client(db, env(body)))
+    check(f"a second poll does not duplicate the events ({db.live_events.count_documents({})})",
+          db.live_events.count_documents({}) == 2)
+
+
+# ------------------------------------------------------------------ 9. images need no matching
+def t_images_map_is_an_identity():
+    """`images.py` scores club names against a league's squad list to find an API-Football id.
+    Ingested from API-Football, that id is already `ext_id`, so the map is written directly."""
+    import images as IMG
+    db = seed()
+    db.settings.update_one({"key": "provider.source"}, {"$set": {"value": "apifootball"}}, upsert=True)
+    lg = league_row(db)
+    IA.sync_fixtures(client(db, env(lambda r: [fixture(1, (10, "Arsenal"), (20, "Chelsea"), 1, 0)])), lg, 2024)
+
+    n = IMG.identity_map(db)
+    check(f"the league maps to itself ({n['league']})", n["league"] == 1)
+    check(f"both clubs map to themselves ({n['team']})", n["team"] == 2)
+    row = db.image_map.find_one({"kind": "team", "our_iid": db.teams.find_one({"ext_id": "10"})["iid"]})
+    check(f"...at the provider's own id, not a guess (af_id={row.get('af_id')})", row["af_id"] == 10)
+    check(f"...and with no doubt attached (score={row.get('score')}, status={row.get('status')})",
+          row["score"] == 1.0 and row["status"] == "auto")
+    check("nothing is left for a human to review",
+          db.image_map.count_documents({"status": "review"}) == 0)
+
+
+
+# ------------------------------------------------------------------ 10. historical events, free
+def t_events_come_with_the_statistics():
+    """On PitchAPI these were a call a match behind `ingest.match_extra_detail`. Here they are
+    attached to the bundle fetched for the statistics, so they cost nothing and nothing gates them.
+    `queries.py` and `cards_model.py` read `match_events` by these names, so the vocabulary has to
+    match `match_extras`'s, not the provider's."""
+    db = seed()
+    lg = league_row(db)
+    sched = [fixture(1, (10, "A"), (20, "B"), 2, 1)]
+    IA.sync_fixtures(client(db, env(lambda r: sched)), lg, 2024)
+
+    def body(req):
+        if "ids" not in req.url.params:
+            return sched
+        f = detailed(1, (10, "A"), (20, "B"), 2, 1)
+        f["events"] = [
+            {"time": {"elapsed": 12, "extra": None}, "team": {"id": 10},
+             "player": {"id": 101, "name": "A. One"}, "assist": {"id": None, "name": "B. Two"},
+             "type": "Goal", "detail": "Normal Goal"},
+            {"time": {"elapsed": 40, "extra": None}, "team": {"id": 20},
+             "player": {"id": 201, "name": "C. Three"}, "assist": {"id": None, "name": None},
+             "type": "Card", "detail": "Yellow Card"},
+            {"time": {"elapsed": 77, "extra": 2}, "team": {"id": 20},
+             "player": {"id": 201, "name": "C. Three"}, "assist": {"id": None, "name": None},
+             "type": "Card", "detail": "Second Yellow card"},
+            {"time": {"elapsed": 60, "extra": None}, "team": {"id": 10},
+             "player": {"id": 102, "name": "B. Two"}, "assist": {"id": 101, "name": "A. One"},
+             "type": "subst", "detail": "Substitution 1"},
+            {"time": {"elapsed": 85, "extra": None}, "team": {"id": 10},
+             "player": {"id": 101, "name": "A. One"}, "assist": {"id": None, "name": None},
+             "type": "Var", "detail": "Goal cancelled"},
+        ]
+        return [f]
+
+    calls = []
+    def count(req):
+        calls.append(dict(req.url.params))
+        return body(req)
+    IA.ingest_bundle(client(db, env(count)), list(db.matches.find({})))
+
+    check(f"events cost no call of their own ({len(calls)})", len(calls) == 1)
+    doc = db.match_events.find_one({"match_iid": db.matches.find_one({"ext_id": "1"})["iid"]})
+    check("a match_events document was written", doc is not None)
+    ev = (doc or {}).get("events") or []
+    kinds = [e["type"] for e in ev]
+    check(f"their words became ours: goal / yellow / red / sub ({kinds})",
+          "goal" in kinds and "red" in kinds and "sub" in kinds)
+    check(f"a VAR event we have no column for is dropped, not stored raw ({len(ev)})",
+          not any(e["type"] not in ("goal", "yellow", "red", "sub") for e in ev))
+    # A booking at 40' and a second booking at 77' are TWO real events: he was cautioned, then sent
+    # off. `match_extras.dedupe` collapses only a yellow and a red at the SAME minute, which is how
+    # some feeds spell a second booking. Expecting the yellow to vanish here was wrong about the
+    # football, not about the code.
+    check(f"a caution and a later sending-off are both kept ({kinds})",
+          kinds.count("yellow") == 1 and kinds.count("red") == 1)
+    g = next((e for e in ev if e["type"] == "goal"), None)
+    check(f"the scorer is resolved to OUR player id ({(g or {}).get('player_iid')})",
+          g and g["player_iid"] == db.players.find_one({"ext_id": "101"})["iid"])
+    sub = next((e for e in ev if e["type"] == "sub"), None)
+    check(f"on a substitution the one coming ON is `in_name` ({(sub or {}).get('in_name')})",
+          sub and sub["in_name"] == "A. One")
+    check("events are in minute order", [e["minute"] for e in ev] == sorted(e["minute"] for e in ev))
+
+    # ...and the case dedupe IS for: one booking spelled as a yellow and a red at the same minute.
+    db2 = seed()
+    lg2 = league_row(db2)
+    IA.sync_fixtures(client(db2, env(lambda r: sched)), lg2, 2024)
+    def same_minute(req):
+        if "ids" not in req.url.params:
+            return sched
+        f = detailed(1, (10, "A"), (20, "B"), 2, 1)
+        f["events"] = [
+            {"time": {"elapsed": 77, "extra": None}, "team": {"id": 20},
+             "player": {"id": 201, "name": "C. Three"}, "assist": {"id": None, "name": None},
+             "type": "Card", "detail": "Yellow Card"},
+            {"time": {"elapsed": 77, "extra": None}, "team": {"id": 20},
+             "player": {"id": 201, "name": "C. Three"}, "assist": {"id": None, "name": None},
+             "type": "Card", "detail": "Red Card"},
+        ]
+        return [f]
+    IA.ingest_bundle(client(db2, env(same_minute)), list(db2.matches.find({})))
+    ev2 = (db2.match_events.find_one({}) or {}).get("events") or []
+    k2 = [e["type"] for e in ev2]
+    check(f"a yellow and a red at the same minute are one sending-off ({k2})", k2 == ["red"])
+
+
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
-           t_backfill_resumes, t_the_tick_runs_one_provider_only):
+           t_backfill_resumes, t_the_tick_runs_one_provider_only,
+           t_live_is_a_lookup_not_a_guess, t_images_map_is_an_identity,
+           t_events_come_with_the_statistics):
     print(fn.__name__)
     fn()
 

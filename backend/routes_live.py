@@ -60,12 +60,27 @@ def results(date: str, response: Response, db=Depends(D.get_db)):
     return SP.results(db, _date(date))
 
 
+# ------------------------------------------------------------------ which provider ticks
+def _tick(db):
+    """One live tick, from whichever provider feeds the tables.
+
+    Same switch as the job tick (`provider.source`, docs/88). Two live feeds writing
+    `live_fixtures` at once would be two rows a match keyed differently -- SportAPI by its own
+    `sid`, API-Football by our `ext_id` -- and the pages read whichever they find first.
+    """
+    import settings_store as _S
+    if _S.get(db, "provider.source") == "apifootball":
+        import live_af as LA
+        return LA.live_tick(db)
+    return SP.live_tick(db)
+
+
 @public.post("/jobs/live")
 def jobs_live(x_cron_secret: str | None = Header(default=None), db=Depends(D.get_db)):
     """Call every minute from an external pinger. Spends SportAPI calls only when something is due."""
     if not hmac.compare_digest(x_cron_secret or "", os.environ.get("CRON_SHARED_SECRET", "\0")):
         raise D.err(401, "BAD_SECRET", "Bad secret.")
-    return SP.live_tick(db)
+    return _tick(db)
 
 
 # ------------------------------------------------------------------ admin
@@ -130,7 +145,7 @@ def sportapi_backfill(body: Backfill, user=Depends(D.require_perm("jobs.run")), 
 @admin.post("/tick")
 def sportapi_tick(user=Depends(D.require_perm("jobs.run")), db=Depends(D.get_db)):
     """Run the minute job now (same rules, same budget)."""
-    return SP.live_tick(db)
+    return _tick(db)
 
 
 # ------------------------------------------------------------------ live statistics: see it, fix it, switch it on

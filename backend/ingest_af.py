@@ -149,9 +149,37 @@ def ingest_bundle(client, matches: list[dict]) -> dict:
         for i in out["issues"]:
             I.issue(db, i["kind"], i["detail"], match_iid=match["iid"], league_iid=match["league_iid"])
         I.write_match(db, match, out)
+        _write_events(db, match, out.get("events") or [])
         written += 1
     return {"asked": len(by_ext), "written": written,
             "missing": len(by_ext) - written - failed, "failed": failed}
+
+
+def _write_events(db, match: dict, ev: list[dict]) -> None:
+    """Goals, cards and substitutions, in the shape `queries.py` and `cards_model.py` already read.
+
+    On PitchAPI these were a call per match behind `ingest.match_extra_detail` (`match_extras.py`),
+    so the referee model went hungry whenever the budget was tight. Here they arrive attached to the
+    bundle that was fetched for the statistics, so they cost nothing and there is nothing to switch
+    on. The stored shape is `match_extras`'s, down to `dedupe` -- the same readers read both.
+    """
+    if not ev:
+        return
+    import match_extras as MX
+    tid = {"home": match["home_iid"], "away": match["away_iid"]}
+    rows = []
+    for e in ev:
+        e = dict(e)
+        e["team_iid"] = tid[e["side"]]
+        pl = db.players.find_one({"ext_id": e.pop("player_ext", None)}, {"iid": 1}) if e.get("player_ext") else None
+        e["player_iid"] = (pl or {}).get("iid")
+        ip = db.players.find_one({"ext_id": e.pop("in_ext", None)}, {"iid": 1}) if e.get("in_ext") else None
+        e["in_iid"] = (ip or {}).get("iid")
+        rows.append(e)
+    rows = MX.dedupe(rows)       # a second yellow arrives as a yellow AND a red at the same minute
+    db.match_events.update_one({"match_iid": match["iid"]},
+                               {"$set": {"match_iid": match["iid"], "league_iid": match["league_iid"],
+                                         "kickoff": match["kickoff"], "events": rows}}, upsert=True)
 
 
 # ------------------------------------------------------------------ draining the queue

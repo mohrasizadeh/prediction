@@ -297,6 +297,46 @@ def _season_candidates(db, league: dict) -> list[int]:
     return [y, y - 1, y - 2]
 
 
+def identity_map(db) -> dict:
+    """When the entities CAME FROM API-Football, their id is already ours. No matching, no calls.
+
+    Everything below this function -- `images.leagues`, the name scoring, `images.team_aliases`,
+    `images.min_confidence`, the review queue on the mapping screen -- exists for one reason: the
+    entities came from PitchAPI, so nothing we held carried an API-Football id and the only way to
+    find one was to ask for a league's clubs and match them by name. That is guesswork, it costs a
+    call per league and per club, and it is what the "Statistic names" review queue is for.
+
+    Ingested from API-Football, `leagues.ext_id`, `teams.ext_id` and `players.ext_id` ARE the
+    API-Football ids. So the map is an identity and is written directly: no calls, no scoring, no
+    review, and no class of bug where two clubs with similar names swap crests.
+
+    Only rows whose provider is API-Football are touched, so a database still holding PitchAPI
+    entities keeps the matching path for those.
+    """
+    n = {"league": 0, "team": 0, "player": 0}
+    leagues = {l["iid"]: l for l in db.leagues.find({"provider": "apifootball"}, {"iid": 1, "ext_id": 1, "name": 1})}
+    for lg in leagues.values():
+        if str(lg.get("ext_id", "")).isdigit():
+            _put_map(db, "league", lg["iid"], af_id=int(lg["ext_id"]), our_name=lg.get("name"),
+                     status="auto", score=1.0, note="ingested from API-Football: the id is ours")
+            n["league"] += 1
+    for kind, coll in (("team", db.teams), ("player", db.players)):
+        for row in coll.find({}, {"iid": 1, "ext_id": 1, "name": 1, "league_iid": 1}):
+            if not str(row.get("ext_id", "")).isdigit():
+                continue
+            if kind == "team" and row.get("league_iid") not in leagues:
+                continue
+            if kind == "player":
+                tm = db.teams.find_one({"iid": row.get("team_iid")}, {"league_iid": 1}) if row.get("team_iid") else None
+                if tm and tm.get("league_iid") not in leagues:
+                    continue
+            _put_map(db, kind, row["iid"], af_id=int(row["ext_id"]), our_name=row.get("name"),
+                     league_iid=row.get("league_iid"), status="auto", score=1.0,
+                     note="ingested from API-Football: the id is ours")
+            n[kind] += 1
+    return n
+
+
 def map_league(db, client: AFClient, league: dict) -> dict:
     """Set the league's API-Football id from `images.leagues` and fill the logo."""
     table = S.get(db, "images.leagues")
@@ -407,7 +447,14 @@ def run_sync(db, client: AFClient | None = None, http=None, max_seconds: float =
     http = http or _FACTORY()
     try:
         leagues = list(db.leagues.find({"enabled": True}, {"_id": 0}))
+        # Entities ingested from API-Football need no matching at all: their id IS ours. This costs
+        # nothing and writes the map directly, so the name scoring below only ever runs for rows
+        # that really did come from somewhere else.
+        if S.get(db, "provider.source") == "apifootball":
+            stats["identity"] = identity_map(db)
         for lg in leagues:
+            if db.image_map.find_one({"kind": "league", "our_iid": lg["iid"], "af_id": {"$ne": None}}):
+                continue
             map_league(db, client, lg)
         _fetch_pending(db, "league", deadline, http, stats)
         for lg in leagues:

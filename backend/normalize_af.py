@@ -246,6 +246,50 @@ def _sum_team(pl, team_ext, col):
     return float(sum(vals)) if vals else None
 
 
+# Their event words -> ours. `match_extras._kind` does the same for PitchAPI and the vocabulary has
+# to agree, because `queries.py` and `cards_model.py` read the stored list by these names.
+EVENT_KIND = {"goal": "goal", "card": None, "subst": "sub"}
+CARD_DETAIL = {"yellow card": "yellow", "second yellow card": "red", "red card": "red"}
+
+
+def events(fixture: dict, home_ext: str, away_ext: str) -> list[dict]:
+    """Their inline events in the shape `match_extras.normalize_events` returns.
+
+    These arrive FREE, attached to the same bundled answer as the statistics. On PitchAPI they were
+    a call per match behind `ingest.match_extra_detail`, which is why that setting exists and why
+    the referee model could go hungry when the budget was tight. Here there is nothing to switch on.
+    """
+    out = []
+    for e in (fixture.get("events") or []):
+        typ = str(e.get("type") or "").strip().lower()
+        detail = str(e.get("detail") or "").strip().lower()
+        if typ == "card":
+            kind = CARD_DETAIL.get(detail)
+        else:
+            kind = EVENT_KIND.get(typ)
+        if not kind:
+            continue
+        tid = str((e.get("team") or {}).get("id"))
+        side = "home" if tid == str(home_ext) else "away" if tid == str(away_ext) else None
+        if side is None:
+            continue
+        t = e.get("time") or {}
+        p, asst = e.get("player") or {}, e.get("assist") or {}
+        # On a substitution THEY put the player coming OFF in `player` and the one coming ON in
+        # `assist`, which is the opposite of what the field names suggest.
+        out.append({
+            "type": kind, "minute": t.get("elapsed"), "added": t.get("extra") or 0, "side": side,
+            "player_ext": str(p.get("id")) if p.get("id") is not None else None,
+            "player_name": p.get("name"),
+            "in_ext": str(asst.get("id")) if (kind == "sub" and asst.get("id") is not None) else None,
+            "in_name": asst.get("name") if kind == "sub" else None,
+            "own_goal": detail == "own goal",
+            "penalty": "penalty" in detail,
+        })
+    out.sort(key=lambda x: ((x["minute"] or 0), x["added"], x["type"] == "red"))
+    return out
+
+
 def normalize_match(fixture: dict, settings: dict) -> dict:
     """One bundled fixture -> the same shape `normalize.normalize_match` returns, plus `extra_time`.
 
@@ -256,6 +300,7 @@ def normalize_match(fixture: dict, settings: dict) -> dict:
     away_ext = str((teams.get("away") or {}).get("id"))
     issues = []
 
+    ev = events(fixture, home_ext, away_ext)
     ts = team_stats(fixture, settings["team_keys"], home_ext, away_ext)
     pl = players(fixture, settings["position_map"])
     lu = lineups(fixture, settings["position_map"])
@@ -310,6 +355,9 @@ def normalize_match(fixture: dict, settings: dict) -> dict:
             issues.append({"kind": "team_player_shots_gap", "detail": f"{side}: stats {s_stats} vs players {s_sum}"})
 
     return {"team": ts, "players": pl, "lineups": lu, "team_totals": totals,
+            # Free, on the same answer as the statistics -- see `events()`. The PitchAPI path pays
+            # a call per match for these and hides them behind `ingest.match_extra_detail`.
+            "events": ev,
             "extra_time": et, "issues": issues}
 
 

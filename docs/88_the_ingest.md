@@ -89,9 +89,52 @@ merely redundant there, it is a second source of truth for the same crest.
   kind of bug a test catches and a run does not.
 * The `team_shots` expectation above, which was wrong in the test rather than in the code.
 
+## Live: a lookup, not a guess
+
+`live_af.py` replaces `sportapi.live_tick`, and most of it is about what it no longer has to do.
+
+SportAPI was a SECOND provider beside the data provider, so nothing it said could be joined to
+anything we held without guessing. `map_team` matched club names; `link_match` then guessed which of
+our fixtures that was from two club ids and a kick-off time; `sportapi_team_map` cached the guesses;
+the admin carried a review queue for the ones it could not make. Every one of those exists because
+the two sides had different ids for the same club.
+
+API-Football's live feed returns OUR fixtures, with the id already stored as `matches.ext_id`:
+
+    db.matches.find_one({"ext_id": str(fixture_id)})
+
+No name matching, no cached guesses, no review queue, and no bug where a live score lands on the
+wrong match because two clubs in a league share a short name.
+
+**Events come free.** `GET /fixtures?live=a-b-c` returns every in-play fixture in those leagues with
+its events INLINE -- one call a tick whatever the number of matches, with goals and cards arriving
+beside the score. SportAPI needed a call per fixture for events. The feed restates the whole event
+list each poll, so events are replaced rather than appended; appending would rewrite a goal on every
+tick for the rest of the match, which a test pins.
+
+Statistics are the exception -- not on the live payload -- so a fixture actually producing them is
+refreshed through `fixtures_bundle`, twenty at a time, and only when `needs_stats` agrees: half time
+is live and barren, and a call spent then buys nothing.
+
+`routes_live._tick` switches on the same `provider.source`. Two live feeds writing `live_fixtures`
+at once would be two rows a match keyed differently -- SportAPI by its `sid`, API-Football by our
+`ext_id` -- and the pages would read whichever they found first.
+
+## Images: the map is an identity
+
+`images.py` scored our club names against a league's squad list to find an API-Football id, at a
+call per league and per club, with a review queue for what it could not decide. That whole apparatus
+-- `images.leagues`, `images.team_aliases`, `images.min_confidence`, the scoring, the queue -- exists
+for one reason: the entities came from PitchAPI and carried no API-Football id.
+
+Ingested from API-Football, `leagues.ext_id`, `teams.ext_id` and `players.ext_id` **are** those ids.
+So `identity_map()` writes the map directly: no calls, no scoring, nothing to review, and no bug
+where two clubs with similar names swap crests. It touches only rows whose provider is
+API-Football, so a database still holding PitchAPI entities keeps the matching path for those.
+
 ## What is still not done
 
-* **The live tick is still SportAPI.** `apifootball.live_fixtures()` exists and nothing calls it.
-  Same shape of gap as this one was, one layer up.
-* PitchAPI and SportAPI are still present and still removable only after real data has landed
-  through this path. docs/87 §0 has the order.
+PitchAPI and SportAPI are still present. They are now unreachable whenever `provider.source` is
+`apifootball` -- the job tick, the live route and the image mapping all switch on it -- but the code
+is still there and still removable only after real data has landed through this path. docs/87 §0 has
+the order.

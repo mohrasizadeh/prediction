@@ -3377,6 +3377,16 @@
     "help": "4-digit START year: 2024 means the 2024-25 season. Empty = the current season only."
   },
   {
+    "key": "apifootball.live_stats",
+    "group": "Provider",
+    "label": "Live statistics",
+    "type": "boolean",
+    "default": false,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "Refresh team statistics for matches actually in play. Statistics are not on the live payload, so this costs one call per twenty such matches each tick; the score and the events are free either way."
+  },
+  {
     "key": "provider.apifootball.team_keys",
     "group": "Provider",
     "label": "Team stat names in /fixtures/statistics",
