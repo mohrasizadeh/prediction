@@ -234,17 +234,66 @@ def backfill_tick(client, max_seconds: float = 40.0) -> dict:
     """
     db = client.db
     out = {"synced": [], **{k: 0 for k in ("batches", "written", "failed", "missing")}}
+    _drop_malformed_seasons(db)
     for lg in db.leagues.find({"enabled": True, "provider": PROVIDER}):
         for season in (lg.get("backfill_seasons") or []):
-            key = {"league_iid": lg["iid"], "season": str(season)}
+            # `label`, which is what this collection is keyed on. This wrote `season` instead, so
+            # the upsert made a row with NO label at all -- and the unique index is
+            # (league_iid, label), so the first season of a league created `label: null` and the
+            # second one collided with it:
+            #
+            #   E11000 duplicate key ... dup key: { league_iid: 22, label: null }
+            #
+            # The backfill died on its second season of the first league, every time. `af_leagues`,
+            # `ingest` and the leagues screen all use `label`; only this did not.
+            key = {"league_iid": lg["iid"], "label": str(season)}
             if db.seasons.find_one({**key, "fixtures_synced_at": {"$ne": None}}):
                 continue
             res = sync_fixtures(client, lg, season)
             db.seasons.update_one(key, {"$set": {**key, "fixtures_synced_at": utcnow(),
-                                                 "fixtures": res["fixtures"], "queued": res["queued"]}},
+                                                 "fixtures": res["fixtures"], "queued": res["queued"]},
+                                        "$setOnInsert": {"backfilled": False}},
                                   upsert=True)
             out["synced"].append(res)
     drained = drain(client, max_seconds=max_seconds)
     for k in ("batches", "written", "failed", "missing"):
         out[k] = drained[k]
+    out["finished"] = _mark_finished_seasons(db)
     return out
+
+
+def _drop_malformed_seasons(db) -> int:
+    """Clear the `label: null` rows the bug above wrote, which block every later upsert.
+
+    They carry nothing -- no label means no season -- and leaving one in place keeps the unique
+    index occupied so the first real write for that league fails too. Cheap, and idempotent.
+    """
+    return db.seasons.delete_many({"$or": [{"label": None}, {"label": {"$exists": False}}]}).deleted_count
+
+
+def _mark_finished_seasons(db) -> int:
+    """A season is backfilled when its fixtures are synced and nothing of its is left in the queue.
+
+    Without this the Competitions screen says "0 backfilled" for ever, however much has landed: the
+    flag was only ever written by the PitchAPI path.
+    """
+    n = 0
+    for s in db.seasons.find({"fixtures_synced_at": {"$ne": None}, "backfilled": {"$ne": True}},
+                             {"league_iid": 1, "label": 1}):
+        # `.get`, not `[...]`. A row with no label is exactly what the bug above wrote, and this
+        # reads the collection it corrupted -- so the repair and the reader have to tolerate the
+        # same malformed row. Written as `s["label"]` first, which turned a duplicate-key error
+        # into a KeyError one line later.
+        label = s.get("label")
+        if not label or s.get("league_iid") is None:
+            continue
+        iids = [m["iid"] for m in db.matches.find(
+            {"league_iid": s["league_iid"], "season": label, "status": "final"}, {"iid": 1})]
+        if not iids:
+            continue
+        left = db.ingest_queue.count_documents(
+            {"task": QUEUE_TASK, "status": {"$ne": "done"}, "payload.match_iid": {"$in": iids}})
+        if left == 0:
+            db.seasons.update_one({"_id": s["_id"]}, {"$set": {"backfilled": True}})
+            n += 1
+    return n

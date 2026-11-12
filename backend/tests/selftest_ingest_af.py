@@ -674,6 +674,60 @@ def t_a_fresh_install_runs_api_football():
 
 
 
+# ------------------------------------------------------------------ 15. the season key
+def t_backfill_survives_a_second_season():
+    """E11000 duplicate key ... dup key: { league_iid: 22, label: null }
+
+    `seasons` is keyed on (league_iid, label), UNIQUE (mongo_init line 50). backfill_tick wrote
+    `season` instead of `label`, so the upsert made a row with no label at all: the first season of
+    a league created `label: null` and the second collided with it. The backfill died on the second
+    season of the first league, every time, and every other writer -- af_leagues, ingest, the
+    leagues screen -- uses `label`.
+
+    This needs the INDEX to reproduce, which is why it never showed up: mongomock without
+    `ensure_indexes` accepts two nulls happily and the whole thing looks fine.
+    """
+    import mongo_init
+    db = seed()
+    mongo_init.ensure_indexes(db)
+    lg = league_row(db, seasons=(2024, 2023))
+    sched = {2024: [fixture(f, (10, "A"), (20, "B"), 1, 0, season=2024) for f in (21, 22)],
+             2023: [fixture(f, (10, "A"), (20, "B"), 2, 0, season=2023) for f in (31, 32)]}
+    def body(req):
+        p = dict(req.url.params)
+        if "ids" in p:
+            return [detailed(int(i), (10, "A"), (20, "B"), 1, 0) for i in p["ids"].split("-")]
+        return sched[int(p["season"])]
+
+    try:
+        out = IA.backfill_tick(client(db, env(body)), max_seconds=5)
+        err = None
+    except Exception as e:
+        out, err = None, f"{type(e).__name__}: {str(e)[:90]}"
+    check(f"two seasons of one league do not collide{(' -- ' + err) if err else ''}", err is None)
+    check(f"...and both were synced ({len(out['synced']) if out else 0})", out and len(out["synced"]) == 2)
+    labels = sorted(r["label"] for r in db.seasons.find({"league_iid": lg["iid"]}))
+    check(f"...each under its own label, none null ({labels})", labels == ["2023", "2024"])
+    check(f"...and all four matches landed ({db.matches.count_documents({})})",
+          db.matches.count_documents({}) == 4)
+    check(f"the seasons are marked backfilled, so the screen can show progress "
+          f"({db.seasons.count_documents({'backfilled': True})})",
+          db.seasons.count_documents({"backfilled": True}) == 2)
+
+    # and a database already carrying the bad rows heals rather than staying stuck
+    db.seasons.delete_many({})
+    db.seasons.insert_one({"league_iid": lg["iid"], "label": None, "fixtures": 0})
+    db.leagues.update_one({"iid": lg["iid"]}, {"$set": {"backfill_seasons": [2024, 2023]}})
+    try:
+        IA.backfill_tick(client(db, env(body)), max_seconds=5)
+        err2 = None
+    except Exception as e:
+        err2 = f"{type(e).__name__}: {str(e)[:70]}"
+    check(f"a database already holding a null-label row recovers{(' -- ' + err2) if err2 else ''}",
+          err2 is None and db.seasons.count_documents({"label": None}) == 0)
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
@@ -682,7 +736,8 @@ for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_w
            t_the_public_scoreboard_can_read_what_live_writes,
            t_the_jobs_screen_offers_jobs_that_can_run,
            t_no_endpoint_reaches_a_retired_provider,
-           t_a_fresh_install_runs_api_football):
+           t_a_fresh_install_runs_api_football,
+           t_backfill_survives_a_second_season):
     print(fn.__name__)
     fn()
 
