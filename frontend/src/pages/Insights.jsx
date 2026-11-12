@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { useLiveLines } from "../lib/live";
-import { pct } from "../lib/copy";
+import { pct, tierLabel } from "../lib/copy";
 import { useAuth } from "../lib/auth";
 import { utc } from "../lib/time";
 import { favFirst, useDayLeagues, useFavLeagues, useGameDays } from "../lib/prefs";
@@ -232,7 +232,7 @@ export function Insights() {
       )}
       {cap >= 0 && matched.length > cap && <p className="notice small" data-testid="ins-capped">Your plan shows {cap} insights a day. <ProLock label="Unlimited with Pro" testid="ins-capped-pro" /></p>}
       <FilterSheet open={sheet} onClose={() => setSheet(false)} onReset={clearAll} count={rows.length} title="Filters" testid="ins-filters">
-        <FilterGroup label="Tier"><ChipsRow multi value={tier} onChange={setTier} label="Tier" testid="ins-tier" options={TIERS.map((t) => ({ id: t, label: t }))} /></FilterGroup>
+        <FilterGroup label="Tier"><ChipsRow multi value={tier} onChange={setTier} label="Tier" testid="ins-tier" options={TIERS.map((t) => ({ id: t, label: tierLabel(t) }))} /></FilterGroup>
         {leagues.length > 1 && <FilterGroup label="League"><ChipsRow multi value={lg} onChange={setLg} label="League" testid="ins-league" options={leagues.map(([id, name]) => ({ id, label: name }))} /></FilterGroup>}
         <FilterGroup label="Position"><ChipsRow multi value={more.pos} onChange={(v) => setMore({ ...more, pos: v })} label="Position" options={POS} testid="ins-pos" /></FilterGroup>
         <FilterGroup label="Venue"><ChipsRow value={more.venue} onChange={(v) => setMore({ ...more, venue: v })} label="Venue" testid="ins-venue" options={[{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id: "away", label: "Away" }]} /></FilterGroup>

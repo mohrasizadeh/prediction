@@ -1,6 +1,7 @@
 // Match centre parts (docs/24 §3): the hero and first tab change with the match state, Preview, Forecasts with
 // a minimum-likelihood slider and By team / By market, and team Stats as split bars.
 import { useEffect, useState } from "react";
+import { tierLabel } from "../lib/copy";
 import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { utc } from "../lib/time";
@@ -69,7 +70,7 @@ export function Hero({ d }) {
       </div>
       {st !== "final" && st !== "off" && d.probs && <WdlBar home={d.probs.p_home} draw={d.probs.p_draw} away={d.probs.p_away} homeName={d.home.name} awayName={d.away.name} testid="match-wdl" />}
       {st === "final" && d.recap?.scored > 0 && <p className="mc-recap" data-testid="match-recap">How our forecasts did: <b>{d.recap.hit} of {d.recap.scored}</b> Strong and Solid forecasts came true
-        {["Strong", "Solid"].filter((t) => d.recap.by_tier[t][1]).map((t) => ` · ${t} ${d.recap.by_tier[t][0]}/${d.recap.by_tier[t][1]}`).join("")}</p>}
+        {["Strong", "Solid"].filter((t) => d.recap.by_tier[t][1]).map((t) => ` · ${tierLabel(t)} ${d.recap.by_tier[t][0]}/${d.recap.by_tier[t][1]}`).join("")}</p>}
       <div className="mc-foot">
         <div className="mc-meta">
           {d.probs && <small className="k-faint" data-testid="match-xg">Expected goals {num1(d.probs.xg_home)} – {num1(d.probs.xg_away)}</small>}
@@ -135,7 +136,7 @@ export function Forecasts({ d, matchId }) {
   const TIERS = ["Strong", "Solid", "Watch"];
   const nUngraded = atMin.filter((f) => !f.tier).length;
   const tierOpts = [
-    ...TIERS.map((t) => ({ id: t, label: t, count: atMin.filter((f) => f.tier === t).length })),
+    ...TIERS.map((t) => ({ id: t, label: tierLabel(t), count: atMin.filter((f) => f.tier === t).length })),
     ...(nUngraded ? [{ id: "None", label: "Match totals", count: nUngraded }] : []),
   ];
   const groups = by === "team"

@@ -90,11 +90,19 @@ export default function Player() {
   const { id } = useParams();
   const q = useApi(`/players/${id}`);
   const pl = q.data?.player;
-  useTitle(pl?.name || "Player", {
+  // docs/75. The title used to be the bare name, which competes with every page on the internet
+  // that mentions him and answers none of the questions people actually type. These pages hold the
+  // per-game stat history and a forward-looking number, so the title says so: "stats, shots per game
+  // and what we expect next" is three long-tail searches in one line, and nothing here is a word the
+  // copy rules forbid.
+  const pTitle = pl?.name ? `${pl.name} stats, shots per game and what we expect next` : "Player";
+  useTitle(pTitle, {
     type: "profile",
     image: pl?.image,
     vars: pl?.name ? { player: pl.name } : undefined,
-    description: pl?.name ? `${pl.name}: what we expect this match, how it compares with their usual game, and the last games on each line.` : undefined,
+    description: pl?.name
+      ? `${pl.name}: shots, shots on target, tackles and cards per game over his last ten, how likely he is to reach each line in his next match, and the reasons behind it.`
+      : undefined,
   });
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;

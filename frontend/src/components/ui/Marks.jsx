@@ -1,6 +1,6 @@
 // Small marks used everywhere (docs/24 "Components to build once"): tier badge, win/draw/loss bar, hit-rate strip.
 // Colour never carries meaning alone: tiers show colour + word + dots, the bar prints its numbers.
-import { pct, TIER } from "../../lib/copy";
+import { pct, TIER, tierLabel } from "../../lib/copy";
 import { Crest } from "../Media";
 
 // The reference's one signature move: a swipe of accent behind the word a heading is about.
@@ -12,9 +12,12 @@ export function Hl({ children }) {
 export function TierBadge({ tier, testid = "ui-tier" }) {
   if (!tier) return null;
   const n = TIER[tier]?.dots || 0;
+  // The class and the test id keep the STORED value, so the palette tokens (--tier-strong) and every
+  // test that looks one up still work. Only the words a reader sees come from tierLabel (lib/copy).
+  const words = tierLabel(tier);
   return (
-    <span className={`k-tier k-tier--${tier.toLowerCase()}`} aria-label={`${tier}, ${n} of 3`} data-testid={testid}>
-      <span className="k-dots" aria-hidden="true">{[1, 2, 3].map((i) => <i key={i} className={i > n ? "o" : ""} />)}</span>{tier}
+    <span className={`k-tier k-tier--${tier.toLowerCase()}`} aria-label={`${words}, ${n} of 3`} data-testid={testid}>
+      <span className="k-dots" aria-hidden="true">{[1, 2, 3].map((i) => <i key={i} className={i > n ? "o" : ""} />)}</span>{words}
     </span>
   );
 }

@@ -120,9 +120,13 @@ export default function Team() {
   const [tab, setTab] = useState("squad");
   const [squadView, setSquadView] = useState("cards");
   const tm = q.data?.team;
-  useTitle(tm?.name || "Team", {
+  // docs/75 cluster E: the per-game team shape -- shots, corners, cards, and what they concede --
+  // is what people search for, and this page holds all of it beside the next fixture.
+  useTitle(tm?.name ? `${tm.name} stats, shots and cards per game` : "Team", {
     image: tm?.image,
-    description: tm?.name ? `${tm.name}: squad, next fixture and the forecasts we have for it, with the reasons shown.` : undefined,
+    description: tm?.name
+      ? `${tm.name}: shots, corners and cards per game, what they concede, the squad, and our forecasts for their next fixture with the reasons shown.`
+      : undefined,
   });
   if (q.loading && !q.data) return <Loading rows={5} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
