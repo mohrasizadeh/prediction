@@ -14,7 +14,12 @@ def check(c, m):
     ok(m)
 db = mongomock.MongoClient()["j"]; mongo_init.ensure_indexes(db)
 security.save_provider_key(db, "pitchapi", "pk_test_zzzz")
-for k, v in {"ingest.rps": 1000, "provider.pitchapi.team_keys": TEAM_KEYS, "provider.pitchapi.player_keys": PLAYER_KEYS,
+# `provider.source` SAID EXPLICITLY, because this file tests the PitchAPI path and the default is
+# API-Football now. It used to be pitchapi, so this fixture got the path it wanted by accident; when
+# the default moved, every step it asserts was skipped and the failure read "reference sync ran,
+# league found" with no mention of a provider. A test of one provider should name it.
+for k, v in {"ingest.rps": 1000, "provider.source": "pitchapi",
+             "provider.pitchapi.team_keys": TEAM_KEYS, "provider.pitchapi.player_keys": PLAYER_KEYS,
              "provider.position_map": {"0": "GK", "1": "DEF", "2": "MID", "3": "FWD"}}.items(): S.put(db, k, v)
 matches, tg, pg, _ = simulate_league(n_teams=12, seed=3)
 n_final = int(matches["round"].max()) + 1 - 2

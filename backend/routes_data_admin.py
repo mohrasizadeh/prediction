@@ -212,6 +212,39 @@ def usage(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
             "cache_rows": db.api_cache.estimated_document_count()}
 
 
+def _default_seasons(db) -> list[int]:
+    """Seasons to probe when none is given. CALLED AND NEVER DEFINED until now.
+
+    `/apifootball/types` -- the Statistic names tab -- reaches this when the screen asks without a
+    season, so the tab raised NameError and answered 500. Nothing caught it because nothing calls
+    that path in a test.
+
+    `apifootball.seasons` when it is set; otherwise the current football year, which rolls in
+    August: a season labelled 2025 runs from August 2025, so before August the season in progress is
+    still the previous label.
+    """
+    want = S.get(db, "apifootball.seasons") or []
+    out = [int(y) for y in want if str(y).isdigit()]
+    if out:
+        return sorted(out, reverse=True)
+    now = utcnow()
+    y = now.year if now.month >= 8 else now.year - 1
+    return [y, y - 1, y - 2]
+
+
+def _provider_budget(db) -> int:
+    """Today's call ceiling, from the provider actually in use.
+
+    The leagues screen read `ingest.daily_call_budget` whatever was running. That is PitchAPI's
+    figure, so the backfill estimate was measured against the wrong ceiling -- "1 day at today's
+    budget of 10,000" when API-Football allows 75,000 and the same work costs a sixtieth.
+    """
+    if S.get(db, "provider.source") == "apifootball":
+        q = db.job_state.find_one({"_id": "apifootball_quota"}) or {}
+        return int(q.get("day_limit") or S.get(db, "apifootball.daily_cap") or 0)
+    return int(S.get(db, "ingest.daily_call_budget") or 0)
+
+
 def _season_matches(db, league_iid, label):
     return db.matches.count_documents({"league_iid": league_iid, "season": label})
 
@@ -250,7 +283,7 @@ def leagues(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
     by_provider = {}
     for r in out:
         by_provider[r["provider"]] = by_provider.get(r["provider"], 0) + 1
-    return {"leagues": out, "budget": S.get(db, "ingest.daily_call_budget"),
+    return {"leagues": out, "budget": _provider_budget(db),
             "daily_calls_per_league": daily, "calls_per_match": calls_per_match(db),
             "provider": S.get(db, "provider.source"),
             "by_provider": by_provider,

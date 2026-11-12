@@ -474,7 +474,19 @@ def switch(db, league_id: int, on: bool, seasons: list[int] | None = None, role:
              "role": role or c.get("suggested_role")}
     af = {"id": int(league_id), "name": c.get("name"), "type": c.get("af_type"),
           "logo": c.get("logo"), "country": c.get("country"), "seasons": c.get("years") or []}
-    iid = confirm(db, entry, af, seasons or (c.get("years") or [])[:3])
+    # EVERY season the catalogue knows, not three.
+    #
+    # `[:3]` was here, so a competition arrived with three season rows and the drawer could only
+    # ever offer three -- for a league API-Football carries fifteen of. The number was never a
+    # decision about the provider; it was a default for how many to QUEUE, applied to the wrong
+    # thing. So: a row for every season, and only the most recent `backfill_default_seasons` ticked.
+    years = sorted(c.get("years") or [], reverse=True)
+    iid = confirm(db, entry, af, seasons or years)
+    if seasons is None and years:
+        n = max(1, int(S.get(db, "apifootball.backfill_default_seasons") or 3))
+        db.leagues.update_one({"iid": iid}, {"$set": {"backfill_seasons": [str(y) for y in years[:n]]}})
+        db.seasons.update_many({"league_iid": iid, "label": {"$in": [str(y) for y in years[:n]]}},
+                               {"$set": {"queued": True}})
     db.leagues.update_one({"iid": iid}, {"$set": {"enabled": bool(on)}})
     db[CATALOG_COLL].update_one({"_id": int(league_id)}, {"$set": {"enabled_iid": iid}})
     return {"iid": iid, "league_id": int(league_id), "on": bool(on), "role": entry["role"]}

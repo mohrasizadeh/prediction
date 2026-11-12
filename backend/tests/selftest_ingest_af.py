@@ -626,6 +626,54 @@ def t_no_endpoint_reaches_a_retired_provider():
 
 
 
+# ------------------------------------------------------------------ 14. the three that kept the backfill off
+def t_a_fresh_install_runs_api_football():
+    """Reported as "backfill isn't running" for the second time, with two more faults behind it.
+
+    All three were invisible in exactly the same way: nothing raised, nothing logged, and every
+    screen reported a number that was true of a provider we no longer use.
+    """
+    import json, pathlib, settings_store as _S
+    root = pathlib.Path(__file__).resolve().parent.parent
+
+    # 1. provider.source defaulted to the RETIRED provider, so a fresh install ran the dead path:
+    #    the af branch never executed, the backfill never ran, and the cost model said 3 calls a
+    #    match instead of a twentieth.
+    reg = {e["key"]: e for e in json.loads((root / "settings_registry.json").read_text())}
+    check(f"provider.source defaults to API-Football ({reg['provider.source']['default']!r})",
+          reg["provider.source"]["default"] == "apifootball")
+    db = seed()
+    check(f"...so a database with nothing set reads as API-Football ({_S.get(db, 'provider.source')!r})",
+          _S.get(db, "provider.source") == "apifootball")
+
+    import routes_data_admin as RDA
+    check(f"...and the cost model follows it ({RDA.calls_per_match(db)} calls a match)",
+          abs(RDA.calls_per_match(db) - 1 / 20) < 1e-9)
+    check(f"...and the budget is API-Football's, not PitchAPI's ({RDA._provider_budget(db)})",
+          RDA._provider_budget(db) == 75000)
+
+    # 2. switch() truncated the catalogue's seasons to three, so the drawer could only ever offer
+    #    three for a competition the provider carries fifteen of.
+    years = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018]
+    db.af_catalog.insert_one({"_id": 999, "name": "Deep League", "country": "Testland",
+                              "kind": "league", "af_type": "League", "years": years,
+                              "suggested_role": "forecast", "tier": 2, "catalog_key": "af.999"})
+    res = AFL.switch(db, 999, True)
+    rows = sorted(int(r["label"]) for r in db.seasons.find({"league_iid": res["iid"]}))
+    check(f"every season the catalogue knows gets a row ({len(rows)} of {len(years)})",
+          rows == sorted(years))
+    lg = db.leagues.find_one({"iid": res["iid"]})
+    check(f"...and only the recent few arrive ticked ({lg.get('backfill_seasons')})",
+          lg.get("backfill_seasons") == ["2025", "2024", "2023"])
+
+    # 3. _default_seasons was CALLED and never DEFINED, so the Statistic names tab raised NameError
+    #    and answered 500. Nothing caught it because nothing calls that path in a test.
+    check("_default_seasons exists", hasattr(RDA, "_default_seasons"))
+    got = RDA._default_seasons(db)
+    check(f"...and answers with seasons ({got})", got and all(isinstance(y, int) for y in got))
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
@@ -633,7 +681,8 @@ for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_w
            t_events_come_with_the_statistics,
            t_the_public_scoreboard_can_read_what_live_writes,
            t_the_jobs_screen_offers_jobs_that_can_run,
-           t_no_endpoint_reaches_a_retired_provider):
+           t_no_endpoint_reaches_a_retired_provider,
+           t_a_fresh_install_runs_api_football):
     print(fn.__name__)
     fn()
 

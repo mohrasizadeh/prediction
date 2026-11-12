@@ -21,6 +21,10 @@ RDA.make_client = lambda d: PitchClient(d, http=httpx.Client(base_url="https://a
 
 with TestClient(srv.app) as owner:
     admin, support, analyst = boot(owner)
+    # This file drives the PitchAPI explorer and its errors, so it has to say so: the default
+    # provider is API-Football now and the explorer follows it (docs/89 section 1).
+    import settings_store as _S
+    _S.put(db, "provider.source", "pitchapi")
     anon = TestClient(srv.app)
     ex = lambda c, path, params=None, force=False: c.post("/api/admin/explorer", json={"path": path, "params": params or {}, "force": force})
 
