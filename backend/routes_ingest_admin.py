@@ -60,6 +60,11 @@ def jobs_status(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
             # league-list refresh and a season backfill of a thousand or more. These are what each
             # press actually costs, so the dialog can say it (docs/redesign/v3/audit §3).
             "costs": _job_costs(db),
+            # WHICH JOBS THIS SCREEN SHOULD OFFER. The screen used to list the four PitchAPI steps
+            # whatever was actually running, so with API-Football on, every one of them showed
+            # "stopped" and Run now queued a request the tick skips -- a dead button with nothing to
+            # say why. The server decides, because the server is what knows (docs/88).
+            "provider": S.get(db, "provider.source"),
             "budget": {"cap": S.get(db, "ingest.daily_call_budget"), "left": _calls_left(db)}}
 
 

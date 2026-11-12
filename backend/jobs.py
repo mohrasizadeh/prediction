@@ -20,7 +20,14 @@ import settings_store as S
 from cached_fetch import BreakerOpen, BudgetExhausted, PitchClient, Unauthorized, utcnow
 
 LOCK_MINUTES = 5
-MANUAL = {"reference_sync", "fixtures_sync", "results_sync", "backfill", "engine", "alerts", "digest", "images", "referees", "waitlist_mail"}
+# What "Run now" may ask for. The four PitchAPI steps are still here because a database that has
+# not moved yet still needs them; `af_fixtures` and `af_backfill` are the API-Football pair, and the
+# Jobs screen shows whichever set `provider.source` actually runs. Asking for a job the current
+# provider skips used to queue a request that could never be taken: the card said "stopped", Run now
+# did nothing, and nothing said why.
+MANUAL = {"reference_sync", "fixtures_sync", "results_sync", "backfill",
+          "af_fixtures", "af_backfill",
+          "engine", "alerts", "digest", "images", "referees", "waitlist_mail"}
 
 
 def _waitlist_due(db, now) -> bool:
@@ -108,7 +115,9 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
                     if _run(db, "af_fixtures", af_fx, now) is not None:
                         out["ran"].append("af_fixtures")
 
-                if left():
+                # `left()` OR asked for. Run now has to mean now: a tick that has already spent its
+                # seconds would otherwise take the request and do nothing with it.
+                if left() or "af_backfill" in forced:
                     res = _run(db, "af_backfill",
                                lambda: IA.backfill_tick(afc, max_seconds=max(5.0, max_seconds - (time.monotonic() - t0) - 10)),
                                now)

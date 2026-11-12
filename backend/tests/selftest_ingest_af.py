@@ -528,12 +528,67 @@ def t_the_public_scoreboard_can_read_what_live_writes():
 
 
 
+# ------------------------------------------------------------------ 12. Run now has to actually run
+def t_the_jobs_screen_offers_jobs_that_can_run():
+    """Reported as "backfill isn't running", and it could not.
+
+    The Jobs screen listed the four PitchAPI steps whatever was actually running. With
+    `provider.source` on API-Football the tick skips all four as a block, so every card read
+    "stopped" and Run now queued a request that could never be taken: a dead button, with nothing on
+    the screen to say why. Two halves to the fix -- the screen asks the server which set to show,
+    and `jobs.MANUAL` accepts the API-Football pair at all.
+    """
+    import jobs as J, pathlib, re as _re
+    for job in ("af_fixtures", "af_backfill"):
+        check(f"{job} may be asked for by Run now", job in J.MANUAL)
+
+    db = seed()
+    db.settings.update_one({"key": "provider.source"}, {"$set": {"value": "apifootball"}}, upsert=True)
+    lg = league_row(db, seasons=(2024,))
+    sched = [fixture(f, (10, "A"), (20, "B"), 1, 0) for f in (1, 2)]
+    def body(req):
+        p = dict(req.url.params)
+        if "ids" in p:
+            return [detailed(int(i), (10, "A"), (20, "B"), 1, 0) for i in p["ids"].split("-")]
+        return sched
+
+    # Run now, with the tick given no time at all: the request still has to be honoured.
+    db.job_requests.insert_one({"job": "af_backfill", "status": "pending",
+                                "requested_at": IA.utcnow(), "requested_by": "test"})
+    real = AF.Client
+    AF.Client = lambda d, *a, **k: real(
+        d, httpx.Client(base_url=AF.BASE_URL, transport=httpx.MockTransport(env(body))), sleep=lambda x: None)
+    try:
+        out = J.tick(db, client=None, max_seconds=0)
+    finally:
+        AF.Client = real
+    check(f"a forced backfill runs even when the tick is out of seconds ({out['ran']})",
+          "af_backfill" in out["ran"])
+    check(f"...and the matches landed ({db.matches.count_documents({})})",
+          db.matches.count_documents({}) == 2)
+
+    # the screen's two lists, and the one the server points at
+    js = (pathlib.Path(__file__).resolve().parent.parent.parent
+          / "frontend" / "src" / "admin" / "Jobs.jsx").read_text()
+    check("the screen no longer hardcodes one list", "jobsFor(d.provider)" in js)
+    af_block = js.split("const AF_JOBS")[1].split("];")[0]
+    # The ids as the list writes them: `["backfill",` is the legacy one, `["af_backfill",` is ours.
+    # Testing for the bare word "backfill" matched "af_backfill" and failed its own fix.
+    legacy_ids = ['["reference_sync"', '["fixtures_sync"', '["results_sync"', '["backfill"']
+    check(f"...and the API-Football set names the jobs the tick actually runs "
+          f"({[i for i in legacy_ids if i in af_block] or 'no legacy ids'})",
+          '["af_fixtures"' in af_block and '["af_backfill"' in af_block
+          and not any(i in af_block for i in legacy_ids))
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
            t_live_is_a_lookup_not_a_guess, t_images_map_is_an_identity,
            t_events_come_with_the_statistics,
-           t_the_public_scoreboard_can_read_what_live_writes):
+           t_the_public_scoreboard_can_read_what_live_writes,
+           t_the_jobs_screen_offers_jobs_that_can_run):
     print(fn.__name__)
     fn()
 

@@ -8,14 +8,27 @@ import { Empty, ErrorBox, Loading } from "../components/States";
 import Icon from "../components/Icon";
 import { Card, Chip, Cost, Guard, MissingRoutes, PageHead, ResponsiveTable, StatTile, notMounted, num, when } from "./parts";
 
-const JOBS = [
+// THE JOBS THIS PROVIDER ACTUALLY RUNS.
+//
+// This was one fixed list of the four PitchAPI steps. With API-Football on, the tick skips all four
+// (jobs.py reads `provider.source` once and skips them as a block), so every card read "stopped"
+// and Run now queued a request that could never be taken -- a dead button, and nothing on the
+// screen to say why. Reported by the owner as "backfill isn't running", which it could not.
+const AF_JOBS = [
+  ["af_fixtures", "Fixtures", "1 call per competition that is on. Adds new matches and results."],
+  ["af_backfill", "Backfill", "The seasons ticked in Competitions. 20 matches a call."],
+  ["engine", "Engine", "Recomputes forecasts for competitions that are on."],
+  ["images", "Images", "Competition logos, club crests and player photos."],
+];
+const LEGACY_JOBS = [
   ["reference_sync", "League list", "1 call. Adds new leagues, switched off."],
   ["fixtures_sync", "Fixtures", "1 call per league that is on."],
   ["results_sync", "Results", "1 fresh call per league; queues new finished matches."],
   ["backfill", "Backfill", "Fetches the seasons ticked in Leagues."],
   ["engine", "Engine", "Recomputes forecasts for leagues that are on."],
-  ["images", "Images", "PitchAPI league logos, club crests and player photos."],
+  ["images", "Images", "League logos, club crests and player photos."],
 ];
+const jobsFor = (provider) => (provider === "apifootball" ? AF_JOBS : LEGACY_JOBS);
 const tone = (s) => (s === "ok" ? "up" : s === "error" ? "down" : s === "running" ? "brand" : "warn");
 const RECENT = [
   { key: "job", label: "Job", primary: true },
@@ -69,7 +82,7 @@ export default function Jobs() {
         <StatTile label="Waiting requests" value={num(d.requests.length)} testid="jobs-requests" />
       </div>
       <div className="a-key-grid">
-        {JOBS.map(([id, label, hint]) => {
+        {jobsFor(d.provider).map(([id, label, hint]) => {
           const l = id === "engine" ? Object.entries(d.last).filter(([k]) => k.startsWith("engine:")).map(([, v]) => v).sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)))[0] : d.last[id];
           const waiting = d.requests.some((r) => r.job === id);
           return (
