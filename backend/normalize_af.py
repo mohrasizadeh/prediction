@@ -344,7 +344,8 @@ def normalize_match(fixture: dict, settings: dict) -> dict:
         # Only the stats whose TEAM total sits on the player row, because the engine builds a
         # player's rate as his share of it (docs/70).
         totals[side] = {c: _sum_team(pl, ext, c)
-                        for c in ("shots", "sot", "tackles", "fouls_committed", "goal_involvements")}
+                        for c in ("shots", "sot", "tackles", "fouls_committed", "goal_involvements",
+                                  "saves")}
         # No team tackles statistic exists here, so the team total IS the sum of the players'
         # (docs/80 §2). The same fallback normalize.py has always used.
         for col in ("tackles", "sot"):

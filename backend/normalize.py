@@ -226,7 +226,12 @@ def normalize_match(match: dict, stats_data, players_data, lineups_data, setting
         # the engine builds a player's rate as his share of it. fouls_committed and
         # goal_involvements join the original three for that reason (docs/70).
         totals[side] = {c: _sum_team(pl, ext, c)
-                        for c in ("shots", "sot", "tackles", "fouls_committed", "goal_involvements")}
+                        for c in ("shots", "sot", "tackles", "fouls_committed", "goal_involvements",
+                                  # saves. The market has NEVER worked on real data: `team_saves` was
+                                  # read by engine_bridge and written only by simulate.py, so the
+                                  # tests passed on synthetic rows while the live column did not
+                                  # exist and MARKETS_WITH_DATA dropped saves in every league.
+                                  "saves")}
         if ts[side]["tackles"] is None:
             ts[side]["tackles"] = totals[side]["tackles"]
         if ts[side]["sot"] is None:

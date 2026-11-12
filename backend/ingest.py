@@ -229,7 +229,16 @@ def write_match(db, match: dict, out: dict) -> None:
                # column added later starts EMPTY -- the engine reads engine.history_rounds back, so
                # these have to accumulate before either market can be switched on.
                "team_fouls_committed": out["team_totals"][side]["fouls_committed"],
-               "team_goal_involvements": out["team_totals"][side]["goal_involvements"]}
+               "team_goal_involvements": out["team_totals"][side]["goal_involvements"],
+               # team_saves, without which the SAVES MARKET CANNOT EXIST. engine_bridge reads it
+               # (PLAYER_MARKET_COLS) and nothing wrote it but simulate.py, so every test passed on
+               # synthetic rows while MARKETS_WITH_DATA dropped saves in every real league with
+               # "market 'saves' has no data in this league (team_saves)" in the log.
+               #
+               # Added NOW, before the backfill, on purpose: the comment above is right that a
+               # column added later starts empty and the engine reads history back, so adding it
+               # afterwards would leave saves dead until a full re-backfill.
+               "team_saves": out["team_totals"][side].get("saves")}
         db.player_match_stats.update_one({"match_iid": match["iid"], "player_iid": pid}, {"$set": row}, upsert=True)
 
     save_lineups(db, match, out["lineups"], iid_of_team)

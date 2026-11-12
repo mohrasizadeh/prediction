@@ -74,7 +74,11 @@ def detailed(fid, home, away, hg, ag):
         return {"team": {"id": tid}, "statistics": [
             {"type": "Total Shots", "value": shots}, {"type": "Shots on Goal", "value": sot},
             {"type": "Corner Kicks", "value": corners}, {"type": "Fouls", "value": fouls},
-            {"type": "Ball Possession", "value": "55%"}]}
+            {"type": "Ball Possession", "value": "55%"},
+            # API-Football carries expected goals on the team statistics block, which PitchAPI did
+            # not. The engine uses it for team strength (task 14), so the fixture has to send it or
+            # the column reads null for a reason that is the fixture's fault, not the mapping's.
+            {"type": "expected_goals", "value": "1.4"}]}
     def one(pid, nm, mins, pos, started, sh, on, tk):
         return {"player": {"id": pid, "name": nm},
                 "statistics": [{"games": {"minutes": mins, "position": pos, "number": 7,
@@ -728,6 +732,55 @@ def t_backfill_survives_a_second_season():
 
 
 
+# ------------------------------------------------------------------ 16. what the engine needs
+def t_the_engine_gets_every_column_it_asks_for():
+    """Asked directly: does the engine get its parameters, or does API-Football need adjusting?
+
+    Checked column by column against engine_bridge rather than by reading the mapping, because the
+    mapping looks complete and one market was dead anyway.
+    """
+    import engine_bridge as B, normalize as N
+    db = seed()
+    lg = league_row(db)
+    sched = [fixture(1, (10, "A"), (20, "B"), 2, 1)]
+    IA.sync_fixtures(client(db, env(lambda r: sched)), lg, 2024)
+    def body(req):
+        if "ids" not in req.url.params:
+            return sched
+        f = detailed(1, (10, "A"), (20, "B"), 2, 1)
+        # a keeper, so the saves market has someone to be about
+        f["players"][0]["players"].append({
+            "player": {"id": 150, "name": "K. Eeper"},
+            "statistics": [{"games": {"minutes": 90, "position": "G", "number": 1, "substitute": False},
+                            "shots": {"total": 0, "on": 0}, "tackles": {"total": 0, "blocks": 0, "interceptions": 0},
+                            "fouls": {"committed": 0, "drawn": 0}, "cards": {"yellow": 0, "red": 0},
+                            "goals": {"total": 0, "assists": 0, "saves": 4}}]})
+        return [f]
+    IA.ingest_bundle(client(db, env(body)), list(db.matches.find({})))
+
+    t = db.team_match_stats.find_one({"team_iid": db.teams.find_one({"ext_id": "10"})["iid"]})
+    missing_team = [c for c in B.TEAM_REQUIRED if t.get(c) is None]
+    check(f"every TEAM_REQUIRED column is filled ({missing_team or 'all present'})", not missing_team)
+    check(f"...including tackles, which API-Football has NO team statistic for "
+          f"(summed from the players: {t.get('tackles')})", t.get("tackles") is not None)
+    check(f"...and xG, which it does carry ({t.get('xg')})", t.get("xg") is not None)
+
+    p = db.player_match_stats.find_one({"player_iid": db.players.find_one({"ext_id": "101"})["iid"]})
+    missing_pl = [c for c in B.PLAYER_REQUIRED if p.get(c) is None]
+    check(f"every PLAYER_REQUIRED column is filled ({missing_pl or 'all present'})", not missing_pl)
+
+    # every market's own column AND its team total, which is what MARKETS_WITH_DATA checks
+    gk = db.player_match_stats.find_one({"player_iid": db.players.find_one({"ext_id": "150"})["iid"]})
+    for mkt, (own, team) in B.PLAYER_MARKET_COLS.items():
+        row = gk if mkt == "saves" else p
+        have = row.get(own) is not None and row.get(team) is not None
+        check(f"market {mkt!r}: own={row.get(own)} team={row.get(team)}", have)
+
+    check(f"team_saves is written at all -- it never was before, so the saves market was dropped "
+          f"in every real league ({gk.get('team_saves')})", gk.get("team_saves") is not None)
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
@@ -737,7 +790,8 @@ for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_w
            t_the_jobs_screen_offers_jobs_that_can_run,
            t_no_endpoint_reaches_a_retired_provider,
            t_a_fresh_install_runs_api_football,
-           t_backfill_survives_a_second_season):
+           t_backfill_survives_a_second_season,
+           t_the_engine_gets_every_column_it_asks_for):
     print(fn.__name__)
     fn()
 
