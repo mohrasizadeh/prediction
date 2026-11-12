@@ -387,3 +387,83 @@ def af_types(league: int = 0, season: int = 0, user=Depends(perm("jobs.run")), d
             "unmapped": [n for n in seen if n not in used],
             "columns_unmapped": sorted(k for k, v in mapped.items() if not v),
             "map": mapped}
+
+
+# ------------------------------------------------------------------ fresh start
+# Clearing the football data and nothing else. The owner's instinct was to ask the host to discard
+# the database; purge.py's header says why that costs a re-setup of the product to solve a problem
+# that lives in about thirty known collections (docs/83).
+@router.get("/purge/plan")
+def purge_plan(include_mine: bool = False, user=Depends(perm("settings.write")), db=Depends(D.get_db)):
+    """Every collection a purge would clear, counted, plus what it would keep. Changes nothing."""
+    import purge as P
+    return {**P.plan(db, include_mine), "confirm_phrase": P.CONFIRM}
+
+
+class PurgeBody(BaseModel):
+    confirm: str = Field(min_length=1, max_length=64)
+    include_mine: bool = False
+
+
+@router.post("/purge")
+def purge_run(body: PurgeBody, user=Depends(perm("settings.write")), db=Depends(D.get_db)):
+    """Clear it. Owner-level, typed confirmation, audited, and the counts are reported back."""
+    import purge as P
+    try:
+        res = P.run(db, body.confirm, body.include_mine, actor=user.get("email", ""))
+    except ValueError as e:
+        raise D.err(400, "CONFIRM_REQUIRED", str(e))
+    AQ.audit(db, user, "data.purge", "football",
+             {"documents": res["documents"], "include_mine": body.include_mine})
+    return res
+
+
+@router.get("/apifootball/usage")
+def af_usage(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Calls, cache and breaker for THIS provider.
+
+    The existing /usage counts every row in `api_call_log` and reads PitchAPI's breaker, which was
+    right while one provider wrote that log. API-Football tags its rows with `provider`, so this
+    answers the same questions about it alone -- and says how many untagged rows are in there, which
+    is PitchAPI's history and will stop growing once the ingest moves.
+    """
+    import apifootball as AF
+    now = utcnow()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = today - timedelta(days=13)
+    by_day = {(start + timedelta(days=i)).strftime("%Y-%m-%d"): 0 for i in range(14)}
+    purpose, status, codes, ms = {}, {}, {}, []
+    today_n = 0
+    for r in db.api_call_log.find({"at": {"$gte": start}, "provider": AF.PROVIDER},
+                                  {"at": 1, "purpose": 1, "status": 1, "code": 1, "ms": 1}):
+        at = r["at"] if r["at"].tzinfo else r["at"].replace(tzinfo=timezone.utc)
+        key = at.strftime("%Y-%m-%d")
+        by_day[key] = by_day.get(key, 0) + 1
+        if at >= today:
+            today_n += 1
+            purpose[r.get("purpose") or "other"] = purpose.get(r.get("purpose") or "other", 0) + 1
+            status[str(r.get("status"))] = status.get(str(r.get("status")), 0) + 1
+            if r.get("code"):
+                codes[r["code"]] = codes.get(r["code"], 0) + 1
+            if r.get("ms"):
+                ms.append(int(r["ms"]))
+    br = db.job_locks.find_one({"_id": "af_breaker"})
+    exp = br and (br["expires_at"] if br["expires_at"].tzinfo else br["expires_at"].replace(tzinfo=timezone.utc))
+    q = {k: v for k, v in (db.job_state.find_one({"_id": "apifootball_quota"}) or {}).items() if k != "_id"}
+    client = _af_client(db)
+    return {
+        "calls_today": today_n, "by_day": by_day, "by_purpose": purpose, "by_status": status,
+        "error_codes": codes,
+        "ms": {"n": len(ms), "median": sorted(ms)[len(ms) // 2] if ms else None, "max": max(ms) if ms else None},
+        "quota": q,
+        "budget": {"today": client.day_budget(),
+                   "reserve": int(S.get(db, "apifootball.daily_reserve")),
+                   "per_minute": q.get("min_limit"),
+                   "per_second": client.per_second_limit()},
+        "breaker": {"open": bool(exp and exp > now), "reason": (br or {}).get("reason"), "until": exp},
+        "cache": {"rows": db.api_cache.count_documents({}),
+                  "forever": db.api_cache.count_documents({"expires_at": {"$exists": False}}),
+                  "expired": db.api_cache.count_documents({"expires_at": {"$lt": now.replace(tzinfo=None)}})},
+        "other_provider_rows": db.api_call_log.count_documents({"provider": {"$exists": False}}),
+        "paused_reason": S.get(db, "ingest.paused_reason") or None,
+    }

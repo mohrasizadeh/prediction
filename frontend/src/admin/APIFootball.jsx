@@ -13,7 +13,9 @@ import Explorer from "./Explorer";
 
 const TABS = [
   { id: "status", label: "Key and quota" },
+  { id: "usage", label: "Usage and cache" },
   { id: "mapping", label: "Statistic names" },
+  { id: "fresh", label: "Fresh start" },
   { id: "explorer", label: "Endpoint explorer" },
 ];
 
@@ -143,11 +145,157 @@ function Mapping() {
   );
 }
 
+
+// Usage and cache, for THIS provider. The existing /usage counts every row in api_call_log and
+// reads PitchAPI's breaker, which was right while one provider wrote that log.
+function Usage() {
+  const q = useApi("/admin/apifootball/usage");
+  if (q.loading && !q.data) return <Loading rows={4} />;
+  if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  const d = q.data;
+  const days = Object.entries(d.by_day || {});
+  const peak = Math.max(1, ...days.map(([, n]) => n));
+  const b = d.budget || {};
+  return (
+    <div className="a-stack">
+      {d.paused_reason && <Card><h2>Ingest is paused</h2><p className="a-muted">{d.paused_reason}</p>
+        <p className="a-muted small">Saving a key in Keys clears this and the breaker with it.</p></Card>}
+      <Card>
+        <h2>Today</h2>
+        <dl className="a-dl a-dl--tight">
+          <div><dt>Calls</dt><dd>{num(d.calls_today)} of {num(b.today)} we will spend</dd></div>
+          <div><dt>Their count</dt><dd>{(d.quota || {}).day_remaining == null ? "Not seen yet" : `${num(d.quota.day_remaining)} left of ${num(d.quota.day_limit)}`}</dd></div>
+          <div><dt>Kept in reserve</dt><dd>{num(b.reserve)} — so a live tick still has calls on a busy day</dd></div>
+          <div><dt>Pace allowed</dt><dd>{b.per_minute ? `${num(b.per_minute)} a minute · ${b.per_second} a second` : "Not seen yet"}</dd></div>
+          <div><dt>Answer time</dt><dd>{d.ms?.median == null ? "No calls yet" : `${num(d.ms.median)} ms median, ${num(d.ms.max)} ms slowest`}</dd></div>
+        </dl>
+        {/* Their per-second ceiling is in no header: it is derived from the per-minute figure
+            (docs/82 section 2), which is why it can be shown at all. */}
+        <p className="a-muted small">The per-second figure is derived from the per-minute one: the provider publishes it in their plan table but sends it in no header.</p>
+      </Card>
+      <Card>
+        <h2>Last 14 days</h2>
+        <ul className="a-bars" data-testid="af-usage-days">
+          {days.map(([day, n]) => (
+            <li key={day}><span className="a-bars-label">{day.slice(5)}</span>
+              <span className="a-bars-track"><span className="a-bars-fill" style={{ width: `${(n / peak) * 100}%` }} /></span>
+              <span className="a-bars-value">{num(n)}</span></li>
+          ))}
+        </ul>
+      </Card>
+      <Card>
+        <h2>What today's calls were for</h2>
+        {Object.keys(d.by_purpose || {}).length === 0 ? <p className="a-muted">No calls today.</p> : (
+          <dl className="a-dl a-dl--tight">
+            {Object.entries(d.by_purpose).sort((a, b2) => b2[1] - a[1]).map(([k, n]) => (
+              <div key={k}><dt><code>{k}</code></dt><dd>{num(n)}</dd></div>
+            ))}
+          </dl>
+        )}
+        {Object.keys(d.by_status || {}).length > 0 && (
+          <p className="a-muted small">Answers: {Object.entries(d.by_status).map(([k, n]) => `${k} x${n}`).join(" · ")}</p>
+        )}
+        {Object.keys(d.error_codes || {}).length > 0 && (
+          <p className="small" data-testid="af-usage-errors">Errors: {Object.entries(d.error_codes).map(([k, n]) => `${k} x${n}`).join(" · ")}</p>
+        )}
+      </Card>
+      <Card>
+        <h2>Cache and breaker</h2>
+        <dl className="a-dl a-dl--tight">
+          <div><dt>Cached answers</dt><dd>{num(d.cache?.rows)} rows · {num(d.cache?.forever)} kept for ever · {num(d.cache?.expired)} stale</dd></div>
+          <div><dt>Breaker</dt><dd>{d.breaker?.open ? `Open — ${d.breaker.reason}` : "Closed"}</dd></div>
+          {d.other_provider_rows ? <div><dt>Older rows</dt><dd>{num(d.other_provider_rows)} from PitchAPI, which stop growing once the ingest moves</dd></div> : null}
+        </dl>
+        <p className="a-muted small">A finished match is cached for ever: it cannot change, so it is fetched once.</p>
+      </Card>
+    </div>
+  );
+}
+
+// Fresh start. The owner's instinct was to have the host discard the database; this clears the
+// football data and leaves the sign-in, the settings, the keys, the images, the Site Studio and
+// billing alone (docs/83).
+function Fresh() {
+  const toast = useToast();
+  const [mine, setMine] = useState(false);
+  const q = useApi(`/admin/purge/plan?include_mine=${mine}`);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  if (q.loading && !q.data) return <Loading rows={5} />;
+  if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
+  const d = q.data;
+  const go = async () => {
+    setBusy(true);
+    try {
+      const r = await post("/admin/purge", { confirm: typed, include_mine: mine });
+      setDone(r); setTyped(""); toast(`${r.documents} rows cleared`); q.reload();
+    } catch (x) { toast(x.message || "Could not clear", "err"); } finally { setBusy(false); }
+  };
+  return (
+    <div className="a-stack">
+      {done && <Card><h2>Cleared</h2><p>{num(done.documents)} rows across {Object.keys(done.by_collection || {}).length} collections.</p>
+        <p className="a-muted small">Next: add competitions under Competitions, switch them on, and pick seasons to backfill.</p></Card>}
+      <Card>
+        <h2>Clear the football data</h2>
+        <p className="a-muted">
+          Everything a provider gave us, and everything the engine computed from it. The ids differ
+          between providers, so this data cannot be carried across — it is re-fetched, not migrated.
+        </p>
+        <p className="a-muted small">
+          This is not a database drop. Your sign-in, the {num((d.keep || []).length)} kept collections
+          below, your settings, your keys, the images already downloaded, the Site Studio and billing
+          are all left alone.
+        </p>
+        <dl className="a-dl a-dl--tight">
+          <div><dt>Rows to clear</dt><dd>{num(d.total)} across {(d.clear || []).length} collections</dd></div>
+          <div><dt>Counters reset</dt><dd>{(d.counters || []).join(", ")}</dd></div>
+        </dl>
+        {(d.unknown || []).length > 0 && (
+          <div data-testid="af-purge-unknown">
+            <h3>Collections nobody has classified ({d.unknown.length})</h3>
+            <p className="a-muted small">These are left alone, because guessing wrong either keeps old data or deletes something that matters. Tell me about them and I will put them in a group.</p>
+            <ul className="a-list">{d.unknown.map((c) => <li key={c}><code>{c}</code></li>)}</ul>
+          </div>
+        )}
+        <details>
+          <summary>What gets cleared ({(d.clear || []).length})</summary>
+          <ul className="a-list">
+            {(d.clear || []).map((r) => (
+              <li key={r.collection}><code>{r.collection}</code> · {num(r.documents)} · <span className="a-muted">{r.group}</span></li>
+            ))}
+          </ul>
+        </details>
+        <details>
+          <summary>What is kept ({(d.keep || []).length})</summary>
+          <ul className="a-list">
+            {(d.keep || []).map((r) => <li key={r.collection}><code>{r.collection}</code> · {num(r.documents)}</li>)}
+          </ul>
+        </details>
+        <label className="check-row">
+          <input type="checkbox" checked={mine} onChange={(e) => { setMine(e.target.checked); setTyped(""); }} data-testid="af-purge-mine" />
+          Also clear what people saved: follows, notes, saved cards, combos and alerts ({num(d.mine_total)} rows)
+        </label>
+        <p className="a-muted small">Those point at ids that will not exist afterwards, so they would be dead links. They are the one group nobody can re-fetch, which is why they are a separate choice.</p>
+        <label className="a-field">
+          <span>Type <code>{d.confirm_phrase}</code> to confirm</span>
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={d.confirm_phrase}
+                 autoComplete="off" spellCheck={false} data-testid="af-purge-confirm" />
+        </label>
+        <button className="btn btn--danger self-start" disabled={busy || typed !== d.confirm_phrase}
+                onClick={go} data-testid="af-purge-run">
+          <Icon name="trash" size={16} />{busy ? "Clearing…" : `Clear ${num(d.total)} rows`}
+        </button>
+      </Card>
+    </div>
+  );
+}
+
 export default function APIFootball() {
   const { tab } = useParams();
   const nav = useNavigate();
   const pick = TABS.some((t) => t.id === tab) ? tab : "status";
-  const Body = { status: Status, mapping: Mapping, explorer: Explorer }[pick];
+  const Body = { status: Status, usage: Usage, mapping: Mapping, fresh: Fresh, explorer: Explorer }[pick];
   return (
     <div className="a-page" data-testid="admin-apifootball">
       <PageHead title="API-Football" lead="Fixtures, statistics, lineups, live scores, injuries and images — one provider for all of it. Competitions are added and switched on under Leagues." />
