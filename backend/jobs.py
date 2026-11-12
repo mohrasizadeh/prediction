@@ -81,17 +81,55 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
         leagues = list(db.leagues.find({"enabled": True}))
         left = lambda: time.monotonic() - t0 < max_seconds
 
-        if "reference_sync" in forced or _due_every(db, "reference_sync", timedelta(days=S.get(db, "ingest.reference_sync_days")), now):
+        # WHICH PROVIDER FEEDS THE TABLES. docs/88.
+        #
+        # One switch, read once, because the two paths must never both run: they key entities on
+        # different ext_ids, so a league ingested by both is every club and player twice over
+        # (docs/78 §5.1). `provider.source` is the only thing that decides, and the PitchAPI steps
+        # below are skipped wholesale rather than individually -- a half-switched tick is the
+        # failure mode worth designing out.
+        af = S.get(db, "provider.source") == "apifootball"
+        if af:
+            import apifootball as AF
+            import ingest_af as IA
+            afc = AF.Client(db)
+            af_leagues_on = [lg for lg in leagues if lg.get("provider") == "apifootball"]
+            try:
+                if af_leagues_on and ("af_fixtures" in forced or _due_every(
+                        db, "af_fixtures", timedelta(hours=S.get(db, "ingest.fixtures_sync_hours")), now)):
+                    def af_fx():
+                        n = 0
+                        for lg in af_leagues_on:
+                            if not left():
+                                break
+                            n += IA.sync_fixtures(afc, lg, IA._current_season(db, lg))["fixtures"]
+                            I.assign_rounds(db, lg["iid"])
+                        return n
+                    if _run(db, "af_fixtures", af_fx, now) is not None:
+                        out["ran"].append("af_fixtures")
+
+                if left():
+                    res = _run(db, "af_backfill",
+                               lambda: IA.backfill_tick(afc, max_seconds=max(5.0, max_seconds - (time.monotonic() - t0) - 10)),
+                               now)
+                    if res and (res.get("written") or res.get("synced")):
+                        out["ran"].append("af_backfill")
+            except (AF.BudgetExhausted, AF.BreakerOpen, AF.Unauthorized, AF.PlanLimited) as e:
+                # The account, not this tick. Recorded and left for the next one; the engine steps
+                # below still run on the data already in the tables.
+                out["provider_paused"] = f"{type(e).__name__}: {e}"
+
+        if not af and ("reference_sync" in forced or _due_every(db, "reference_sync", timedelta(days=S.get(db, "ingest.reference_sync_days")), now)):
             if _run(db, "reference_sync", lambda: I.sync_leagues(client), now) is not None: out["ran"].append("reference_sync")
 
-        if "fixtures_sync" in forced or _due_every(db, "fixtures_sync", timedelta(hours=S.get(db, "ingest.fixtures_sync_hours")), now):
+        if not af and ("fixtures_sync" in forced or _due_every(db, "fixtures_sync", timedelta(hours=S.get(db, "ingest.fixtures_sync_hours")), now)):
             def fx():
                 for lg in leagues:
                     I.sync_league_matches(client, lg, lg.get("current_season"), "upcoming"); I.assign_rounds(db, lg["iid"])
                 return len(leagues)
             if leagues and _run(db, "fixtures_sync", fx, now) is not None: out["ran"].append("fixtures_sync")
 
-        if "results_sync" in forced or _due_every(db, "results_sync", timedelta(hours=S.get(db, "ingest.results_sync_hours")), now):
+        if not af and ("results_sync" in forced or _due_every(db, "results_sync", timedelta(hours=S.get(db, "ingest.results_sync_hours")), now)):
             def rs():
                 before = db.ingest_queue.count_documents({"task": "match_ingest"})
                 for lg in leagues:        # force=True: one list call per league, always fresh, so new results are seen
@@ -99,7 +137,7 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
                 return {"leagues": len(leagues), "new_matches_queued": db.ingest_queue.count_documents({"task": "match_ingest"}) - before}
             if leagues and _run(db, "results_sync", rs, now) is not None: out["ran"].append("results_sync")
 
-        if "backfill" in forced or db.seasons.count_documents({"backfilled": False, "queued": True}):
+        if not af and ("backfill" in forced or db.seasons.count_documents({"backfilled": False, "queued": True})):
             def bf():
                 n = 0
                 for lg in leagues:
@@ -111,16 +149,19 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
                 return n
             if leagues and _run(db, "backfill", bf, now): out["ran"].append("backfill")
 
-        if left() and S.get(db, "ingest.lineups_watch_enabled"):
+        if not af and left() and S.get(db, "ingest.lineups_watch_enabled"):
             if _run(db, "lineup_watch", lambda: I.lineup_watch(client, now), now) is not None: out["ran"].append("lineup_watch")
 
         if left() and S.get(db, "ingest.match_extra_detail"):
             import cards_model as CM
             _run(db, "referee_watch", lambda: CM.plan_referees(db, now), now)
-        if left():
+        # Images: API-Football carries the logo as a URL on the entity, so `images.py` needs no
+        # provider call at all and `pitch_photos` (cdn.pitchapi.dev, one call per player) is not
+        # just redundant there -- it is a second source of truth for the same crest.
+        if not af and left():
             import pitch_photos as PP
             _run(db, "photo_plan", lambda: PP.plan(db), now)
-        if left():
+        if not af and left():
             res = _run(db, "queue", lambda: I.process_queue(client, max_tasks=200), now)
             if res and (res["done"] or res["skipped"]): out["ran"].append("queue")
 

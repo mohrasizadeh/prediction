@@ -11,9 +11,13 @@ import Icon from "../components/Icon";
 import { Card, Chip, PageHead, num } from "./parts";
 import Explorer from "./Explorer";
 
+// Usage leads. The question on opening this screen is "what is it doing and what has it cost me
+// today", which is a thing that changes hourly; the key and the quota ceiling are settings, and a
+// setting does not earn the first tab. The fallback below opens here too, so /admin/data/apifootball
+// with no tab lands on the answer rather than on the configuration.
 const TABS = [
-  { id: "status", label: "Key and quota" },
   { id: "usage", label: "Usage and cache" },
+  { id: "status", label: "Key and quota" },
   { id: "mapping", label: "Statistic names" },
   { id: "fresh", label: "Fresh start" },
   { id: "explorer", label: "Endpoint explorer" },
@@ -356,7 +360,7 @@ function Fresh() {
 export default function APIFootball() {
   const { tab } = useParams();
   const nav = useNavigate();
-  const pick = TABS.some((t) => t.id === tab) ? tab : "status";
+  const pick = TABS.some((t) => t.id === tab) ? tab : "usage";
   const Body = { status: Status, usage: Usage, mapping: Mapping, fresh: Fresh, explorer: Explorer }[pick];
   return (
     <div className="a-page" data-testid="admin-apifootball">

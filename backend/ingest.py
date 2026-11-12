@@ -173,8 +173,24 @@ def ingest_match(client: PitchClient, match: dict) -> bool:
     for i in out["issues"]:
         issue(db, i["kind"], i["detail"], match_iid=match["iid"], league_iid=match["league_iid"])
 
-    ko = match["kickoff"]
+    write_match(db, match, out)
+    if S.get(db, "ingest.match_extra_detail") or S.get(db, "ingest.match_extra_events"):
+        enqueue(db, "match_extras", ext, priority=6, payload={"match_iid": match["iid"]})
+    return True
+
+
+def write_match(db, match: dict, out: dict) -> None:
+    """Normalized output -> our tables. THE ONE WRITER, for every provider.
+
+    `out` is whatever a normalizer returns -- `normalize.normalize_match` for PitchAPI,
+    `normalize_af.normalize_match` for API-Football -- and the two return the same shape on purpose
+    (docs/85). Everything below this line is about OUR schema and none of it is about a provider, so
+    a second provider that copied it would be sixty lines of team totals and goal columns drifting
+    quietly out of step with these. The fetching differs; the writing must not.
+    """
+    home = db.teams.find_one({"iid": match["home_iid"]}); away = db.teams.find_one({"iid": match["away_iid"]})
     iid_of_team = {home["ext_id"]: home["iid"], away["ext_id"]: away["iid"]}
+    ko = match["kickoff"]
     sides = (("home", home["iid"], away["iid"], match["hg"], match["ag"]),
              ("away", away["iid"], home["iid"], match["ag"], match["hg"]))
     for side, tid, oid, gf, ga in sides:
@@ -218,9 +234,6 @@ def ingest_match(client: PitchClient, match: dict) -> bool:
 
     save_lineups(db, match, out["lineups"], iid_of_team)
     db.matches.update_one({"iid": match["iid"]}, {"$set": {"ingested_at": utcnow(), "lineups_confirmed": True}})
-    if S.get(db, "ingest.match_extra_detail") or S.get(db, "ingest.match_extra_events"):
-        enqueue(db, "match_extras", ext, priority=6, payload={"match_iid": match["iid"]})
-    return True
 
 
 def save_lineups(db, match: dict, lu: dict, iid_of_team: dict | None = None) -> None:
