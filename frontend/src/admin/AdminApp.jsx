@@ -36,18 +36,19 @@ import AdminHome, { Needs } from "./Home";
 import Feeds from "./Feeds";
 import PitchAPI from "./PitchAPI";
 import SportAPI from "./SportAPI";
+import APIFootball from "./APIFootball";
 import Blog from "./Blog";
 
 const SCREENS = { dashboard: AdminHome, needs: Needs, analytics: Analytics, users: Users, staff: Staff, settings: Settings, keys: Keys, logs: Logs, security: Security, health: Health,
   studio: Studio, pages: Content, inbox: Inbox, announcements: Announcements, plans: Plans, leagues: Leagues, jobs: Jobs, engine: Engine,
-  feeds: Feeds, pitchapi: PitchAPI, sportapi: SportAPI,
+  feeds: Feeds, pitchapi: PitchAPI, sportapi: SportAPI, apifootball: APIFootball,
   subscriptions: Subscriptions, payments: Payments, coupons: Coupons, revenue: Revenue, templates: Templates, suppressions: Suppressions, campaigns: Campaigns,
   popups: Popups, newsletter: Newsletter, integrations: Integrations, email_log: EmailLog, media: Media, ads: Ads, schedule: Schedule, screens: Screens, blog: Blog };
 // A tabbed screen owns the routes below its own, so a link to one tab works and Back leaves the screen.
-const WITH_TABS = { analytics: "analytics/:tab", pitchapi: "data/pitchapi/:tab" };
+const WITH_TABS = { analytics: "analytics/:tab", pitchapi: "data/pitchapi/:tab", apifootball: "data/apifootball/:tab" };
 // Screens that were folded into a tabbed one. An old bookmark or an in-app link still lands in the right place.
-const MOVED = [["stats", "/admin/analytics/overview"], ["data/cache", "/admin/data/pitchapi/usage"],
-  ["data/quality", "/admin/data/pitchapi/quality"], ["data/explorer", "/admin/data/pitchapi/explorer"]];
+const MOVED = [["stats", "/admin/analytics/overview"], ["data/cache", "/admin/data/apifootball/explorer"],
+  ["data/quality", "/admin/data/apifootball/mapping"], ["data/explorer", "/admin/data/apifootball/explorer"]];
 const SHORT = { "Site Studio": "Studio", "Ad builder": "Ads", "E-mail list": "List", "Blocked addresses": "Blocked", "Football data feeds": "Feeds", Announcements: "News" };
 
 export function useAdminShell() {

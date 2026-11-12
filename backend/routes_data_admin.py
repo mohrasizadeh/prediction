@@ -340,3 +340,50 @@ def af_confirm(body: AfConfirm, user=Depends(perm("jobs.run")), db=Depends(D.get
              {"catalog": body.key, "af_id": af["id"], "name": af["name"], "role": entry["role"]})
     return {"ok": True, "iid": iid, "league_id": af["id"], "name": af["name"],
             "role": entry["role"], "seasons": body.seasons or years}
+
+
+@router.get("/apifootball/types")
+def af_types(league: int = 0, season: int = 0, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """The statistic names a REAL answer carries, diffed against our map.
+
+    This exists because API-Football identifies a statistic by a DISPLAY STRING -- "Total Shots",
+    "Ball Possession" -- and not by a stable id. A rename is therefore invisible: the column goes
+    null, the market falls under `engine.coverage_min`, and the feed looks like a quiet week. So
+    the map is never trusted silently; it is checked against a finished fixture and anything the
+    provider sent that we do not recognise is listed by name.
+
+    Two calls: one to find a finished fixture, one to read its statistics.
+    """
+    import apifootball as AF
+    c = _af_client(db)
+    lgs = [r for r in db.leagues.find({"provider": AFL.PROVIDER_KEY, "role": AFL.FORECAST}, {"_id": 0, "iid": 1, "ext_id": 1, "name": 1, "current_season": 1})]
+    if not league:
+        if not lgs:
+            return {"ok": False, "reason": "no_forecast_league",
+                    "detail": "Add and confirm a forecast competition first (Add competitions)."}
+        league, season = int(lgs[0]["ext_id"]), season or int(lgs[0].get("current_season") or 0)
+    season = season or _default_seasons(db)[0]
+    try:
+        fx = c.fetch("/fixtures", {"league": int(league), "season": int(season), "status": "FT", "last": 1},
+                     ttl=timedelta(hours=12), purpose="types_probe")
+        if not fx:
+            return {"ok": False, "reason": "no_finished_fixture", "league": league, "season": season}
+        fid = (fx[0].get("fixture") or {}).get("id")
+        rows = c.fetch("/fixtures/statistics", {"fixture": int(fid)}, ttl=AF.FOREVER, purpose="types_probe")
+    except (AF.BudgetExhausted, AF.BreakerOpen, AF.PlanLimited, AF.APIFootballError) as e:
+        return {"ok": False, "reason": type(e).__name__, "detail": str(e)}
+    seen = []
+    for side in rows:
+        for st in side.get("statistics") or []:
+            if st.get("type") and st["type"] not in seen:
+                seen.append(st["type"])
+    mapped = {k: v for k, v in (S.get(db, "provider.apifootball.team_keys") or {}).items()}
+    used = {v for v in mapped.values() if v}
+    return {"ok": True, "league": league, "season": season, "fixture": fid,
+            "seen": seen,
+            # a name we map that the fixture did not carry: either renamed, or not tracked here
+            "missing": sorted(n for n in used if n not in seen),
+            # a name the fixture carried that we map to nothing: a free column, or a rename
+            "unmapped": [n for n in seen if n not in used],
+            "columns_unmapped": sorted(k for k, v in mapped.items() if not v),
+            "map": mapped}

@@ -21,11 +21,12 @@ MODULES = [
     ("needs", "Needs you", "Overview", "bell", "/admin/needs", ("logs.read",)),
     ("analytics", "Analytics", "Overview", "bar-chart", "/admin/analytics", ("analytics.read",)),
 
-    # Football data. PitchAPI backfills history and depth; SportAPI does everything live (docs/42).
+    # Football data. One provider now: API-Football does history, live, lineups, injuries and
+    # images, so the two entries it replaces are retired to MOVED rather than kept beside it
+    # (docs/81). PitchAPI's screens stay reachable by link while its data is still in the database.
     ("feeds", "Feeds", "Football data", "plug", "/admin/data/feeds", ("logs.read", "jobs.run")),
-    ("pitchapi", "PitchAPI", "Football data", "book", "/admin/data/pitchapi", ("jobs.run",)),
-    ("sportapi", "SportAPI", "Football data", "activity", "/admin/data/sportapi", ("logs.read", "jobs.run")),
-    ("leagues", "Leagues", "Football data", "trophy", "/admin/data/leagues", ("jobs.run",)),
+    ("apifootball", "API-Football", "Football data", "activity", "/admin/data/apifootball", ("logs.read", "jobs.run")),
+    ("leagues", "Competitions", "Football data", "trophy", "/admin/data/leagues", ("jobs.run",)),
     ("jobs", "Jobs", "Football data", "clock", "/admin/data/jobs", ("jobs.run",)),
 
     ("engine", "Engine", "Forecasts", "target", "/admin/data/engine", ("jobs.run",)),
@@ -72,11 +73,14 @@ GROUP_ORDER = ["Overview", "Football data", "Forecasts", "People", "Marketing", 
 
 # Screens folded into another one, kept so an old bookmark or link still lands somewhere sensible. The front end
 # redirects; nothing else needs to know.
-MOVED = {"stats": "/admin/analytics", "cache": "/admin/data/pitchapi/usage", "quality": "/admin/data/pitchapi/quality",
-         "explorer": "/admin/data/pitchapi/explorer"}
+MOVED = {"stats": "/admin/analytics", "cache": "/admin/data/apifootball/explorer",
+         "quality": "/admin/data/apifootball/mapping", "explorer": "/admin/data/apifootball/explorer",
+         # the two providers API-Football replaces: an old bookmark lands on the screen that now
+         # does that job rather than on a dead menu entry
+         "pitchapi": "/admin/data/apifootball/status", "sportapi": "/admin/data/apifootball/status"}
 
 # the phone bottom bar prefers these, in this order, from whatever the role may use
-DEFAULT_TABS = ["dashboard", "needs", "feeds", "sportapi", "jobs", "engine", "users", "analytics", "studio", "popups", "inbox", "subscriptions", "logs"]
+DEFAULT_TABS = ["dashboard", "needs", "feeds", "apifootball", "jobs", "engine", "users", "analytics", "studio", "popups", "inbox", "subscriptions", "logs"]
 MAX_TABS = 4
 
 

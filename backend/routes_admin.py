@@ -541,6 +541,11 @@ def key_save(provider: str, body: KeyBody, user=Depends(perm("keys.write")), db=
     if provider == "pitchapi":
         S.reset(db, "ingest.paused_reason", actor=user["email"])
         db.job_locks.delete_one({"_id": "pitch_breaker"})
+    if provider == "apifootball":
+        # A rejected key pauses ingest and trips the breaker (apifootball._unwrap). Saving a new
+        # one is the owner saying "try again", so both have to clear or the new key never gets used.
+        S.reset(db, "ingest.paused_reason", actor=user["email"])
+        db.job_locks.delete_one({"_id": "af_breaker"})
     AQ.audit(db, user, "key.save", provider)                       # the key itself is never logged
     return key_view(db, provider)
 
@@ -562,6 +567,14 @@ def key_test(provider: str, user=Depends(perm("settings.write")), db=Depends(D.g
         if provider == "pitchapi":
             PitchClient(db).fetch("/v1/leagues", ttl=timedelta(minutes=1), purpose="key_test", force=True)
             return {"ok": True}
+        if provider == "apifootball":
+            # /status is the right test and the only free one: it reports the plan and today's
+            # usage without spending a call, so testing a key never costs the budget it reports on.
+            import apifootball as AF
+            st = AF.Client(db).status()
+            sub, req = st.get("subscription") or {}, st.get("requests") or {}
+            return {"ok": bool(sub.get("active", True)), "plan": sub.get("plan"), "ends": sub.get("end"),
+                    "used_today": req.get("current"), "limit_day": req.get("limit_day")}
         if provider == "stripe_secret":
             b = SB.Stripe(db).req("GET", "/balance")
             return {"ok": True, "livemode": bool(b.get("livemode"))}
