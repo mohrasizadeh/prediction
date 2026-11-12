@@ -100,8 +100,14 @@ def t_same_shape_as_pitchapi():
           {"team", "players", "lineups", "team_totals", "issues"} <= set(r))
     check("team is home and away, each with our column names",
           set(r["team"]) == {"home", "away"} and "shots" in r["team"]["home"])
-    check("team_totals carries only the stats whose team total sits on the player row",
-          set(r["team_totals"]["home"]) == {"shots", "sot", "tackles", "fouls_committed", "goal_involvements"})
+    # SIX, not five. `saves` joined them because engine_bridge requires ("saves", "team_saves") and
+    # nothing but simulate.py had ever written team_saves -- so the saves market was dropped in
+    # every real league while the tests passed on synthetic rows. The set is written out rather
+    # than derived so that adding a seventh has to be a deliberate edit here: this set IS the list
+    # of markets that can exist, and a column that arrives late arrives empty.
+    check("team_totals carries exactly the stats whose team total sits on the player row",
+          set(r["team_totals"]["home"]) == {"shots", "sot", "tackles", "fouls_committed",
+                                            "goal_involvements", "saves"})
 
 
 def t_team_stats_read_by_name():
