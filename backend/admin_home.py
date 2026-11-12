@@ -36,6 +36,13 @@ def _age_tone(last, limit, *, never="red"):
     return "red" if age > limit else "amber" if age > 0.8 * limit else "green"
 
 
+# The jobs that count as "we pulled data". BOTH providers' names, because the API-Football tick
+# logs af_fixtures / af_backfill and the PitchAPI one logged fixtures_sync / results_sync -- read
+# only the second pair and "last sync" freezes at whatever PitchAPI last did and ages for ever.
+# That shipped on the public site as "Data last updated 17 hours ago" (docs/89, routes_data).
+PULL_JOBS = ["af_fixtures", "af_backfill", "fixtures_sync", "results_sync"]
+
+
 def _af_status(db, now) -> dict:
     """What the two provider tiles need, from API-Football's own counters.
 
@@ -63,7 +70,7 @@ def tiles(db, now: datetime) -> list[dict]:
     day0 = now.replace(hour=0, minute=0, second=0, microsecond=0)
     reset = day0 + timedelta(days=1)
     h = AQ.health(db, now)
-    sync = db.job_runs.find_one({"job": {"$in": ["fixtures_sync", "results_sync"]}, "status": "ok"}, {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
+    sync = db.job_runs.find_one({"job": {"$in": PULL_JOBS}, "status": "ok"}, {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
     last_sync = (sync or {}).get("finished_at") or (sync or {}).get("started_at")
     # BOTH TILES NAME API-FOOTBALL, because that is what serves both. They used to say PitchAPI and
     # SportAPI and open those screens; the screens are gone, so a tile still pointing at them was a
@@ -113,7 +120,7 @@ def feeds(db, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     reset = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     h = AQ.health(db, now)
-    sync = db.job_runs.find_one({"job": {"$in": ["fixtures_sync", "results_sync"]}, "status": "ok"},
+    sync = db.job_runs.find_one({"job": {"$in": PULL_JOBS}, "status": "ok"},
                                 {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
     queued = db.ingest_queue.count_documents({"status": "queued"})
     af = _af_status(db, now)

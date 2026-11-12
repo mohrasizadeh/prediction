@@ -55,14 +55,26 @@ def public_status(response: Response, db=Depends(D.get_db)):
     """Footer line "Data updated 3 hours ago" and the stale banner."""
     _cache(response)
     last = {}
-    for job in ("fixtures_sync", "results_sync", "engine", "reference_sync"):
+    import admin_home as _AH
+    for job in (*_AH.PULL_JOBS, "engine", "reference_sync"):
         # the engine logs one run per league as "engine:<league>" (jobs.py), so match on the prefix (docs/36 H10)
         q = {"job": {"$regex": r"^engine(:|$)"}} if job == "engine" else {"job": job}
         r = db.job_runs.find_one({**q, "status": "ok"}, {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
         last[job] = (r.get("finished_at") or r.get("started_at")) if r else None
     stamps = [v for v in last.values() if v]
-    # Stale banner (docs/03 §4.7): data is the provider pulls, not the engine re-running on old data
-    pulls = [v for v in (last["fixtures_sync"], last["results_sync"]) if v]
+    # Stale banner (docs/03 §4.7): data is the provider pulls, not the engine re-running on old data.
+    #
+    # BOTH PROVIDERS' PULL JOBS, because this asked only for PitchAPI's. The API-Football tick logs
+    # `af_fixtures` and `af_backfill` (jobs.py), so after the move neither name here ever appeared
+    # again: the newest pull stayed whatever PitchAPI last did, and the banner counted up from it
+    # for ever -- "Data last updated 17 hours ago" on a site being refreshed every few minutes.
+    # Reported by the owner, and it is the fourth reader found keyed on the retired provider
+    # (docs/89).
+    #
+    # The union rather than a switch on `provider.source`: a pull is a pull whoever made it, the
+    # newest wins, and a database part-way through the move reads correctly without a special case.
+    import admin_home as _AH
+    pulls = [last[j] for j in _AH.PULL_JOBS if last.get(j)]
     limit = float(S.get(db, "ingest.stale_limit_hours") or 0)
     newest = max(pulls) if pulls else None
     if newest is not None and newest.tzinfo is None:

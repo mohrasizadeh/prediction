@@ -831,6 +831,62 @@ def _I():
 
 
 
+# ------------------------------------------------------------------ 18. the stale banner
+def t_the_stale_banner_sees_the_api_football_pulls():
+    """"Data last updated 17 hours ago" on a site refreshing every few minutes.
+
+    /public/status measured `fixtures_sync` and `results_sync` -- PitchAPI's job names. The
+    API-Football tick logs `af_fixtures` and `af_backfill`, so after the move neither name appeared
+    again, the newest pull stayed whatever PitchAPI last did, and the banner counted up from it for
+    ever. The fourth reader found keyed on the retired provider (docs/89).
+    """
+    from datetime import timedelta as _td
+    import routes_data as RD, settings_store as _S
+    db = seed()
+    _S.put(db, "ingest.stale_limit_hours", 6)
+    now = IA.utcnow()
+
+    # a PitchAPI pull long ago, and an API-Football pull a minute ago
+    db.job_runs.insert_one({"job": "fixtures_sync", "status": "ok", "started_at": now - _td(hours=17),
+                            "finished_at": now - _td(hours=17)})
+    db.job_runs.insert_one({"job": "af_fixtures", "status": "ok", "started_at": now - _td(minutes=1),
+                            "finished_at": now - _td(minutes=1)})
+
+    class _Resp:
+        def __init__(self): self.headers = {}
+    out = RD.public_status(_Resp(), db=db)
+    check(f"a fresh API-Football pull clears the banner (stale={out['stale']}, "
+          f"hours={out.get('stale_hours')})", out["stale"] is False)
+    check("...and af_fixtures is one of the jobs it looks at", "af_fixtures" in out["last_ok"])
+
+    # with ONLY the old pull, it must still go stale -- the fix must not silence the banner
+    db2 = seed()
+    _S.put(db2, "ingest.stale_limit_hours", 6)
+    db2.job_runs.insert_one({"job": "fixtures_sync", "status": "ok", "started_at": now - _td(hours=17),
+                             "finished_at": now - _td(hours=17)})
+    out2 = RD.public_status(_Resp(), db=db2)
+    check(f"an old pull and nothing newer is still stale ({out2.get('stale_hours')}h)",
+          out2["stale"] is True and out2["stale_hours"] == 17)
+
+    # and a backfill counts as a pull too
+    db3 = seed()
+    _S.put(db3, "ingest.stale_limit_hours", 6)
+    db3.job_runs.insert_one({"job": "af_backfill", "status": "ok", "started_at": now - _td(minutes=5),
+                             "finished_at": now - _td(minutes=5)})
+    check("a backfill is a pull", RD.public_status(_Resp(), db=db3)["stale"] is False)
+
+    # ONE LIST, shared. The admin Home tile and the Feeds panel read "last sync" from the same job
+    # names and had the same bug, so a second copy would drift. admin_home.PULL_JOBS is the list and
+    # routes_data reads it rather than keeping its own.
+    import admin_home as _AH
+    check(f"the pull-job list is shared, not copied ({_AH.PULL_JOBS})",
+          set(_AH.PULL_JOBS) == {"af_fixtures", "af_backfill", "fixtures_sync", "results_sync"})
+    tiles = {t["id"]: t for t in _AH.tiles(db, now)}
+    check(f"the admin Data tile sees the API-Football pull too ({tiles['data'].get('last_sync')})",
+          tiles["data"].get("last_sync") is not None)
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
@@ -842,7 +898,8 @@ for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_w
            t_a_fresh_install_runs_api_football,
            t_backfill_survives_a_second_season,
            t_the_engine_gets_every_column_it_asks_for,
-           t_images_need_no_provider_call_and_the_dead_queue_goes):
+           t_images_need_no_provider_call_and_the_dead_queue_goes,
+           t_the_stale_banner_sees_the_api_football_pulls):
     print(fn.__name__)
     fn()
 
