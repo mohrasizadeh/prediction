@@ -153,20 +153,30 @@ with TestClient(srv.app) as c:
     check(r.status_code == 200 and r.json()["items"].keys() == one["items"].keys(), "GET /api/live-forecasts answers the whole feed at once")
     check("max-age" in r.headers.get("cache-control", ""), "...and is cached, because every open feed asks for it")
 
-# the admin panel's routes: see the state with no provider call, and teach a name
+# THE SPORTAPI ADMIN SURFACE IS GONE (docs/89 section 3).
+#
+# This block used to drive /admin/sportapi/live-stats and /stats-keys: read the live-statistics
+# state for free, then teach the provider's word for a count. Both endpoints were deleted with the
+# provider. The capability did not vanish with them, and it is worth being precise about where it
+# went, because the two providers have different versions of the same problem:
+#
+#   SportAPI   named a count in its own words, so a name had to be TAUGHT, and the state was
+#              readable for nothing because it was all ours.
+#   API-Football identifies a statistic by a DISPLAY STRING with no stable id, so the map is
+#              checked against a real finished fixture -- /admin/apifootball/types, which spends two
+#              calls on purpose -- while the map itself is a setting and reads for free.
 with TestClient(srv.app) as owner:
     admin = K.boot(owner)[0]
-    r = admin.get("/api/admin/sportapi/live-stats")
-    j = r.json()
-    check(r.status_code == 200 and set(j["stats"]) == set(SP.BUILTIN_STAT_NAMES) and "coverage" in j,
-          "Admin can read the live-statistics state without spending a call")
-    check(j["coverage"]["found"]["shots"] is True and "Offsides" in j["coverage"]["unmatched"], "...and it carries the coverage just written")
-    check(any(f["sid"] == 77 for f in j["fixtures"]), "...and lists fixtures that can be checked")
-    check(admin.post("/api/admin/sportapi/stats-keys", json={"stat": "nope", "name": "x"}).status_code == 400, "an unknown count is refused")
-    ok = admin.post("/api/admin/sportapi/stats-keys", json={"stat": "shots", "name": "Goal Attempts"})
-    check(ok.status_code == 200 and "Goal Attempts" in ok.json()["stats_keys"]["shots"], "a provider name can be taught from the panel")
-    check(SP.stat_alias(S.get(db, "sportapi.stats_keys")).get("goalattempts") == "shots", "...and it is used from then on")
-    again = admin.post("/api/admin/sportapi/stats-keys", json={"stat": "shots", "name": "goal attempts"})
-    check(again.json().get("note") == "already known", "the same name twice is not added twice")
+    for path in ("/api/admin/sportapi/live-stats", "/api/admin/sportapi/leagues",
+                 "/api/admin/sportapi/backfill", "/api/admin/sportapi/stats-keys"):
+        r = admin.get(path) if "backfill" not in path and "stats-keys" not in path else admin.post(path, json={})
+        check(r.status_code == 404, f"{path} is gone, not merely unlinked ({r.status_code})")
+
+    # the map that replaced the taught names, readable with no provider call
+    keys = S.get(db, "provider.apifootball.team_keys")
+    check(isinstance(keys, dict) and keys,
+          f"the API-Football statistic map is a setting, so it reads for free ({len(keys or {})} counts)")
+    check(any("shot" in str(v).lower() or "shot" in str(k).lower() for k, v in (keys or {}).items()),
+          "...and it maps the counts the engine needs")
 
 print("PASS selftest_livetrack")
