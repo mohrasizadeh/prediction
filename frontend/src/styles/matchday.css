@@ -282,16 +282,16 @@
 .mc-page .mc-fc-group > .v2-sec-head { margin-top: 20px; }
 .mc-page .mc-fc-ctl + .mc-fc-group > .v2-sec-head { margin-top: 4px; }
 @media (max-width: 520px) { .mc-form5 { gap: 2px; } .mc-form5 .fp { width: 17px; height: 17px; font-size: 10px; border-radius: 4px; } }
-/* Phone: the hero is the whole first screen unless it is kept tight. Follow and Share become the
-   two round icon buttons in its top corners (the place the mockup puts Follow), so the row they
-   held goes; their words stay in the DOM at font-size 0, which keeps each button's accessible name.
-   The kick-off time steps down so five form pills fit under each club without wrapping. */
+/* Phone: the hero is the whole first screen unless it is kept tight. Follow and Share move out of
+   the footer row into the hero's top corners (where the mockup puts Follow), above the competition
+   line, so the 56px row they held goes. Follow keeps its word -- a bare "+" there reads as "add to
+   combo", the other plus on this page. Share keeps its words in the DOM at font-size 0, which keeps
+   the button's accessible name. The kick-off time steps down so five form pills fit under each club. */
 @media (max-width: 520px) {
-  .mc-page .mc-hero { position: relative; }
-  .mc-page .mc-when { padding: 0 46px; min-height: 36px; }
-  .mc-page .mc-foot .mc-actions { position: absolute; top: 10px; left: 10px; right: 10px; justify-content: space-between; pointer-events: none; }
-  .mc-page .mc-foot .mc-actions .btn { pointer-events: auto; width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50%; font-size: 0; gap: 0; justify-content: center; }
-  .mc-page .mc-foot .mc-actions .btn .ico, .mc-page .mc-foot .mc-actions .btn svg { width: 18px; height: 18px; }
+  .mc-page .mc-hero { position: relative; padding-top: 60px; }
+  .mc-page .mc-foot .mc-actions { position: absolute; top: 8px; left: 8px; right: 8px; justify-content: space-between; pointer-events: none; }
+  .mc-page .mc-foot .mc-actions .btn { pointer-events: auto; min-height: 44px; height: 44px; padding: 0 14px; font-size: 14px; }
+  .mc-page .mc-foot .mc-actions .share-btn { width: 44px; padding: 0; border-radius: 50%; font-size: 0; gap: 0; justify-content: center; }
   .mc-page .mc-foot .mc-actions .btn:only-child { margin-left: auto; }
   .mc-page .mc-row { gap: 8px; }
   .mc-ko { font-size: 24px; }
