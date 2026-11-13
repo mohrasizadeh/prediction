@@ -15,8 +15,13 @@
 .mst-poss-h, .mst-group-h { margin: 0; font-size: 13px; font-weight: 600; color: var(--text2); text-align: center; }
 .mst-poss-bar { display: flex; gap: 2px; height: 32px; border-radius: var(--r-pill, 999px); overflow: hidden; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .mst-poss-bar span { display: flex; align-items: center; min-width: 52px; flex-grow: 0; flex-shrink: 1; }
-.mst-poss-home { justify-content: flex-start; padding-left: 12px; background: var(--chart1); color: var(--on-brand, var(--bg)); }
-.mst-poss-away { justify-content: flex-end; padding-right: 12px; background: var(--chart2); color: var(--on-brand, var(--bg)); }
+/* Text on a solid --chart2 measured 4.37:1 in one theme, so the numbers sit on a tint of the side's
+   colour in the page's own ink (--text), and the solid colour is kept as a band along the bottom.
+   --text on a 30% tint of either chart colour over the card clears 4.5:1 in light and dark. */
+.mst-poss-home { justify-content: flex-start; padding-left: 12px; color: var(--text);
+  background: color-mix(in srgb, var(--chart1) 30%, var(--surface1)); box-shadow: inset 0 -5px 0 var(--chart1); }
+.mst-poss-away { justify-content: flex-end; padding-right: 12px; color: var(--text);
+  background: color-mix(in srgb, var(--chart2) 30%, var(--surface1)); box-shadow: inset 0 -5px 0 var(--chart2); }
 
 .mst-group { display: grid; gap: 4px; padding-top: 16px; border-top: .5px solid var(--hig-separator, var(--border)); }
 .mst-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
@@ -25,9 +30,10 @@
 .mst-label { text-align: center; font-size: 14px; color: var(--text); }
 .mst-val { justify-self: start; min-width: 32px; padding: 2px 8px; border-radius: var(--r-pill, 999px); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: center; color: var(--text); }
 .mst-val--away { justify-self: end; }
-/* The bigger number is the one the eye should land on: its side's colour behind it. */
-.mst-val--home.is-more { background: var(--chart1); color: var(--on-brand, var(--bg)); }
-.mst-val--away.is-more { background: var(--chart2); color: var(--on-brand, var(--bg)); }
+/* The bigger number is the one the eye should land on: its side's colour behind it.
+   Same reason as possession: a tint in the page's ink, ringed in the solid side colour. */
+.mst-val--home.is-more { background: color-mix(in srgb, var(--chart1) 30%, var(--surface1)); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--chart1); }
+.mst-val--away.is-more { background: color-mix(in srgb, var(--chart2) 30%, var(--surface1)); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--chart2); }
 .mst-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .mst-track { display: flex; height: 6px; border-radius: 3px; background: var(--surface3); overflow: hidden; }
 .mst-track--home { justify-content: flex-end; }
@@ -62,14 +68,15 @@
 .mst-sort-ico { flex: none; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: .6; }
 .mst-sort.is-on .mst-sort-ico { opacity: 1; }
 
-/* Rating badge: tier tokens by band (MatchStats.ratingBand), number always printed. --on-brand is the
-   ink each theme pairs with its accent colours (black on the bright dark-mode tints, white on light). */
-.mst-rate { display: inline-block; min-width: 30px; padding: 1px 5px; border-radius: 6px; font-size: 12px; font-weight: 700; line-height: 16px; text-align: center;
-  font-variant-numeric: tabular-nums; color: var(--on-brand, var(--bg)); background: var(--text3); }
-.mst-rate--top { background: var(--tier-strong, var(--up)); }
-.mst-rate--good { background: var(--tier-solid, var(--brand)); }
-.mst-rate--fair { background: var(--tier-watch, var(--text3)); }
-.mst-rate--low { background: var(--down); color: var(--on-down, var(--on-brand)); }
+/* Rating badge: tier tokens by band (MatchStats.ratingBand), number always printed. Like the stat
+   values above, the band colour is a tint plus a solid ring and the number is in the page's ink:
+   white or black text on a solid tier colour fell to 4.37:1 in a Site Studio theme. */
+.mst-rate { --band: var(--text3); display: inline-block; min-width: 30px; padding: 1px 5px; border-radius: 6px; font-size: 12px; font-weight: 700; line-height: 16px; text-align: center;
+  font-variant-numeric: tabular-nums; color: var(--text); background: color-mix(in srgb, var(--band) 30%, var(--surface1)); box-shadow: inset 0 0 0 1.5px var(--band); }
+.mst-rate--top { --band: var(--tier-strong, var(--up)); }
+.mst-rate--good { --band: var(--tier-solid, var(--brand)); }
+.mst-rate--fair { --band: var(--tier-watch, var(--text3)); }
+.mst-rate--low { --band: var(--down); }
 
 /* On the pitch the badge takes the slot the start-chance pill uses before kick-off (the two never meet). */
 .mst-rate--pitch { font-size: 10px; line-height: 14px; min-width: 26px; padding: 0 4px; }
