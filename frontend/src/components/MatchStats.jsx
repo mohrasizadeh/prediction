@@ -1,7 +1,12 @@
-// Match page, Stats tab: what each side did. Two sources, one set of bars:
+// Match page: what each side did. Two sources, one set of bars:
 //   * while the match is on, `live_stats` -- the team numbers the live tick stored (queries._live_stats),
-//     refreshed by the page's own 30-second poll, with how old they are printed beside them;
-//   * after full time, `team_stats` and `player_stats` (queries._match_stats), plus every player's numbers.
+//     refreshed by the page's own 30-second poll, with how old they are printed beside them; drawn on
+//     the Live tab under the timeline;
+//   * after full time, `team_stats` and `player_stats` (queries._match_stats), drawn on the Facts tab:
+//     the team block, then every player's numbers.
+// There used to be a Stats tab for these, beside a Facts tab whose "Top stats" were five of the same
+// rows: the owner could not tell the two apart (round 4), so the numbers now live on the one tab that
+// tells the match, and nowhere else.
 // Possession as two figures over one split bar, then grouped paired bars, then the player table.
 //
 // A value the provider did not send is null and prints "–": a 0 would be a claim we do not hold. A row
@@ -119,7 +124,7 @@ const SETS = [
 
 const DEFAULT_SORT = { top: ["minutes"], attack: ["shots", "goals"], defence: ["tackles", "interceptions"], gk: ["saves"] };
 
-function PlayerTable({ d }) {
+export function PlayerTable({ d }) {
   const ps = d.player_stats;
   const rows = useMemo(() => ps || [], [ps]);
   // Only columns somebody in this match has a number for, and only sets that keep at least one of them.
@@ -129,7 +134,9 @@ function PlayerTable({ d }) {
   const [setId, setSetId] = useState("top");
   const set = sets.find((s) => s.id === setId) || sets[0];
   const [sort, setSort] = useState(null);                     // { key, dir }; null = the set's natural order
-  if (!rows.length || !set) return <Empty icon="users" testid="stats-players-empty">No player numbers for this match yet.</Empty>;
+  // On Facts the timeline and the team block already say the match; an empty players card under them
+  // would only say that a feed did not send something, so it is left out.
+  if (!rows.length || !set) return null;
   // Each set opens on its headline column: the rating where there is one, else the number the set is about.
   const key = sort && set.cols.includes(sort.key) ? sort.key : [...(set.cols.includes("rating") ? ["rating"] : []), ...(DEFAULT_SORT[set.id] || [])].find((c) => set.cols.includes(c)) || set.cols[0];
   const dir = sort && sort.key === key ? sort.dir : "desc";
@@ -146,7 +153,7 @@ function PlayerTable({ d }) {
   const team_ = { home: d.home, away: d.away };
   return (
     <section className="mst-players" aria-labelledby="mst-players-h" data-testid="stats-players">
-      <h2 className="k-sec" id="mst-players-h">Players</h2>
+      <h2 className="mst-micro" id="mst-players-h">Player stats</h2>
       <div className="mst-ctl">
         <Seg label="Team" value={team} onChange={setTeam} testid="stats-team"
           options={[{ id: "both", label: "Both" }, { id: "home", label: d.home.name }, { id: "away", label: d.away.name }]} />
@@ -248,20 +255,19 @@ function TeamStats({ d, ts, mode }) {
   );
 }
 
-// Which numbers this tab draws: the stored full-time ones once they are in; until then, while the match
-// is on (or just over, before the full-time numbers are ingested), the live feed's. Match.jsx shows the
-// tab only when one of the two exists, and uses this to decide.
+// Which numbers the page draws: the stored full-time ones once they are in; until then, while the match
+// is on (or just over, before the full-time numbers are ingested), the live feed's. null = none at all.
 export const statsMode = (d) => (d?.match?.status === "final" && d.team_stats ? "final"
   : d?.live_stats && (d.live_stats.home || d.live_stats.away) ? (d.match?.status === "final" ? "feed" : "live") : null);
 
-export default function MatchStats({ d }) {
+// The team block for whichever numbers exist (Live tab while on, Facts after), or nothing.
+export function TeamBlock({ d }) {
   const mode = statsMode(d);
+  if (!mode) return null;
   return (
-    <div className="mst" data-testid="match-stats">
-      {mode && <TeamStats d={d} ts={mode === "final" ? d.team_stats : d.live_stats} mode={mode} />}
-      {mode === "final" && <PlayerTable d={d} />}
+    <>
+      <TeamStats d={d} ts={mode === "final" ? d.team_stats : d.live_stats} mode={mode} />
       {mode === "live" && <p className="mst-note muted small" data-testid="stats-live-note">Numbers from the match feed. They refresh by themselves while the match is on; each player&rsquo;s numbers follow after full time.</p>}
-      {!mode && <Empty icon="activity" testid="stats-team-empty">The numbers for this match have not arrived.</Empty>}
-    </div>
+    </>
   );
 }

@@ -20,6 +20,7 @@ import Combos from "./pages/Combos";
 import { Insights } from "./pages/Insights";
 import { Likely } from "./pages/Likely";
 import Waitlist from "./pages/Waitlist";
+import CardHarness from "./CardHarness"; // V10CHECK-TEMP
 import TrackRecord from "./pages/TrackRecord";
 import Welcome from "./pages/Welcome";
 import { Learn, LearnArticle } from "./pages/Learn";
@@ -101,6 +102,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Today />} />
           <Route path="match/:id" element={<Match />} />
+          <Route path="dev/card" element={<CardHarness />} />{/* V10CHECK-TEMP */}
           <Route path="live" element={<Live />} />
           {/* A component gallery, not a product page: behind the same staff check as /admin. */}
           {process.env.NODE_ENV !== "production" && <Route path="dev/kit" element={<DevKit />} />}

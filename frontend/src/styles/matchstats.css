@@ -1,17 +1,13 @@
-/* Match page Stats tab (components/MatchStats.jsx) and the rating badge it shares with the pitch
+/* Match page team and player numbers (components/MatchStats.jsx, on the Live and Facts tabs) and the rating badge it shares with the pitch
    (components/LiveLineups.jsx). Home is --chart1 and away --chart2, the same pair the pitch rings and
    the head-to-head bar use, so a side keeps one colour across the whole page. Tokens only. */
 
 /* Measured against the locked v10 card (docs/redesign/v10, likely.css) and the match page's other
    cards: a 16px radius, a 1px --border edge and 16px padding at every width; uppercase micro-labels at
    10px/800/.07em in --text3 like "LAST 10 · DID HE REACH IT"; tabular figures (800, -.035em) with a small unit at
-   .42em; gaps on the 4/8px rhythm. Facts' "Top stats" (Match.jsx TopStats) draws with these classes
-   too, so the two read as one object. */
-.mst { display: grid; gap: 24px; min-width: 0; }
+   .42em; gaps on the 4/8px rhythm. */
 .mst-team { display: grid; gap: 16px; padding: 16px; border-radius: 16px; background: var(--surface1); border: 1px solid var(--border); min-width: 0; }
 .mst-cardhead { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
-/* A card head is the micro-label, whichever class drew it (Facts' TopStats uses .k-sec here). */
-.mst-cardhead .k-sec, .mst-cardhead .mst-micro { margin: 0; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text3); line-height: 1.3; }
 .mst-micro { margin: 0; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text3); line-height: 1.3; }
 /* "Live · updated 2 min ago": the micro-label, with the site's pulsing live dot (live.css) in front. */
 .mst-when { margin: 0; display: inline-flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 800; letter-spacing: .07em;
@@ -22,7 +18,7 @@
 .mst-head b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mst-head--away { justify-content: flex-end; text-align: right; }
 
-/* Possession, in the Stats tab: the two shares as figures (the card's own number treatment -- big,
+/* Possession: the two shares as figures (the card's own number treatment -- big,
    tabular, a small unit) over one split bar in the two side colours. */
 .mst-poss { display: grid; gap: 8px; }
 .mst-poss-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 8px; }
@@ -34,19 +30,6 @@
 .mst-split i { display: block; min-width: 4px; }
 .mst-split-home { background: var(--chart1); }
 .mst-split-away { background: var(--chart2); }
-
-/* The older possession bar, numbers inside each half: Facts' "Top stats" still draws this one. */
-.mst-poss-h, .mst-group-h { margin: 0; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text3); }
-.mst-poss-h { text-align: center; }
-.mst-poss-bar { display: flex; gap: 2px; height: 32px; border-radius: var(--r-pill, 999px); overflow: hidden; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.mst-poss-bar span { display: flex; align-items: center; min-width: 52px; flex-grow: 0; flex-shrink: 1; }
-/* Text on a solid --chart2 measured 4.37:1 in one theme, so the numbers sit on a tint of the side's
-   colour in the page's own ink (--text), and the solid colour is kept as a band along the bottom.
-   --text on a 30% tint of either chart colour over the card clears 4.5:1 in light and dark. */
-.mst-poss-home { justify-content: flex-start; padding-left: 12px; color: var(--text);
-  background: color-mix(in srgb, var(--chart1) 30%, var(--surface1)); box-shadow: inset 0 -5px 0 var(--chart1); }
-.mst-poss-away { justify-content: flex-end; padding-right: 12px; color: var(--text);
-  background: color-mix(in srgb, var(--chart2) 30%, var(--surface1)); box-shadow: inset 0 -5px 0 var(--chart2); }
 
 /* Groups close on a hairline, the way the card's footer does; the label sits on the card's left edge. */
 .mst-group { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
@@ -73,7 +56,7 @@
 
 /* Player table */
 .mst-players { display: grid; gap: 12px; min-width: 0; }
-.mst-players .k-sec { margin: 0; }
+.mst-players > .mst-micro { line-height: 1.4; }
 .mst-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; }
 .mst-ctl .seg2 { max-width: 100%; overflow-x: auto; }
 /* The segmented control's buttons were 34px tall here; every target on the page is 44 (v10 §3). */
@@ -131,5 +114,5 @@
   .mst-val.is-more { outline: 1px solid var(--text); }
 }
 @media (forced-colors: active) {
-  .mst-poss-home, .mst-poss-away, .mst-track i, .mst-split i, .mst-val.is-more, .mst-rate { forced-color-adjust: none; border: 1px solid CanvasText; }
+  .mst-track i, .mst-split i, .mst-val.is-more, .mst-rate { forced-color-adjust: none; border: 1px solid CanvasText; }
 }

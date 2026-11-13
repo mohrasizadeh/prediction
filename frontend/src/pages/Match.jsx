@@ -1,5 +1,6 @@
-// Screen 2, Match (docs/34): hero with win/draw/loss, then four tabs: Live (while on) or Facts (after),
-// Forecasts (with a short Preview under it before kick-off: first goal, style, head to head), Lineups, Stats.
+// Screen 2, Match (docs/34): hero with win/draw/loss, then the tabs: Live (while on) or Facts (after),
+// Forecasts, Lineups, H2H. The match's numbers live on Live / Facts only (round 4: a separate Stats tab
+// repeated Facts' top rows and the owner could not tell the two apart).
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
@@ -12,7 +13,7 @@ import MatchPreview from "../components/MatchPreview";
 import MatchSide from "../components/MatchSide";
 import MatchEvents, { GOALS, Momentum, normEvent } from "../components/MatchEvents";
 import LiveLineups, { PitchView, lineOf } from "../components/LiveLineups";
-import MatchStats, { statsMode, Possession } from "../components/MatchStats";
+import { TeamBlock, PlayerTable } from "../components/MatchStats";
 import { utc } from "../lib/time";
 import { ForecastList, Skeleton } from "../components/ui";
 import { tierLabel } from "../lib/copy";
@@ -20,6 +21,10 @@ import { isLiveNow } from "../lib/live";
 import { pct } from "../lib/copy";
 
 const cardsOf = (d) => d.cards || d.forecasts;
+
+// The Preview under Forecasts (who scores first, playing style) is hidden until analysis is developed.
+// The component stays; flip this to bring it back. Head to head has its own tab now.
+const SHOW_ANALYSIS = false;
 
 // ------------------------------------------------------------------ Live and Recap
 // The provider's score block, in the shape MatchEvents reads (sportapi.overlay -> match.live).
@@ -62,6 +67,7 @@ function LiveTab({ d }) {
         <MatchEvents events={ev} testid="match-live-events" phase="live" score={feedScore(d)} status={d.match.live?.status} {...names}
           emptyText="Goals, cards and substitutions appear here as they happen. This page refreshes every 30 seconds." />
       </section>
+      <TeamBlock d={d} />
       {q.loading ? <Loading rows={2} /> : q.error
         ? <p className="muted small" data-testid="match-live-lineups-error">The lineups from the match feed did not load. <button type="button" className="k-link" onClick={q.reload}>Try again</button></p>
         : (q.data?.lineups?.home || q.data?.lineups?.away) && (
@@ -104,58 +110,9 @@ function Events({ d }) {
 }
 
 // ------------------------------------------------------------------ Facts (finished match)
-// The match's own numbers first, the way a reader checks a result: five paired bars from the stored
-// team stats (queries.match_detail `team_stats`, null until the match is final), the timeline, each
-// club's form going in, and how our forecasts did. A value we do not hold is "–", never 0, and a row
-// with neither side known is left out.
-const TOP = [
-  ["xg", "Expected goals (xG)", (v) => v.toFixed(2)],
-  ["shots", "Total shots", (v) => String(Math.round(v))],
-  ["sot", "Shots on target", (v) => String(Math.round(v))],
-  ["corners", "Corners", (v) => String(Math.round(v))],
-];
-const known = (v) => typeof v === "number" && Number.isFinite(v);
-const dash = (v, fmt) => (known(v) ? fmt(v) : "–");
-
-// Drawn with the Stats tab's own classes (matchstats.css, `.mst-*`), so a number reads the same in
-// both places and "All stats" opens onto rows that look like these ones, with more of them.
-function TopStats({ d, onAll }) {
-  const ts = d.team_stats;
-  if (!ts) return null;
-  const rows = TOP.filter(([k]) => known(ts.home?.[k]) || known(ts.away?.[k]));
-  const ph = ts.home?.poss, pa = ts.away?.poss, poss = known(ph) && known(pa) && ph + pa > 0;
-  if (!rows.length && !poss) return null;
-  return (
-    <section className="mfx-sec mst-team" aria-labelledby="mfx-top-h" data-testid="facts-top-stats">
-      <header className="mfx-head">
-        <h2 className="k-sec" id="mfx-top-h">Top stats</h2>
-        {onAll && <button type="button" className="btn btn--secondary btn--sm" onClick={onAll} data-testid="facts-all-stats">All stats</button>}
-      </header>
-      {poss && <div data-testid="facts-stat-poss"><Possession h={ph} a={pa} home={d.home?.name} away={d.away?.name} /></div>}
-      {rows.length > 0 && <ul className="mst-rows">{rows.map(([k, label, fmt]) => {
-        const h = ts.home?.[k], a = ts.away?.[k];
-        const max = Math.max(known(h) ? h : 0, known(a) ? a : 0);
-        const more = known(h) && known(a) && h !== a ? (h > a ? "home" : "away") : null;
-        const w = (v) => (!known(v) || max <= 0 ? 0 : (v / max) * 100);
-        return (
-          <li key={k} className="mst-row" data-testid={`facts-stat-${k}`}>
-            <div className="mst-row-top" aria-hidden="true">
-              <span className={`mst-val mst-val--home${more === "home" ? " is-more" : ""}`}>{dash(h, fmt)}</span>
-              <span className="mst-label">{label}</span>
-              <span className={`mst-val mst-val--away${more === "away" ? " is-more" : ""}`}>{dash(a, fmt)}</span>
-            </div>
-            <div className="mst-bars" aria-hidden="true">
-              <span className="mst-track mst-track--home"><i className={more === "home" ? "is-more" : ""} style={{ width: `${w(h)}%` }} /></span>
-              <span className="mst-track mst-track--away"><i className={more === "away" ? "is-more" : ""} style={{ width: `${w(a)}%` }} /></span>
-            </div>
-            <span className="sr-only">{label}: {d.home.name} {dash(h, fmt)}, {d.away.name} {dash(a, fmt)}</span>
-          </li>
-        );
-      })}</ul>}
-    </section>
-  );
-}
-
+// The one tab after full time, in the order a reader checks a result: how the goals came (timeline),
+// what each side did (MatchStats' team block: possession and every grouped row), how our forecasts did,
+// each player's numbers, then each club's form going in. A value we do not hold is "–", never 0.
 // Each club's last five league results before this match, oldest to newest, from the league's
 // finished fixtures (the rows the side column's table is built from). Cup matches are not in them,
 // so the heading says "league". Each result is a link to that match.
@@ -210,13 +167,18 @@ function ForecastRecap({ d, onAll }) {
   );
 }
 
-function Facts({ d, finals, onStats, onForecasts }) {
+function Facts({ d, finals, onForecasts }) {
+  // A timeline the feed sent nothing for is an empty state, so it follows the numbers instead of leading.
+  const tl = <section className="mfx-sec card" aria-labelledby="mfx-ev-h" data-testid="facts-timeline"><header className="mfx-head"><h2 className="k-sec" id="mfx-ev-h">Timeline</h2></header><Events d={d} /></section>;
+  const hasEv = (d.events || []).length > 0;
   return (
     <div className="mc-facts" data-testid="match-facts">
-      <TopStats d={d} onAll={onStats} />
-      <section className="mfx-sec card" aria-labelledby="mfx-ev-h" data-testid="facts-timeline"><header className="mfx-head"><h2 className="k-sec" id="mfx-ev-h">Timeline</h2></header><Events d={d} /></section>
-      <FactsForm d={d} finals={finals} />
+      {hasEv && tl}
+      <TeamBlock d={d} />
+      {!hasEv && tl}
       <ForecastRecap d={d} onAll={onForecasts} />
+      {d.match.status === "final" && <PlayerTable d={d} />}
+      <FactsForm d={d} finals={finals} />
     </div>
   );
 }
@@ -360,10 +322,11 @@ export default function Match() {
   // /match/:id always opens on the tab its state calls for, and that changes as the match does.
   const [sp, setSp] = useSearchParams();
   const pick = sp.get("tab");
-  // The Analysis tab became the Preview under Forecasts. An old ?tab=analysis link opens the default
-  // tab (below) and loses the dead parameter in place, so it is not shared on from the address bar.
+  // Tabs that are gone: Analysis (its head to head is the H2H tab, the rest is hidden) and Stats (its
+  // numbers are on Live / Facts, the default tab once the match has started). An old link opens the
+  // default tab (below) and loses the dead parameter in place, so it is not shared on from the address bar.
   useEffect(() => {
-    if (pick !== "analysis") return;
+    if (pick !== "analysis" && pick !== "stats") return;
     const next = new URLSearchParams(sp);
     next.delete("tab");
     setSp(next, { replace: true, preventScrollReset: true });
@@ -392,7 +355,7 @@ export default function Match() {
     io.observe(el);
     return () => io.disconnect();
   }, [hasD, id]);
-  // Four tabs. The first one is the match itself while it is on (Live) or over (Facts); before kick-off it is the forecasts.
+  // The first tab is the match itself while it is on (Live) or over (Facts); before kick-off it is the forecasts.
   const first = st === "live" ? "live" : st === "final" ? "facts" : null;
   // The one page seo.title_template was written for, so it is the one that supplies {team1}/{team2}.
   useTitle(d ? `${d.home.name} v ${d.away.name}` : "Match", {
@@ -409,15 +372,11 @@ export default function Match() {
     ...(first ? [{ id: first, label: first === "live" ? "Live" : "Facts" }] : []),
     { id: "forecasts", label: "Forecasts", badge: n || null, badgeLabel: n ? `${n} forecasts` : undefined },
     { id: "lineups", label: "Lineups", badge: confirmed ? "✓" : null, badgeLabel: "confirmed" },
-    // What each side did: the live feed's numbers while it is on (queries._live_stats), the stored
-    // full-time ones after (queries._match_stats). Never before kick-off, and not live when the live
-    // statistics setting is off and none were stored.
-    ...(st !== "before" && st !== "lineups" && statsMode(d) ? [{ id: "stats", label: "Stats" }] : []),
   ];
   // A ?tab= this state does not have (recap on a match not yet played, an old link) opens the default.
   const def = first || "forecasts";
   // The finished match's first tab was called Recap; links shared with ?tab=recap still open it.
-  // ?tab=analysis (the tab the Preview replaced) is simply not a tab any more, so it opens the default.
+  // ?tab=analysis and ?tab=stats are not tabs any more, so they open the default.
   const asked = pick === "recap" ? "facts" : pick;
   const tab = tabs.some((t) => t.id === asked) ? asked : def;
   const setTab = (t) => {
@@ -447,12 +406,11 @@ export default function Match() {
           <MiniBar d={d} shown={mini} />
         </div>
         <div className="mc-pane" role="tabpanel" id="match-panel" aria-labelledby={`match-tabs-tab-${tab}`} ref={paneRef} data-testid={`match-pane-${tab}`}>
-          {tab === "live" && (d.live?.sid ? <LiveTab d={d} /> : <Events d={d} />)}
-          {tab === "facts" && <Facts d={d} finals={finals} onStats={tabs.some((t) => t.id === "stats") ? () => setTab("stats") : null} onForecasts={() => setTab("forecasts")} />}
+          {tab === "live" && (d.live?.sid ? <LiveTab d={d} /> : <div className="mc-facts"><Events d={d} /><TeamBlock d={d} /></div>)}
+          {tab === "facts" && <Facts d={d} finals={finals} onForecasts={() => setTab("forecasts")} />}
           {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
-          {tab === "forecasts" && (st === "before" || st === "lineups") && <MatchPreview d={d} />}
+          {SHOW_ANALYSIS && tab === "forecasts" && (st === "before" || st === "lineups") && <MatchPreview d={d} />}
           {tab === "lineups" && <Lineups d={d} />}
-          {tab === "stats" && <MatchStats d={d} />}
         </div>
       </div>
       {/* The side column: beside the tabs from 1280px (matchday.css), every tab but Forecasts. Narrower, it falls

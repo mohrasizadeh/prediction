@@ -255,7 +255,7 @@ def match_detail(db, match_iid: int) -> dict | None:
                          for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "level" in c},
             "context": {c["team_iid"]: {"form_vs_expected": c.get("form_fp"), "situation": c.get("stakes"), "games_left": c.get("games_left"), "why": c.get("context_why", [])}
                         for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "form_fp" in c},
-            "h2h": h2h(db, m["home_iid"], m["away_iid"]),
+            "h2h": h2h(db, m["home_iid"], m["away_iid"], exclude=match_iid),
             "availability": _availability(db, (m["home_iid"], m["away_iid"])),
             "live": m.get("live"), "live_events": _live_events(db, m), "recap": _recap(db, m, ev),
             "team_stats": team_stats, "player_stats": player_stats, "live_stats": _live_stats(db, m),
@@ -639,13 +639,29 @@ FEED_SORTS = {
 }
 
 
-def h2h(db, a: int, b: int, limit: int = 10) -> dict:
-    ms = list(db.matches.find({"status": "final", "$or": [{"home_iid": a, "away_iid": b}, {"home_iid": b, "away_iid": a}]},
-                              {"_id": 0}).sort("kickoff", -1).limit(limit))
+def h2h(db, a: int, b: int, limit: int = 20, exclude: int | None = None) -> dict:
+    """The finished meetings of clubs a and b, newest first, with what they add up to.
+
+    `exclude`: the match being viewed, so a finished match's own result is not counted as its own
+    history (the page filtered it out of the list, but the counts above the list still included it).
+    `summary` / `insights` come from h2h_summary over the same meetings the list shows; each match row
+    also carries its `league` {id, name} so the list can say which competition it was.
+    """
+    import h2h_summary as HS
+    q = {"status": "final", "hg": {"$ne": None}, "$or": [{"home_iid": a, "away_iid": b}, {"home_iid": b, "away_iid": a}]}
+    if exclude is not None:
+        q["iid"] = {"$ne": exclude}
+    ms = list(db.matches.find(q, {"_id": 0}).sort("kickoff", -1).limit(limit))
+    ms = [m for m in ms if m.get("hg") is not None and m.get("ag") is not None]
     wa = sum(1 for m in ms if (m["home_iid"] == a and m["hg"] > m["ag"]) or (m["away_iid"] == a and m["ag"] > m["hg"]))
     wb = sum(1 for m in ms if (m["home_iid"] == b and m["hg"] > m["ag"]) or (m["away_iid"] == b and m["ag"] > m["hg"]))
+    summary, insights = HS.summarize(db, a, b, ms)
     _with_teams(db, ms)
-    return {"a_wins": wa, "b_wins": wb, "draws": len(ms) - wa - wb, "matches": ms}
+    lg = {d["iid"]: {"id": d.get("id"), "name": d.get("name")}
+          for d in db.leagues.find({"iid": {"$in": list({m.get("league_iid") for m in ms})}}, {"_id": 0, "iid": 1, "id": 1, "name": 1})}
+    for m in ms:
+        m["league"] = lg.get(m.get("league_iid"))
+    return {"a_wins": wa, "b_wins": wb, "draws": len(ms) - wa - wb, "matches": ms, "summary": summary, "insights": insights}
 
 
 def _with_teams(db, ms: list[dict]) -> list[dict]:
