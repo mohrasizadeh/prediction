@@ -2410,6 +2410,16 @@
     "help": "How often the job looks for crests, logos and player photos it does not have yet. API-Football carries the picture's URL on the entity, so finding one costs no provider call and only the download itself takes time. 0 turns the schedule off and leaves it to Run now."
   },
   {
+    "key": "images.run_seconds",
+    "group": "Images",
+    "label": "Longest picture run (seconds)",
+    "type": "number",
+    "default": 600,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "How long one picture run may download for. It runs beside the ingest job, not inside it, so a backfill can no longer leave it five seconds. While pictures are still missing it runs again on the next tick (every 15 minutes) instead of waiting for the schedule above. Downloads are free on API-Football: they do not count against the daily quota."
+  },
+  {
     "key": "images.enabled",
     "group": "Images",
     "label": "Show club, league and player images",
@@ -2434,9 +2444,9 @@
     "group": "Images",
     "label": "API calls the image sync may use per day",
     "type": "int",
-    "default": 90,
+    "default": 5000,
     "public": false,
-    "help": "The free plan allows 100. The rest is headroom.",
+    "help": "API calls (not image downloads) the picture sync may spend in a day. On API-Football the ids are ours, so the sync needs almost none: this only matters for leftovers from an older provider that still need name matching. Image downloads are free and not counted. It shares the one API-Football quota (75,000 a day on Ultra).",
     "applies_at": "immediately"
   },
   {

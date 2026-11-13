@@ -168,7 +168,7 @@
 .mc-foot .mc-actions { justify-content: flex-end; gap: 8px; }
 .mc-foot .mc-actions .btn { min-height: 40px; padding: 0 14px; }
 .mc-pitchcol { min-width: 0; }
-@media (max-width: 520px) { .mc-hero { padding: 14px; } .mc-team .crest, .mc-team img { max-width: 52px; } .mc-foot .mc-actions .btn { padding: 0 12px; } }
+@media (max-width: 520px) { .mc-hero { padding: 14px; } .mc-team .crest, .mc-team img { max-width: 52px; } .mc-team .media-flag { width: 52px !important; height: 52px !important; } .mc-foot .mc-actions .btn { padding: 0 12px; } }
 
 .lv-lines { padding: 16px 18px; display: grid; gap: 10px; }
 .lv-lines-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -445,9 +445,6 @@
 }
 /* Live: the momentum strip and the feed's lineups are cards like the timeline between them. */
 .mc-page .mc-live { padding: 0; gap: 12px; }
-.mc-page .mc-live .tl-mo { max-width: none; padding: 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface1); gap: 12px; }
-.mc-page .mc-live .tl-mo figcaption { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text3); }
-.mc-page .mc-live .tl-mo-key { font-size: 12.5px; }
 .mc-page .live-lu { padding: 0 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface1); }
 .mc-page .live-lu summary { min-height: 52px; font-size: 15px; font-weight: 700; }
 .mc-page .live-lu[open] { padding-bottom: 16px; }

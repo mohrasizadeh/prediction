@@ -12,7 +12,8 @@ import { Forecasts, Hero, MiniBar, matchState } from "../components/MatchCentre"
 import MatchPreview from "../components/MatchPreview";
 import MatchH2H from "../components/MatchH2H";
 import MatchSide from "../components/MatchSide";
-import MatchEvents, { GOALS, Momentum, normEvent } from "../components/MatchEvents";
+import MatchEvents, { GOALS, normEvent } from "../components/MatchEvents";
+import MatchFlow from "../components/MatchFlow";
 import LiveLineups, { PitchView, lineOf } from "../components/LiveLineups";
 import { TeamBlock, PlayerTable } from "../components/MatchStats";
 import { utc } from "../lib/time";
@@ -62,7 +63,7 @@ function LiveTab({ d }) {
   return (
     <div className="live-detail mc-live" data-testid="match-live">
       <Stale at={d.match.live?.at || d.live?.at} />
-      <Momentum events={ev} testid="match-momentum" {...names} />
+      <MatchFlow flow={d.flow} {...names} testid="match-flow" />
       <section className="mfx-sec card" aria-labelledby="mc-live-tl-h">
         <header className="mfx-head"><h2 className="k-sec" id="mc-live-tl-h">Timeline · newest first</h2></header>
         <MatchEvents events={ev} testid="match-live-events" phase="live" score={feedScore(d)} status={d.match.live?.status} {...names}
@@ -175,6 +176,7 @@ function Facts({ d, finals, onForecasts }) {
   return (
     <div className="mc-facts" data-testid="match-facts">
       {hasEv && tl}
+      <MatchFlow flow={d.flow} home={d.home.name} away={d.away.name} testid="facts-flow" />
       <TeamBlock d={d} />
       {!hasEv && tl}
       <ForecastRecap d={d} onAll={onForecasts} />

@@ -61,6 +61,43 @@ def _due_every(db, job, delta: timedelta, now) -> bool:
     return last is None or (now - last["started_at"].replace(tzinfo=timezone.utc)) >= delta
 
 
+def _images_due(db, now) -> bool:
+    """On the schedule, or straight away while the last run left pictures behind."""
+    hours = float(S.get(db, "images.sync_hours") or 0)
+    last = _last(db, "images")
+    if last and isinstance(last.get("result"), dict) and last["result"].get("done") is False:
+        return True                                   # a backlog: keep going every tick
+    return bool(hours) and _due_every(db, "images", timedelta(hours=hours), now)
+
+
+def _spawn_threaded(fn):
+    import threading
+    threading.Thread(target=fn, name="images", daemon=True).start()
+
+
+_SPAWN = _spawn_threaded         # tests swap in a synchronous runner
+
+
+def _spawn_images(db, refresh: bool = False, now=None) -> bool:
+    """Start one picture run beside the tick. Its own lock, so two never overlap."""
+    now = now or utcnow()
+    secs = float(S.get(db, "images.run_seconds") or 600)
+    db.job_locks.delete_many({"_id": "images", "expires_at": {"$lt": now}})
+    try:
+        db.job_locks.insert_one({"_id": "images", "at": now, "expires_at": now + timedelta(seconds=secs + 120)})
+    except DuplicateKeyError:
+        return False
+
+    def go():
+        try:
+            import images as IMG
+            _run(db, "images", lambda: IMG.run_sync(db, max_seconds=secs, refresh=refresh), now)
+        finally:
+            db.job_locks.delete_one({"_id": "images"})
+    _SPAWN(go)
+    return True
+
+
 def _run(db, job, fn, now):
     row = {"job": job, "started_at": now, "status": "running"}
     rid = db.job_runs.insert_one(row).inserted_id
@@ -118,6 +155,14 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
                         return n
                     if _run(db, "af_fixtures", af_fx, now) is not None:
                         out["ran"].append("af_fixtures")
+
+                # Tables as the competitions run them -- groups, one table, or none at all
+                # (standings.py). Only leagues that played in the last day or have nothing stored,
+                # so a quiet Tuesday costs two calls, not one per competition every hour.
+                if af_leagues_on and left() and ("standings" in forced or _due_every(db, "standings", timedelta(minutes=30), now)):
+                    import standings as ST
+                    if _run(db, "standings", lambda: ST.sync_due(afc, af_leagues_on, now=now, left=left), now) is not None:
+                        out["ran"].append("standings")
 
                 # `left()` OR asked for. Run now has to mean now: a tick that has already spent its
                 # seconds would otherwise take the request and do nothing with it.
@@ -254,9 +299,14 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
         # design, so a new club cannot inherit an old club's crest -- which left a purged site with
         # no crests and nothing scheduled to fetch them, and every club and player a backfill added
         # waiting on a human. Reported as "I don't see any images". docs/89.
-        if left() and ("images" in forced or _due_every(db, "images", timedelta(hours=float(S.get(db, "images.sync_hours") or 6)), now)):
-            import images as IMG
-            if _run(db, "images", lambda: IMG.run_sync(db, max_seconds=max(5.0, min(40.0, max_seconds - (time.monotonic() - t0))), refresh=img_refresh), now) is not None: out["ran"].append("images")
+        # ITS OWN THREAD AND ITS OWN CLOCK. Pictures ran inside the tick with whatever seconds were
+        # left -- and the backfill above takes all but ten of them, so on a site still backfilling
+        # the picture run got its five-second minimum every six hours: a few crests a day, against
+        # thousands of clubs and players. Downloads cost no quota, so the only limit worth having is
+        # the media host's pace. While pictures are missing it goes again every tick.
+        if "images" in forced or _images_due(db, now):
+            if _spawn_images(db, refresh=img_refresh, now=now):
+                out["ran"].append("images")
         if left() and ("blog" in forced or _due_every(db, "blog", timedelta(hours=6), now)):
             # docs/72: prepare DRAFT posts for TOMORROW's matches -- the post has to exist before
             # the match to be found by anyone searching the fixture, and to give a reader a reason

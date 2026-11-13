@@ -176,32 +176,3 @@ export default function MatchEvents({ events = [], testid = "live-events", score
   );
 }
 
-// Goals and cards per quarter-hour for each side -- what the feed can honestly say about who was pushing.
-// Substitutions are left out (they are the bench's decision, not the run of play). Only drawn from three
-// events up (docs/redesign/README: data gaps).
-export function Momentum({ events, testid = "momentum", home = "Home", away = "Away" }) {
-  const ev = events.map(normEvent).filter((e) => e.side && e.base != null && e.kind !== "sub");
-  if (ev.length < 3) return null;
-  const last = Math.max(90, ...ev.map((e) => e.base));
-  const n = Math.ceil(last / 15);
-  const bins = Array.from({ length: n }, (_, i) => {
-    const xs = ev.filter((e) => Math.min(n - 1, Math.floor((e.base - 1) / 15)) === i);
-    return [xs.filter((e) => e.side === "home").length, xs.filter((e) => e.side === "away").length];
-  });
-  const max = Math.max(1, ...bins.flat());
-  const sum = bins.map(([h, a], i) => `${i * 15}-${(i + 1) * 15}': ${home} ${h}, ${away} ${a}`).join("; ");
-  return (
-    <figure className="tl-mo" data-testid={testid}>
-      <figcaption>Goals and cards by quarter-hour</figcaption>
-      <div className="tl-mo-bars" role="img" aria-label={`Goals and cards by quarter-hour. ${sum}`}>
-        {bins.map(([h, a], i) => (
-          <span key={i} className="tl-mo-bin" aria-hidden="true">
-            <i className="tl-mo-h" style={{ height: `${(h / max) * 100}%` }} />
-            <i className="tl-mo-a" style={{ height: `${(a / max) * 100}%` }} />
-          </span>
-        ))}
-      </div>
-      <div className="tl-mo-key" aria-hidden="true"><span className="tl-mo-kh">{home} up</span><span className="tl-mo-ka">{away} down</span></div>
-    </figure>
-  );
-}

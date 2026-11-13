@@ -210,7 +210,8 @@ def usage(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
                 codes[r["code"]] = codes.get(r["code"], 0) + 1
     br = db.job_locks.find_one({"_id": "pitch_breaker"})
     exp = br and (br["expires_at"] if br["expires_at"].tzinfo else br["expires_at"].replace(tzinfo=timezone.utc))
-    return {"calls_today": today_n, "budget": S.get(db, "ingest.daily_call_budget"),
+    # The running provider's ceiling (75,000 a day on API-Football's Ultra), not PitchAPI's figure.
+    return {"calls_today": today_n, "budget": _provider_budget(db),
             "by_day": [{"day": k, "count": v} for k, v in sorted(by_day.items())],
             "by_purpose": purpose, "by_status": status, "error_codes": codes,
             "breaker": {"open": bool(exp and exp > now), "reason": br.get("reason") if br else None, "until": exp if exp and exp > now else None},
@@ -256,6 +257,7 @@ def _season_matches(db, league_iid, label):
 
 @router.get("/leagues")
 def leagues(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    AFL.ensure_seasons(db)            # every season the provider carries, not the three a league was born with
     out = []
     for lg in Q.attach_images(db, "leagues", db.leagues.find({}, {"_id": 0}).sort([("enabled", -1), ("name", 1)])):
         seasons = []
@@ -307,7 +309,8 @@ class Zone(BaseModel):
 
 class LeagueBody(BaseModel):
     enabled: Optional[bool] = None
-    backfill_seasons: Optional[list[str]] = Field(default=None, max_length=30)
+    # Up to 60: API-Football carries some competitions back to 2008-2010 and the drawer offers all of them.
+    backfill_seasons: Optional[list[str]] = Field(default=None, max_length=60)
     zones: Optional[list[Zone]] = Field(default=None, max_length=8)
     role: Optional[Literal["forecast", "calendar", "off"]] = None
 

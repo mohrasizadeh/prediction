@@ -178,4 +178,10 @@ def status(db) -> dict:
     return {"detail": bool(S.get(db, "ingest.match_extra_detail")), "events": bool(S.get(db, "ingest.match_extra_events")),
             "done": db.matches.count_documents({"extras_at": {"$ne": None}}), "ingested": db.matches.count_documents({"ingested_at": {"$ne": None}}),
             "pending": left, "calls_needed": left * on, "calls_per_new_match": on,
-            "daily_budget": S.get(db, "ingest.daily_call_budget")}
+            "daily_budget": _budget(db)}
+
+
+def _budget(db) -> int:
+    """The running provider's daily ceiling (routes_data_admin._provider_budget), not PitchAPI's."""
+    from routes_data_admin import _provider_budget
+    return _provider_budget(db)

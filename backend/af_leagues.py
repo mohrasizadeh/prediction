@@ -490,3 +490,31 @@ def switch(db, league_id: int, on: bool, seasons: list[int] | None = None, role:
     db.leagues.update_one({"iid": iid}, {"$set": {"enabled": bool(on)}})
     db[CATALOG_COLL].update_one({"_id": int(league_id)}, {"$set": {"enabled_iid": iid}})
     return {"iid": iid, "league_id": int(league_id), "on": bool(on), "role": entry["role"]}
+
+
+def ensure_seasons(db) -> int:
+    """Give every API-Football competition a season row for EVERY season the provider carries.
+
+    Competitions switched on before the `[:3]` fix (see `set_enabled`) were created with three season
+    rows, and the seasons drawer can only offer the rows that exist -- so "I can only backfill three
+    seasons" outlived the fix for every league that was already on. The catalogue holds the full
+    list; this adds what is missing and touches nothing that is there (a row's `backfilled` and
+    `queued` flags are ours). Cheap: one read of the catalogue rows for the leagues we hold.
+    """
+    n = 0
+    lgs = list(db.leagues.find({"provider": PROVIDER_KEY}, {"iid": 1, "ext_id": 1}))
+    ids = [int(l["ext_id"]) for l in lgs if str(l.get("ext_id", "")).isdigit()]
+    if not ids:
+        return 0
+    years = {c["_id"]: c.get("years") or [] for c in db[CATALOG_COLL].find({"_id": {"$in": ids}}, {"years": 1})}
+    for lg in lgs:
+        if not str(lg.get("ext_id", "")).isdigit():
+            continue
+        have = {s["label"] for s in db.seasons.find({"league_iid": lg["iid"]}, {"label": 1})}
+        for y in years.get(int(lg["ext_id"]), []):
+            if y and str(y) not in have:
+                db.seasons.update_one({"league_iid": lg["iid"], "label": str(y)},
+                                      {"$setOnInsert": {"backfilled": False}}, upsert=True)
+                n += 1
+    return n
+

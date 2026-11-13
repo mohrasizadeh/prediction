@@ -33,6 +33,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import apifootball as AF
+import match_flow as MF
 import normalize_af as NAF
 import settings_store as S
 
@@ -261,6 +262,44 @@ def _store_lineups(db, fixture: dict, now: datetime) -> int:
         n += 1
     return n
 
+def _settle_dropped(db, client, fixtures: list[dict], now: datetime) -> int:
+    """Matches that were in play last tick and are missing from this tick's feed: ask for them by id.
+
+    `?live=` returns IN-PLAY fixtures only, so a match leaves the feed the moment it ends -- and
+    full time was therefore the one status this tick never saw. `_store` above knows exactly what to
+    do with a match that goes final (stamp it, queue its statistics), but it was never handed one:
+    the row kept the last thing it was told, "2H, 90'", and every screen showed the match still
+    running until the fixtures sync came round an hour or two later with the result.
+
+    One `?ids=` call (twenty a call, forced past the cache because the answer is about NOW) asks
+    those fixtures what they are. FT, AET or PEN goes through `_store`, which then does everything a
+    final status triggers. A fixture still in play just means the feed was late: it is left alone
+    and the next tick has it.
+
+    Only rows that kicked off in the last twelve hours: a row stuck "in play" because the provider
+    never resolved it (abandoned, then nothing) is asked about for half a day, not for ever.
+    """
+    seen = {int((f.get("fixture") or {}).get("id")) for f in fixtures
+            if (f.get("fixture") or {}).get("id") is not None}
+    gone = [r["sid"] for r in db.live_fixtures.find(
+        {"provider": PROVIDER, "in_play": True, "sid": {"$nin": list(seen)},
+         "kickoff": {"$gte": now - timedelta(hours=12)}}, {"sid": 1})]
+    if not gone:
+        return 0
+    try:
+        now_state = AF.fixtures_bundle(client, gone, ttl=timedelta(seconds=0), purpose="live_final", force=True)
+    except (AF.BudgetExhausted, AF.BreakerOpen, AF.Unauthorized, AF.PlanLimited):
+        return 0
+    n = 0
+    for fixture in now_state.values():
+        st = ((fixture.get("fixture") or {}).get("status") or {}).get("short")
+        if st in AF.IN_PLAY:
+            continue
+        _store(db, fixture, now)
+        n += 1
+    return n
+
+
 def live_tick(db, client=None, now: datetime | None = None) -> dict:
     """One call for every in-play fixture in our competitions, plus statistics where they exist."""
     now = now or utcnow()
@@ -289,6 +328,8 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
     # Statistics are not on the live payload. Only fixtures actually producing them are worth a
     # call -- half time is live and barren -- and they go twenty at a time like everything else.
     want = AF.needs_stats(fixtures)
+    minute_of = {int((f.get("fixture") or {}).get("id")): ((f.get("fixture") or {}).get("status") or {})
+                 for f in fixtures if (f.get("fixture") or {}).get("id") is not None}
     if want and S.get(db, "apifootball.live_stats"):
         # NOT `ttl=None`, which caches FOR EVER (apifootball.fetch). Two things went wrong with it:
         #
@@ -359,7 +400,13 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
                                                "statistics": fixture.get("statistics") or []}},
                                      upsert=True)
             out["stats"] += 1
+            # And this minute's totals kept, not just the latest: match_flow turns them into the
+            # momentum and possession timeline the match page draws (the provider has none).
+            st_now = (fixture.get("fixture") or {}).get("status") or minute_of.get(int(fid)) or {}
+            mrow = db.matches.find_one({"ext_id": str(fid)}, {"iid": 1})
+            MF.record(db, int(fid), (mrow or {}).get("iid"), st_now.get("elapsed"), teams_block, now)
             out["lineups"] = out.get("lineups", 0) + _store_lineups(db, fixture, now)
+    out["finished"] = _settle_dropped(db, client, fixtures, now)
     db.job_state.update_one({"_id": "live_tick"},
                             {"$set": {"at": now, "provider": PROVIDER, **out}}, upsert=True)
     return out

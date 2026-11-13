@@ -268,6 +268,7 @@ def match_detail(db, match_iid: int) -> dict | None:
             "availability": _availability(db, (m["home_iid"], m["away_iid"])),
             "live": m.get("live"), "live_events": _live_events(db, m), "recap": _recap(db, m, ev),
             "team_stats": team_stats, "player_stats": player_stats, "live_stats": _live_stats(db, m),
+            "flow": _flow(db, m, ev),
             # Only API-Football names a coach (ingest.save_lineups); None means "do not show".
             "coach": {"home": (m.get("coach") or {}).get("home"), "away": (m.get("coach") or {}).get("away")}}
 
@@ -306,6 +307,17 @@ def _match_stats(db, m):
            for r in rows if r.get("minutes") is None or r["minutes"] > 0]
     out.sort(key=lambda r: (r["side"] != "home", not r.get("started"), -(r.get("minutes") or 0)))
     return team_stats, out
+
+
+def _flow(db, m, ev):
+    """Momentum and possession by five minutes (match_flow), from the live tick's own snapshots."""
+    import match_flow as MF
+    sid = (m.get("live") or {}).get("sid")
+    if sid is None:
+        sid = ((db.live_fixtures.find_one({"match_iid": m["iid"]}, {"sid": 1}) or {}).get("sid"))
+    src = ev or db.live_events.find({"fixture_sid": sid}, {"_id": 0, "type": 1, "side": 1, "minute": 1}) if sid is not None else ev
+    goals = [{"minute": e.get("minute"), "side": e.get("side")} for e in (src or []) if e.get("type") == "goal"]
+    return MF.flow(db, sid, goals)
 
 
 def _live_stats(db, m):

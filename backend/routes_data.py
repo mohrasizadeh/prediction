@@ -176,6 +176,16 @@ def league_fixtures(league_id: str, response: Response, status: str = Query("sch
     return Q.league_matches(db, lg["iid"], status, limit=limit)
 
 
+@router.get("/leagues/{league_id}/standings")
+def league_standings(league_id: str, response: Response, season: str = Query("", pattern=r"^(\d{4}(/\d{4})?)?$"),
+                     db=Depends(D.get_db)):
+    """The table as the competition runs it: one table, several groups, or knockout rounds."""
+    import standings as ST
+    lg = _league(db, league_id)
+    _cache(response)
+    return ST.read(db, lg, season or None)
+
+
 @router.get("/leagues/{league_id}/leaderboard")
 def league_leaderboard(league_id: str, response: Response, stat: str = "shots", per90: bool = False,
                        min_minutes: int = Query(450, ge=0, le=5000), limit: int = Query(50, ge=1, le=200), db=Depends(D.get_db)):

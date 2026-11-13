@@ -25,7 +25,11 @@ function Seasons({ lg, budget, perMatch, onClose, onSaved }) {
   return (
     <Drawer open onClose={onClose} title={`${lg.name}: seasons`} testid="league-drawer" footer={<button className="btn btn--primary" onClick={save} data-testid="league-seasons-save">Save seasons</button>}>
       <div className="a-stack">
-        <p className="a-muted">Ticked seasons are queued for the backfill job. Finished seasons are cached for ever, so each is fetched once.</p>
+        <p className="a-muted">Every season API-Football carries for this competition. Ticked seasons are queued for the backfill job. Finished seasons are cached for ever, so each is fetched once.</p>
+        <div className="a-inline-actions">
+          <button type="button" className="btn btn--secondary btn--sm" onClick={() => setPick(lg.seasons.filter((s) => !s.backfilled).map((s) => s.label).concat(lg.seasons.filter((s) => s.backfilled && pick.includes(s.label)).map((s) => s.label)))} data-testid="league-seasons-all">Tick all {lg.seasons.length}</button>
+          <button type="button" className="btn btn--secondary btn--sm" onClick={() => setPick(pick.filter((x) => lg.seasons.find((s) => s.label === x)?.backfilled))} data-testid="league-seasons-none">Clear</button>
+        </div>
         <ul className="a-season-list">
           {lg.seasons.map((s) => (
             <li key={s.label}>
@@ -37,7 +41,7 @@ function Seasons({ lg, budget, perMatch, onClose, onSaved }) {
             </li>
           ))}
         </ul>
-        <div className="a-notice" data-testid="league-estimate"><Icon name="info" size={16} /><span>About <b>{num(est)}</b> calls for the ticked seasons (1 list call plus about 3 per match). That is {budget ? Math.max(1, Math.ceil(est / budget)) : "?"} day(s) at today's budget of {num(budget)}.</span></div>
+        <div className="a-notice" data-testid="league-estimate"><Icon name="info" size={16} /><span>About <b>{num(est)}</b> calls for the ticked seasons (1 list call per season plus about {perMatch ?? 3} per match). That is {budget ? Math.max(1, Math.ceil(est / budget)) : "?"} day(s) at today's budget of {num(budget)}.</span></div>
         <FormError error={err} />
       </div>
     </Drawer>

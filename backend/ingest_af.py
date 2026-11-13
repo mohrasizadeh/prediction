@@ -104,7 +104,13 @@ def sync_fixtures(client, league: dict, season: int | str) -> dict:
                                "kickoff": I.parse_dt(m["kickoff_iso"]), "status": m["status"],
                                "provider_status": m["provider_status"], "home_iid": h, "away_iid": a,
                                "hg": m["hg"], "ag": m["ag"], "extra_time": m.get("extra_time", False),
-                               "referee": m.get("referee"), "venue": m.get("venue")},
+                               "referee": m.get("referee"), "venue": m.get("venue"),
+                               # The provider's round NAME ("Group Stage - 2", "Quarter-finals").
+                               # `round` is our own matchday rank (assign_rounds); a cup's shape --
+                               # groups, then knockout rounds -- needs theirs (standings.py).
+                               "stage": m.get("round"),
+                               "pen_home": ((raw.get("score") or {}).get("penalty") or {}).get("home"),
+                               "pen_away": ((raw.get("score") or {}).get("penalty") or {}).get("away")},
                               on_insert={"ingested_at": None, "lineups_confirmed": False,
                                          "lineup_fetches": 0, "round": None})
         if m["status"] == "final" and not (prev and prev.get("ingested_at")):

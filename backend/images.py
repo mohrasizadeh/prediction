@@ -351,12 +351,23 @@ def identity_map(db) -> dict:
     entities keeps the matching path for those.
     """
     n = {"league": 0, "team": 0, "player": 0}
+    # What is already mapped to the same id is left alone. This runs at the start of EVERY picture
+    # run, and the picture run now goes every tick while a backlog remains, so rewriting tens of
+    # thousands of unchanged player rows each time would be most of what the run did.
+    done = {(m["kind"], m["our_iid"]): m.get("af_id") for m in db.image_map.find(
+        {"status": {"$in": ["auto", "approved"]}}, {"_id": 0, "kind": 1, "our_iid": 1, "af_id": 1})}
+    _put = _put_map
+
+    def _put_map_once(db_, kind, our_iid, **f):
+        if done.get((kind, int(our_iid))) == f.get("af_id") and f.get("af_id") is not None:
+            return
+        _put(db_, kind, our_iid, **f)
     leagues = {l["iid"]: l for l in db.leagues.find({"provider": "apifootball"}, {"iid": 1, "ext_id": 1, "name": 1})}
     if not leagues:
         return n          # nothing came from API-Football yet: leave every row to the matching below
     for lg in leagues.values():
         if str(lg.get("ext_id", "")).isdigit():
-            _put_map(db, "league", lg["iid"], af_id=int(lg["ext_id"]), our_name=lg.get("name"),
+            _put_map_once(db, "league", lg["iid"], af_id=int(lg["ext_id"]), our_name=lg.get("name"),
                      status="auto", score=1.0, note="ingested from API-Football: the id is ours")
             n["league"] += 1
     # THE GUARD HAS TO PROVE PROVENANCE, not just that the id looks like a number.
@@ -374,7 +385,7 @@ def identity_map(db) -> dict:
         team_ok[row["iid"]] = ok
         if not ok:
             continue
-        _put_map(db, "team", row["iid"], af_id=int(row["ext_id"]), our_name=row.get("name"),
+        _put_map_once(db, "team", row["iid"], af_id=int(row["ext_id"]), our_name=row.get("name"),
                  league_iid=row.get("league_iid"), status="auto", score=1.0,
                  note="ingested from API-Football: the id is ours")
         n["team"] += 1
@@ -387,7 +398,7 @@ def identity_map(db) -> dict:
         # without that field, so the count was always 0 and every club paid a /players/squads call
         # to discover ids we had already written one line above. The guard was there; the row was
         # not answering it.
-        _put_map(db, "player", row["iid"], af_id=int(row["ext_id"]), our_name=row.get("name"),
+        _put_map_once(db, "player", row["iid"], af_id=int(row["ext_id"]), our_name=row.get("name"),
                  team_iid=row.get("team_iid"),
                  status="auto", score=1.0, note="ingested from API-Football: the id is ours")
         n["player"] += 1

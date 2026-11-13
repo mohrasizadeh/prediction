@@ -184,3 +184,18 @@
 .a-zone-head small { color: var(--text3); font-size: 12px; }
 .k-fs-note ~ *, .k-fs-note + * { align-self: start; }
 @media (max-width: 560px) { .a-zone-row { grid-template-columns: 1fr 1fr; } }
+
+/* Groups and knockout rounds (Standings.jsx, backend/standings.py). */
+.st-wrap { display: grid; gap: 20px; }
+.st-group { display: grid; gap: 8px; }
+.st-group-name { margin: 0; font-size: 14px; font-weight: 700; color: var(--text); }
+.st-group-name--compact { padding: 0 6px 6px; font-size: 12px; color: var(--text2); }
+.st-ko-head { margin: 8px 0 0; }
+.st-rounds { display: grid; gap: 16px; }
+.st-round { display: grid; gap: 6px; }
+.st-ties { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.st-tie { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 12px;
+  border-radius: 12px; background: var(--surface1); border: 1px solid var(--border); color: var(--text); text-decoration: none; }
+.st-tie-team { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-tie-team--a { justify-content: flex-end; }
+.st-tie-score { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 14px; }

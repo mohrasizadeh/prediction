@@ -65,9 +65,9 @@ FOOTBALL = [
     "player_match_stats", "team_match_stats", "lineups", "match_events",
     "match_context", "match_probs",
     # per-league and per-club models built from matches
-    "referee_stats", "team_styles", "club_calendar", "data_coverage", "availability",
+    "referee_stats", "team_styles", "club_calendar", "data_coverage", "availability", "league_standings",
     # the live mirror
-    "live_fixtures", "live_events", "live_lineups", "live_stats",
+    "live_fixtures", "live_events", "live_lineups", "live_stats", "live_stats_series",
     # provider plumbing: responses, the call log, the id maps
     "api_cache", "api_call_log", "image_api_cache", "image_api_calls", "image_map", "image_runs",
     # THE IMAGES THEMSELVES. See "Why the images go too" below -- this reverses docs/79 §1.
