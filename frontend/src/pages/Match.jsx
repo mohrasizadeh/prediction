@@ -9,6 +9,7 @@ import { MatchRow, Seg, TacticChip, num1, posLabel, useTitle } from "../componen
 import FirstGoal from "../components/FirstGoal";
 import { Forecasts, Form, Hero, MatchNotes, matchState } from "../components/MatchCentre";
 import MatchEvents from "../components/MatchEvents";
+import MatchStats from "../components/MatchStats";
 import LiveLineups from "../components/LiveLineups";
 import { ProLock } from "../components/ui";
 import { isLiveNow } from "../lib/live";
@@ -186,8 +187,11 @@ export default function Match() {
       <Hero d={d} />
       <Tabs value={tab} onChange={setTab} testid="match-tabs" className="mc-tabs" tabs={tabs} />
       <div className="mc-pane" role="tabpanel">
-        {tab === "live" && (d.live?.sid ? <LiveTab d={d} /> : <Events d={d} />)}
-        {tab === "recap" && <Events d={d} />}
+        {/* The match's own numbers, under the events on both the live and the recap tab -- the two
+            tabs a reader opens to find out what is happening or what happened. It renders nothing
+            when there are no statistics, so a match with none looks exactly as it did before. */}
+        {tab === "live" && <>{d.live?.sid ? <LiveTab d={d} /> : <Events d={d} />}<MatchStats d={d} /></>}
+        {tab === "recap" && <><Events d={d} /><MatchStats d={d} /></>}
         {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
         {tab === "lineups" && <Lineups d={d} />}
         {tab === "analysis" && <Analysis d={d} />}

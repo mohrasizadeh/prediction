@@ -69,9 +69,20 @@ def sync_fixtures(client, league: dict, season: int | str) -> dict:
     season = int(season)
     current = season >= _current_season(db, league)
     if current:
+        # A MATCH DAY IS NOT OVER WHEN THE LAST KICK-OFF HAS PASSED.
+        #
+        # This counted only fixtures still `scheduled` in the next 24 hours, so the moment the last
+        # match of a round kicked off the league stopped looking like a match day and the fixture
+        # list fell back to the six-hour TTL -- exactly when the results are landing and we most
+        # want a fresh answer. A league could therefore be re-synced and still be handed a cached
+        # list in which every match was `scheduled`, queueing nothing.
+        #
+        # Count the recent past as well: anything that kicked off in the last six hours is either
+        # still being played or has just finished, and in both cases the answer is still moving.
+        now_ = utcnow()
         on_match_day = db.matches.count_documents({
-            "league_iid": league["iid"], "status": "scheduled",
-            "kickoff": {"$gte": utcnow(), "$lte": utcnow() + timedelta(hours=24)}}) > 0
+            "league_iid": league["iid"],
+            "kickoff": {"$gte": now_ - timedelta(hours=6), "$lte": now_ + timedelta(hours=24)}}) > 0
         hrs = S.get(db, "cache.ttl.fixtures_matchday_hours" if on_match_day else "cache.ttl.fixtures_future_hours")
         ttl = timedelta(hours=float(hrs))
     else:

@@ -236,7 +236,7 @@ already broken at least once:
 
 ## What is pinned
 
-`tests/selftest_audit_v11.py`, 96 checks, every one of them executing the real function:
+`tests/selftest_audit_v11.py`, 124 checks, every one of them executing the real function:
 the involvements fix on a no-assist fixture, the sot fix, the untracked-block case that must
 *still* read `None`, the bench man, the one-sided squad, the team zero-fill and the possession
 mirror, a renamed display string that must still surface as missing, the pitch coordinates of a
@@ -268,6 +268,41 @@ rounds, measures coverage, and then asks the engine what it can see. It asserts
 including the three the market gate was dropping — that keepers are in the frame, that the team
 saves and goal-involvements columns are not columns of zeros, and that the card fields and
 `extras_at` were derived. Not "the column exists", which is what the old tests checked.
+
+## The six-hour delay on a finished match, and the page that never showed its numbers
+
+Reported after the audit: *"the stats updated with a delay... I know that pitchapi is still serving
+the match page final stats, because I had it on before, and it would show exactly the same and the
+same delay after the game."* The delay was real. The provider was not the cause -- and the reason it
+felt identical is that PitchAPI's `results_sync` ran on the same six-hour cadence.
+
+**One place in the entire codebase queued a finished match's statistics:** `sync_fixtures`, called
+from the `af_fixtures` job every `ingest.fixtures_sync_hours`, default **6**. And when it ran it
+read `/fixtures` through a cache whose TTL is `cache.ttl.fixtures_future_hours` (6h) off a match
+day -- so the job could run and still be handed a list in which the match was `scheduled`, and queue
+nothing at all. `on_match_day`, which selects the short 1-hour TTL, counted only fixtures still
+SCHEDULED in the next 24 hours, so the moment the last match of a round kicked off the league
+stopped looking like a match day, exactly when the results were landing.
+
+Meanwhile the live tick had known all along. `live_af` stamps `final_at` the instant a status flips
+to a final short -- and did nothing with it. It now enqueues the match there, which turns six hours
+into about a minute at no extra call, because that bundle was going to be fetched anyway. The
+match-day window now counts the six hours *after* a kick-off as well as the twenty-four before.
+
+**And the match page never showed the match's statistics at all.** `match_detail` returned
+forecasts, events, lineups, a style model and a recap, and no `stats` key. `live_stats` had exactly
+one reader in the whole codebase -- `live_track`, deciding whether a live forecast had landed -- and
+no display. What the page labels as team style is `team_styles`, a historical model the engine
+rebuilds, which by design does not move during a match. So on the one page a reader opens to find
+out what happened, there was no way to see how many shots there had been.
+
+`match_detail` now returns a `stats` block: `team_match_stats` once the match is ingested,
+`live_stats` while it is being played, both carrying the same columns so no row appears for the
+first time at the whistle. The live team block was widened from the four columns `live_track`
+happened to need to all of `TEAM_COLS` plus saves, summed from the players the way the finished path
+already does. `MatchStats.jsx` draws them as opposed bars, reusing the kit's own home/away pairing
+and the flex-grow technique `FirstGoal` and `Momentum` already use -- a layout, not a new visual
+language.
 
 ## Still open, and not ours to close
 

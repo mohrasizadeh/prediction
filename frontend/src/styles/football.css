@@ -247,3 +247,19 @@
 .pcard-list li { display: flex; gap: 8px; align-items: center; color: var(--text2); }
 .pcard-list .ico, .pcard-list svg { color: var(--up); flex: none; }
 .tpl-frame { width: 100%; min-height: 320px; border: 1px solid var(--border); border-radius: 12px; background: #fff; margin-top: 8px; }
+
+/* Match statistics, home against away (docs/90). The bar reuses the kit's home/away pairing
+   (--brand / --tier-strong, kit.css) and the flex-grow technique .fg-split already uses, so this
+   adds a layout and no new visual language. Figures are tabular so the two columns line up. */
+.ms-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-bottom: 12px; }
+.ms-head h3 { margin: 0; text-align: center; }
+.ms-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ms-row { display: grid; grid-template-columns: 3.5rem 1fr 3.5rem; align-items: center; gap: 10px; }
+.ms-v { font-variant-numeric: tabular-nums; font-weight: 700; }
+.ms-v--a { text-align: right; }
+.ms-mid { display: grid; gap: 4px; justify-items: center; }
+.ms-mid small { color: var(--text2); font-size: .75rem; text-align: center; }
+.ms-bar { display: flex; width: 100%; height: 6px; border-radius: 999px; overflow: hidden; gap: 2px; background: var(--surface2); }
+.ms-bh { background: var(--brand); } .ms-ba { background: var(--tier-strong); }
+.ms-bh, .ms-ba { flex-basis: 0; transition: flex-grow .4s ease; }
+.ms-note { margin: 12px 0 0; }

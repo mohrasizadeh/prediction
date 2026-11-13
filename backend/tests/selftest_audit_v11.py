@@ -696,6 +696,132 @@ check(f"the market gate passes all three newer markets on real coverage",
       all(en12.get(m) for m in ("player.saves", "player.fouls_committed", "player.goal_involvements")))
 
 # ==================================================================
+print("the whistle queues the statistics, and the match page shows them")
+#
+# REPORTED: "the stats updated with a delay... I know that pitchapi is still serving the match page
+# final stats, because I had it on before, and it would show exactly the same and the same delay".
+# The delay was real and the provider was not the cause -- the retired provider's `results_sync` ran
+# on the same six-hour cadence, which is why it felt identical.
+#
+# ONE place in the codebase queued a finished match's statistics: `sync_fixtures`, from the
+# `af_fixtures` job, every `ingest.fixtures_sync_hours` (6). And when it ran it read `/fixtures`
+# through a cache whose TTL is six hours off a match day, so it could run and still see the match as
+# `scheduled` and queue nothing. Meanwhile the live tick had been stamping `final_at` the instant
+# the status flipped and doing nothing with it.
+import live_af as LA
+import queries as Q
+
+SQUAD13 = ["G", "D", "D", "D", "D", "M", "M", "M", "M", "F", "F"]
+
+
+def tstats13(tid, seed):
+    return {"team": {"id": tid}, "statistics": [
+        {"type": "Total Shots", "value": 8 + seed % 7}, {"type": "Shots on Goal", "value": 3 + seed % 4},
+        {"type": "Corner Kicks", "value": 2 + seed % 6},
+        {"type": "Ball Possession", "value": f"{45 + seed % 11}%"},
+        {"type": "Fouls", "value": 8 + seed % 6}, {"type": "Yellow Cards", "value": 1 + seed % 3},
+        {"type": "Goalkeeper Saves", "value": 1 + seed % 5}]}
+
+
+def squad13(tid, seed):
+    return [person(tid * 100 + k, p, shots=(0 if p == "G" else (k + seed) % 4),
+                   on=(0 if p == "G" else (k + seed) % 2),
+                   saves=((seed % 5) + 1 if p == "G" else None),
+                   tackles=(0 if p == "G" else (k + seed) % 3))
+            for k, p in enumerate(SQUAD13)]
+
+
+def fx13(short, elapsed=None):
+    f = fixture(squad13(10, 3), squad13(20, 7), stats=[tstats13(10, 3), tstats13(20, 7)], fid=777)
+    f["fixture"]["status"] = {"short": short, "elapsed": elapsed}
+    f["teams"] = {"home": {"id": 10, "name": "Home"}, "away": {"id": 20, "name": "Away"}}
+    f["players"] = [{"team": {"id": 10}, "players": squad13(10, 3)},
+                    {"team": {"id": 20}, "players": squad13(20, 7)}]
+    f["events"] = [{"type": "Card", "detail": "Yellow Card", "time": {"elapsed": 30},
+                    "team": {"id": 10}, "player": {"id": 1003, "name": "Booked"}}]
+    return f
+
+
+def client13(db, body):
+    def h(req):
+        return httpx.Response(200, headers=HDR10, json={
+            "get": req.url.path.lstrip("/"), "parameters": dict(req.url.params), "errors": [],
+            "results": len(body), "paging": {"current": 1, "total": 1}, "response": body})
+    return AF.Client(db, httpx.Client(base_url=AF.BASE_URL, transport=httpx.MockTransport(h)),
+                     sleep=lambda s: None)
+
+
+d13 = mongomock.MongoClient()["m"]
+security.save_provider_key(d13, AF.PROVIDER, "k" * 24)
+S.put(d13, "features.live", True)
+d13.leagues.insert_one({"iid": 1, "ext_id": "39", "provider": "apifootball", "enabled": True,
+                        "name": "L", "kind": "domestic", "role": AFL.FORECAST, "current_season": "2025"})
+IA.sync_fixtures(client13(d13, [fx13("NS")]), d13.leagues.find_one({"iid": 1}), 2025)
+m13 = d13.matches.find_one({"ext_id": "777"})
+check("a fixture not yet played is not queued for statistics",
+      d13.ingest_queue.count_documents({"task": IA.QUEUE_TASK}) == 0)
+
+LA.live_tick(d13, client13(d13, [fx13("2H", 67)]))
+check("...nor while it is being played",
+      d13.ingest_queue.count_documents({"task": IA.QUEUE_TASK}) == 0)
+# THE PAGE, MID-MATCH. `match_detail` returned no statistics at all before this: `live_stats` had one
+# reader (`live_track`, grading a live forecast) and no display, and what the page showed as team
+# stats was `team_styles` -- a historical model that by design does not move during a match.
+mid = Q._match_stats(d13, d13.matches.find_one({"iid": m13["iid"]}))
+check(f"the page is given this match's numbers while it is on ({mid and mid['source']})",
+      mid is not None and mid["source"] == "live")
+check("...with possession, which has no team statistic of its own on one side",
+      mid and mid["home"].get("poss") is not None and mid["away"].get("poss") is not None)
+check("...and the keeper's saves, summed from the players as the final path does",
+      mid and mid["home"].get("saves") is not None)
+
+LA.live_tick(d13, client13(d13, [fx13("FT")]))
+check(f"THE WHISTLE queues it ({d13.ingest_queue.count_documents({'task': IA.QUEUE_TASK})})",
+      d13.ingest_queue.count_documents({"task": IA.QUEUE_TASK}) == 1)
+res13 = IA.drain(client13(d13, [fx13("FT")]), max_seconds=20.0)
+check(f"...and `drain`, which runs every tick, ingests it ({res13['written']})", res13["written"] == 1)
+m13b = d13.matches.find_one({"iid": m13["iid"]})
+check("so the match is ingested within a tick, not within six hours",
+      m13b.get("ingested_at") is not None)
+fin = Q._match_stats(d13, m13b)
+check(f"the page now reads the final row ({fin and fin['source']})",
+      fin is not None and fin["source"] == "final")
+
+# A ROW THAT APPEARS ONLY AT THE WHISTLE looks like a number that changed when all that changed is
+# which document was read. The live block used to carry four columns and the final row nine.
+live_cols = {k for k, v in mid["home"].items() if v is not None}
+final_cols = {k for k, v in fin["home"].items() if v is not None}
+check(f"no row appears only at full time ({sorted(final_cols - live_cols) or 'none'})",
+      not (final_cols - live_cols))
+
+# Queued once, not once a tick: a second final tick must not re-queue an ingested match.
+LA.live_tick(d13, client13(d13, [fx13("FT")]))
+check("an already-ingested match is not queued again",
+      d13.ingest_queue.count_documents({"task": IA.QUEUE_TASK, "status": "pending"}) == 0)
+
+print("a match day still looks like one after the last kick-off")
+# `on_match_day` picks a 1-hour fixture-list TTL instead of 6. It counted only fixtures still
+# SCHEDULED in the next 24h, so the moment the last match of a round kicked off the league stopped
+# looking like a match day -- exactly when the results are landing.
+def md_window(db):
+    now_ = datetime.now(timezone.utc)
+    return db.matches.count_documents({
+        "league_iid": 1,
+        "kickoff": {"$gte": now_ - timedelta(hours=6), "$lte": now_ + timedelta(hours=24)}}) > 0
+
+
+for name, rec, want in (
+        ("a match kicks off in three hours", {"status": "scheduled", "kickoff": +3}, True),
+        ("it is being played right now", {"status": "scheduled", "kickoff": -0.5}, True),
+        ("the last match kicked off two hours ago", {"status": "final", "kickoff": -2}, True),
+        ("nothing within a week", {"status": "scheduled", "kickoff": +168}, False)):
+    dz = mongomock.MongoClient()["z"]
+    dz.matches.insert_one({"iid": 1, "league_iid": 1, "status": rec["status"],
+                           "kickoff": datetime.now(timezone.utc) + timedelta(hours=rec["kickoff"])})
+    got = md_window(dz)
+    check(f"{name}: match day = {got}", got is want)
+
+# ==================================================================
 print()
 bad = OK.count(False)
 print(f"{len(OK) - bad}/{len(OK)} checks passed")

@@ -167,9 +167,32 @@ def _store(db, fixture: dict, now: datetime) -> dict:
         "polled_at": now,
     }
     changed = (not old) or any(old.get(k) != doc[k] for k in ("status", "hs", "as", "minute"))
-    if old.get("status") != st and str(st or "").upper() in NAF.FINAL_SHORTS:
+    went_final = old.get("status") != st and str(st or "").upper() in NAF.FINAL_SHORTS
+    if went_final:
         doc["final_at"] = now
     db.live_fixtures.update_one({"sid": int(fid)}, {"$set": doc}, upsert=True)
+
+    # THE WHISTLE IS THE SIGNAL TO FETCH THE STATISTICS, and nothing was acting on it.
+    #
+    # This line knew the match had just ended -- it has been stamping `final_at` all along -- and
+    # then left it there. The only thing in the codebase that queues a finished match's statistics
+    # is `ingest_af.sync_fixtures`, which runs from the `af_fixtures` job every
+    # `ingest.fixtures_sync_hours`: SIX HOURS by default. Worse, when it does run it reads
+    # `/fixtures` through a cache whose TTL is six hours off a match day, so it could run and still
+    # see the match as `scheduled` and queue nothing at all.
+    #
+    # So a match that finished at five o'clock could have no shots, no possession and no player
+    # numbers until nearly midnight, and the delay looked exactly like the one the retired provider
+    # used to have -- because that provider's `results_sync` was on the same six-hour cadence. It
+    # was never about which provider; it was about nobody asking until the next scheduled sweep.
+    #
+    # `drain` runs on every tick, so queueing here turns six hours into about a minute. It costs no
+    # extra call: this bundle was going to be fetched regardless, just later.
+    if went_final and match and not match.get("ingested_at"):
+        import ingest as I
+        import ingest_af as IA
+        I.enqueue(db, IA.QUEUE_TASK, str(fid), priority=3,          # ahead of the backfill
+                  payload={"match_iid": match["iid"]})
 
     rows = _event_rows(db, fixture, match)
     if rows:
@@ -290,7 +313,11 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
                 tms = fixture.get("teams") or {}
                 hx, ax = str((tms.get("home") or {}).get("id")), str((tms.get("away") or {}).get("id"))
                 ts = NAF.team_stats(fixture, settings["team_keys"], hx, ax)
-                teams_block = {side: {c: ts[side].get(c) for c in ("shots", "sot", "corners", "tackles")}
+                # EVERY column the finished-match row carries, not the four `live_track` happens to
+                # need. The same numbers are now shown on the match page while the match is on, and
+                # a live table that silently holds fewer rows than the final one makes the figures
+                # appear to change at the whistle when all that changed is which document was read.
+                teams_block = {side: {c: ts[side].get(c) for c in NAF.TEAM_COLS}
                                for side in ("home", "away")}
                 pls = NAF.players(fixture, settings["position_map"])
                 for pl in pls:
@@ -306,6 +333,13 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
                 for side, ext in (("home", hx), ("away", ax)):
                     if teams_block[side].get("tackles") is None:
                         teams_block[side]["tackles"] = NAF._sum_team(pls, ext, "tackles")
+                    # Saves the same way, and for the same reason the finished path does it: the
+                    # keeper's saves are a player number with no team statistic behind them, and
+                    # `saves` is a market we publish. Without this the match page would show a saves
+                    # row that filled in only at the whistle.
+                    teams_block[side]["saves"] = (teams_block[side].get("saves")
+                                                  if teams_block[side].get("saves") is not None
+                                                  else NAF._sum_team(pls, ext, "saves"))
             except Exception as e:      # one fixture's statistics, not the tick's
                 db.ingest_issues.insert_one({"at": now, "kind": "live_stats_shape",
                                              "detail": f"{fid}: {type(e).__name__}: {e}"})
