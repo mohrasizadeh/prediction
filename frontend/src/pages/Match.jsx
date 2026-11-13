@@ -7,11 +7,14 @@ import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { Seg, TacticChip, num1, posLabel, useTitle } from "../components/Football";
 import FirstGoal from "../components/FirstGoal";
-import { Forecasts, Form, Hero, MatchNotes, MiniBar, matchState } from "../components/MatchCentre";
+import { Forecasts, Form, Hero, MiniBar, matchState } from "../components/MatchCentre";
+import MatchSide from "../components/MatchSide";
 import MatchEvents, { GOALS, Momentum, normEvent } from "../components/MatchEvents";
 import LiveLineups, { PitchView, lineOf } from "../components/LiveLineups";
+import MatchStats from "../components/MatchStats";
 import { utc } from "../lib/time";
-import { ProLock } from "../components/ui";
+import { ForecastList, ProLock, Skeleton } from "../components/ui";
+import { tierLabel } from "../lib/copy";
 import { isLiveNow } from "../lib/live";
 import { pct } from "../lib/copy";
 
@@ -96,6 +99,132 @@ function Events({ d }) {
   );
 }
 
+// ------------------------------------------------------------------ Facts (finished match)
+// The match's own numbers first, the way a reader checks a result: five paired bars from the stored
+// team stats (queries.match_detail `team_stats`, null until the match is final), the timeline, each
+// club's form going in, and how our forecasts did. A value we do not hold is "–", never 0, and a row
+// with neither side known is left out.
+const TOP = [
+  ["xg", "Expected goals (xG)", (v) => v.toFixed(2)],
+  ["shots", "Total shots", (v) => String(Math.round(v))],
+  ["sot", "Shots on target", (v) => String(Math.round(v))],
+  ["corners", "Corners", (v) => String(Math.round(v))],
+];
+const known = (v) => typeof v === "number" && Number.isFinite(v);
+const dash = (v, fmt) => (known(v) ? fmt(v) : "–");
+
+// Drawn with the Stats tab's own classes (matchstats.css, `.mst-*`), so a number reads the same in
+// both places and "All stats" opens onto rows that look like these ones, with more of them.
+function TopStats({ d, onAll }) {
+  const ts = d.team_stats;
+  if (!ts) return null;
+  const rows = TOP.filter(([k]) => known(ts.home?.[k]) || known(ts.away?.[k]));
+  const ph = ts.home?.poss, pa = ts.away?.poss, poss = known(ph) && known(pa) && ph + pa > 0;
+  if (!rows.length && !poss) return null;
+  return (
+    <section className="mfx-sec mst-team" aria-labelledby="mfx-top-h" data-testid="facts-top-stats">
+      <header className="mfx-head">
+        <h2 className="k-sec" id="mfx-top-h">Top stats</h2>
+        {onAll && <button type="button" className="btn btn--secondary btn--sm" onClick={onAll} data-testid="facts-all-stats">All stats</button>}
+      </header>
+      {poss && (
+        <div className="mst-poss" data-testid="facts-stat-poss">
+          <p className="mst-poss-h">Possession</p>
+          <div className="mst-poss-bar" role="img" aria-label={`Possession: ${d.home.name} ${Math.round(ph)}%, ${d.away.name} ${Math.round(pa)}%`}>
+            <span className="mst-poss-home" style={{ flexBasis: `${(ph / (ph + pa)) * 100}%` }}>{Math.round(ph)}%</span>
+            <span className="mst-poss-away" style={{ flexBasis: `${(pa / (ph + pa)) * 100}%` }}>{Math.round(pa)}%</span>
+          </div>
+        </div>
+      )}
+      {rows.length > 0 && <ul className="mst-rows">{rows.map(([k, label, fmt]) => {
+        const h = ts.home?.[k], a = ts.away?.[k];
+        const max = Math.max(known(h) ? h : 0, known(a) ? a : 0);
+        const more = known(h) && known(a) && h !== a ? (h > a ? "home" : "away") : null;
+        const w = (v) => (!known(v) || max <= 0 ? 0 : (v / max) * 100);
+        return (
+          <li key={k} className="mst-row" data-testid={`facts-stat-${k}`}>
+            <div className="mst-row-top" aria-hidden="true">
+              <span className={`mst-val mst-val--home${more === "home" ? " is-more" : ""}`}>{dash(h, fmt)}</span>
+              <span className="mst-label">{label}</span>
+              <span className={`mst-val mst-val--away${more === "away" ? " is-more" : ""}`}>{dash(a, fmt)}</span>
+            </div>
+            <div className="mst-bars" aria-hidden="true">
+              <span className="mst-track mst-track--home"><i className={more === "home" ? "is-more" : ""} style={{ width: `${w(h)}%` }} /></span>
+              <span className="mst-track mst-track--away"><i className={more === "away" ? "is-more" : ""} style={{ width: `${w(a)}%` }} /></span>
+            </div>
+            <span className="sr-only">{label}: {d.home.name} {dash(h, fmt)}, {d.away.name} {dash(a, fmt)}</span>
+          </li>
+        );
+      })}</ul>}
+    </section>
+  );
+}
+
+// Each club's last five league results before this match, oldest to newest, from the league's
+// finished fixtures (the rows the side column's table is built from). Cup matches are not in them,
+// so the heading says "league". Each result is a link to that match.
+function formBefore(finals, team, kickoff) {
+  const t0 = utc(kickoff);
+  return (finals || []).filter((m) => m.hg != null && (m.home?.id === team.id || m.away?.id === team.id) && utc(m.kickoff) < t0)
+    .sort((a, b) => utc(b.kickoff) - utc(a.kickoff)).slice(0, 5).reverse()
+    .map((m) => {
+      const home = m.home.id === team.id, gf = home ? m.hg : m.ag, ga = home ? m.ag : m.hg;
+      return { id: m.id, opp: home ? m.away : m.home, home, gf, ga, r: gf > ga ? "W" : gf < ga ? "L" : "D" };
+    });
+}
+const RES = { W: "Won", D: "Drew", L: "Lost" };
+
+function FactsForm({ d, finals }) {
+  if (!finals) return <Skeleton shape="row" count={2} testid="facts-form-loading" />;
+  const clubs = [d.home, d.away].map((t) => [t, formBefore(finals, t, d.match.kickoff)]).filter(([, xs]) => xs.length);
+  if (!clubs.length) return null;
+  return (
+    <section className="mfx-sec card" aria-labelledby="mfx-form-h" data-testid="facts-form">
+      <header className="mfx-head"><h2 className="k-sec" id="mfx-form-h">League form before this match</h2></header>
+      {clubs.map(([t, xs]) => (
+        <div key={t.id} className="mfx-form" data-testid={`facts-form-${t.id}`}>
+          <span className="mfx-form-t"><Crest team={t} size={22} /><b>{t.name}</b></span>
+          <ol className="mfx-form-list" aria-label={`${t.name}, last ${xs.length} league results, oldest first`}>{xs.map((g) => (
+            <li key={g.id}><Link to={`/match/${g.id}`} className={`mfx-res mfx-res--${g.r}`} aria-label={`${RES[g.r]} ${g.gf}–${g.ga} ${g.home ? "at home to" : "away at"} ${g.opp.name}`}>
+              <span className="mfx-score">{g.gf}–{g.ga}</span><Crest team={g.opp} size={18} />
+            </Link></li>
+          ))}</ol>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+// Our own recap: the hero says the count, this lists the Strong and Solid lines with their outcome
+// (forecast_outcomes, attached as `outcome` after the whistle) through the same row the Forecasts tab uses.
+function ForecastRecap({ d, onAll }) {
+  const r = d.recap;
+  const lines = cardsOf(d).filter((f) => (f.tier === "Strong" || f.tier === "Solid") && f.outcome).slice(0, 8);
+  if (!r?.scored && !lines.length) return null;
+  return (
+    <section className="mfx-sec" aria-labelledby="mfx-fc-h" data-testid="facts-forecasts">
+      <header className="mfx-head">
+        <h2 className="k-sec" id="mfx-fc-h">How our forecasts did</h2>
+        <button type="button" className="k-link" onClick={onAll} data-testid="facts-all-forecasts">All forecasts</button>
+      </header>
+      {r?.scored > 0 && <p className="mfx-fc-sum"><b>{r.hit} of {r.scored}</b> Strong and Solid forecasts came true
+        {["Strong", "Solid"].filter((t) => r.by_tier?.[t]?.[1]).map((t) => <span key={t} className="mfx-faint"> · {tierLabel(t)} {r.by_tier[t][0]}/{r.by_tier[t][1]}</span>)}</p>}
+      {lines.length > 0 && <ForecastList rows={lines} teams={{ [d.match.home_iid]: d.home, [d.match.away_iid]: d.away }} homeIid={d.match.home_iid} testid="facts-fc-list" />}
+    </section>
+  );
+}
+
+function Facts({ d, finals, onStats, onForecasts }) {
+  return (
+    <div className="mc-facts" data-testid="match-facts">
+      <TopStats d={d} onAll={onStats} />
+      <section className="mfx-sec" aria-labelledby="mfx-ev-h"><h2 className="k-sec" id="mfx-ev-h">Timeline</h2><Events d={d} /></section>
+      <FactsForm d={d} finals={finals} />
+      <ForecastRecap d={d} onAll={onForecasts} />
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------ Lineups
 // What happened to each player, from the saved events (match_extras: player_iid / in_iid), for the pitch badges
 // and the "came on" list. Live events carry no player ids (sportapi.events_for), so the pitch stays clean while
@@ -145,6 +274,34 @@ function LiveBench({ d }) {
   return <LiveLineups lineups={q.data?.lineups} home={d.home.name} away={d.away.name} bench testid="lineups-bench" />;
 }
 
+// Who will not play or may not, from the availability list (availability.public_list: status "out" or
+// "doubtful", a free-text reason, an optional return date). It says nothing about the bench, so it is
+// grouped by club and stops there. Hidden when nobody is listed: "no absences" from a feed that may
+// simply not cover this league would be a claim we cannot make.
+function Absences({ d }) {
+  const av = d.availability || [];
+  if (!av.length) return null;
+  const clubs = [[d.home, d.match.home_iid], [d.away, d.match.away_iid]].map(([t, iid]) => [t, av.filter((r) => r.team_iid === iid)]).filter(([, xs]) => xs.length);
+  if (!clubs.length) return null;
+  return (
+    <section className="lu-abs" aria-labelledby="lu-abs-h" data-testid="lineups-absences">
+      <h3 className="k-sec" id="lu-abs-h">Injured and suspended</h3>
+      <div className="lu-on-cols">{clubs.map(([t, xs]) => (
+        <ul key={t.id} className="lu-abs-list" aria-label={`${t.name}, out or doubtful`}>
+          <li className="lu-on-team"><Crest team={t} size={18} />{t.name}</li>
+          {xs.map((r) => (
+            <li key={r.player_iid} data-testid={`absence-${r.player?.id || r.player_iid}`}>
+              <span className="lu-abs-who">{r.player?.id ? <Link to={`/player/${r.player.id}`}>{r.player.name}</Link> : <span>{r.player?.name || "Player"}</span>}
+                {(r.reason || r.until) && <small>{r.reason}{r.reason && r.until ? " · " : ""}{r.until && `until ${utc(r.until)?.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`}</small>}</span>
+              <span className={`lu-abs-tag lu-abs-tag--${r.status}`}>{r.status === "out" ? "Out" : "Doubtful"}</span>
+            </li>
+          ))}
+        </ul>
+      ))}</div>
+    </section>
+  );
+}
+
 function Lineups({ d }) {
   const pp = {};
   (d.forecasts || []).forEach((f) => { if (f.player_iid != null && f.p_play != null) pp[f.player_iid] = Math.max(pp[f.player_iid] || 0, f.p_play); });
@@ -161,20 +318,20 @@ function Lineups({ d }) {
     <div className="mc-lineups mc-lineups--v3" data-testid="match-lineups">
       <Empty icon="users" testid="lineups-empty">No lineups yet. They usually arrive about an hour before kickoff.</Empty>
       <LiveBench d={d} />
-      <MatchNotes d={d} />
+      <Absences d={d} />
     </div>
   );
   const side = (key, team, iid) => {
     const xs = by(iid);
     return {
-      key, team, formation: xs.find((s) => s.formation)?.formation || null,
+      key, team, formation: xs.find((s) => s.formation)?.formation || null, coach: d.coach?.[key] || null,
       players: xs.map((s) => {
         const p = pp[s.player_iid] ?? s.p_play;
         return {
           key: `${key}-${s.player_iid}`, id: s.player?.id, name: s.player?.name || "", image: s.player?.image, shirt: s.shirt_number,
           captain: !!s.is_captain, line: lineOf(s.position_id, s.pos, s.player?.pos), grid: s.grid,
           x: typeof s.pitch_x === "number" ? s.pitch_x : undefined, y: typeof s.pitch_y === "number" ? s.pitch_y : undefined,
-          pct: !conf && p != null ? pct(p) : null, unsure: !conf && p != null && p < 0.7, badges: marks[s.player_iid],
+          pct: !conf && p != null ? pct(p) : null, unsure: !conf && p != null && p < 0.7, badges: marks[s.player_iid], rating: s.rating ?? null,
         };
       }),
     };
@@ -192,7 +349,7 @@ function Lineups({ d }) {
       <PitchView sides={sides} testid="pitch" />
       <CameOn d={d} />
       <LiveBench d={d} />
-      <MatchNotes d={d} />
+      <Absences d={d} />
     </div>
   );
 }
@@ -283,6 +440,14 @@ export default function Match() {
   const isLive = isLiveNow(d?.match);
   useEffect(() => setPoll(isLive ? 30000 : 0), [isLive]);                  // live score, events and minute refresh by themselves
   const st = d ? matchState(d) : "before";
+  // Both clubs (competition, form, next fixtures) and the league's finished matches (table, form
+  // going in), asked once here for the hero, the side column and Facts alike.
+  const th = useApi(d ? `/teams/${d.home.id}` : null);
+  const ta = useApi(d ? `/teams/${d.away.id}` : null);
+  const lid = th.data?.league?.id || ta.data?.league?.id;
+  const fin = useApi(lid ? `/leagues/${lid}/fixtures` : null, { status: "final", limit: 400 });
+  // null while it may still come; [] once it cannot (no league from either club, or the call failed).
+  const finals = fin.data || (fin.error || (!lid && !th.loading && !ta.loading) ? [] : null);
   // Once the hero has scrolled under the header, a compact score bar takes its place above the tabs.
   const heroRef = useRef(null);
   const [mini, setMini] = useState(false);
@@ -295,8 +460,8 @@ export default function Match() {
     io.observe(el);
     return () => io.disconnect();
   }, [hasD, id]);
-  // Four tabs. The first one is the match itself while it is on (Live) or over (Recap); before kick-off it is the forecasts.
-  const first = st === "live" ? "live" : st === "final" ? "recap" : null;
+  // Four tabs. The first one is the match itself while it is on (Live) or over (Facts); before kick-off it is the forecasts.
+  const first = st === "live" ? "live" : st === "final" ? "facts" : null;
   // The one page seo.title_template was written for, so it is the one that supplies {team1}/{team2}.
   useTitle(d ? `${d.home.name} v ${d.away.name}` : "Match", {
     type: "article",
@@ -309,14 +474,18 @@ export default function Match() {
   const n = cardsOf(d).filter((f) => f.p >= 0.5).length;
   const confirmed = (d.starters || []).length > 0 && d.starters.every((s) => s.confirmed);
   const tabs = [
-    ...(first ? [{ id: first, label: first === "live" ? "Live" : "Recap" }] : []),
+    ...(first ? [{ id: first, label: first === "live" ? "Live" : "Facts" }] : []),
     { id: "forecasts", label: "Forecasts", badge: n || null, badgeLabel: n ? `${n} forecasts` : undefined },
     { id: "lineups", label: "Lineups", badge: confirmed ? "✓" : null, badgeLabel: "confirmed" },
+    // What each side did, once it is over and the provider's numbers are in (queries._match_stats).
+    ...(d.match.status === "final" && d.team_stats ? [{ id: "stats", label: "Stats" }] : []),
     { id: "analysis", label: "Analysis" },
   ];
   // A ?tab= this state does not have (recap on a match not yet played, an old link) opens the default.
   const def = first || "forecasts";
-  const tab = tabs.some((t) => t.id === pick) ? pick : def;
+  // The finished match's first tab was called Recap; links shared with ?tab=recap still open it.
+  const asked = pick === "recap" ? "facts" : pick;
+  const tab = tabs.some((t) => t.id === asked) ? asked : def;
   const setTab = (t) => {
     if (t === tab) return;
     const next = new URLSearchParams(sp);
@@ -332,20 +501,29 @@ export default function Match() {
     }
   };
   return (
-    <section className={`mc-page${mini ? " is-mini" : ""}`} data-testid="match-page">
+    <section className={`mc-page mc-page--side${mini ? " is-mini" : ""}`} data-testid="match-page">
       <h1 className="sr-only">{d.home.name} v {d.away.name}</h1>
-      <div ref={heroRef}><Hero d={d} /></div>
-      <div className="mc-sticky">
-        <Tabs value={tab} onChange={setTab} testid="match-tabs" className="mc-tabs" tabs={tabs} label="Match sections" panel="match-panel" />
-        <MiniBar d={d} shown={mini} />
+      <div className="mc-main">
+        <div ref={heroRef}><Hero d={d} teams={[th, ta]} /></div>
+        <div className="mc-sticky">
+          <Tabs value={tab} onChange={setTab} testid="match-tabs" className="mc-tabs" tabs={tabs} label="Match sections" panel="match-panel" />
+          <MiniBar d={d} shown={mini} />
+        </div>
+        <div className="mc-pane" role="tabpanel" id="match-panel" aria-labelledby={`match-tabs-tab-${tab}`} ref={paneRef} data-testid={`match-pane-${tab}`}>
+          {tab === "live" && (d.live?.sid ? <LiveTab d={d} /> : <Events d={d} />)}
+          {tab === "facts" && <Facts d={d} finals={finals} onStats={tabs.some((t) => t.id === "stats") ? () => setTab("stats") : null} onForecasts={() => setTab("forecasts")} />}
+          {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
+          {tab === "lineups" && <Lineups d={d} />}
+          {tab === "stats" && <MatchStats d={d} />}
+          {tab === "analysis" && <Analysis d={d} />}
+        </div>
       </div>
-      <div className="mc-pane" role="tabpanel" id="match-panel" aria-labelledby={`match-tabs-tab-${tab}`} ref={paneRef} data-testid={`match-pane-${tab}`}>
-        {tab === "live" && (d.live?.sid ? <LiveTab d={d} /> : <Events d={d} />)}
-        {tab === "recap" && <Events d={d} />}
-        {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
-        {tab === "lineups" && <Lineups d={d} />}
-        {tab === "analysis" && <Analysis d={d} />}
-      </div>
+      {/* The side column: beside the tabs from 1280px (matchday.css), every tab. Narrower, it falls
+          under the pane and shows only on the default tab -- the cards once, not under every tab.
+          It stays mounted while hidden, so switching back does not ask the server again. */}
+      <aside className={`mc-aside${tab === def ? "" : " is-away"}`} aria-label="About this match" data-testid="match-aside">
+        <MatchSide d={d} teams={[th.data, ta.data]} finals={finals} />
+      </aside>
     </section>
   );
 }

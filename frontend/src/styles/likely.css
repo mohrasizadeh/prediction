@@ -338,8 +338,15 @@ td.lk-cell-run .lk-cnt { flex: none; }
  * bar across the body -- without a second copy of that markup for phones. The table's semantics
  * are already stood down at this width (the head is visually hidden and the rows are a grid), so
  * this costs nothing it had not already spent.
+ *
+ * Folded by the width of the column the list sits in, not the window (container `lk`: the page's
+ * <main> everywhere, the match page's tab pane when its side column is open, matchday.css). The
+ * eight columns need about 900px; at a 1024px window with the rail, or beside the match page's side
+ * column, the list had 740-820px and its columns ran into each other while a window-width rule still
+ * called that "wide".
  */
-@media (max-width: 760px) {
+.main { container: lk / inline-size; }
+@container lk (max-width: 900px) {
   .lk-tbl, .lk-tbl tbody { display: block; }
   .lk-tbl thead { display: none; }           /* a header needs columns; a card has none */
   .lk-tbl { border-radius: 0; border-left: 0; border-right: 0; background: none; border: 0; }

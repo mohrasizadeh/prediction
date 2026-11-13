@@ -230,6 +230,10 @@ def match_detail(db, match_iid: int) -> dict | None:
     lp = _names(db, "players", [x["player_iid"] for x in lu])
     for x in lu:
         x["player"] = lp.get(x["player_iid"])
+    team_stats, player_stats = _match_stats(db, m)
+    rating = {r["player"]["iid"]: r["rating"] for r in player_stats if r.get("player")}
+    for x in lu:
+        x["rating"] = rating.get(x["player_iid"])
     ev = (db.match_events.find_one({"match_iid": match_iid}, {"_id": 0, "events": 1}) or {}).get("events") or []
     ep = _names(db, "players", [i for e in ev for i in (e.get("player_iid"), e.get("in_iid")) if i])
     for e in ev:
@@ -248,7 +252,39 @@ def match_detail(db, match_iid: int) -> dict | None:
                         for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "form_fp" in c},
             "h2h": h2h(db, m["home_iid"], m["away_iid"]),
             "availability": _availability(db, (m["home_iid"], m["away_iid"])),
-            "live": m.get("live"), "live_events": _live_events(db, m), "recap": _recap(db, m, ev)}
+            "live": m.get("live"), "live_events": _live_events(db, m), "recap": _recap(db, m, ev),
+            "team_stats": team_stats, "player_stats": player_stats,
+            # Only API-Football names a coach (ingest.save_lineups); None means "do not show".
+            "coach": {"home": (m.get("coach") or {}).get("home"), "away": (m.get("coach") or {}).get("away")}}
+
+
+# What the Stats tab reads off a player row: PLAYER_COLS as stored, plus the provider's rating
+# (display-only, outside PLAYER_COLS -- see ingest.write_match). Named here rather than
+# importing PLAYER_COLS so a new engine column does not silently become a public table column.
+MATCH_PLAYER_COLS = ("minutes", "goals", "assists", "shots", "sot", "xg", "tackles", "saves", "interceptions",
+                     "clearances", "fouls_committed", "fouls_won", "passes", "rating")
+
+
+def _match_stats(db, m):
+    """Finished match: both sides' team_match_stats and every player row. (None, []) otherwise.
+
+    A value the provider did not send stays None so the page can print a dash -- a 0 here would be a
+    claim we do not hold.
+    """
+    if m.get("status") != "final":
+        return None, []
+    import normalize as N
+    side_of = {m["home_iid"]: "home", m["away_iid"]: "away"}
+    ts = {side_of[r["team_iid"]]: {c: r.get(c) for c in N.TEAM_COLS}
+          for r in db.team_match_stats.find({"match_iid": m["iid"]}, {"_id": 0}) if r.get("team_iid") in side_of}
+    team_stats = {"home": ts.get("home"), "away": ts.get("away")} if ts else None
+    rows = [r for r in db.player_match_stats.find({"match_iid": m["iid"]}, {"_id": 0}) if r.get("team_iid") in side_of]
+    pl = _names(db, "players", [r["player_iid"] for r in rows])
+    out = [{"player": pl.get(r["player_iid"]), "side": side_of[r["team_iid"]], "pos": r.get("pos"),
+            "started": r.get("started"), **{c: r.get(c) for c in MATCH_PLAYER_COLS}}
+           for r in rows if r.get("minutes") is None or r["minutes"] > 0]
+    out.sort(key=lambda r: (r["side"] != "home", not r.get("started"), -(r.get("minutes") or 0)))
+    return team_stats, out
 
 
 def _recap(db, m, ev):

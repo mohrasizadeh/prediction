@@ -325,3 +325,66 @@
   body:has(.header--small) .mc-sticky { top: calc(44px + env(safe-area-inset-top)); }
   body:has(.header--small) .an-jump { top: calc(44px + 49px + env(safe-area-inset-top)); }
 }
+
+/* ---- Round 2: two columns, Facts, absences (pages/Match.jsx) ---------------------------------
+   The side column (components/MatchSide.jsx, matchside.css) sits beside the tabs from 1280px. At
+   1280 the rail leaves 992px of content: a 300px column and a 24px gap keep 668px for the tabs, the
+   width the Forecasts table needs for its eight columns without folding (it starts folding at
+   about 640px). Between 1100 and 1279 a side column would squeeze it to 480-560px, so there the
+   cards stay under the default tab, as on a phone. */
+.mc-page--side { min-width: 0; }
+.mc-main { min-width: 0; }
+.mc-aside { margin-top: 28px; }
+.mc-aside.is-away { display: none; }
+@media (min-width: 1280px) {
+  .mc-page--side { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 0 24px; align-items: start; }
+  .mc-aside, .mc-aside.is-away { display: block; margin-top: 0; position: sticky; top: calc(var(--header-h) + 16px + env(safe-area-inset-top));
+    max-height: calc(100vh - var(--header-h) - 32px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; border-radius: 12px; }
+  body:has(.header--small) .mc-aside { top: calc(44px + 16px + env(safe-area-inset-top)); max-height: calc(100vh - 44px - 32px); }
+  /* The column says where and who referees, so the hero's footer line would say it twice. */
+  .mc-page--side .mc-hero [data-testid="match-meta"] { display: none; }
+}
+
+/* Facts tab: one column of sections, each with its heading row. */
+.mc-facts { display: grid; gap: 22px; min-width: 0; }
+.mfx-sec { display: grid; gap: 12px; min-width: 0; margin: 0; }
+.mfx-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.mfx-head .k-sec { margin: 0; }
+.mfx-head .btn { min-height: 44px; }
+.mfx-faint { color: var(--text2); }
+.mfx-fc-sum { margin: 0; font-size: 15px; color: var(--text); }
+.mfx-fc-sum b { font-variant-numeric: tabular-nums; }
+/* League form: the club, then its last five as score chips over the opponent's crest, oldest first so
+   the newest sits nearest this match. Letters are in each link's name; colour is the result. */
+.mfx-form { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-top: .5px solid var(--hig-separator, var(--border)); padding-top: 8px; min-width: 0; }
+.mfx-form:first-of-type { border-top: 0; padding-top: 0; }
+.mfx-form-t { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 15px; }
+.mfx-form-t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mfx-form-list { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex: none; }
+.mfx-res { display: grid; justify-items: center; gap: 4px; min-width: 44px; min-height: 44px; padding: 2px 0; text-decoration: none; color: var(--text); border-radius: 8px; }
+.mfx-score { display: block; min-width: 40px; padding: 2px 6px; border-radius: 6px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; }
+.mfx-res--W .mfx-score { background: var(--up); color: var(--bg); }
+.mfx-res--D .mfx-score { background: var(--text3); color: var(--bg); }
+.mfx-res--L .mfx-score { background: var(--down); color: var(--on-down, var(--bg)); }
+.mfx-res:hover .mfx-score { text-decoration: underline; }
+@media (max-width: 480px) {
+  .mfx-form { flex-wrap: wrap; }
+  .mfx-form-list { width: 100%; justify-content: space-between; }
+}
+@media (prefers-contrast: more) { .mfx-score { outline: 1px solid var(--border-strong); } }
+
+/* Lineups: who is out or doubtful, under the pitch, in the same two columns as "Came on". */
+.lu-abs { display: grid; gap: 8px; }
+.lu-abs-list { list-style: none; margin: 0; padding: 0; display: grid; align-content: start; font-size: 14px; min-width: 0; }
+.lu-abs-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; border-top: .5px solid var(--hig-separator, var(--border)); min-width: 0; }
+.lu-abs-list li.lu-on-team { justify-content: flex-start; border-top: 0; min-height: 32px; gap: 8px; font-weight: 600; }
+.lu-abs-who { display: grid; min-width: 0; }
+.lu-abs-who a, .lu-abs-who > span { color: var(--text); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.lu-abs-who a:hover { text-decoration: underline; }
+.lu-abs-who small { color: var(--text2); font-size: 12px; }
+.lu-abs-tag { flex: none; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.lu-abs-tag--out { background: color-mix(in srgb, var(--down) 16%, transparent); color: var(--text); }
+.lu-abs-tag--doubtful { background: color-mix(in srgb, var(--tier-watch) 20%, transparent); color: var(--text); }
+/* The forecast list folds to cards by the width it is given (likely.css, container `lk`): here that
+   is the pane, which beside the side column is narrower than the page. */
+.mc-page--side .mc-pane { container: lk / inline-size; }

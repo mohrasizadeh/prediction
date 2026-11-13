@@ -16,6 +16,8 @@ import "./components/ui/kit.css";
 import "./styles/teams.css";
 import "./styles/shell.css";
 import "./styles/matchday.css";
+import "./styles/matchstats.css";
+import "./styles/matchside.css";
 import "./styles/power.css";
 import "./styles/you.css";
 import "./styles/adminhome.css";

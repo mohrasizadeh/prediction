@@ -9,7 +9,6 @@ import { Crest } from "./Media";
 import { FollowButton } from "./Actions";
 import LiveStatus from "./LiveStatus";
 import TeamRadar from "./TeamRadar";
-import TeamNews from "./TeamNews";
 import { ShareCard } from "./Share";
 import { num1 } from "./Football";
 import BuildForMe from "./BuildForMe";
@@ -36,10 +35,10 @@ function useCountdown(ko) {
 
 // What each side has left to play for. This used to live in a `Situation` component that the
 // redesign stopped rendering, so the chips vanished from the product while the engine kept
-// computing them -- its referee line had already been taken into MatchNotes below. They belong
-// beside "Worth knowing", which is the same kind of claim.
+// computing them. They lead each club's "Worth knowing" lines in the side column (MatchSide), which
+// make the same kind of claim; the referee has a card of its own there.
 const SITUATION = { rel: "Relegation fight", race: "In the race at the top", dead: "Nothing left to play for" };
-const situationChips = (d) => [[d.home, d.match.home_iid], [d.away, d.match.away_iid]]
+export const situationChips = (d) => [[d.home, d.match.home_iid], [d.away, d.match.away_iid]]
   .flatMap(([t, iid]) => Object.entries(d.context?.[iid]?.situation || {}).filter(([, v]) => v).map(([k]) => `${t.name}: ${SITUATION[k] || k}`));
 
 // Goals per side, for the hero (docs/24 §3 Live / Finished). Two sources, two shapes, read only as
@@ -112,14 +111,16 @@ function h2hLine(d) {
 const koTime = (ko) => utc(ko).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 const koDay = (ko) => utc(ko).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 
-export function Hero({ d }) {
+export function Hero({ d, teams }) {
   const m = d.match, st = matchState(d), lv = m.live;
   const pre = st === "before" || st === "lineups";
   const cd = useCountdown(m.kickoff);
-  // Competition and both clubs' form are not in the match payload; the club endpoint has both.
-  // Form is only fetched while it is news (before kick-off); the competition name always is.
-  const th = useApi(`/teams/${d.home.id}`);
-  const ta = useApi(pre ? `/teams/${d.away.id}` : null);
+  // Competition and both clubs' form are not in the match payload; the club endpoint has both. The
+  // match page already asks for both clubs (its side column needs their next matches) and passes
+  // them in as `teams`, so the hero only asks itself when used without them.
+  const thq = useApi(teams ? null : `/teams/${d.home.id}`);
+  const taq = useApi(!teams && pre ? `/teams/${d.away.id}` : null);
+  const th = teams ? teams[0] : thq, ta = teams ? teams[1] : taq;
   const league = th.data?.league;
   const last = (d.live_events || []).filter((e) => e.type !== "substitution").slice(-1)[0];
   const goals = st === "live" || st === "final" ? scorers(d) : { home: [], away: [] };
@@ -183,22 +184,6 @@ export function MiniBar({ d, shown }) {
 
 function useCompare(d) {
   return useApi("/teams/compare", { a: d.home.id, b: d.away.id, as_fixture: true });
-}
-
-// Before-kickoff notes that belong next to the lineups: why the match matters, absences and who is likely to miss out.
-export function MatchNotes({ d }) {
-  const why = [[d.home, d.match.home_iid], [d.away, d.match.away_iid]].flatMap(([t, iid]) => (d.context?.[iid]?.why || []).map((w) => `${t.name}: ${w}`)).slice(0, 3);
-  const situ = situationChips(d);
-  const news = (d.availability || []).length > 0;
-  if (!why.length && !situ.length && !news && !d.referee?.sentence) return null;
-  return (
-    <div className="mc-notes" data-testid="match-preview">
-      {situ.length > 0 && <div className="mc-situ" data-testid="match-situation">{situ.map((c) => <span key={c} className="k-tag">{c}</span>)}</div>}
-      {why.length > 0 && <section className="card mc-why-card"><header className="v2-sec-head"><h2 className="k-sec v2-sec">Worth knowing</h2></header><ul className="mc-why" data-testid="match-why">{why.map((w) => <li key={w}>{w}</li>)}</ul></section>}
-      <TeamNews d={d} />
-      {d.referee?.sentence && <p className="mc-ref k-faint" data-testid="match-referee">{d.referee.sentence}</p>}
-    </div>
-  );
 }
 
 // A By market heading is the market's name, not one rung of it: "1+ shot" became "shot · 2", lower

@@ -8,6 +8,7 @@
 import { Link } from "react-router-dom";
 import { Crest, PlayerAvatar } from "./Media";
 import { EvIcon } from "./MatchEvents";
+import { RatingBadge } from "./MatchStats";
 
 // The line a player plays in, whatever the source calls it: PitchAPI position_id 0-3, API-Football "G/D/M/F",
 // our own GK/DEF/MID/FWD.
@@ -68,13 +69,15 @@ function Badges({ b }) {
   );
 }
 
-// sides: [{ key: "home"|"away", team, formation, players: [{ key, name, shirt, line, x, y, id, pct, unsure, captain, badges }] }]
+// sides: [{ key: "home"|"away", team, formation, coach, players: [{ key, name, shirt, line, x, y, id, pct, unsure, captain, badges, rating }] }]
+// `coach` and `rating` exist only on API-Football data (queries.match_detail); null draws nothing.
 export function PitchView({ sides, testid = "pitch" }) {
   return (
     <div className="lpv" data-testid={`${testid}-wrap`}>
       {sides.map((s) => (
-        <p key={s.key} className={`lpv-team lpv-team--${s.key}`} data-testid={`${testid}-team-${s.key}`}>
+        <p key={s.key} className={`lpv-team lpv-team--${s.key}${s.coach ? " mst-coach-team" : ""}`} data-testid={`${testid}-team-${s.key}`}>
           <Crest team={s.team} size={20} /><b>{s.team?.name}</b>{s.formation && <span className="lpv-form">{s.formation}</span>}
+          {s.coach && <span className="mst-coach" data-testid={`${testid}-coach-${s.key}`}>Coach: {s.coach}</span>}
         </p>
       ))}
       <div className="lpv-pitch" data-testid={testid}>
@@ -95,6 +98,7 @@ export function PitchView({ sides, testid = "pitch" }) {
                   </span>
                   <span className="lpv-name" aria-hidden="true">{shortName(p.name)}</span><span className="sr-only">{p.name}{p.shirt != null && p.shirt !== "" ? `, number ${p.shirt}` : ""}{p.captain ? ", captain" : ""}</span>
                   {p.pct && <span className="lpv-pct">{p.pct}<span className="sr-only"> chance to start</span></span>}
+                  {!p.pct && p.rating != null && <RatingBadge value={p.rating} className="mst-rate--pitch" lead=", " />}
                   <Badges b={p.badges} />
                 </>
               );

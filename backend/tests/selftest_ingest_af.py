@@ -97,7 +97,7 @@ def detailed(fid, home, away, hg, ag):
                                      (102, "B. Two", 67, "D", True, 1, 0, 2)]),
                     pblock(away[0], [(201, "C. Three", 90, "F", True, 5, 3, 1)])]
     f["lineups"] = [
-        {"team": {"id": home[0]}, "formation": "4-3-3",
+        {"team": {"id": home[0]}, "formation": "4-3-3", "coach": {"id": 77, "name": "M. Arteta"},
          "startXI": [{"player": {"id": 101, "name": "A. One", "number": 7, "pos": "M", "grid": "2:1"}},
                      {"player": {"id": 102, "name": "B. Two", "number": 3, "pos": "D", "grid": "1:2"}}],
          "substitutes": []},
@@ -204,6 +204,24 @@ def t_bundle_writes_our_tables():
           p.get("team_shots") == 4 and t.get("shots") == 14)
     check("the match is marked ingested",
           db.matches.find_one({"ext_id": "1"}).get("ingested_at") is not None)
+
+    # The match page's rating badge and coach line. Both arrive in the same bundle and were read by
+    # normalize_af all along, then dropped by the writer.
+    check(f"the provider's match rating is stored on the player row ({p.get('rating')})", p.get("rating") == 7.0)
+    m1 = db.matches.find_one({"ext_id": "1"})
+    check(f"the coach is stored per match and side ({m1.get('coach')})",
+          (m1.get("coach") or {}).get("home") == "M. Arteta" and not (m1.get("coach") or {}).get("away"))
+    import queries as Q
+    md = Q.match_detail(db, m1["iid"])
+    check(f"the match page gets the coach, None where none was sent ({md['coach']})",
+          md["coach"] == {"home": "M. Arteta", "away": None})
+    st = next((x for x in md["starters"] if (x.get("player") or {}).get("name") == "A. One"), {})
+    check(f"...and each starter's rating ({st.get('rating')})", st.get("rating") == 7.0)
+    row = next((x for x in md["player_stats"] if (x.get("player") or {}).get("name") == "A. One"), {})
+    check(f"...and the Stats tab's player row carries it too ({row.get('rating')}, {row.get('side')})",
+          row.get("rating") == 7.0 and row.get("side") == "home")
+    check(f"...beside the team statistics block ({(md['team_stats'] or {}).get('home', {}).get('shots')})",
+          (md["team_stats"] or {}).get("home", {}).get("shots") == 14)
 
 
 # ------------------------------------------------------------------ 4. a bad fixture is not a bad batch
