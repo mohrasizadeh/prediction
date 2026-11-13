@@ -127,8 +127,19 @@ check("fouls_committed" not in keep,
 # ---------------------------------------------------------------- 8. keepers and the rest
 check(E.MARKET_POSITIONS.get("saves") == ("GK",),
       "saves is a keeper's market and nobody else's")
-check("saves" not in [m for m in E.ALL_PLAYER_STATS if m not in E.MARKET_POSITIONS],
-      "...and every OTHER market excludes keepers, so a GK never carries a 1+ shots line")
+# REWRITTEN: the old form was `"saves" not in [m for m in ALL_PLAYER_STATS if m not in
+# MARKET_POSITIONS]`, which is every market EXCEPT saves -- so it restated the line above and was
+# true by construction while saves is in the map. It asserted nothing whatever about the claim in
+# its own message. Say the claim instead: a market with no entry is open to every position, and
+# saves is the only one restricted.
+check(set(E.MARKET_POSITIONS) == {"saves"},
+      "saves is the only position-restricted market, so no other one can single out a keeper")
+check(all(m not in E.MARKET_POSITIONS for m in E.ALL_PLAYER_STATS if m != "saves"),
+      "...and every other market is published for whoever the frame contains")
+# The map is duplicated in engine.py and engine_bridge.py; two copies that disagree would publish a
+# keeper a shots line on one path and not the other.
+check(EB.MARKET_POSITIONS == E.MARKET_POSITIONS,
+      "the engine's copy of the map and the bridge's agree")
 check("saves" in E.DEFAULT_R_PLAYER and "saves" in EB.STAT_LABEL,
       "saves has a dispersion and words like any other market")
 check(EB.PLAYER_MARKET_COLS["saves"] == ("saves", "team_saves"),

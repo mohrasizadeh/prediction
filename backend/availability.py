@@ -90,12 +90,26 @@ def sync_apifootball(db, client=None, now=None, days_ahead: int = 2) -> dict:
     import images as IMG
     now = now or utcnow()
     client = client or IMG.AFClient(db)
+    # NO MORE IMAGE-ERA LOOKUP TABLES. Both of these translations were written when API-Football was
+    # only a source of PICTURES and the real feed was somebody else: our league iid had to be mapped
+    # to theirs through a hand-kept `images.leagues` table, and our player iid had to be recovered
+    # from an `image_map` row. API-Football is now THE provider, so `leagues.ext_id` IS their league
+    # id and `players.ext_id` IS their player id -- the indirection is not just unnecessary, it was
+    # silently fatal on both sides:
+    #
+    #   * `images.leagues` defaults to {} and nothing populates it, so `af_league` was None for
+    #     every competition and the loop `continue`d on all of them. The injuries feed did nothing
+    #     at all, and reported `{"calls": 0, "matched": 0}` -- which reads like a quiet day.
+    #   * even past that, a player with no `auto`/`approved` image-map row was counted `unknown` and
+    #     his injury thrown away, so availability depended on whether we had found his photograph.
+    #
+    # The old table stays as a fallback for a legacy non-API-Football competition.
     table = S.get(db, "images.leagues") or {}
-    af_to_ours = {m["af_id"]: m["our_iid"] for m in db.image_map.find({"kind": "player", "status": {"$in": ["auto", "approved"]}, "af_id": {"$ne": None}},
-                                                                         {"_id": 0, "af_id": 1, "our_iid": 1})}
     calls = matched = unknown = 0
-    for lg in db.leagues.find({"enabled": True}, {"_id": 0, "iid": 1, "current_season": 1}):
-        af_league = table.get(str(lg["iid"]))
+    for lg in db.leagues.find({"enabled": True}, {"_id": 0, "iid": 1, "current_season": 1,
+                                                  "ext_id": 1, "provider": 1}):
+        af_league = (str(lg.get("ext_id")) if lg.get("provider") == "apifootball" and str(lg.get("ext_id") or "").isdigit()
+                     else table.get(str(lg["iid"])))
         if not af_league:
             continue
         season = int(str(lg.get("current_season") or now.year)[:4])
@@ -108,7 +122,14 @@ def sync_apifootball(db, client=None, now=None, days_ahead: int = 2) -> dict:
             calls += 1
             for it in data.get("response") or []:
                 pl = it.get("player") or {}
-                ours = af_to_ours.get(pl.get("id"))
+                # Their player id IS our `ext_id` now, so this is a direct lookup.
+                prow = (db.players.find_one({"ext_id": str(pl.get("id"))}, {"iid": 1})
+                        if pl.get("id") is not None else None)
+                ours = (prow or {}).get("iid")
+                if ours is None:
+                    m = db.image_map.find_one({"kind": "player", "af_id": pl.get("id"),
+                                               "status": {"$in": ["auto", "approved"]}}, {"our_iid": 1})
+                    ours = (m or {}).get("our_iid")                # legacy rows
                 status = TYPE_MAP.get(str(pl.get("type") or "").strip().lower())
                 if not ours or not status:
                     unknown += 1

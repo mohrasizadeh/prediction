@@ -45,7 +45,7 @@ export default function Explorer({ head = true }) {
   };
   return (
     <div className="a-page" data-testid="admin-explorer">
-      {head && <PageHead title="Endpoint explorer" lead="Runs one allowed PitchAPI call through the cache. A cached answer costs nothing; a real call counts toward today's budget." />}
+      {head && <PageHead title="Endpoint explorer" lead="Runs one allowed provider call through the cache. A cached answer costs nothing; a real call counts toward today's budget." />}
       <Card testid="explorer-form">
         <form className="a-form" onSubmit={(e) => { e.preventDefault(); run(false); }}>
           <Field label="Call" as="select" value={callId} onChange={(e) => { setCallId(e.target.value); setRes(null); setErr(null); }} testid="explorer-call">
@@ -78,7 +78,7 @@ export default function Explorer({ head = true }) {
           <div className="a-jt-wrap"><JsonTree data={res.data} /></div>
         </Card>
       )}
-      <Confirm open={askForce} title="Make a real call?" body="This skips the cache and costs 1 call from today's budget." confirmLabel="Call PitchAPI" onClose={() => setAskForce(false)} onConfirm={() => run(true)} testid="explorer-force-confirm" />
+      <Confirm open={askForce} title="Make a real call?" body="This skips the cache and costs 1 call from today's budget." confirmLabel="Make the call" onClose={() => setAskForce(false)} onConfirm={() => run(true)} testid="explorer-force-confirm" />
     </div>
   );
 }

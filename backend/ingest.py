@@ -56,8 +56,33 @@ def upsert_player(db, p: dict, team_iid: int, kickoff) -> int:
 
 def refresh_player_clubs(db, league_iid: int | None = None) -> int:
     """Put every player at the club he last played for. Repairs rows written before `team_as_of` existed, and
-    anything a provider correction leaves behind. One pass over the stats, newest first."""
-    q = {"league_iid": league_iid} if league_iid else {}
+    anything a provider correction leaves behind. One pass over the stats, newest first.
+
+    TWO THINGS THIS GETS WRONG IF YOU WRITE THE OBVIOUS VERSION, and it used to get both wrong.
+
+    1. A NATIONAL TEAM IS NOT A CLUB. The scan has to skip international competitions. When one is
+       enabled -- World Cup qualifiers, the Nations League -- a player's most recent match is for
+       his country, so "the club he last played for" came out as England, and every screen that
+       names his club named his country until he next played for it. `af_leagues` already marks
+       these: `kind == "international"` (docs/81 §2 is why they can never be forecast competitions
+       either).
+
+    2. IT MUST ONLY EVER MOVE A PLAYER FORWARD. `upsert_player` above compares the kickoff against
+       the stored `team_as_of` before it moves anybody; this did not, so an OLDER match could
+       overwrite a newer one. That was not hypothetical, because `jobs.tick` called this once PER
+       LEAGUE with a `league_iid`: the scan was then scoped to one competition, and its "latest"
+       was only the latest in that competition. A player who moved clubs in January, whose last
+       European tie was in September for the old club, was moved back to the old club by the
+       European league's pass -- and the two passes fought on every tick. Hence the unscoped
+       default: the club a player last played for is a fact about him, not about a competition.
+    """
+    skip = {lg["iid"] for lg in db.leagues.find({"kind": "international"}, {"iid": 1})}
+    if league_iid is not None:
+        if league_iid in skip:
+            return 0                     # asked for a national-team competition: nothing here is a club
+        q = {"league_iid": league_iid}
+    else:
+        q = {"league_iid": {"$nin": list(skip)}} if skip else {}
     latest: dict = {}
     for r in db.player_match_stats.find(q, {"_id": 0, "player_iid": 1, "team_iid": 1, "kickoff": 1}).sort("kickoff", -1):
         if r["player_iid"] not in latest:
@@ -65,10 +90,17 @@ def refresh_player_clubs(db, league_iid: int | None = None) -> int:
     n = 0
     for pid, r in latest.items():
         ko = r["kickoff"].replace(tzinfo=timezone.utc) if r.get("kickoff") is not None and r["kickoff"].tzinfo is None else r.get("kickoff")
-        res = db.players.update_one({"iid": pid, "$or": [{"team_iid": {"$ne": r["team_iid"]}},
-                                                          {"team_as_of": {"$exists": False}}, {"team_as_of": None}]},
-                                    {"$set": {"team_iid": r["team_iid"], "team_as_of": ko}})
-        n += res.modified_count
+        cur = db.players.find_one({"iid": pid}, {"team_iid": 1, "team_as_of": 1})
+        if not cur or cur.get("team_iid") == r["team_iid"]:
+            continue
+        as_of = cur.get("team_as_of")
+        if as_of is not None and as_of.tzinfo is None:
+            as_of = as_of.replace(tzinfo=timezone.utc)
+        # The forward-only guard. A stored club with no date is unverified and may be moved; a
+        # stored club with a date is only replaced by a match at least as recent.
+        if as_of is not None and ko is not None and ko < as_of:
+            continue
+        n += db.players.update_one({"iid": pid}, {"$set": {"team_iid": r["team_iid"], "team_as_of": ko}}).modified_count
     return n
 
 
@@ -263,7 +295,15 @@ def save_lineups(db, match: dict, lu: dict, iid_of_team: dict | None = None) -> 
         d = lu[side]
         for x in d["players"]:
             pl = db.players.find_one({"ext_id": x["ext_id"]}, {"iid": 1})
-            pid = pl["iid"] if pl else upsert_entity(db, "players", x["ext_id"], {"name": x.get("name"), "team_iid": team["iid"], "pos": None})
+            # STAMP `team_as_of`, like `upsert_player` does. A player first seen in a teamsheet got
+            # a club with no date at all, and every rule about moving a player between clubs is a
+            # comparison against that date: `upsert_player` will only move him forward from it, and
+            # `refresh_player_clubs` treats an undated club as unverified. An undated row is
+            # therefore the one row those rules cannot reason about. The teamsheet names the club
+            # and the match names the day, so there is no reason to leave it blank.
+            pid = pl["iid"] if pl else upsert_entity(db, "players", x["ext_id"],
+                                                     {"name": x.get("name"), "team_iid": team["iid"],
+                                                      "team_as_of": match.get("kickoff"), "pos": None})
             db.lineups.update_one({"match_iid": match["iid"], "team_iid": team["iid"], "player_iid": pid},
                                   {"$set": {"started": x["started"], "confirmed": d["confirmed"], "formation": d["formation"],
                                             "lineup_type": d["lineup_type"], "shirt_number": x["shirt_number"],
@@ -588,9 +628,13 @@ def fill_player_goal_cols(db, league_iid: int | None = None, dry_run: bool = Tru
     return out
 
 
-COVERAGE_FIELDS = {"team_match_stats": ["shots", "sot", "corners", "tackles", "poss", "xg"],
+# `saves` and `team_saves` were missing here, so `data_coverage` had no row for them -- and
+# `enabled_markets` reads `bool(cov)`, so the saves market would have been gated off by an ABSENT
+# coverage row even after it was added to MARKET_COVERAGE. A field has to be measured here before a
+# market keyed on it can ever be on.
+COVERAGE_FIELDS = {"team_match_stats": ["shots", "sot", "corners", "tackles", "poss", "xg", "saves"],
                    "player_match_stats": ["minutes", "shots", "sot", "tackles", "pos", "passes", "fouls_won", "fouls_committed",
-                                          "goals", "assists", "goal_involvements", "xg"]}
+                                          "goals", "assists", "goal_involvements", "xg", "saves"]}
 
 
 def update_coverage(db, league_iid: int) -> dict:

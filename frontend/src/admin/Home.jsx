@@ -21,7 +21,7 @@ const greet = () => { const h = new Date().getHours(); return h < 12 ? "Good mor
 
 function line(t) {
   switch (t.id) {
-    case "data": return t.breaker_open ? "PitchAPI breaker is open" : `${t.provider} ${num(t.used)} of ${num(t.cap)} · sync ${at(t.last_sync)}`;
+    case "data": return t.breaker_open ? `${t.provider} breaker is open` : `${t.provider} ${num(t.used)} of ${num(t.cap)} · sync ${at(t.last_sync)}`;
     case "live": return t.enabled ? `${t.provider} ${num(t.used)} of ${num(t.cap)} · ${num(t.live_now)} live` : `${t.provider} is off`;
     case "engine": return `Run ${at(t.last_run)} · ${num(t.forecasts)} forecasts · map ${t.map}${t.errors_24h ? ` · ${t.errors_24h} failed` : ""}`;
     case "images": return t.review ? `${num(t.review)} to review` : `Nothing to review · ${num(t.stored)} player photos`;
@@ -50,21 +50,18 @@ function TwoTap({ label, onConfirm, testid }) {
 
 function NeedItem({ n, onDone }) {
   const toast = useToast();
-  const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const act = async (fn, msg) => { setBusy(true); try { await fn(); toast(msg); onDone(n.key); } catch (x) { toast(x.message || "Could not do that", "err"); setBusy(false); } };
   const tid = `need-${n.key}`;
   const tag = { match: "Match", image: "Image", job: "Job", alert: "Alert", issue: "Data", inbox: "Inbox" }[n.kind];
   let text, buttons;
   if (n.kind === "match") {
-    const [c0, ...rest] = n.candidates;
-    text = c0 ? <>SportAPI team “{n.name}” → is it <b>{c0.name}</b>?</> : <>SportAPI team “{n.name}” has no club to link</>;
-    buttons = <>
-      {c0 && <button type="button" className="btn btn--primary btn--sm" disabled={busy} onClick={() => act(() => post(`/admin/sportapi/teams/${n.sid}`, { team_id: c0.id }), `Linked to ${c0.name}`)} data-testid={`${tid}-yes`}>Yes, link</button>}
-      {more ? <>{rest.map((c) => <button key={c.iid} type="button" className="btn btn--secondary btn--sm" disabled={busy} onClick={() => act(() => post(`/admin/sportapi/teams/${n.sid}`, { team_id: c.id }), `Linked to ${c.name}`)} data-testid={`${tid}-pick-${c.iid}`}>{c.name}</button>)}
-        <TwoTap label="None of these" onConfirm={() => act(() => post(`/admin/sportapi/teams/${n.sid}`, {}), "Left unlinked")} testid={`${tid}-none`} /></>
-        : <button type="button" className="btn btn--secondary btn--sm" onClick={() => setMore(true)} data-testid={`${tid}-another`}>Pick another</button>}
-    </>;
+    // The SportAPI club-matching need is gone (admin_home.needs). Its three buttons posted to
+    // /admin/sportapi/teams/{sid}, deleted with the provider, so each answered 404 and the item
+    // could never be cleared. Kept as a readable row rather than silently dropped, in case an old
+    // payload still carries one.
+    text = <>Club matching for a retired provider. Nothing to do: this feed is no longer used.</>;
+    buttons = null;
   } else if (n.kind === "image") {
     const c0 = n.candidates?.[0];
     text = <>New {n.image_kind === "team" ? "crest" : n.image_kind === "league" ? "logo" : "photo"} for <b>{n.name || `#${n.our_iid}`}</b>{c0 ? ` · best match ${c0.name} (${Math.round((c0.score || 0) * 100)}%)` : ""}</>;

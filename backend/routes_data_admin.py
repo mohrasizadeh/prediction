@@ -84,8 +84,13 @@ def _lists(db):
     return AF_ALLOWED if S.get(db, "provider.source") == "apifootball" else ALLOWED
 
 
-def _allowed(path: str, params: dict, db=None) -> bool:
-    for pattern, keys in (_lists(db) if db is not None else ALLOWED):
+def _allowed(path: str, params: dict, db) -> bool:
+    """`db` IS REQUIRED. It used to default to None and fall back to `ALLOWED`, which is PitchAPI's
+    list -- so a caller who forgot to pass it would silently check an API-Football path against the
+    wrong provider's allowlist. There is one caller and it passes `db`, so the default protected
+    nothing and only kept the trap available. This is the gate on a screen that spends real provider
+    calls; it should fail loudly rather than quietly consult the wrong list."""
+    for pattern, keys in _lists(db):
         if re.fullmatch(pattern, path):
             return all(k in keys for k in params)
     return False

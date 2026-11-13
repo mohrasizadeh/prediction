@@ -1,5 +1,5 @@
 // Live pill and live card (docs/24). The pill floats while something is live and opens the live sheet.
-// The card reads the public fixture shape of GET /api/live (sportapi.public_fixture) and, optionally, its events.
+// The card reads the public fixture shape of GET /api/live and, optionally, its events.
 import { Crest } from "../Media";
 import LiveStatus from "../LiveStatus";
 import { fxLive, fxStarted } from "../../lib/live";

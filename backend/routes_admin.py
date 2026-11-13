@@ -540,7 +540,9 @@ def key_save(provider: str, body: KeyBody, user=Depends(perm("keys.write")), db=
     security.save_provider_key(db, provider, k)
     if provider == "pitchapi":
         S.reset(db, "ingest.paused_reason", actor=user["email"])
-        db.job_locks.delete_one({"_id": "pitch_breaker"})
+        # BOTH breakers. This cleared only PitchAPI's, so the one admin escape hatch for "the provider
+    # cut us off" could not clear the breaker of the only provider in use (docs/89).
+    db.job_locks.delete_many({"_id": {"$in": ["pitch_breaker", "af_breaker"]}})
     if provider == "apifootball":
         # A rejected key pauses ingest and trips the breaker (apifootball._unwrap). Saving a new
         # one is the owner saying "try again", so both have to clear or the new key never gets used.

@@ -122,7 +122,10 @@ def feeds(db, now: datetime | None = None) -> dict:
     h = AQ.health(db, now)
     sync = db.job_runs.find_one({"job": {"$in": PULL_JOBS}, "status": "ok"},
                                 {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
-    queued = db.ingest_queue.count_documents({"status": "queued"})
+    # `pending` IS THE STATUS `ingest.enqueue` WRITES. This asked for "queued", which nothing in the
+    # codebase ever sets, so the panel's queue depth was a hard-coded zero -- on the one screen
+    # whose job is to answer "is the feed backed up".
+    queued = db.ingest_queue.count_documents({"status": "pending"})
     af = _af_status(db, now)
     # ONE PROVIDER, ONE ROW. This used to return two, named PitchAPI and SportAPI, each linking to
     # its own screen -- and those screens are gone (docs/88). The panel exists to answer "which feed
@@ -150,11 +153,13 @@ def feeds(db, now: datetime | None = None) -> dict:
 
 def needs(db, user, now: datetime) -> list[dict]:
     out = []
-    if A.can(user, "settings.write"):
-        tid = {t["iid"]: t["id"] for t in db.teams.find({}, {"_id": 0, "iid": 1, "id": 1})}
-        for r in db.sportapi_team_map.find({"status": "review"}, {"_id": 0}).limit(20):
-            out.append({"kind": "match", "key": f"sp-{r['sid']}", "sid": r["sid"], "name": r.get("name"), "score": r.get("score"),
-                        "candidates": [{**c, "id": tid.get(c["iid"])} for c in r.get("candidates", []) if tid.get(c["iid"])]})
+    # NO SportAPI club-matching needs. This read `sportapi_team_map` and produced an item whose
+    # three buttons POST to /admin/sportapi/teams/{sid} -- a route deleted with the provider, so
+    # every one of them answered 404 and the item could never be cleared. Nothing writes that
+    # collection any more either (live_af joins on `matches.ext_id`; there is nothing to match by
+    # name and nothing for a human to decide), so the queue can only ever hold leftovers from
+    # before the move. An item a person cannot resolve is worse than no item: it sits at the top of
+    # "Needs you" for ever. docs/89.
     for r in db.image_map.find({"status": "review"}, {"_id": 0}).sort([("score", -1)]).limit(20):
         out.append({"kind": "image", "key": f"im-{r['kind']}-{r['our_iid']}", "image_kind": r["kind"], "our_iid": r["our_iid"],
                     "name": r.get("name") or r.get("our_name"), "score": r.get("score"), "candidates": r.get("candidates", [])})

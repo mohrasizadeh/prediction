@@ -69,9 +69,20 @@ def sync_fixtures(client, league: dict, season: int | str) -> dict:
     season = int(season)
     current = season >= _current_season(db, league)
     if current:
+        # A MATCH DAY IS NOT OVER WHEN THE LAST KICK-OFF HAS PASSED.
+        #
+        # This counted only fixtures still `scheduled` in the next 24 hours, so the moment the last
+        # match of a round kicked off the league stopped looking like a match day and the fixture
+        # list fell back to the six-hour TTL -- exactly when the results are landing and we most
+        # want a fresh answer. A league could therefore be re-synced and still be handed a cached
+        # list in which every match was `scheduled`, queueing nothing.
+        #
+        # Count the recent past as well: anything that kicked off in the last six hours is either
+        # still being played or has just finished, and in both cases the answer is still moving.
+        now_ = utcnow()
         on_match_day = db.matches.count_documents({
-            "league_iid": league["iid"], "status": "scheduled",
-            "kickoff": {"$gte": utcnow(), "$lte": utcnow() + timedelta(hours=24)}}) > 0
+            "league_iid": league["iid"],
+            "kickoff": {"$gte": now_ - timedelta(hours=6), "$lte": now_ + timedelta(hours=24)}}) > 0
         hrs = S.get(db, "cache.ttl.fixtures_matchday_hours" if on_match_day else "cache.ttl.fixtures_future_hours")
         ttl = timedelta(hours=float(hrs))
     else:
@@ -139,17 +150,23 @@ def ingest_bundle(client, matches: list[dict]) -> dict:
             I.issue(db, "fixture_missing", f"{ext} was not in the answer",
                     match_iid=match["iid"], league_iid=match["league_iid"])
             continue
+        # ONE FIXTURE'S FAULT IS ONE FIXTURE'S FAULT. The normalizer was guarded and the WRITE was
+        # not, so anything raising inside write_match -- a DuplicateKeyError, a bad field -- escaped
+        # drain entirely and the batch of twenty stayed `status: "running"` for ever: the
+        # update_many that marks them done never ran, nothing on this path calls release_stuck, and
+        # `_mark_finished_seasons` needs "done", so the season never completed either. The whole
+        # write is inside the guard now.
         try:
             out = NAF.normalize_match(fixture, settings)
-        except Exception as e:                      # a normalizer fault is about THIS fixture only
+            for i in out["issues"]:
+                I.issue(db, i["kind"], i["detail"], match_iid=match["iid"], league_iid=match["league_iid"])
+            I.write_match(db, match, out)
+            _write_events(db, match, out.get("events") or [])
+        except Exception as e:
             I.issue(db, "normalize_failed", f"{ext}: {type(e).__name__}: {e}",
                     match_iid=match["iid"], league_iid=match["league_iid"])
             failed += 1
             continue
-        for i in out["issues"]:
-            I.issue(db, i["kind"], i["detail"], match_iid=match["iid"], league_iid=match["league_iid"])
-        I.write_match(db, match, out)
-        _write_events(db, match, out.get("events") or [])
         written += 1
     return {"asked": len(by_ext), "written": written,
             "missing": len(by_ext) - written - failed, "failed": failed}
@@ -163,8 +180,11 @@ def _write_events(db, match: dict, ev: list[dict]) -> None:
     bundle that was fetched for the statistics, so they cost nothing and there is nothing to switch
     on. The stored shape is `match_extras`'s, down to `dedupe` -- the same readers read both.
     """
-    if not ev:
-        return
+    # NO EARLY RETURN ON AN EMPTY LIST. A 0-0 with no card and no substitution is a real result, and
+    # bailing out here would leave `extras_at` unset on it for ever -- which is exactly the flag
+    # `score_finished` checks before grading a card forecast, so that match's card lines would never
+    # be graded and the zeros below would never be written. `_apply` handles an empty list correctly:
+    # its `update_many` reset is what stamps the honest zeros.
     import match_extras as MX
     tid = {"home": match["home_iid"], "away": match["away_iid"]}
     rows = []
@@ -181,6 +201,35 @@ def _write_events(db, match: dict, ev: list[dict]) -> None:
                                {"$set": {"match_iid": match["iid"], "league_iid": match["league_iid"],
                                          "kickoff": match["kickoff"], "events": rows}}, upsert=True)
 
+    # STORING THE EVENTS IS NOT THE JOB. Deriving from them is, and this stopped at the store.
+    #
+    # `match_events` is the archive; almost nothing reads it directly. What the product reads is what
+    # `_apply` writes OUT of it: per-player `yellow_cards`, `red_cards`, `pen_goals`, `goal_minutes`,
+    # `sub_on`/`sub_off`, and per-team `yellow_cards_against`, `red_cards`, `own_goals_for`. On the
+    # PitchAPI path `ingest_extras` called it; that path is `not af`-gated in `jobs.tick`, so under
+    # API-Football nobody called it and every one of those fields stayed at its default.
+    #
+    # `cards_model` is built entirely on them, so it did not fail -- it computed, confidently, from
+    # zeros. `y = sum(r.get("yellow_cards") or 0)` was always 0, so the per-90 card rate was 0, so
+    # lambda was 0, so EVERY player card forecast published at p = 0.0000 (47 lines a fixture). On
+    # the team side `yellow_cards_against` was always 0, which collapsed the opponent share from 1.0
+    # to K/(n+K) = 0.2 and multiplied the match line by sqrt(0.2): "4+ cards in the match" read
+    # 0.390 where the same events with `_apply` run give 0.572.
+    #
+    # And `extras_at` is what `score_finished` checks before it will grade a card forecast, so those
+    # worthless lines were never graded either -- a permanently empty track record on top of a
+    # permanently wrong number.
+    MX._apply(db, match, rows, tid)
+    sets = {"extras_at": utcnow()}
+    goals = [e for e in rows if e["type"] == "goal"]
+    if goals:
+        g = goals[0]
+        sets["first_goal_side"] = ("away" if g["side"] == "home" else "home") if g["own_goal"] else g["side"]
+        sets["first_scorer_iid"] = None if g["own_goal"] else g["player_iid"]
+    else:
+        sets["first_goal_side"], sets["first_scorer_iid"] = "none", None
+    db.matches.update_one({"iid": match["iid"]}, {"$set": sets})
+
 
 # ------------------------------------------------------------------ draining the queue
 QUEUE_TASK = "af_match"
@@ -191,8 +240,21 @@ def drain(client, max_seconds: float = 40.0, batch: int = AF.IDS_PER_CALL) -> di
     db = client.db
     import time
     t0 = time.monotonic()
-    done = {"batches": 0, "written": 0, "failed": 0, "missing": 0}
+    done = {"batches": 0, "written": 0, "failed": 0, "missing": 0,
+            # Tasks an earlier crash left mid-flight. `ingest.release_stuck` exists for exactly
+            # this and its only caller is `process_queue`, which the API-Football tick never runs,
+            # so nothing recovered them. Without this a single bad batch takes twenty matches out
+            # of the backfill permanently and the season can never be marked backfilled.
+            "released": I.release_stuck(db)}
+    last_release = t0
     while time.monotonic() - t0 < max_seconds:
+        # AND AGAIN AS WE GO. The release above runs once, at entry, and `release_stuck` only frees
+        # a task older than its own threshold -- so a batch this very drain leaves mid-flight is not
+        # recovered by it, whatever the commit message said. Re-checking periodically costs one
+        # indexed update and means a long drain heals itself rather than waiting for the next tick.
+        if time.monotonic() - last_release > 60:
+            done["released"] += I.release_stuck(db)
+            last_release = time.monotonic()
         # `next_run_at`, which is what `ingest.enqueue` writes. Querying `run_at` matched nothing
         # and the drain reported an empty queue while the queue was full -- a silent no-op, not an
         # error, which is the kind of bug a test catches and a run does not.
@@ -222,6 +284,65 @@ def drain(client, max_seconds: float = 40.0, batch: int = AF.IDS_PER_CALL) -> di
         for k in ("written", "failed", "missing"):
             done[k] += res[k]
     return done
+
+
+def lineup_watch(client, now: datetime | None = None, max_fixtures: int = 60) -> dict:
+    """The announced eleven, BEFORE kick-off, into `db.lineups`.
+
+    This had no API-Football equivalent at all. `jobs.py` gates the PitchAPI `lineup_watch` behind
+    `not af`, and nothing replaced it, so under the new provider `db.lineups` was written only by
+    `write_match` -- i.e. AFTER the match. Three things were therefore dead:
+
+      * `engine_bridge` reads `db.lineups` for `started=True, confirmed=True` and needs eleven
+        before it will pass a real XI into `predict_fixture`. It never got one, so every forecast
+        ran on the engine's own `p_play` estimates even when the teamsheet was out.
+      * `follow_alerts` never sent the "lineups are in" e-mail.
+      * `jobs` never re-fit a forecast when the real eleven landed, because `lineups_at` never moved.
+
+    One call covers twenty fixtures, and `apifootball.lineup_ttl` caches a lineup for ever once it
+    is present, so a fixture is paid for once however often this runs.
+    """
+    db = client.db
+    now = now or utcnow()
+    window = float(S.get(db, "ingest.lineups_watch_hours") or 6)
+    ms = list(db.matches.find({
+        "status": "scheduled", "lineups_confirmed": {"$ne": True},
+        "kickoff": {"$gte": now - timedelta(hours=1), "$lte": now + timedelta(hours=window)},
+    }).limit(max_fixtures))
+    if not ms:
+        return {"looked_at": 0, "confirmed": 0, "calls": 0}
+
+    settings = _settings(db)
+    by_ext = {str(m["ext_id"]): m for m in ms}
+    before = client.calls_made
+    # NOT `FOREVER`, and not `AF.lineup_ttl` either: that is a per-fixture decision ("cache this
+    # lineup for ever now I have it") and this fetch carries twenty fixtures at once, most of which
+    # have no lineup yet. Cache the ANSWER briefly instead, so the next tick asks again and sees a
+    # sheet that has since been announced. A fixture whose lineup HAS landed is excluded by the
+    # query above, so we never pay for it twice.
+    ttl = timedelta(minutes=float(S.get(db, "cache.ttl.lineups_near_minutes") or 10))
+    bundles = AF.fixtures_bundle(client, [int(e) for e in by_ext], ttl=ttl, purpose="lineup_watch")
+    n = 0
+    for ext, match in by_ext.items():
+        fixture = bundles.get(int(ext))
+        if not fixture or not (fixture.get("lineups") or []):
+            continue                                   # not announced yet; try again next tick
+        try:
+            lu = NAF.lineups(fixture, settings["position_map"])
+            home = db.teams.find_one({"iid": match["home_iid"]}, {"ext_id": 1})
+            away = db.teams.find_one({"iid": match["away_iid"]}, {"ext_id": 1})
+            iid_of = {(home or {}).get("ext_id"): match["home_iid"],
+                      (away or {}).get("ext_id"): match["away_iid"]}
+            I.save_lineups(db, match, lu, iid_of)
+            db.matches.update_one({"iid": match["iid"]},
+                                  {"$set": {"lineups_at": now,
+                                            "lineups_confirmed": bool(lu["home"]["confirmed"] and lu["away"]["confirmed"])},
+                                   "$inc": {"lineup_fetches": 1}})
+            n += 1
+        except Exception as e:
+            I.issue(db, "lineup_failed", f"{ext}: {type(e).__name__}: {e}",
+                    match_iid=match["iid"], league_iid=match["league_iid"])
+    return {"looked_at": len(by_ext), "confirmed": n, "calls": client.calls_made - before}
 
 
 # ------------------------------------------------------------------ what a tick does
@@ -255,6 +376,17 @@ def backfill_tick(client, max_seconds: float = 40.0) -> dict:
                                         "$setOnInsert": {"backfilled": False}},
                                   upsert=True)
             out["synced"].append(res)
+            # ROUNDS, before anything reads the league back.
+            #
+            # `sync_fixtures` writes `round: None` on insert and nothing in this function set it;
+            # only the `af_fixtures` job called `assign_rounds`. But `build_frames` filters
+            # `{"round": {"$ne": None}}`, so a league whose whole history had just been backfilled
+            # had 96 of 96 matches invisible to the engine, `build_frames` returned None and
+            # `run_league` recorded `status: skipped, note: "no data"` -- on a league that had just
+            # been fully ingested. It healed itself at the next fixtures sync, up to six hours
+            # later, and until then the recorded reason was simply untrue. Rounds are a pure
+            # function of the kickoff dates we already hold; it costs no calls.
+            I.assign_rounds(db, lg["iid"])
     drained = drain(client, max_seconds=max_seconds)
     for k in ("batches", "written", "failed", "missing"):
         out[k] = drained[k]

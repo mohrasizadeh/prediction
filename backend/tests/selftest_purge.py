@@ -116,6 +116,17 @@ def t_user_data_is_opt_in():
 def t_unknown_collection_is_surfaced():
     db = seeded()
     check("a tidy database has nothing unclassified", P.unknown(db) == [])
+    # THE CHECK ABOVE IS A TAUTOLOGY ON ITS OWN: `seeded()` inserts one document into every
+    # collection purge already classifies, so of course nothing is unclassified. The question worth
+    # asking is whether the collections the APPLICATION creates are all classified, and the answer
+    # was no -- `mongo_init` creates `alert_subscriptions` and purge had never been told about it,
+    # so the admin showed a permanent "unclassified collection" warning no action could clear.
+    import mongo_init
+    import mongomock
+    real = mongomock.MongoClient()["real"]
+    mongo_init.ensure_indexes(real)
+    missed = P.unknown(real)
+    check(f"every collection the application itself creates is classified ({missed})", missed == [])
     db["a_new_collection_nobody_classified"].insert_one({"x": 1})
     check("a collection added later shows up rather than being silently kept or cleared",
           P.unknown(db) == ["a_new_collection_nobody_classified"])

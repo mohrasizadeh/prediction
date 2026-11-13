@@ -82,7 +82,15 @@ with TestClient(srv.app) as owner:
     d = support.get(f"/api/admin/users/{fan_id}")
     txt = d.text
     check(d.status_code == 200 and all(w not in txt for w in ("password_hash", "secret_enc", "recovery_codes", "$2b$")), "user detail never contains hashes or secrets")
-    check(admin.get("/api/admin/users?plan=free").json()["total"] >= 1 and admin.get("/api/admin/users?verified=false").json()["total"] >= 0, "filters work (plan, verified)")
+    # `total >= 0` cannot fail: a count is never negative, so the `verified` filter was only
+    # asserted to return A NUMBER. Assert that it filters: unverified plus verified must be the
+    # whole set, and the unverified count must differ from it.
+    everyone = admin.get("/api/admin/users").json()["total"]
+    unver = admin.get("/api/admin/users?verified=false").json()["total"]
+    ver = admin.get("/api/admin/users?verified=true").json()["total"]
+    check(admin.get("/api/admin/users?plan=free").json()["total"] >= 1, "the plan filter finds the free members")
+    check(unver + ver == everyone and unver < everyone,
+          f"the verified filter actually divides the members ({unver} + {ver} = {everyone})")
     check(analyst.post(f"/api/admin/users/{fan_id}/disable", json={"reason": "x"}).status_code == 403, "analyst cannot change users")
     # support actions
     check(support.post(f"/api/admin/users/{fan_id}/notes", json={"text": "Asked about invoices"}).status_code == 200 and len(support.get(f"/api/admin/users/{fan_id}").json()["notes"]) == 1, "support adds a note")

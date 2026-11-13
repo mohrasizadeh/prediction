@@ -65,28 +65,53 @@ def jobs_status(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
             # "stopped" and Run now queued a request the tick skips -- a dead button with nothing to
             # say why. The server decides, because the server is what knows (docs/88).
             "provider": S.get(db, "provider.source"),
-            "budget": {"cap": S.get(db, "ingest.daily_call_budget"), "left": _calls_left(db)}}
+            # THE BUDGET OF THE PROVIDER ACTUALLY RUNNING. `ingest.daily_call_budget` is PitchAPI's
+            # 2,000 and means nothing under API-Football, whose cap is `apifootball.daily_cap`.
+            # This screen showing the wrong provider's allowance is what "why is backfill still
+            # showing the PitchAPI limit" was about.
+            "budget": {"cap": _budget(db), "left": _calls_left(db)}}
+
+
+def _budget(db) -> int:
+    from routes_data_admin import _provider_budget      # one definition, shared by every screen
+    return int(_provider_budget(db) or S.get(db, "ingest.daily_call_budget") or 0)
 
 
 def _calls_left(db) -> int:
     # Same source as AD-05a's "Calls today": one row per provider call in api_call_log.
-    cap = int(S.get(db, "ingest.daily_call_budget") or 0)
+    cap = _budget(db)
     midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     used = db.api_call_log.count_documents({"at": {"$gte": midnight}})
     return max(0, cap - used)
 
 
 def _job_costs(db) -> dict:
-    """About how many provider calls one press of each Run-now button spends."""
+    """About how many provider calls one press of each Run-now button spends.
+
+    KEYED BY THE JOB IDS THE SCREEN SHOWS, which now depends on the provider. The API-Football ids
+    were missing entirely, and the screen reads `d.costs?.[id]` -- so `big("af_backfill")` was
+    always false and the backfill, the single most expensive press on the page, lost its danger
+    styling AND its typed-"RUN" confirmation. The guard was written for exactly that button and was
+    silently off for it. A missing key also made the dialog show the IMAGES copy ("depends on how
+    many pictures are missing") for a fixtures sync.
+
+    The per-match figure comes from `calls_per_match(db)`, not the CALLS_PER_MATCH constant: that
+    constant is PitchAPI's 3, and its own definition says to use the function. API-Football answers
+    twenty fixtures a call, so the constant overstates a backfill sixtyfold.
+    """
+    from routes_data_admin import calls_per_match
     n_lg = db.leagues.count_documents({"enabled": True})
+    cpm = calls_per_match(db)
     backfill = 0
     for lg in db.leagues.find({"enabled": True}, {"iid": 1, "backfill_seasons": 1}):
         for label in lg.get("backfill_seasons", []):
-            s = db.seasons.find_one({"league_iid": lg["iid"], "label": label})
+            s = db.seasons.find_one({"league_iid": lg["iid"], "label": str(label)})
             if s and not s.get("backfilled"):
-                n = db.matches.count_documents({"league_iid": lg["iid"], "season": label}) or DEFAULT_SEASON_MATCHES
-                backfill += 1 + n * CALLS_PER_MATCH
+                n = db.matches.count_documents({"league_iid": lg["iid"], "season": str(label)}) or DEFAULT_SEASON_MATCHES
+                backfill += 1 + n * cpm
     return {"reference_sync": 1, "fixtures_sync": n_lg, "results_sync": n_lg, "backfill": backfill,
+            # the same two numbers under the ids the API-Football screen uses
+            "af_fixtures": n_lg, "af_backfill": round(backfill, 1),
             "engine": 0, "images": None}         # the engine reads what we hold; images is unknown up front
 
 

@@ -1,5 +1,5 @@
 # iter26 R6: admin home (tiles + needs), shell tabs, settings provenance, availability image + cycle,
-# engine switch settings present, sportapi status by_kind, photo_plan regression, permissions.
+# engine switch settings present, provider status by_kind, photo_plan removal, permissions.
 import os, sys, pytest, requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -122,11 +122,18 @@ def test_availability_cycle(admin):
     assert got["status"] == "available"
 
 
-# regression: photo_plan no longer fails with naive/aware TypeError
-def test_photo_plan_regression():
+# regression, INVERTED: `photo_plan` is gone, and this test asserted that it had run OK.
+#
+# It was written when player photographs came from cdn.pitchapi.dev, a call per player, planned by a
+# `photo_plan` job. Pictures now come from api-football.com only -- the logo is a URL on the entity
+# itself, so there is nothing to plan -- and `jobs.tick` deliberately has no such step (see the
+# comment there). A test that requires a removed job to have run is a test that can only ever fail,
+# and it fails for the one reason that is not a bug. What is worth pinning is the removal: nothing
+# should be scheduling it, and the thing that replaced it should be the only image path.
+def test_photo_plan_is_gone():
     sys.path.insert(0, "/app/backend")
-    from dotenv import load_dotenv; load_dotenv("/app/backend/.env")
-    from pymongo import MongoClient
-    db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
-    last = db.job_runs.find_one({"job": "photo_plan"}, sort=[("started_at", -1)])
-    assert last and last["status"] == "ok", last
+    import jobs
+    src = open(os.path.join(os.path.dirname(jobs.__file__), "jobs.py")).read()
+    code = "\n".join(ln for ln in src.splitlines() if not ln.lstrip().startswith("#"))
+    assert "photo_plan" not in code, "jobs.tick schedules photo_plan again"
+    assert "images" in code, "the image step that replaced it is missing"

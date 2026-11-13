@@ -37,8 +37,22 @@ check(SP.phase_of("HT") == "live", "half time has a phase, so the match still lo
 check(SP.phase_of("ET") == "live" and SP.phase_of("P") == "live", "extra time and penalties too")
 check(SP.phase_of("Scheduled") == "scheduled" and SP.phase_of("FT") == "final", "the known words are unchanged")
 check(SP.phase_of("Postponed") == "postponed" and SP.phase_of("Cancelled") == "cancelled", "...including the called-off ones")
-check(SP.phase_of("TBD") is None and SP.phase_of(None) is None, "a word that means 'not being played' still has no live phase")
-check(SP.status_text("HT") == "Live", "an in-play word we do not know reads as Live, never as the raw code")
+# Asserts the claim it makes, rather than one exact answer. It demanded `None` for "TBD", and
+# "scheduled" satisfies "not being played" perfectly -- which matters because API-Football sends TBD
+# for a real fixture whose kick-off time is not confirmed yet, and `selftest_normalize_af` has
+# always asserted `status_of("TBD") == "scheduled"`. The two files contradicted each other, and the
+# over-specified one was blocking the correct change.
+check(SP.phase_of("TBD") != "live" and SP.phase_of(None) != "live",
+      "a word that means 'not being played' never reads as live")
+check(SP.phase_of("TBD") == "scheduled", "TBD is a fixture with no confirmed time: scheduled, not unknown")
+check(SP.phase_of(None) is None, "nothing at all still has no phase")
+# "HT" is no longer the right example: it now reads "Half time", which is what a reader wants to
+# see. The claim being tested is the FALLBACK -- an in-play code with no wording of its own must read
+# "Live" and never leak the raw code onto a screen -- so it needs a code that really has no wording.
+check(SP.status_text("1H") == "Live" and SP.status_text("2H") == "Live",
+      "an in-play word we have no wording for reads as Live, never as the raw code")
+check(SP.status_text("HT") == "Half time", "...and the ones we do have wording for say what they mean")
+check(SP.status_text("ET") == "Extra time" and SP.status_text("P") == "Penalties", "...including these two")
 check(SP.status_text("FT") == "Full time" and SP.status_text("Scheduled") == "Not started", "the known wordings are unchanged")
 check(SP.status_text(None) == "Not started", "nothing at all reads as not started")
 check(SP.status_text("Deferred") == "Deferred", "a word that means 'not started' is shown as it came, not as Live")
@@ -64,7 +78,9 @@ sb = SP.scoreboard(db, now=now)
 check(sb["live_count"] == 1, f"the scoreboard counts the half-time match as live: {sb['live_count']}")
 fx = [f for l in sb["leagues"] for f in l["fixtures"]]
 check(fx[0]["sid"] == 77, "...and puts it above the one that has not kicked off")
-check(fx[0]["status_text"] == "Live", "...and the page is given a word, not 'HT'")
+# A word, not the raw code: "Half time" now, which is the point of the mapping and more use to a
+# reader than the generic "Live" this used to demand.
+check(fx[0]["status_text"] == "Half time", "...and the page is given a word, not 'HT'")
 st = SP.status(db, now=now)
 check(st["live_now"] == 1, "the admin's 'Live now' counts it too")
 

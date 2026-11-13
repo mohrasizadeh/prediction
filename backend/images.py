@@ -196,6 +196,16 @@ class AFClient:
             except httpx.HTTPError:
                 r = None
             self.db.image_api_calls.update_one({"_id": self._today()}, {"$inc": {"n": 1}, "$set": {"at": utcnow()}}, upsert=True)
+            # LOG IT WHERE THE ADMIN LOOKS, TOO. This counter is private to the image code, and the
+            # Data and Live tiles, the usage screen and the API log all read `api_call_log` -- so
+            # every crest, photo and injury call was spent against the one real API-Football quota
+            # while being invisible in every place that reports what we are spending. Two private
+            # budgets against one provider allowance, with the admin showing only one of them, is
+            # how "my quota is gone and the screen says it isn't" happens.
+            self.db.api_call_log.insert_one({"at": utcnow(), "path": path,
+                                             "status": "ok" if (r is not None and r.status_code == 200) else "error",
+                                             "code": (r.status_code if r is not None else None),
+                                             "ms": None, "purpose": "images", "provider": PROVIDER})
             if r is not None and r.status_code not in (499, 500, 502, 503, 504):
                 break
             if attempt == 0:
@@ -249,14 +259,27 @@ def store_media(db, kind: str, iid: int, data: bytes, source: str, af_id: int | 
 
 
 def download(db, kind: str, our_iid: int, af_id: int, http=None) -> str:
-    """Fetch one image from the provider's media host and store it. Returns 'stored', 'missing' or 'bad'."""
+    """Fetch one image from the provider's media host and store it.
+
+    Returns 'stored', 'missing', 'bad' or 'retry'.
+
+    'MISSING' AND 'RETRY' ARE NOT THE SAME ANSWER, and conflating them cost real pictures. Every
+    failure used to come back as 'missing' -- a dropped connection, a 503 while their media host
+    was restarting, a 429 for asking too fast -- and the caller writes that verdict onto the
+    `image_map` row, where it is then checked as `if m.get("missing"): continue`. Permanently. So a
+    single blip during one sync denied a club its crest or a player his photograph for good, and the
+    only cure was an admin clearing the row by hand. Nothing in the product could recover on its
+    own, and it looks exactly like a provider that has no image for the player.
+
+    A 404 is the provider saying it has no such picture, which is worth remembering. Nothing else is.
+    """
     url = f"https://{MEDIA_HOST}/football/{MEDIA_PATH[kind]}/{int(af_id)}.png"
     own = http is None
     http = http or _FACTORY()
     try:
         r = http.get(url, headers={"accept": "image/*"})
     except httpx.HTTPError:
-        return "missing"
+        return "retry"                               # never reached it: we have learned nothing
     finally:
         if own:
             try:
@@ -264,14 +287,14 @@ def download(db, kind: str, our_iid: int, af_id: int, http=None) -> str:
             except Exception:
                 pass
     if r.status_code == 404:
-        return "missing"
-    if r.status_code != 200:
-        return "missing"
-    try:
-        store_media(db, kind, our_iid, r.content, source="apifootball", af_id=af_id)
-    except ImageError:
-        return "bad"
-    return "stored"
+        return "missing"                             # their answer: there is no such image
+    if r.status_code == 200:
+        try:
+            store_media(db, kind, our_iid, r.content, source="apifootball", af_id=af_id)
+        except ImageError:
+            return "bad"                             # it arrived and it is not a usable image
+        return "stored"
+    return "retry"                                   # 429, 5xx, anything else: ask again later
 
 
 # ------------------------------------------------------------------ mapping
@@ -466,8 +489,10 @@ def _fetch_pending(db, kind, deadline, http, stats):
             continue
         res = download(db, kind, m["our_iid"], m["af_id"], http=http)
         stats[res] = stats.get(res, 0) + 1
-        if res != "stored":
-            db.image_map.update_one({"_id": m["_id"]}, {"$set": {"missing": res}})
+        # Only a verdict we believe is written down. `retry` is deliberately NOT persisted: the row
+        # stays eligible and the next sync tries it again.
+        if res in ("missing", "bad"):
+            db.image_map.update_one({"_id": m["_id"]}, {"$set": {"missing": res, "missing_at": utcnow()}})
         _SLEEP(0.05)                                                # the media server limits bursts
 
 
@@ -537,8 +562,10 @@ def approve(db, kind: str, our_iid: int, af_id: int | None = None, http=None) ->
         raise ImageError("That id is not one of the candidates.")
     _put_map(db, kind, our_iid, af_id=af, status="approved", missing=None)
     res = download(db, kind, our_iid, af, http=http)
-    if res != "stored":
-        db.image_map.update_one({"kind": kind, "our_iid": int(our_iid)}, {"$set": {"missing": res}})
+    # Same rule as the sync loop: a transient failure is not written down, so the admin's approval
+    # is not quietly undone by a 503 in the second between the two.
+    if res in ("missing", "bad"):
+        db.image_map.update_one({"kind": kind, "our_iid": int(our_iid)}, {"$set": {"missing": res, "missing_at": utcnow()}})
     return res
 
 

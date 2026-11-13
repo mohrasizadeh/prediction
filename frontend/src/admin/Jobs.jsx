@@ -49,9 +49,9 @@ function Extras() {
           actions={<Guard className="btn btn--secondary btn--sm" label="Queue missing matches" confirmLabel="Queue them"
                           disabled={!x.pending} title="Queue the matches that are missing this detail?"
                           body={<Cost calls={x.calls_needed} left={x.daily_budget} cap={x.daily_budget}
-                                      lead={`${num(x.pending)} ${x.pending === 1 ? "match" : "matches"} would be queued, at about ${num(x.calls_per_new_match)} PitchAPI calls each. The queue drains across ticks, so this spends over days rather than at once.`} />}
+                                      lead={`${num(x.pending)} ${x.pending === 1 ? "match" : "matches"} would be queued, at about ${num(x.calls_per_new_match)} provider calls each. The queue drains across ticks, so this spends over days rather than at once.`} />}
                           onRun={go} testid="extras-backfill" />}>
-      <p className="muted small">{x.detail || x.events ? `On. Each finished match costs ${x.calls_per_new_match} extra PitchAPI calls.` : "Off. Turn on ingest.match_extra_detail and ingest.match_extra_events in Settings."} {x.pending ? `About ${x.calls_needed} calls left for the backlog (daily budget ${x.daily_budget}).` : ""}</p>
+      <p className="muted small">{x.detail || x.events ? `On. Each finished match costs ${x.calls_per_new_match} extra provider calls.` : "Off. Turn on ingest.match_extra_detail and ingest.match_extra_events in Settings."} {x.pending ? `About ${x.calls_needed} calls left for the backlog (daily budget ${x.daily_budget}).` : ""}</p>
       <div className="a-tiles"><StatTile label="Matches done" value={`${x.done} / ${x.ingested}`} testid="extras-done" /><StatTile label="Waiting" value={x.pending} testid="extras-pending" /></div>
     </Card>
   );

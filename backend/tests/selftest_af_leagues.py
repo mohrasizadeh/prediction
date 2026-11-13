@@ -21,6 +21,10 @@ import security
 
 OK = []
 def check(name, cond):
+    # bool(), like every other file with an OK list. This one appended the raw value, and it ends on
+    # `sum(OK)` -- so a single `check(name, a and b)` over two lists would make the summary raise a
+    # TypeError and read as a crash rather than as a failed assertion.
+    cond = bool(cond)
     OK.append(cond)
     print(("  ok     " if cond else "  FAIL   ") + name)
 

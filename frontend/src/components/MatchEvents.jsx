@@ -44,11 +44,17 @@ export function normEvent(e) {
   let kind = LIVE_TYPES[raw] || "other";
   if (kind === "goal" && e.own_goal) kind = "own_goal";
   else if (kind === "goal" && e.penalty) kind = "pen_goal";
+  else if (kind === "red" && e.second_yellow) kind = "second_yellow";
   const [base, added] = minuteOf(e);
   const sub = kind === "sub";
   // A recap substitution names the player going off in `player` and the one coming on in `player_in`.
   // API-Football's own "subst" rows (no in/out keys) name the player going OFF, not the one coming on.
   const afSub = sub && raw === "subst" && !e.in_name && !e.out_name;
+  // live_af (via normalize_af.events) writes `sub` with the player going OFF in player_name and the one
+  // coming ON in assist_name: read it as in/out, never as an assist.
+  if (sub && raw === "sub" && !e.in_name && !e.player_in && e.assist_name) {
+    e = { ...e, in_name: e.assist_name, assist_name: null };
+  }
   const name = afSub ? "" : sub && (e.player_in || e.in_name) ? e.player_in?.name || e.in_name : e.player?.name || e.player_name || "";
   const id = sub && (e.player_in || e.in_name) ? e.player_in?.id : e.player?.id;
   const out = afSub ? e.player_name : sub ? (e.player_in || e.in_name ? e.player?.name || e.player_name : e.out_name) : null;
