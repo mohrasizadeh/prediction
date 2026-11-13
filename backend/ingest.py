@@ -270,7 +270,13 @@ def write_match(db, match: dict, out: dict) -> None:
                # Added NOW, before the backfill, on purpose: the comment above is right that a
                # column added later starts empty and the engine reads history back, so adding it
                # afterwards would leave saves dead until a full re-backfill.
-               "team_saves": out["team_totals"][side].get("saves")}
+               "team_saves": out["team_totals"][side].get("saves"),
+               # The provider's own match rating (API-Football `games.rating`; PitchAPI has none,
+               # so None). Kept OUT of PLAYER_COLS on purpose: that list is the provider-mapping
+               # contract (settings player_keys, the admin "missing" check, normalize_af's paths),
+               # so adding a column PitchAPI cannot map would flag every PitchAPI match as missing
+               # it. It is display-only -- no market, no engine column -- and the match page reads it.
+               "rating": p.get("rating")}
         db.player_match_stats.update_one({"match_iid": match["iid"], "player_iid": pid}, {"$set": row}, upsert=True)
 
     save_lineups(db, match, out["lineups"], iid_of_team)
@@ -279,6 +285,12 @@ def write_match(db, match: dict, out: dict) -> None:
 
 def save_lineups(db, match: dict, lu: dict, iid_of_team: dict | None = None) -> None:
     home = db.teams.find_one({"iid": match["home_iid"]}); away = db.teams.find_one({"iid": match["away_iid"]})
+    # The coach of each side for THIS match, on the match doc (a coach is per match, not per
+    # player row). Only API-Football sends one; a lineup without the key (PitchAPI) leaves any
+    # stored name alone rather than blanking it, and the match page reads None as "hide".
+    coach = {f"coach.{side}": lu[side]["coach"] for side in ("home", "away") if lu[side].get("coach")}
+    if coach:
+        db.matches.update_one({"iid": match["iid"]}, {"$set": coach})
     for side, team in (("home", home), ("away", away)):
         d = lu[side]
         for x in d["players"]:
@@ -296,6 +308,8 @@ def save_lineups(db, match: dict, lu: dict, iid_of_team: dict | None = None) -> 
                                   {"$set": {"started": x["started"], "confirmed": d["confirmed"], "formation": d["formation"],
                                             "lineup_type": d["lineup_type"], "shirt_number": x["shirt_number"],
                                             "position_id": x["position_id"], "pitch_x": x["pitch_x"], "pitch_y": x["pitch_y"],
+                                            # API-Football's "row:col" slot (None elsewhere): the pitch's rows, where pitch_x is missing.
+                                            "grid": x.get("grid"),
                                             "is_captain": x["is_captain"], "fetched_at": utcnow()}}, upsert=True)
 
 

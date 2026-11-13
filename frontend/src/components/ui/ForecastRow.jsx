@@ -25,6 +25,18 @@ const RH = 26;                                   // run strip height in px
 const need = (thr) => Math.floor(Number(thr)) + 1;
 const nounFor = (f, n) => (n === 1 ? f.noun?.[0] : f.noun?.[1]) || f.stat;
 const lineWords = (f, n) => `${n}+ ${nounFor(f, n)}`;
+// A row with no verb printed the market's whole label ("1+ goal in the match") beside the line
+// control ("1+"), so the number showed twice -- and once the reader stepped the line it showed two
+// DIFFERENT numbers, because the label was the lead rung's. The line control owns the number; the
+// label is the market's words without it. Falls back to the stat key only when there is no label.
+// The label is written for the lead rung, so "1+ goal" stepped to 2 needs its first word plural.
+const bareNoun = (f, n) => {
+  if (!f.market) return null;
+  const w = f.market.replace(/^\s*\d+\+\s*/, "");
+  if (n > 1 && need(f.thr) === 1) return w.replace(/^(\S*[^s\s])(?=\s|$)/, "$1s");
+  if (n === 1 && need(f.thr) > 1) return w.replace(/^(\S+)s(?=\s|$)/, "$1");
+  return w;
+};
 
 // The lineup words are about HIM and are facts that can be checked. "Confirmed" never said
 // confirmed what; "Lineup not sure" never said who was unsure, and it was us.
@@ -332,7 +344,12 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
   // the strip is per market: tackles and shots are different ten games
   const known = (cur.run || []).filter((g) => g && g.v != null);
   const cleared = known.filter((g) => g.v >= n).length;
-  const who = f.player?.name || fx.team?.name;
+  // A match total ("1+ goal in the match") is stored on the home club, so its row said "Team 0 1+ goal
+  // in the match" -- a claim about one club that is really about both. Its subject is the fixture, as
+  // ForecastCard's Who already draws it (v10 §5 left this sentence open; the backend sends no verb).
+  // With the fixture as subject "in the match" says it twice, and its width cut the fixture to "Team 0 v Te…".
+  const matchLine = !f.player && (cur.stat || f.stat || "").startsWith("match_") && !!fx.opp;
+  const who = f.player?.name || (matchLine ? fx.text : fx.team?.name);
   const res = n === chosen ? (cur.outcome || f.outcome || null) : null;
   const tk = n === chosen ? track?.[cur.fkey] : null;
   const words = lineWords(cur, n);
@@ -376,12 +393,18 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
             ) : (
               <span className="lk-ava lk-ava--club"><Crest team={fx.team} size={34} /></span>
             )}
-            <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${fx.team?.id}`} title={who}>{shortName(who)}</Link>
-            {verb ? <span className="lk-verb">{verb}</span> : null}
-            {/* one control, two shapes: a stepper where there is room, a word where there is not */}
-            <span className="lk-onwide"><Stepper rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
-            <span className="lk-onnarrow"><LinePicker rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
-            <MarketPicker markets={markets} stat={cur.stat} onPick={pickMarket} id={f.id} noun={verb ? nounFor(cur, n) : null} />
+            {matchLine ? <span className="lk-name" title={who}>{who}</span>
+              : <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${fx.team?.id}`} title={who}>{shortName(who)}</Link>}
+            {/* The claim -- verb, line, market. One flex line with the name on a wide screen (it
+                dissolves there); on a phone it is the card's second line, full width under the
+                face and the figure (docs/redesign/v10 §3), so it gets a box of its own. */}
+            <span className="lk-claim">
+              {verb ? <span className="lk-verb">{verb}</span> : null}
+              {/* one control, two shapes: a stepper where there is room, a word where there is not */}
+              <span className="lk-onwide"><Stepper rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
+              <span className="lk-onnarrow"><LinePicker rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
+              <MarketPicker markets={markets} stat={cur.stat} onPick={pickMarket} id={f.id} noun={verb ? nounFor(cur, n) : matchLine ? bareNoun(cur, n)?.replace(/\s+in the match$/, "") : bareNoun(cur, n)} />
+            </span>
           </span>
           {/* the fixture, for the phone, where its own column is folded away */}
           <span className="lk-fx-inline">{vs} {ko}</span>
@@ -405,7 +428,7 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
         </td>
         <td className="lk-cell-why">
           <button type="button" className="lk-why" aria-expanded={open} onClick={onToggle} data-testid={`lk-why-${f.id}`}>
-            Why<span className="sr-only"> {who}, {words}, {p} percent</span> {open ? "\u25b4" : "\u25be"}
+            Why<span className="sr-only"> {who}, {words}, {p} percent</span><Icon name="chevron-down" size={12} />
           </button>
         </td>
         <td className="lk-cell-lu">

@@ -7,11 +7,13 @@
 import { useState } from "react";
 import { ForecastRow } from "./ForecastRow";
 
-export function ForecastList({ rows, teams, homeIid, track, testid, extras = true }) {
-  const [open, setOpen] = useState(null);
-  if (!rows?.length) return null;
+// The eight columns' widths and labels, once, for every table of ForecastRows. Most likely kept its
+// own pre-v10 six-column head over the eight-cell row, so at 1366 the sentence got a 151px column and
+// every name was clipped to nothing; it uses this now, with `sorted` naming the column it sorts by.
+export function ForecastHead({ sorted = null }) {
+  const sort = (id) => (sorted === id ? { "aria-sort": "descending" } : {});
   return (
-    <table className="lk-tbl" data-testid={testid}>
+    <>
       {/* The widths live here, not on the cells. With `table-layout: fixed` a table takes its
           column widths from its FIRST row -- which is the header now -- so widths set on the body's
           cells were ignored and all eight columns came out equal. A colgroup says it once, for the
@@ -26,9 +28,19 @@ export function ForecastList({ rows, teams, homeIid, track, testid, extras = tru
       <thead>
         <tr>
           <th className="lk-h-say">Forecast</th><th>Last 10</th><th>Result</th>
-          <th className="lk-h-lk">Chance</th><th>Grade</th><th>Why</th><th>Lineup</th><th aria-label="Save and combo" />
+          <th className="lk-h-lk" {...sort("chance")}>Chance</th><th>Grade</th><th>Why</th><th>Lineup</th><th aria-label="Save and combo" />
         </tr>
       </thead>
+    </>
+  );
+}
+
+export function ForecastList({ rows, teams, homeIid, track, testid, extras = true }) {
+  const [open, setOpen] = useState(null);
+  if (!rows?.length) return null;
+  return (
+    <table className="lk-tbl" data-testid={testid}>
+      <ForecastHead />
       <tbody>
         {rows.map((f, i) => (
           <ForecastRow

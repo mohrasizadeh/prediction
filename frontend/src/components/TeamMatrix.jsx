@@ -1,6 +1,6 @@
 // League Teams tab (update pack part A, docs/24 §7): every club side by side. Phones: one stat as ranked bars,
 // the full heat-map behind "Show all stats". Tick two clubs and the Compare tray appears.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { Crest } from "./Media";
@@ -11,11 +11,15 @@ const VENUES = [{ id: "all", label: "All" }, { id: "home", label: "Home" }, { id
 const fmt = (v) => (v == null ? "–" : Number.isInteger(v) ? v : v.toFixed(1));
 const good = (s, p) => (p == null ? 0 : s.better === "low" ? 1 - p : p);
 
-function Ranked({ d, stat, picked, toggle }) {
+function Ranked({ d, stat, picked, toggle, windowLabel }) {
   const s = d.stats.find((x) => x.key === stat);
   const rows = [...d.teams].filter((t) => t.values[stat] != null).sort((a, b) => (s.better === "low" ? a.values[stat] - b.values[stat] : b.values[stat] - a.values[stat]));
   const max = Math.max(...rows.map((t) => t.values[stat]), 0.01);
   return (
+    <>
+    {/* league_teams_phone.png: the list says what it is ranking before the first row, so a bar of
+        "12.6" is never read without its unit and its window. */}
+    <p className="tm-caption" data-testid="team-matrix-caption">{s.label} per game · {windowLabel}{s.better === "low" ? " · fewest first" : ""}</p>
     <ol className="tm-rank" data-testid="team-matrix-ranked" aria-label={`${s.label}, per game, ${s.better === "low" ? "fewest" : "most"} first`}>
       {rows.map((t, i) => (
         <li key={t.team.id} className={picked.includes(t.team.id) ? "on" : ""}>
@@ -27,6 +31,7 @@ function Ranked({ d, stat, picked, toggle }) {
         </li>
       ))}
     </ol>
+    </>
   );
 }
 
@@ -68,6 +73,12 @@ export default function TeamMatrix({ leagueId }) {
   const q = useApi(`/leagues/${leagueId}/team-matrix`, { window, venue });
   const toggle = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p.slice(-1), id]));
   const d = q.data;
+  const chipsRef = useRef(null);
+  useEffect(() => {
+    const row = chipsRef.current?.querySelector(".k-chips");
+    const on = row?.querySelector(".k-chip.on");
+    if (row && on && row.scrollWidth > row.clientWidth) row.scrollLeft = Math.max(0, on.offsetLeft - row.offsetLeft - 16);
+  }, [stat, d]);
   return (
     <section className="tm" data-testid="team-matrix">
       <div className="tm-controls">
@@ -78,21 +89,27 @@ export default function TeamMatrix({ leagueId }) {
         <EmptyState icon="shield" title="No finished matches yet" testid="team-matrix-empty">Club numbers appear after the first round of this season is played. Try the Fixtures tab for what is next.</EmptyState>
       ) : (
         <>
-          <p className="tm-legend" aria-hidden="true"><span>Weaker</span><i /><span>Stronger (fewest for "against" numbers)</span></p>
-          <p className="sr-only">Per game averages. Darker cells are the better end of the league for that number.</p>
           <div className={all ? "tm-phone-hide" : "tm-phone"}>
-            <ChipsRow options={d.stats.map((s) => ({ id: s.key, label: s.label }))} value={stat} onChange={setStat} label="Pick a stat" testid="team-matrix-stat" />
-            <Ranked d={d} stat={stat} picked={picked} toggle={toggle} />
+            {/* One scrolling row on a phone: the picked chip is brought into the row's view, or the
+                default "Shots" sat off-screen to the right and nothing looked selected. */}
+            <div ref={chipsRef}><ChipsRow options={d.stats.map((s) => ({ id: s.key, label: s.label }))} value={stat} onChange={setStat} label="Pick a stat" testid="team-matrix-stat" /></div>
+            <Ranked d={d} stat={stat} picked={picked} toggle={toggle} windowLabel={(WINDOWS.find((w) => w.id === window)?.label || "") + (venue !== "all" ? `, ${venue}` : "")} />
             <button type="button" className="btn btn--secondary tm-all" onClick={() => { setAll(true); setTimeout(() => document.querySelector('[data-testid="team-matrix-grid"]')?.scrollIntoView({ block: "start" }), 50); }} data-testid="team-matrix-show-all">Show all stats</button>
           </div>
           <div className={all ? "tm-desk tm-desk--forced" : "tm-desk"}>
             {all && <button type="button" className="k-link tm-back" onClick={() => setAll(false)} data-testid="team-matrix-show-one">Back to one stat</button>}
+            {/* The heat key belongs to the heat map only; above the phone's ranked bars it described
+                a colour scale that list does not use. */}
+            <p className="tm-legend" aria-hidden="true"><span>Weaker</span><i /><span>Stronger (fewest for "against" numbers)</span></p>
+            <p className="sr-only">Per game averages. Darker cells are the better end of the league for that number.</p>
             <Grid d={d} picked={picked} toggle={toggle} />
           </div>
         </>
       )}
       {picked.length > 0 && (
         <div className="tm-tray" role="region" aria-label="Compare tray" data-testid="compare-tray">
+          {/* The mockup's tray names who is in it: two crests read faster than a count. */}
+          <span className="tm-tray-crests" aria-hidden="true">{picked.map((pid) => { const t = d?.teams.find((x) => x.team.id === pid)?.team; return t ? <Crest key={pid} team={t} size={24} /> : null; })}</span>
           <span>{picked.length} selected</span>
           <button type="button" className="k-link" onClick={() => setPicked([])} data-testid="compare-tray-clear">Clear</button>
           <button type="button" className="btn btn--primary btn--sm" disabled={picked.length < 2} onClick={() => nav(`/compare?a=${picked[0]}&b=${picked[1]}`)} data-testid="compare-tray-go">{picked.length < 2 ? "Pick one more" : "Compare"}</button>

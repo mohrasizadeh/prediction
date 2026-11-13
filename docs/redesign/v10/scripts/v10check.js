@@ -35,6 +35,10 @@ const T = []; const ok = (c, m) => T.push([!!c, m]);
     ok(/makes/.test(say), `${sfx}: the row reads as a sentence ("${say}")`);
     const names = await pg.$$eval('.lk-name', (els) => els.map((e) => e.textContent));
     ok(!names.some((n) => /…|\.\.\.$/.test(n)), `${sfx}: no name is truncated (${names.join(', ')})`);
+    // ...nor clipped by CSS: an ellipsis from text-overflow is not in textContent, so the line above
+    // passed while a 92px stepper cut "T. van den Berg" to "T. van den B…" on screen.
+    const clipped = await pg.$$eval('.lk-name', (els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
+    ok(clipped.length === 0, `${sfx}: no name is clipped on screen${clipped.length ? ' (' + clipped.join(', ') + ')' : ''}`);
 
     // ---- the verb follows the market ---------------------------------------
     const before = await pg.$eval('.lk-verb', (e) => e.textContent.trim());
@@ -74,8 +78,10 @@ const T = []; const ok = (c, m) => T.push([!!c, m]);
       const head = await pg.$$eval('.lk-tbl thead th', (els) => els.map((e) => Math.round(e.getBoundingClientRect().width)));
       ok(head.length === 8 && Math.abs(head[0] - cols[0].w) <= 1,
          `desktop: the header sits on the body's columns (${head[0]} vs ${cols[0].w})`);
-      // one x per column, down every row
-      const x = (sel) => pg.$$eval('.lk-tbl tbody tr ' + sel, (els) => [...new Set(els.map((e) => Math.round(e.getBoundingClientRect().left)))]);
+      // one x per column, down every row. These columns are CENTRED (§2), so the x that must hold is
+      // the centre: a left edge moves by half the difference in width, and "Strong" is 9px wider than
+      // "Solid" in the prototype itself (76 against 67), so measuring left edges failed v10 too.
+      const x = (sel) => pg.$$eval('.lk-tbl tbody tr ' + sel, (els) => [...new Set(els.map((e) => { const r = e.getBoundingClientRect(); return Math.round(r.left + r.width / 2); }))]);
       for (const [sel, name] of [['.lk-runwrap', 'evidence'], ['.k-tier', 'grade'], ['.lk-why', 'why']]) {
         const xs = await x(sel);
         // centred content of differing width rounds to within a pixel; that is not a misalignment

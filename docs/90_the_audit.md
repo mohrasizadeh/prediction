@@ -236,7 +236,7 @@ already broken at least once:
 
 ## What is pinned
 
-`tests/selftest_audit_v11.py`, 96 checks, every one of them executing the real function:
+`tests/selftest_audit_v11.py`, 149 checks, every one of them executing the real function:
 the involvements fix on a no-assist fixture, the sot fix, the untracked-block case that must
 *still* read `None`, the bench man, the one-sided squad, the team zero-fill and the possession
 mirror, a renamed display string that must still surface as missing, the pitch coordinates of a
@@ -268,6 +268,145 @@ rounds, measures coverage, and then asks the engine what it can see. It asserts
 including the three the market gate was dropping — that keepers are in the frame, that the team
 saves and goal-involvements columns are not columns of zeros, and that the card fields and
 `extras_at` were derived. Not "the column exists", which is what the old tests checked.
+
+## The six-hour delay on a finished match, and the page that never showed its numbers
+
+Reported after the audit: *"the stats updated with a delay... I know that pitchapi is still serving
+the match page final stats, because I had it on before, and it would show exactly the same and the
+same delay after the game."* The delay was real. The provider was not the cause -- and the reason it
+felt identical is that PitchAPI's `results_sync` ran on the same six-hour cadence.
+
+**One place in the entire codebase queued a finished match's statistics:** `sync_fixtures`, called
+from the `af_fixtures` job every `ingest.fixtures_sync_hours`, default **6**. And when it ran it
+read `/fixtures` through a cache whose TTL is `cache.ttl.fixtures_future_hours` (6h) off a match
+day -- so the job could run and still be handed a list in which the match was `scheduled`, and queue
+nothing at all. `on_match_day`, which selects the short 1-hour TTL, counted only fixtures still
+SCHEDULED in the next 24 hours, so the moment the last match of a round kicked off the league
+stopped looking like a match day, exactly when the results were landing.
+
+Meanwhile the live tick had known all along. `live_af` stamps `final_at` the instant a status flips
+to a final short -- and did nothing with it. It now enqueues the match there, which turns six hours
+into about a minute at no extra call, because that bundle was going to be fetched anyway. The
+match-day window now counts the six hours *after* a kick-off as well as the twenty-four before.
+
+**And the match page never showed the match's statistics at all.** `match_detail` returned
+forecasts, events, lineups, a style model and a recap, and no `stats` key. `live_stats` had exactly
+one reader in the whole codebase -- `live_track`, deciding whether a live forecast had landed -- and
+no display. What the page labels as team style is `team_styles`, a historical model the engine
+rebuilds, which by design does not move during a match. So on the one page a reader opens to find
+out what happened, there was no way to see how many shots there had been.
+
+`match_detail` now returns a `stats` block: `team_match_stats` once the match is ingested,
+`live_stats` while it is being played, both carrying the same columns so no row appears for the
+first time at the whistle. The live team block was widened from the four columns `live_track`
+happened to need to all of `TEAM_COLS` plus saves, summed from the players the way the finished path
+already does. `MatchStats.jsx` draws them as opposed bars, reusing the kit's own home/away pairing
+and the flex-grow technique `FirstGoal` and `Momentum` already use -- a layout, not a new visual
+language.
+
+## The live snapshot that became the final result
+
+Found while tidying up after a parallel session's match-page rewrite, and the most serious defect in
+this document.
+
+`/fixtures?ids=...` is **the same cache key for the live path and the final path** -- it is the same
+request whether a match is in its 67th minute or over. `live_af` fetched it with `ttl=None`, which
+`apifootball.fetch` documents as caching FOR EVER. So:
+
+* the in-play statistics **froze at the first fetch of a match**. Every later tick was served the
+  same cached answer, and a figure taken in the 20th minute stood for the whole ninety.
+* that mid-match answer was then handed to `ingest_bundle` as the finished match, so
+  `team_match_stats` recorded the 67th minute as full time -- permanently, because the entry never
+  expired.
+
+It was invisible while `apifootball.live_stats` shipped off, since nothing fetched the live bundle
+at all. Turning that on, earlier in this same pass, is what made it reachable. The live bundle now
+expires after 45 seconds, and `ingest_bundle` forces a fresh answer, which costs no extra call --
+only a cache miss on a call it was going to make anyway.
+
+Two smaller faults came out of the same investigation:
+
+* **A match ingested at the whistle kept `status: "scheduled"`.** `sync_fixtures` used to be the
+  only thing that queued a finished match and it sets the status as it goes; the new live-tick
+  enqueue reached `write_match` without touching the match row. `queries._match_stats` returns
+  `(None, [])` for anything that is not final, so the page showed **no statistics at all** on a
+  match whose numbers were already in the database -- until the next six-hourly sweep corrected it.
+  That is the delay this change set out to remove, one layer further up. The ingest now records the
+  status and score from the bundle it already has.
+* **`_live_stats` dropped the saves column**, because it maps `normalize.TEAM_COLS` and saves is not
+  in it, while the finished row adds `team_saves`. The Saves row appeared for the first time at the
+  whistle -- a number that looks as though it changed when all that changed is which document was
+  read.
+
+The dead code from the merge went with them: `_stats_block`, `MATCH_STAT_COLS`, the `stats` key in
+`match_detail` (computed on every request, read by nothing) and fifteen orphaned CSS lines.
+
+## `KeyError('pos')`, reported from production after all of the above
+
+`Job engine:36 failed at 12:30 PM: KeyError('pos')`. The same crash this document already claims to
+have fixed -- and the fix was incomplete. Two guards were added for the TEAM frame coming out empty;
+**the PLAYER frame had none**, and it can be empty while the team frame is full.
+
+`pd.DataFrame([])` has no columns at all, and a frame built from dicts has no `pos` column when not
+one of them carries that key, so `pg["pos"]` raises on both. Reproduced both ways before touching
+anything.
+
+The likely cause for a real competition is not a bug at all: **API-Football's player-statistics
+coverage is narrower than its fixture and team-statistics coverage**, so a less-covered competition
+returns team numbers and an empty `players` array. `scratchpad/diagnose_36.js` settles which of the
+two it is, read-only.
+
+The right behaviour already existed and was not being used. `blank_columns` makes `run_league` skip
+with the column named -- *"player stats not mapped: pos"* -- which reaches `engine_runs` and the
+admin's "Needs you", where a bare `None` would have recorded the vague "no data" on a league that
+plainly has team data. The guard hands it that diagnostic instead of crashing. Team markets go with
+it, which is the existing and deliberate behaviour for an unmapped player column: a league of team
+lines and no player lines is indistinguishable, from the outside, from a quiet week.
+
+The lesson repeats the one at the top of this document. Fixing the case in front of you is not the
+same as fixing the class: `tg` and `pg` are the same shape of mistake, the first was guarded twice
+and the second not at all, and nothing in the suite asked the obvious next question.
+
+## Pulling a finished match again, which nothing could do
+
+A column added after a match was ingested is empty on that match **for ever**. `sync_fixtures` only
+queues a match with no `ingested_at`, and nothing anywhere set that back -- so player ratings,
+coaches, the derived card fields and every normalizer fix in this document apply only to matches
+ingested after they landed. A null the provider meant as a zero stays null on an old row however
+correctly the code now reads it.
+
+`plan_reingest` counts the matches and the calls and changes nothing; `reingest` queues a bounded
+batch, newest first, at priority 8 -- behind the live whistle (3), the current-season sweep (5) and
+the backfill (7). `af_reingest` is in `jobs.MANUAL` and is **deliberately not on `_due_every`**: it
+re-reads matches that already have an `ingested_at`, so anything periodic would walk the same league
+for ever. One press takes one batch and the result says how many are left.
+
+It is cheap. Nineteen competitions at three seasons is roughly 19,000 finished matches, and the
+bundle carries twenty a call: about 970 calls, 1.3% of one day's allowance.
+
+**The trap it had to avoid.** `ingest.enqueue` writes `status` under `$setOnInsert`, and a drained
+task is left at `status: "done"`. A re-ingest built on `enqueue` would have reported every match
+queued and done nothing at all -- the rows exist, the status stays "done", `drain` never looks again.
+`reingest` sets the status explicitly, and a test asserts that ten tasks left at "done" by an
+earlier drain are made pending again. Exactly the shape of silent failure this whole document is
+about, caught this time before it shipped.
+
+`ingested_at` is deliberately **not** cleared: `write_match` upserts, so rows are replaced in place.
+Clearing it would make every other reader treat the match as un-ingested in the meantime, and lose
+that state for good if the re-pull never finished.
+
+## Club names came apart mid-word
+
+`overflow-wrap: anywhere` on the Live page's name classes. `anywhere` permits a break inside a word
+**and** collapses the element's min-content width to a single character, so flex squeezes the name to
+nothing and breaks every word in it. Measured: "Nottingham Forest" has a min-content width of 14px
+under `anywhere` and 90px under `break-word` -- the longest word. `break-word` still breaks a word
+that cannot fit a line on its own, so nothing overflows; it simply stops a name coming apart when it
+could have wrapped at the space.
+
+The same value is used in eighteen other public places. Only the reported page was changed: some of
+the rest are tight fixed-width labels -- a 76px shirt label on the pitch graphic -- where `anywhere`
+may genuinely be right, and that is a deliberate pass rather than a sweep.
 
 ## Still open, and not ours to close
 

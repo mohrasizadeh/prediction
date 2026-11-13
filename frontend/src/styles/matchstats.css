@@ -1,0 +1,118 @@
+/* Match page team and player numbers (components/MatchStats.jsx, on the Live and Facts tabs) and the rating badge it shares with the pitch
+   (components/LiveLineups.jsx). Home is --chart1 and away --chart2, the same pair the pitch rings and
+   the head-to-head bar use, so a side keeps one colour across the whole page. Tokens only. */
+
+/* Measured against the locked v10 card (docs/redesign/v10, likely.css) and the match page's other
+   cards: a 16px radius, a 1px --border edge and 16px padding at every width; uppercase micro-labels at
+   10px/800/.07em in --text3 like "LAST 10 · DID HE REACH IT"; tabular figures (800, -.035em) with a small unit at
+   .42em; gaps on the 4/8px rhythm. */
+.mst-team { display: grid; gap: 16px; padding: 16px; border-radius: 16px; background: var(--surface1); border: 1px solid var(--border); min-width: 0; }
+.mst-cardhead { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
+.mst-micro { margin: 0; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text3); line-height: 1.3; }
+/* "Live · updated 2 min ago": the micro-label, with the site's pulsing live dot (live.css) in front. */
+.mst-when { margin: 0; display: inline-flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--text3); line-height: 1.3; font-variant-numeric: tabular-nums; }
+.mst-when.is-old { color: var(--text2); }
+.mst-heads { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; min-width: 0; }
+.mst-head { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.mst-head b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mst-head--away { justify-content: flex-end; text-align: right; }
+
+/* Possession: the two shares as figures (the card's own number treatment -- big,
+   tabular, a small unit) over one split bar in the two side colours. */
+.mst-poss { display: grid; gap: 8px; }
+.mst-poss-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+.mst-poss-top .mst-micro { text-align: center; padding-bottom: 6px; }
+.mst-fig { font-stretch: 112%; font-weight: 800; font-size: 32px; letter-spacing: -.035em; line-height: 1;
+  font-variant-numeric: tabular-nums; color: var(--text); }
+.mst-fig u { font-stretch: 92%; font-weight: 600; font-size: .42em; letter-spacing: 0; text-decoration: none; color: var(--text2); margin-left: 1px; }
+.mst-split { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }
+.mst-split i { display: block; min-width: 4px; }
+.mst-split-home { background: var(--chart1); }
+.mst-split-away { background: var(--chart2); }
+
+/* Groups close on a hairline, the way the card's footer does; the label sits on the card's left edge. */
+.mst-group { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+.mst-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.mst-row { display: grid; gap: 8px; }
+.mst-row-top { display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px; align-items: center; gap: 8px; }
+.mst-label { text-align: center; font-size: 14px; color: var(--text); }
+/* A value is a 22px chip in the page's chip shape (999px, padding 0 9px, weight 800, tint not fill).
+   13px rather than the label chips' 11px: these are the numbers the tab exists to show. */
+.mst-val { justify-self: start; display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 22px; padding: 0 9px;
+  border-radius: var(--r-pill, 999px); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text); }
+.mst-val--away { justify-self: end; }
+/* The bigger number is the one the eye should land on: its side's colour behind it.
+   Same reason as possession: a tint in the page's ink, edged in the solid side colour. */
+.mst-val--home.is-more { background: color-mix(in srgb, var(--chart1) 30%, var(--surface1)); color: var(--text); box-shadow: inset 0 0 0 1px var(--chart1); }
+.mst-val--away.is-more { background: color-mix(in srgb, var(--chart2) 30%, var(--surface1)); color: var(--text); box-shadow: inset 0 0 0 1px var(--chart2); }
+.mst-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.mst-track { display: flex; height: 6px; border-radius: 3px; background: var(--surface3); overflow: hidden; }
+.mst-track--home { justify-content: flex-end; }
+.mst-track i { display: block; height: 100%; border-radius: 3px; background: var(--text3); }
+.mst-track--home i.is-more { background: var(--chart1); }
+.mst-track--away i.is-more { background: var(--chart2); }
+.mst-note { margin: 0; font-size: 13px; color: var(--text2); max-width: 62ch; }
+
+/* Player table */
+.mst-players { display: grid; gap: 12px; min-width: 0; }
+.mst-players > .mst-micro { line-height: 1.4; }
+.mst-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; }
+.mst-ctl .seg2 { max-width: 100%; overflow-x: auto; }
+/* The segmented control's buttons were 34px tall here; every target on the page is 44 (v10 §3). */
+.mst-ctl .seg2 button { min-height: 44px; }
+.mst-sets { display: flex; gap: 8px; overflow-x: auto; max-width: 100%; padding: 2px; }
+.mst-sets .chip { min-height: 44px; }
+/* relative: the sr-only labels in the headers are absolutely placed, and without a positioned scroll box
+   they escape it and widen the page on a phone. */
+.mst-tbl { position: relative; max-width: 100%; overscroll-behavior-x: contain; margin: 0; border: 1px solid var(--border); border-radius: 16px; }
+/* Headers in the locked table's voice (likely.css .lk-tbl th): uppercase micro-labels on --surface2. */
+/* --text2, not the locked table's --text3: on --surface2 that measured 4.3:1 in dark, under 4.5. */
+.mst-tbl .tbl thead th { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text2); background: var(--surface2); }
+.mst-tbl .tbl td, .mst-tbl .tbl th { border-bottom: 1px solid var(--border); }
+.mst-tbl .tbl tbody tr:last-child > * { border-bottom: 0; }
+.mst-tbl:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.mst-tbl .tbl th.num, .mst-tbl .tbl td.num { text-align: right; font-variant-numeric: tabular-nums; padding: 0 8px; }
+.mst-tbl .tbl td.is-key { font-weight: 700; }
+.mst-tbl .tbl th.sticky { max-width: 190px; box-shadow: 1px 0 0 var(--hig-separator, var(--border)); }
+.mst-who { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; color: var(--text); text-decoration: none; }
+.mst-who:hover b { text-decoration: underline; }
+.mst-who:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 6px; }
+.mst-name { display: grid; min-width: 0; line-height: 1.2; }
+.mst-name b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.mst-name small { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.mst-sort { display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; width: 100%; min-height: 44px; min-width: 36px; padding: 0; border: 0; background: none;
+  color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.mst-sort.is-on { color: var(--text); }
+.mst-sort:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 6px; }
+.mst-sort-ico { flex: none; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: .6; }
+.mst-sort.is-on .mst-sort-ico { opacity: 1; }
+
+/* Rating badge: tier tokens by band (MatchStats.ratingBand), number always printed. Like the stat
+   values above, the band colour is a tint plus a solid ring and the number is in the page's ink:
+   white or black text on a solid tier colour fell to 4.37:1 in a Site Studio theme. */
+.mst-rate { --band: var(--text3); display: inline-block; min-width: 30px; padding: 1px 5px; border-radius: 6px; font-size: 12px; font-weight: 700; line-height: 16px; text-align: center;
+  font-variant-numeric: tabular-nums; color: var(--text); background: color-mix(in srgb, var(--band) 30%, var(--surface1)); box-shadow: inset 0 0 0 1.5px var(--band); }
+.mst-rate--top { --band: var(--tier-strong, var(--up)); }
+.mst-rate--good { --band: var(--tier-solid, var(--brand)); }
+.mst-rate--fair { --band: var(--tier-watch, var(--text3)); }
+.mst-rate--low { --band: var(--down); }
+
+/* On the pitch the badge takes the slot the start-chance pill uses before kick-off (the two never meet). */
+.mst-rate--pitch { font-size: 10px; line-height: 14px; min-width: 26px; padding: 0 4px; }
+/* The coach under each side's name and formation (LiveLineups.jsx PitchView). */
+.mst-coach-team { flex-wrap: wrap; row-gap: 2px; }
+.mst-coach { flex-basis: 100%; padding-left: 28px; font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 900px) { .lpv-team--away.mst-coach-team .mst-coach { padding: 0 28px 0 0; text-align: right; } }
+
+@media (max-width: 480px) {
+  .mst-row-top { grid-template-columns: 48px minmax(0, 1fr) 48px; }
+  .mst-fig { font-size: 28px; }
+}
+@media (prefers-contrast: more) {
+  .mst-track { outline: 1px solid var(--border-strong); }
+  .mst-val.is-more { outline: 1px solid var(--text); }
+}
+@media (forced-colors: active) {
+  .mst-track i, .mst-split i, .mst-val.is-more, .mst-rate { forced-color-adjust: none; border: 1px solid CanvasText; }
+}

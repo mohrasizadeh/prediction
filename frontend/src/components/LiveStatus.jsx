@@ -15,11 +15,26 @@ const WORDS = {
 // The ones that deserve a warning tone, in either vocabulary.
 const WARN = ["Postponed", "Cancelled", "Suspended", "PST", "CANC", "ABD", "SUSP", "INT", "WO"];
 
+// The minute as a reader writes it: 67', 45+2'. The feed sends a number (API-Football) or a label ("67'", SportAPI).
+export const minuteText = (m) => {
+  if (m == null || m === "") return "";
+  const s = String(m).trim();
+  return /^\d+(\s*\+\s*\d+)?$/.test(s) ? `${s.replace(/\s+/g, "")}'` : s;
+};
+// Periods that are still "live" but are not a running clock. API-Football short codes; unknown words fall
+// through to the minute, which is the safe direction (docs/42).
+const PERIOD = { BT: ["Break", "break before extra time"], P: ["Pens", "penalty shoot-out"], PEN_LIVE: ["Pens", "penalty shoot-out"], INT: ["Paused", "play interrupted"], SUSP: ["Suspended", "suspended"] };
+
 export default function LiveStatus({ status, minute, kickoff, text, state, live, testid = "live-status" }) {
   const f = { status, state, live };
   if (fxLive(f)) {
     const ht = atHalfTime(status, minute);
-    return <span className="live-chip" data-testid={testid} aria-label={ht ? "Live, half-time" : `Live, minute ${minute || ""}`}><span className="live-dot" aria-hidden="true" />{ht ? "HT" : `Live ${minute || ""}`}</span>;
+    const per = PERIOD[String(status || "").toUpperCase()];
+    const et = String(status || "").toUpperCase() === "ET";
+    const min = minuteText(minute);
+    const word = ht ? "HT" : per ? per[0] : `${et ? "ET" : "Live"}${min ? ` ${min}` : ""}`;
+    const say = ht ? "Live, half-time" : per ? `Live, ${per[1]}` : `Live${et ? ", extra time" : ""}${min ? `, minute ${min.replace("'", "")}` : ""}`;
+    return <span className="live-chip" data-testid={testid} aria-label={say}><span className="live-dot" aria-hidden="true" /><span aria-hidden="true">{word}</span></span>;
   }
   if (fxState(f) === "later") {
     return <time className="muted" data-testid={testid}>{kickoff ? utc(kickoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "–"}</time>;

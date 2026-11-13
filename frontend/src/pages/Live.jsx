@@ -41,11 +41,20 @@ function Detail({ f }) {
     get(`/live/${f.sid}/lineups`).then((r) => setLineups(r.lineups)).catch(() => setLineups({}));
   }, [f.sid, f.events_n]);
   const sc = f.score || {};
+  const home = f.home.team?.name || f.home.name, away = f.away.team?.name || f.away.name;
+  // Half-time and full time are dividers inside the timeline now, with the score at that point.
   return (
     <div className="live-detail" data-testid={`live-detail-${f.sid}`}>
-      {sc.ht_home != null && <p className="muted small">Half-time {sc.ht_home} – {sc.ht_away}</p>}
-      {events === null ? <Skeleton shape="row" count={2} testid={`live-events-loading-${f.sid}`} /> : <MatchEvents events={events} testid={`live-events-${f.sid}`} />}
-      <LiveLineups lineups={lineups} home={f.home.team?.name || f.home.name} away={f.away.team?.name || f.away.name} />
+      {events === null ? <Skeleton shape="row" count={2} testid={`live-events-loading-${f.sid}`} />
+        : <MatchEvents events={events} testid={`live-events-${f.sid}`} phase={fxLive(f) ? "live" : "final"} status={f.status} home={home} away={away}
+            score={sc} emptyText={fxStarted(f) ? "Nothing yet from the match feed." : "Goals, cards and substitutions appear here once the match starts."} />}
+      {/* Two elevens and two benches are a screen and a half on a phone: one tap away, not in the way of the events. */}
+      {lineups && (lineups.home || lineups.away) && (
+        <details className="live-lu" data-testid={`live-lineups-toggle-${f.sid}`}>
+          <summary>Lineups</summary>
+          <LiveLineups lineups={lineups} home={home} away={away} testid={`live-lineups-${f.sid}`} title={null} />
+        </details>
+      )}
       {f.match_id && <Link className="btn btn--secondary btn--sm live-link" to={`/match/${f.match_id}`} data-testid={`live-match-link-${f.sid}`}>Forecasts and stats for this match</Link>}
     </div>
   );
@@ -59,16 +68,37 @@ function Row({ f }) {
     <li className={`live-row ${fxLive(f) ? "is-live" : ""} ${open ? "is-open" : ""}`}>
       <button type="button" className="live-main" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid={`live-row-${f.sid}`}>
         <span className="live-status"><LiveStatus status={f.status} state={f.state} live={f.live} minute={f.minute} kickoff={f.kickoff} text={f.status_text} testid={`live-status-${f.sid}`} /></span>
-        <span className="live-team"><Crest team={f.home.team} size={22} /><span>{f.home.team?.name || f.home.name}</span></span>
+        <span className="live-team"><Crest team={f.home.team} size={22} /><span className="lvr-name">{f.home.team?.name || f.home.name}</span></span>
         <span className="live-score" data-testid={`live-score-${f.sid}`} aria-label={show ? `${sc.home} to ${sc.away}` : "not started"}>
-          {show ? <>{sc.home}<i>–</i>{sc.away}</> : <i>v</i>}
+          <span className="live-score-n">{show ? <>{sc.home}<i>–</i>{sc.away}</> : <i>v</i>}</span>
           {sc.pen_home != null && <small>({sc.pen_home}–{sc.pen_away} pens)</small>}
         </span>
-        <span className="live-team live-team--away"><span>{f.away.team?.name || f.away.name}</span><Crest team={f.away.team} size={22} /></span>
+        <span className="live-team live-team--away"><span className="lvr-name">{f.away.team?.name || f.away.name}</span><Crest team={f.away.team} size={22} /></span>
       </button>
       {open && <Detail f={f} />}
     </li>
   );
+}
+
+// When the scores were last read, and a plain warning when that was a while ago or the last refresh failed.
+// A failed refresh keeps the last answer on screen (useLive), so without this a dropped feed looked current.
+function Updated({ q }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
+  const at = utc(q.data?.updated);
+  if (!at && !q.error) return null;
+  const min = at ? Math.floor((now - at.getTime()) / 60000) : null;
+  const stale = q.data?.live_count > 0 && min != null && min >= 3;
+  const time = at ? at.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : null;
+  if (q.error || stale) {
+    return (
+      <p className="tl-stale" role="status" data-testid="live-stale"><span className="tl-stale-dot" aria-hidden="true" />
+        {q.error ? `We could not refresh the scores${time ? `; these are from ${time}` : ""}. We will try again in 30 seconds.` : `The match feed last updated at ${time}, ${min} minutes ago. Scores may be behind.`}
+        {q.error && <button type="button" className="k-link" onClick={q.reload} data-testid="live-retry">Try now</button>}
+      </p>
+    );
+  }
+  return <p className="muted small" data-testid="live-updated">Updated {time}. Scores refresh every 30 seconds.</p>;
 }
 
 const LABELS = ["Yesterday", "Today", "Tomorrow"];
@@ -100,7 +130,7 @@ export default function Live() {
           <ul className="live-list">{g.fixtures.map((f) => <Row key={f.sid} f={f} />)}</ul>
         </div>
       ))}
-      {q.data?.updated && <p className="muted small" data-testid="live-updated">Updated {utc(q.data.updated).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}. Scores refresh every 30 seconds.</p>}
+      <Updated q={q} />
     </section>
   );
 }

@@ -237,7 +237,7 @@ def match(match_id: str, response: Response, user=Depends(D.optional_user), db=D
 
 
 @router.get("/h2h")
-def head_to_head(a: str, b: str, response: Response, limit: int = Query(10, ge=1, le=50), db=Depends(D.get_db)):
+def head_to_head(a: str, b: str, response: Response, limit: int = Query(20, ge=1, le=50), db=Depends(D.get_db)):
     _cache(response)
     return Q.h2h(db, _iid(db, "teams", a), _iid(db, "teams", b), limit=limit)
 

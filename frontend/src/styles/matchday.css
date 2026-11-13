@@ -66,11 +66,9 @@
 .mc-situ { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .mc-preview, .mc-fc { display: grid; gap: 16px; }
 .mc-why { margin: 0; padding: 16px 18px 16px 34px; display: grid; gap: 8px; }
-.mc-radar { padding: 18px; }
 .mc-fc-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
 .mc-fc-min { flex: 1 1 260px; max-width: 420px; }
 .mc-fc-group { display: grid; gap: 10px; }
-.mc-stats { padding: 18px; }
 @media (max-width: 520px) { .mc-score { font-size: 36px; } .mc-team b { font-size: 14px; } .mc-hero { padding: 16px; } }
 
 .pp--unsure { opacity: .55; } .pp--unsure img, .pp--unsure .avatar, .pp--unsure > :first-child { outline: 2px dashed var(--border-strong); outline-offset: 2px; border-radius: 50%; }
@@ -145,25 +143,23 @@
 .lv-sum { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--down) 8%, var(--surface1)); font-size: 13px; font-weight: 600; }
 
 /* ---- Match page, four tabs (docs/34) ---- */
-.mc-tabs { position: sticky; top: calc(var(--header-h) + env(safe-area-inset-top)); z-index: 15; gap: 0; margin: 0 -16px 18px; padding: 0 16px; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; }
+/* The sticky block is the tab bar plus, once the hero has scrolled away, the compact score bar
+   above it (.mc-mini). One sticky element, so the two can never drift apart or overlap. */
+.mc-sticky { position: sticky; top: calc(var(--header-h) + env(safe-area-inset-top)); z-index: 15; margin: 0 -16px 18px; padding: 0 16px; background: var(--bg); }
+.mc-tabs { gap: 0; margin: 0; padding: 0; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.mc-tabs::-webkit-scrollbar { display: none; }
 .mc-tabs .tab { flex: 1 0 auto; justify-content: center; min-height: 48px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: var(--text2); font-size: 15px; }
 .mc-tabs .tab.is-on { background: transparent; color: var(--text); border-bottom-color: var(--brand); }
 .mc-tabs .tab:focus-visible { outline: 2px solid var(--brand); outline-offset: -4px; border-radius: 8px; }
 .tab-badge { font-style: normal; font-size: 11px; font-weight: 800; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--surface2, var(--surface1)); color: var(--text2); font-variant-numeric: tabular-nums; }
 .mc-tabs .tab.is-on .tab-badge { background: var(--brand); color: var(--bg); }
-@media (min-width: 900px) { .mc-tabs { margin: 0 0 20px; padding: 0; } .mc-tabs .tab { flex: 0 0 auto; padding: 0 22px; } }
+@media (min-width: 900px) { .mc-sticky { margin: 0 0 20px; padding: 0; } .mc-tabs .tab { flex: 0 0 auto; padding: 0 22px; } }
 .mc-pane { display: grid; gap: 18px; min-width: 0; }
 .mc-lineups { display: grid; gap: 18px; }
 @media (min-width: 900px) { .mc-lineups { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } .mc-lineups .mc-notes { position: sticky; top: calc(var(--header-h) + 72px); } }
 .mc-notes { display: grid; gap: 14px; }
 .mc-why-card { padding: 16px 18px; display: grid; gap: 10px; }
 .mc-why-card .mc-why { margin: 0; padding: 0 0 0 18px; display: grid; gap: 8px; }
-.mc-an { display: grid; gap: 28px; }
-.an-jump { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; position: sticky; top: calc(var(--header-h) + 49px + env(safe-area-inset-top)); z-index: 10; padding: 8px 0; background: var(--bg); }
-.an-jump::-webkit-scrollbar { display: none; } .an-jump .chip { flex: none; }
-.an-sec { display: grid; gap: 12px; scroll-margin-top: calc(var(--header-h) + 110px); min-width: 0; }
-.mc-form { display: grid; gap: 14px; }
-@media (min-width: 900px) { .mc-form { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; } }
 
 /* hero: one row for the small print and the actions, so the tabs stay near the top on a phone */
 .mc-hero { gap: 10px; padding: 18px 20px; }
@@ -178,7 +174,10 @@
 .lv-lines-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .lv-lines .lv-sum { margin: 0; }
 /* four tabs always fit on a phone */
-@media (max-width: 520px) { .mc-tabs { padding: 0 8px; } .mc-tabs .tab { flex: 1 1 0; min-width: 0; padding: 0 6px; font-size: 14px; gap: 4px; } .tab-badge { padding: 1px 5px; min-width: 18px; } }
+/* Equal shares squeezed five labels (Facts, Forecasts, Lineups, Stats, Analysis) until two ran into
+   each other at 390px; each tab keeps its own width now, grows to fill when there is room, and the
+   bar scrolls sideways when there is not. */
+@media (max-width: 520px) { .mc-tabs .tab { flex: 1 0 auto; padding: 0 9px; font-size: 14px; gap: 4px; } .tab-badge { padding: 1px 5px; min-width: 18px; } }
 
 .tr-how { margin-top: 10px; } .tr-how summary { cursor: pointer; font-weight: 600; color: var(--text2); min-height: 32px; }
 .tr-how ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; color: var(--text2); }
@@ -191,3 +190,268 @@
 .ins-row-p { display: grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; }
 
 .mc-fc-group .v2-sec { display: flex; align-items: center; gap: 9px; }
+
+/* ---- Match hero, FotMob-shaped inside the HIG system: crest | score or kick-off | crest, the status
+   right under the number, and under each club what is news for it -- its last five before kick-off,
+   its scorers after. */
+.mc-page .mc-hero { gap: 12px; }
+.mc-page .mc-when { flex-wrap: wrap; text-align: center; line-height: 1.5; }
+.mc-comp { color: var(--text2); text-decoration: none; font-weight: 600; }
+.mc-comp:hover { color: var(--text); text-decoration: underline; }
+.mc-comp:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+.mc-side { display: grid; justify-items: center; align-content: start; gap: 8px; min-width: 0; }
+.mc-page .mc-row { align-items: start; }
+.mc-page .mc-mid { padding-top: 10px; gap: 4px; }
+.mc-team:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 12px; }
+.mc-ko { font-size: 34px; line-height: 1.1; font-weight: 600; color: var(--text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-page .mc-cd { font-size: 13px; font-weight: 600; color: var(--text2); }
+.mc-sub { font-size: 12.5px; color: var(--text2); font-variant-numeric: tabular-nums; }
+.mc-page .mc-last { font-size: 12.5px; color: var(--text2); max-width: 140px; }
+.mc-form5 { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; justify-content: center; }
+.mc-form5 { flex-wrap: wrap; gap: 3px; }
+.mc-form5 .fp { width: 20px; height: 20px; border-radius: 5px; font-size: 11px; }
+.mc-scorers { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12.5px; line-height: 1.35; color: var(--text2); text-align: center; }
+.mc-scorer { color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+.mc-scorer-min { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-page .k-wdl-txt { align-items: baseline; gap: 8px; }
+.k-wdl-draw { color: var(--text2); }
+.mc-page .mc-meta { gap: 3px; }
+.mc-page .mc-meta a { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; }
+.mc-page .status-chip--off { background: color-mix(in srgb, var(--tier-watch) 14%, transparent); color: var(--text); }
+@media (max-width: 520px) {
+  .mc-ko { font-size: 28px; }
+  .mc-page .mc-mid { min-width: 88px; padding-top: 8px; }
+  .mc-page .mc-team b { font-size: 15px; }
+  .mc-page .mc-foot { gap: 10px; }
+}
+
+/* ---- The compact bar (MiniBar). It never takes height in the page, so nothing below it moves when
+   it appears: on a phone it lies over the site header -- the bottom tab bar is the navigation
+   there, and the header comes back with the hero -- and from 769px, where the header carries the
+   navigation and the search, it sits at the right end of the tab row, in space the four tabs never
+   use. An earlier version stacked it above the tabs and borrowed its height back with a negative
+   margin; the arithmetic left the top of every tab 34px under the bar. */
+.mc-mini { display: none; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; }
+.mc-mini.is-shown { display: grid; animation: mc-mini-in .18s ease-out; }
+.mc-mini-t { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.mc-mini-t--a { justify-content: flex-start; }
+.mc-mini-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-mini-mid { display: grid; justify-items: center; line-height: 1.1; }
+.mc-mini-mid b { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-mini-mid small { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--text2); font-variant-numeric: tabular-nums; }
+.mc-mini--live .mc-mini-mid small { color: var(--down); }
+@keyframes mc-mini-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mc-mini.is-shown { animation: none; } }
+@media (max-width: 768px) {
+  /* The sticky block is a stacking context at z 15, under the header's 20; while the bar is up the
+     block has to sit above the header or the bar is drawn behind it. */
+  .mc-page.is-mini .mc-sticky { z-index: 21; }
+  .mc-mini { position: fixed; z-index: 25; top: 0; left: 0; right: 0; padding: env(safe-area-inset-top) 16px 0;
+    height: calc(var(--header-h) + env(safe-area-inset-top)); background: var(--surface1); border-bottom: .5px solid var(--hig-separator, var(--border)); }
+}
+@media (min-width: 769px) {
+  .mc-sticky { display: flex; align-items: stretch; gap: 16px; border-bottom: .5px solid var(--hig-separator, var(--border)); }
+  .mc-sticky .mc-tabs { flex: 1 1 auto; min-width: 0; border-bottom: 0; }
+  .mc-sticky .mc-tabs .tab { flex: 0 0 auto; }
+  .mc-mini { flex: none; gap: 8px; padding: 0 4px; }
+  .mc-mini-n { max-width: 140px; }
+}
+@media (prefers-contrast: more) { .mc-mini { border-bottom: 1px solid var(--border-strong); } }
+
+/* ---- Forecasts tab controls: one quiet panel instead of five stacked rows (see MatchCentre). */
+.mc-page .mc-fc-ctl { display: grid; gap: 10px; padding: 0 0 14px; margin-bottom: 4px; border-bottom: .5px solid var(--hig-separator, var(--border)); }
+.mc-page .mc-fc-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 0; border: 0; margin: 0; }
+.mc-fc-build { display: inline-flex; align-items: center; gap: 10px; }
+.mc-fc-hint { font-size: 13px; color: var(--text2); }
+.mc-page .mc-fc-build .btn { min-height: 44px; }
+.mc-page .mc-fc-filters { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
+.mc-page .mc-fc-min { flex: 0 1 300px; min-width: 220px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; max-width: none; }
+.mc-fc-minval { font-size: 13px; color: var(--text2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mc-fc-minval b { color: var(--text); font-weight: 600; display: inline-block; min-width: 3ch; }
+/* The value is printed beside the slider, so the floating tag above the thumb is not needed, and
+   the 72px box it reserved collapses to the 44px touch row. */
+.mc-page .mc-fc-min .k-range { height: 44px; padding-top: 0; }
+.mc-page .mc-fc-min .k-range-tip { display: none; }
+.mc-page .mc-fc-min .k-range-track { top: 19px; }
+.mc-page .mc-fc-min .k-range-in { top: 0; }
+.mc-page .mc-fc-tiers { flex: 1 1 260px; margin: 0; min-width: 0; flex-wrap: nowrap; }
+.mc-page .mc-fc-tiers .k-chips { flex-wrap: nowrap; overflow-x: auto; padding: 2px; }
+.mc-page .mc-fc-tiers .k-chip { flex: none; }
+.mc-page .mc-fc-ctl + .mc-fc-group { margin-top: 8px; }
+.mc-fc-note { margin: 0; padding: 12px 14px; border-radius: 12px; font-size: 14px; color: var(--text); background: color-mix(in srgb, var(--tier-watch) 12%, var(--surface1)); }
+@media (max-width: 640px) {
+  .mc-fc-hint { display: none; }
+  .mc-page .mc-fc-min { flex-basis: 100%; }
+  .mc-page .mc-fc-tiers { flex-basis: 100%; }
+}
+/* v2's section heading carries a 56px top margin meant for page sections; under the controls panel
+   it opened a gap taller than the panel itself. Group headings get a group's spacing. */
+.mc-page .mc-fc-group > .v2-sec-head { margin-top: 20px; }
+.mc-page .mc-fc-ctl + .mc-fc-group > .v2-sec-head { margin-top: 4px; }
+@media (max-width: 520px) { .mc-form5 { gap: 2px; } .mc-form5 .fp { width: 17px; height: 17px; font-size: 10px; border-radius: 4px; } }
+/* Phone: the hero is the whole first screen unless it is kept tight. Follow and Share move out of
+   the footer row into the hero's top corners (where the mockup puts Follow), above the competition
+   line, so the 56px row they held goes. Follow keeps its word -- a bare "+" there reads as "add to
+   combo", the other plus on this page. Share keeps its words in the DOM at font-size 0, which keeps
+   the button's accessible name. The kick-off time steps down so five form pills fit under each club. */
+@media (max-width: 520px) {
+  .mc-page .mc-hero { position: relative; padding-top: 60px; }
+  .mc-page .mc-foot .mc-actions { position: absolute; top: 8px; left: 8px; right: 8px; justify-content: space-between; pointer-events: none; }
+  .mc-page .mc-foot .mc-actions .btn { pointer-events: auto; min-height: 44px; height: 44px; padding: 0 14px; font-size: 14px; }
+  .mc-page .mc-foot .mc-actions .share-btn { width: 44px; padding: 0; border-radius: 50%; font-size: 0; gap: 0; justify-content: center; }
+  .mc-page .mc-foot .mc-actions .btn:only-child { margin-left: auto; }
+  .mc-page .mc-row { gap: 8px; }
+  .mc-ko { font-size: 24px; }
+  .mc-form5 { flex-wrap: nowrap; }
+}
+/* On a phone the actions leave the footer; with nothing else in it (a postponed match) the footer
+   was an empty row under a rule. */
+@media (max-width: 520px) { .mc-page .mc-foot:has(.mc-meta:empty) { display: none; } }
+.mc-page .mc-fc-tiers .k-link { flex: none; white-space: nowrap; min-height: 44px; padding: 0 4px; }
+/* Its own class: `.mc-recap` is also the Recap tab's grid (live.css), which laid this one sentence
+   out as five stacked rows. */
+.mc-hero-recap { margin: 0; text-align: center; padding: 10px 14px; border-radius: 12px; background: var(--surface2); font-size: 14px; color: var(--text); }
+.mc-hero-recap b { font-variant-numeric: tabular-nums; }
+/* The site header shrinks to 44px while scrolling down (shell.css .header--small) but --header-h
+   stays 56px, so everything stuck at --header-h left a 12px slot through which the page showed
+   above the tab bar. Follow the header down.
+   On a phone the compact bar covers the header at its full 56px, so there the offsets stay. */
+@media (min-width: 769px) {
+  body:has(.header--small) .mc-sticky { top: calc(44px + env(safe-area-inset-top)); }
+}
+
+/* ---- Round 2: two columns, Facts, absences (pages/Match.jsx) ---------------------------------
+   The side column (components/MatchSide.jsx, matchside.css) sits beside the tabs from 1280px. At
+   1280 the rail leaves 992px of content: a 300px column and a 24px gap keep 668px for the tabs, the
+   width the Forecasts table needs for its eight columns without folding (it starts folding at
+   about 640px). Between 1100 and 1279 a side column would squeeze it to 480-560px, so there the
+   cards stay under the default tab, as on a phone. */
+.mc-page--side { min-width: 0; }
+.mc-main { min-width: 0; }
+.mc-aside { margin-top: 28px; }
+.mc-aside.is-away { display: none; }
+@media (min-width: 1280px) {
+  .mc-page--side { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 0 24px; align-items: start; }
+  .mc-aside, .mc-aside.is-away { display: block; margin-top: 0; position: sticky; top: calc(var(--header-h) + 16px + env(safe-area-inset-top));
+    max-height: calc(100vh - var(--header-h) - 32px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; border-radius: 12px; }
+  body:has(.header--small) .mc-aside { top: calc(44px + 16px + env(safe-area-inset-top)); max-height: calc(100vh - 44px - 32px); }
+  /* The column says where and who referees, so the hero's footer line would say it twice. */
+  .mc-page--side .mc-hero [data-testid="match-meta"] { display: none; }
+  /* Forecasts: one column, so the list is the locked eight-column table (likely.css folds it to cards
+     under 900px of pane). The side column follows the list on the default tab, three cards abreast. */
+  .mc-page--side.mc-page--full { grid-template-columns: minmax(0, 1fr); }
+  .mc-page--full .mc-aside { position: static; max-height: none; overflow: visible; margin-top: 32px; }
+  .mc-page--full .mc-aside.is-away { display: none; }
+  .mc-page--full .msd { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+  .mc-page--full .mc-hero [data-testid="match-meta"] { display: block; }
+}
+
+/* Facts tab: one column of sections, each with its heading row. */
+.mc-facts { display: grid; gap: 22px; min-width: 0; }
+.mfx-sec { display: grid; gap: 12px; min-width: 0; margin: 0; }
+.mfx-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.mfx-head .k-sec { margin: 0; }
+.mfx-faint { color: var(--text2); }
+.mfx-fc-sum { margin: 0; font-size: 15px; color: var(--text); }
+.mfx-fc-sum b { font-variant-numeric: tabular-nums; }
+/* League form: the club, then its last five as score chips over the opponent's crest, oldest first so
+   the newest sits nearest this match. Letters are in each link's name; colour is the result. */
+.mfx-form { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-top: .5px solid var(--hig-separator, var(--border)); padding-top: 8px; min-width: 0; }
+.mfx-form:first-of-type { border-top: 0; padding-top: 0; }
+.mfx-form-t { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 15px; }
+.mfx-form-t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mfx-form-list { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex: none; }
+.mfx-res { display: grid; justify-items: center; gap: 4px; min-width: 44px; min-height: 44px; padding: 2px 0; text-decoration: none; color: var(--text); border-radius: 8px; }
+.mfx-score { display: block; min-width: 40px; padding: 2px 6px; border-radius: 6px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; }
+.mfx-res--W .mfx-score { background: var(--up); color: var(--bg); }
+.mfx-res--D .mfx-score { background: var(--text3); color: var(--bg); }
+.mfx-res--L .mfx-score { background: var(--down); color: var(--on-down, var(--bg)); }
+.mfx-res:hover .mfx-score { text-decoration: underline; }
+@media (max-width: 480px) {
+  .mfx-form { flex-wrap: wrap; }
+  .mfx-form-list { width: 100%; justify-content: space-between; }
+}
+@media (prefers-contrast: more) { .mfx-score { outline: 1px solid var(--border-strong); } }
+
+/* Lineups: who is out or doubtful, under the pitch, in the same two columns as "Came on". */
+.lu-abs { display: grid; gap: 8px; }
+.lu-abs-list { list-style: none; margin: 0; padding: 0; display: grid; align-content: start; font-size: 14px; min-width: 0; }
+.lu-abs-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; border-top: .5px solid var(--hig-separator, var(--border)); min-width: 0; }
+.lu-abs-list li.lu-on-team { justify-content: flex-start; border-top: 0; min-height: 32px; gap: 8px; font-weight: 600; }
+.lu-abs-who { display: grid; min-width: 0; }
+.lu-abs-who a, .lu-abs-who > span { color: var(--text); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.lu-abs-who a:hover { text-decoration: underline; }
+.lu-abs-who small { color: var(--text2); font-size: 12px; }
+.lu-abs-tag { flex: none; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.lu-abs-tag--out { background: color-mix(in srgb, var(--down) 16%, transparent); color: var(--text); }
+.lu-abs-tag--doubtful { background: color-mix(in srgb, var(--tier-watch) 20%, transparent); color: var(--text); }
+/* The forecast list folds to cards by the width it is given (likely.css, container `lk`): here that
+   is the pane, which beside the side column is narrower than the page. */
+.mc-page--side .mc-pane { container: lk / inline-size; }
+
+/* ---- Round 3: one system on the match page ---------------------------------------------------
+   Every block on this page in the vocabulary the forecast card was locked in (docs/redesign/v10):
+   a card is surface1 with a 1px border, a 16px radius and 16px of padding; a card's head is the
+   card's micro-label (10px, 800, .07em, uppercase, --text3: "LAST 10 · DID HE REACH IT"); a figure is
+   tabular at weight 800; a chip or badge is 22px and fully rounded; the steps are 4/8/12/16/20/24.
+   Measured, not eyeballed: the hero, the sidebar and the Facts cards were 12px radii with 14-22px
+   padding, and their heads 13px/600 sentence case, beside 16px cards with uppercase labels. */
+.mc-page .mc-hero { border-radius: 16px; border: 1px solid var(--border); }
+.mc-page .mc-hero--live { border-color: color-mix(in srgb, var(--down) 40%, var(--border)); }
+.mc-page .mc-hero-recap { border-radius: 12px; padding: 8px 12px; font-size: 13.5px; }
+.mc-page .mc-score { font-weight: 800; letter-spacing: -.035em; }
+.mc-page .mc-ko { font-weight: 800; letter-spacing: -.035em; }
+.mc-page .mfx-sec.card, .mc-page .msd-card { padding: 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface1); margin: 0; }
+/* card heads */
+.mc-page .mfx-head .k-sec, .mc-page .msd-h, .mc-page .lu-on > .k-sec, .mc-page .lu-abs > .k-sec,
+.mc-page .llu-wrap > .k-sec {
+  margin: 0; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; line-height: 1.4; color: var(--text3); }
+.mc-page .mfx-head { min-height: 16px; }
+.mc-page .mfx-head:has(.k-link) { min-height: 44px; margin: -14px 0 -6px; }
+/* The Recap table's old surface2 box (power.css `.mc-recap`, written for the hero's one-line recap)
+   was drawing the Facts timeline as a grey panel inside its card. */
+.mc-page .mc-recap { padding: 0; background: none; border-radius: 0; text-align: left; }
+.mc-page .ev-sum2 td { font-size: 17px; font-weight: 600; }
+.mc-page .ev-sum2 td.is-more { font-weight: 800; }
+.mc-page .ev-sum2 tbody th { font-size: 12.5px; }
+.mc-page .tl-head { font-size: 12.5px; }
+.mc-page .tl-min { font-size: 12.5px; font-weight: 800; }
+.mc-page .tl-who { font-size: 13.5px; }
+.mc-page .tl-txt small { font-size: 12.5px; }
+.mc-page .tl-stale { border-radius: 12px; font-size: 13.5px; }
+/* Sidebar: figures at 800, label boxes on the 12px inner radius the Preview's figures use. */
+.mc-page .msd-nums > div { border-radius: 12px; padding: 8px 12px; }
+.mc-page .msd-nums dt { font-size: 11.5px; font-weight: 600; }
+.mc-page .msd-nums dd { font-size: 20px; font-weight: 800; letter-spacing: -.03em; }
+.mc-page .msd-dl dt { font-size: 11.5px; font-weight: 600; }
+.mc-page .msd-dl dd { font-size: 15px; }
+.mc-page .msd-why, .mc-page .msd-note { font-size: 13.5px; }
+.mc-page .msd-club-h { font-size: 15px; font-weight: 700; }
+.mc-page .msd-more { font-size: 13.5px; }
+.mc-page .mc-aside { border-radius: 16px; }
+/* Forecasts: a group's head is a 17px title (the prototype's own heading step), not a 22px one. */
+.mc-page .mc-fc-group .v2-sec { font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+.mc-page .mc-fc-group > .v2-sec-head { padding-bottom: 8px; }
+/* Lineups: the lists under the pitch are cards too. */
+.mc-page .lu-on, .mc-page .lu-abs { padding: 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface1); gap: 12px; }
+.mc-page .lu-on-list, .mc-page .lu-abs-list { font-size: 13.5px; }
+.mc-page .lu-on-list li.lu-on-team, .mc-page .lu-abs-list li.lu-on-team { font-size: 15px; font-weight: 700; }
+.mc-page .lu-abs-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; font-size: 11px; font-weight: 800; }
+.mc-page .lpv-form { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; font-size: 11px; font-weight: 800; }
+/* Small controls reach 44px on a phone (docs/36 A11Y-6). */
+@media (max-width: 520px) { .mc-page .k-seg button, .mc-page .seg2 button { min-height: 44px; } }
+@media (prefers-contrast: more) {
+  .mc-page .mfx-sec.card, .mc-page .msd-card, .mc-page .lu-on, .mc-page .lu-abs, .mc-page .mc-hero { border-color: var(--border-strong); }
+}
+/* Live: the momentum strip and the feed's lineups are cards like the timeline between them. */
+.mc-page .mc-live { padding: 0; gap: 12px; }
+.mc-page .mc-live .tl-mo { max-width: none; padding: 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface1); gap: 12px; }
+.mc-page .mc-live .tl-mo figcaption { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text3); }
+.mc-page .mc-live .tl-mo-key { font-size: 12.5px; }
+.mc-page .live-lu { padding: 0 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface1); }
+.mc-page .live-lu summary { min-height: 52px; font-size: 15px; font-weight: 700; }
+.mc-page .live-lu[open] { padding-bottom: 16px; }
+.mc-page .live-lu summary { justify-content: space-between; list-style: none; }
+.mc-page .live-lu summary::-webkit-details-marker { display: none; }
+.mc-page .live-lu summary::after { content: ""; flex: none; width: 7px; height: 7px; margin: 0 4px -2px 12px; border-right: 2px solid var(--text3); border-bottom: 2px solid var(--text3); transform: translateY(-3px) rotate(45deg); }
+.mc-page .live-lu[open] summary::after { transform: translateY(1px) rotate(-135deg); }

@@ -2817,7 +2817,7 @@
     "label": "Player record anchor",
     "type": "boolean",
     "default": true,
-    "help": "Blend a player's own hit rate over his last games into the line (docs/32). Stars who clear a line almost every game are no longer held down by the average spread.",
+    "help": "Blend how often a player has cleared this line in his last games into the forecast (docs/32). Stars who clear a line almost every game are no longer held down by the average spread.",
     "group": "Engine",
     "public": false,
     "applies_at": "next engine run"
@@ -3410,6 +3410,16 @@
     "public": false,
     "applies_at": "immediately",
     "help": "A competition arrives with a row for EVERY season the provider carries; this is how many of the most recent are ticked for backfill. Tick more in the competition's own drawer."
+  },
+  {
+    "key": "apifootball.reingest_batch",
+    "group": "API-Football",
+    "label": "Matches per re-pull",
+    "type": "number",
+    "default": 500,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "How many finished matches one press of Re-pull queues, newest first. The bundle carries twenty matches a call, so 500 is about 25 calls. Press it again to take the next batch; the Jobs screen says how many are left. Use this after a change that adds a column to a finished match -- player ratings, coaches, or any of the normalizer fixes -- because a match is only ever read once otherwise."
   },
   {
     "key": "apifootball.live_stats",

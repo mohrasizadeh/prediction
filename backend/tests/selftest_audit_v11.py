@@ -228,6 +228,65 @@ except Exception as e:
     check(f"build_frames returns None rather than raising ({type(e).__name__}: {e})", False)
 
 
+print("a league with team data but no usable player rows is skipped, not crashed")
+# REPORTED FROM PRODUCTION: `Job engine:36 failed at 12:30 PM: KeyError('pos')`.
+#
+# The guards above cover the TEAM frame coming out empty. This is the PLAYER frame, and it can be
+# empty while the team frame is full -- API-Football's player coverage is narrower than its fixture
+# and team-statistics coverage, so a less-covered competition returns team numbers and an empty
+# `players` array. `pd.DataFrame([])` has no columns at all, and a frame built from dicts has no
+# `pos` column when not one of them holds that key, so `pg["pos"]` raised on both.
+#
+# The right answer already existed: `blank_columns` makes `run_league` skip with the column named,
+# which is far more use than the vague "no data" a bare `None` produces on a league that plainly
+# has team data.
+def _league(with_players, with_pos=True):
+    dz = mongomock.MongoClient()["pz"]
+    pos6 = ["GK", "DEF", "DEF", "MID", "MID", "FWD"]
+    for i in range(30):
+        dz.matches.insert_one({"iid": i, "league_iid": 1, "status": "final", "round": i,
+                               "home_iid": 1, "away_iid": 2, "hg": 1, "ag": 0,
+                               "ingested_at": utc(2026, 3, 1), "kickoff": utc(2026, 3, 1)})
+        for t, o in ((1, 2), (2, 1)):
+            dz.team_match_stats.insert_one({
+                "match_iid": i, "team_iid": t, "opp_iid": o, "home": t == 1, "league_iid": 1,
+                "goals": 1.0, "goals_against": 0.0, "shots": 10.0, "sot": 4.0, "corners": 5.0,
+                "tackles": 15.0, "poss": 50.0, "shots_against": 10.0, "corners_against": 5.0,
+                "tackles_against": 15.0, "saves": 3.0, "fouls": 11.0, "yellow_cards": 2.0, "xg": 1.2})
+            if not with_players:
+                continue
+            for k, p in enumerate(pos6):
+                row = {"match_iid": i, "player_iid": t * 100 + k, "team_iid": t, "opp_iid": o,
+                       "league_iid": 1, "minutes": 90.0, "shots": 2.0, "sot": 1.0, "tackles": 2.0,
+                       "saves": (3.0 if p == "GK" else 0.0), "team_shots": 10.0, "team_sot": 4.0,
+                       "team_tackles": 15.0, "team_saves": 3.0, "fouls_committed": 1.0,
+                       "goal_involvements": 0.0, "kickoff": utc(2026, 3, 1), "started": True}
+                if with_pos:
+                    row["pos"] = p
+                dz.player_match_stats.insert_one(row)
+    return dz
+
+
+for label, dz in (("no player rows at all", _league(False)),
+                  ("player rows, none with a position", _league(True, with_pos=False))):
+    try:
+        fr = B.build_frames(dz, 1, 60)
+        crashed = None
+    except Exception as e:
+        fr, crashed = None, f"{type(e).__name__}: {e}"
+    check(f"{label}: build_frames does not raise ({crashed or 'no raise'})", crashed is None)
+    check(f"{label}: ...and names the column", fr is not None and fr[4]["blank_columns"] == ["pos"])
+    res = B.run_league(dz, 1)
+    check(f"{label}: run_league skips with a reason a person can act on ({res.get('note')})",
+          res.get("status") == "skipped" and "pos" in (res.get("note") or ""))
+
+ok_db = _league(True)
+okfr = B.build_frames(ok_db, 1, 60)
+check("a healthy league is untouched by the guard",
+      okfr is not None and okfr[4]["blank_columns"] == [])
+check("...and still runs", B.run_league(ok_db, 1).get("status") == "done")
+
+
 # ==================================================================
 print("a player's club never becomes his national team, and never moves backwards")
 d4 = mongomock.MongoClient()["d"]
@@ -694,6 +753,248 @@ check("...and stamped extras_at, without which no card forecast is ever graded",
 en12 = B.enabled_markets(d12, 1)
 check(f"the market gate passes all three newer markets on real coverage",
       all(en12.get(m) for m in ("player.saves", "player.fouls_committed", "player.goal_involvements")))
+
+# ==================================================================
+print("the whistle queues the statistics, and the match page shows them")
+#
+# REPORTED: "the stats updated with a delay... I know that pitchapi is still serving the match page
+# final stats, because I had it on before, and it would show exactly the same and the same delay".
+# The delay was real and the provider was not the cause -- the retired provider's `results_sync` ran
+# on the same six-hour cadence, which is why it felt identical.
+#
+# ONE place in the codebase queued a finished match's statistics: `sync_fixtures`, from the
+# `af_fixtures` job, every `ingest.fixtures_sync_hours` (6). And when it ran it read `/fixtures`
+# through a cache whose TTL is six hours off a match day, so it could run and still see the match as
+# `scheduled` and queue nothing. Meanwhile the live tick had been stamping `final_at` the instant
+# the status flipped and doing nothing with it.
+import live_af as LA
+import queries as Q
+
+SQUAD13 = ["G", "D", "D", "D", "D", "M", "M", "M", "M", "F", "F"]
+
+
+def tstats13(tid, seed):
+    return {"team": {"id": tid}, "statistics": [
+        {"type": "Total Shots", "value": 8 + seed % 7}, {"type": "Shots on Goal", "value": 3 + seed % 4},
+        {"type": "Corner Kicks", "value": 2 + seed % 6},
+        {"type": "Ball Possession", "value": f"{45 + seed % 11}%"},
+        {"type": "Fouls", "value": 8 + seed % 6}, {"type": "Yellow Cards", "value": 1 + seed % 3},
+        {"type": "Goalkeeper Saves", "value": 1 + seed % 5}]}
+
+
+def squad13(tid, seed):
+    return [person(tid * 100 + k, p, shots=(0 if p == "G" else (k + seed) % 4),
+                   on=(0 if p == "G" else (k + seed) % 2),
+                   saves=((seed % 5) + 1 if p == "G" else None),
+                   tackles=(0 if p == "G" else (k + seed) % 3))
+            for k, p in enumerate(SQUAD13)]
+
+
+def fx13(short, elapsed=None):
+    f = fixture(squad13(10, 3), squad13(20, 7), stats=[tstats13(10, 3), tstats13(20, 7)], fid=777)
+    f["fixture"]["status"] = {"short": short, "elapsed": elapsed}
+    f["teams"] = {"home": {"id": 10, "name": "Home"}, "away": {"id": 20, "name": "Away"}}
+    f["players"] = [{"team": {"id": 10}, "players": squad13(10, 3)},
+                    {"team": {"id": 20}, "players": squad13(20, 7)}]
+    f["events"] = [{"type": "Card", "detail": "Yellow Card", "time": {"elapsed": 30},
+                    "team": {"id": 10}, "player": {"id": 1003, "name": "Booked"}}]
+    return f
+
+
+def client13(db, body):
+    def h(req):
+        return httpx.Response(200, headers=HDR10, json={
+            "get": req.url.path.lstrip("/"), "parameters": dict(req.url.params), "errors": [],
+            "results": len(body), "paging": {"current": 1, "total": 1}, "response": body})
+    return AF.Client(db, httpx.Client(base_url=AF.BASE_URL, transport=httpx.MockTransport(h)),
+                     sleep=lambda s: None)
+
+
+d13 = mongomock.MongoClient()["m"]
+security.save_provider_key(d13, AF.PROVIDER, "k" * 24)
+S.put(d13, "features.live", True)
+d13.leagues.insert_one({"iid": 1, "ext_id": "39", "provider": "apifootball", "enabled": True,
+                        "name": "L", "kind": "domestic", "role": AFL.FORECAST, "current_season": "2025"})
+IA.sync_fixtures(client13(d13, [fx13("NS")]), d13.leagues.find_one({"iid": 1}), 2025)
+m13 = d13.matches.find_one({"ext_id": "777"})
+check("a fixture not yet played is not queued for statistics",
+      d13.ingest_queue.count_documents({"task": IA.QUEUE_TASK}) == 0)
+
+LA.live_tick(d13, client13(d13, [fx13("2H", 67)]))
+check("...nor while it is being played",
+      d13.ingest_queue.count_documents({"task": IA.QUEUE_TASK}) == 0)
+# THE PAGE, MID-MATCH. `match_detail` returned no statistics at all before this: `live_stats` had one
+# reader (`live_track`, grading a live forecast) and no display, and what the page showed as team
+# stats was `team_styles` -- a historical model that by design does not move during a match.
+# Against the functions the page ACTUALLY calls. These checks used to drive `_stats_block`, which
+# answered both halves at once -- a parallel match-page rewrite replaced it with two: `_live_stats`
+# while the match is on and `_match_stats` once it is ingested. The behaviour being pinned has not
+# changed; a test aimed at a function nothing calls is its own kind of dead code.
+mid = Q._live_stats(d13, d13.matches.find_one({"iid": m13["iid"]}))
+check("the page is given this match's numbers while it is on", mid is not None)
+check("...with possession, which has no team statistic of its own on one side",
+      mid and mid["home"].get("poss") is not None and mid["away"].get("poss") is not None)
+check("...and the keeper's saves, summed from the players as the final path does",
+      mid and mid["home"].get("saves") is not None)
+check("...and it says how old the numbers are, so the page can date them",
+      mid and mid.get("at") is not None)
+
+LA.live_tick(d13, client13(d13, [fx13("FT")]))
+check(f"THE WHISTLE queues it ({d13.ingest_queue.count_documents({'task': IA.QUEUE_TASK})})",
+      d13.ingest_queue.count_documents({"task": IA.QUEUE_TASK}) == 1)
+res13 = IA.drain(client13(d13, [fx13("FT")]), max_seconds=20.0)
+check(f"...and `drain`, which runs every tick, ingests it ({res13['written']})", res13["written"] == 1)
+m13b = d13.matches.find_one({"iid": m13["iid"]})
+check("so the match is ingested within a tick, not within six hours",
+      m13b.get("ingested_at") is not None)
+fin, fin_players = Q._match_stats(d13, m13b)
+check("the page now reads the final row", fin is not None and fin.get("home") is not None)
+check(f"...and every player who was on the pitch ({len(fin_players)})", len(fin_players) == 22)
+
+# A ROW THAT APPEARS ONLY AT THE WHISTLE looks like a number that changed when all that changed is
+# which document was read. The live block used to carry four columns and the final row nine.
+live_cols = {k for k, v in mid["home"].items() if v is not None and k != "at"}
+final_cols = {k for k, v in fin["home"].items() if v is not None}
+check(f"no row appears only at full time ({sorted(final_cols - live_cols) or 'none'})",
+      not (final_cols - live_cols))
+
+# Queued once, not once a tick: a second final tick must not re-queue an ingested match.
+LA.live_tick(d13, client13(d13, [fx13("FT")]))
+check("an already-ingested match is not queued again",
+      d13.ingest_queue.count_documents({"task": IA.QUEUE_TASK, "status": "pending"}) == 0)
+
+print("the live snapshot never stands in for the final numbers")
+#
+# `/fixtures?ids=...` IS THE SAME CACHE KEY FOR BOTH PATHS. The live-statistics step fetched it with
+# `ttl=None`, which `apifootball.fetch` documents as caching FOR EVER, so:
+#
+#   * the in-play statistics froze at the first fetch of a match -- every later tick was served the
+#     same answer, and a figure taken in the 20th minute stood for the whole ninety; and
+#   * that mid-match answer was then handed to `ingest_bundle` as the finished match, so
+#     `team_match_stats` recorded the 67th minute as full time and `matches.status` kept the value
+#     it had mid-game. `_match_stats` returns (None, []) for anything not "final", so the page
+#     showed NO statistics on a match whose numbers were already in the database.
+#
+# It was invisible while `apifootball.live_stats` shipped off, because nothing fetched the live
+# bundle at all. Turning that on (docs/90) is what made it reachable.
+d14 = mongomock.MongoClient()["n"]
+security.save_provider_key(d14, AF.PROVIDER, "k" * 24)
+S.put(d14, "features.live", True)
+d14.leagues.insert_one({"iid": 1, "ext_id": "39", "provider": "apifootball", "enabled": True,
+                        "name": "L", "kind": "domestic", "role": AFL.FORECAST, "current_season": "2025"})
+
+
+def fx14(short, elapsed, shots):
+    """The same fixture at two points in the match: the numbers grow, as real ones do."""
+    f = fx13(short, elapsed)
+    for blk in f["statistics"]:
+        for st in blk["statistics"]:
+            if st["type"] == "Total Shots":
+                st["value"] = shots
+    return f
+
+
+IA.sync_fixtures(client13(d14, [fx14("NS", None, 0)]), d14.leagues.find_one({"iid": 1}), 2025)
+LA.live_tick(d14, client13(d14, [fx14("2H", 67, 6)]))      # mid-match: 6 shots
+m14 = d14.matches.find_one({"ext_id": "777"})
+mid14 = Q._live_stats(d14, m14)
+check(f"mid-match the live block reads the mid-match figure ({mid14 and mid14['home'].get('shots')})",
+      mid14 and mid14["home"].get("shots") == 6.0)
+
+LA.live_tick(d14, client13(d14, [fx14("FT", None, 17)]))   # full time: 17 shots
+IA.drain(client13(d14, [fx14("FT", None, 17)]), max_seconds=20.0)
+m14b = d14.matches.find_one({"ext_id": "777"})
+check(f"the match is recorded as finished ({m14b.get('status')!r})", m14b.get("status") == "final")
+fin14, _ = Q._match_stats(d14, m14b)
+got = fin14 and fin14["home"].get("shots")
+check(f"the FINAL row holds the final figure, not the 67th minute ({got})", got == 17.0)
+# Against the fixture's own score, not a number written out here: the helper derives it from the
+# fixture id, and a hand-copied expectation is a test that fails when the helper changes.
+want14 = fx14("FT", None, 17)["goals"]
+check(f"...and the score came over with it ({m14b.get('hg')}-{m14b.get('ag')})",
+      (m14b.get("hg"), m14b.get("ag")) == (want14["home"], want14["away"]))
+
+print("a finished match can be pulled again, which nothing could do before")
+# A column added after a match was ingested is empty on that match for ever: `sync_fixtures` only
+# queues a match with no `ingested_at`, and nothing anywhere set that back. Ratings, coaches and the
+# derived card fields all arrived after rows had been written, and so did every normalizer fix in
+# this document -- a null the provider meant as a zero stays null on an old row however correctly
+# the code now reads it.
+#
+# THE TRAP THIS HAD TO AVOID: `ingest.enqueue` writes `status` under `$setOnInsert`, and a drained
+# task is left at `status: "done"`. So a re-ingest built on `enqueue` would report every match
+# queued and do nothing at all -- the rows exist, the status stays "done", `drain` never looks
+# again. Exactly the shape of silent failure this whole document is about.
+d15 = mongomock.MongoClient()["re"]
+d15.leagues.insert_one({"iid": 1, "ext_id": "39", "provider": "apifootball", "enabled": True,
+                        "name": "L", "kind": "domestic", "role": AFL.FORECAST, "current_season": "2025"})
+now15 = datetime.now(timezone.utc)
+for i in range(60):
+    d15.matches.insert_one({"iid": i, "ext_id": str(1000 + i), "league_iid": 1, "status": "final",
+                            "season": "2025", "kickoff": now15 - timedelta(days=i),
+                            "ingested_at": now15 - timedelta(days=i)})
+for i in range(10):                       # ten were drained once, so their task sits at "done"
+    d15.ingest_queue.insert_one({"task": IA.QUEUE_TASK, "key": str(1000 + i), "status": "done",
+                                 "finished_at": now15, "priority": 5, "payload": {"match_iid": i}})
+S.put(d15, "apifootball.reingest_batch", 25)
+
+plan15 = IA.plan_reingest(d15)
+check(f"the plan counts the matches and the calls ({plan15['matches']} / {plan15['calls']})",
+      plan15["matches"] == 60 and plan15["calls"] == 3)
+check("...and queues nothing: it is a dry run",
+      d15.ingest_queue.count_documents({"status": "pending"}) == 0)
+
+r15 = IA.reingest(d15)
+pend15 = list(d15.ingest_queue.find({"task": IA.QUEUE_TASK, "status": "pending"}, {"_id": 0, "key": 1, "priority": 1}))
+check(f"one press takes one batch, not the lot ({r15['queued']} queued, {r15['left']} left)",
+      r15["queued"] == 25 and len(pend15) == 25)
+check("...behind the live whistle and the backfill in the queue",
+      {p["priority"] for p in pend15} == {8})
+# The trap, asserted directly.
+revived = d15.ingest_queue.count_documents(
+    {"task": IA.QUEUE_TASK, "key": {"$in": [str(1000 + i) for i in range(10)]}, "status": "pending"})
+check(f"a task left at 'done' by an earlier drain is made pending again ({revived} of 10)",
+      revived == 10)
+check("newest first, because those are the matches on the front page",
+      [p["key"] for p in pend15][:3] == ["1000", "1001", "1002"])
+# `ingested_at` must survive: write_match upserts, so the rows are replaced in place. Clearing it
+# would make every other reader treat the match as un-ingested in the meantime, and lose that state
+# for good if the re-pull never finished.
+check("`ingested_at` is left alone, so nothing else sees the match as un-ingested",
+      d15.matches.count_documents({"ingested_at": {"$ne": None}}) == 60)
+check("the scope can be narrowed to one competition",
+      IA.plan_reingest(d15, league_iid=1)["matches"] == 60
+      and IA.plan_reingest(d15, league_iid=999)["matches"] == 0)
+check("...and to one season",
+      IA.plan_reingest(d15, season="2025")["matches"] == 60
+      and IA.plan_reingest(d15, season="2019")["matches"] == 0)
+# Asked for only: a timer would re-read the same league for ever.
+import jobs as J15
+check("the job is manual, never scheduled", "af_reingest" in J15.MANUAL)
+check("...and nothing schedules it", "_due_every(db, \"af_reingest\"" not in open(
+    os.path.join(os.path.dirname(__file__), "..", "jobs.py")).read())
+
+print("a match day still looks like one after the last kick-off")
+# `on_match_day` picks a 1-hour fixture-list TTL instead of 6. It counted only fixtures still
+# SCHEDULED in the next 24h, so the moment the last match of a round kicked off the league stopped
+# looking like a match day -- exactly when the results are landing.
+def md_window(db):
+    now_ = datetime.now(timezone.utc)
+    return db.matches.count_documents({
+        "league_iid": 1,
+        "kickoff": {"$gte": now_ - timedelta(hours=6), "$lte": now_ + timedelta(hours=24)}}) > 0
+
+
+for name, rec, want in (
+        ("a match kicks off in three hours", {"status": "scheduled", "kickoff": +3}, True),
+        ("it is being played right now", {"status": "scheduled", "kickoff": -0.5}, True),
+        ("the last match kicked off two hours ago", {"status": "final", "kickoff": -2}, True),
+        ("nothing within a week", {"status": "scheduled", "kickoff": +168}, False)):
+    dz = mongomock.MongoClient()["z"]
+    dz.matches.insert_one({"iid": 1, "league_iid": 1, "status": rec["status"],
+                           "kickoff": datetime.now(timezone.utc) + timedelta(hours=rec["kickoff"])})
+    got = md_window(dz)
+    check(f"{name}: match day = {got}", got is want)
 
 # ==================================================================
 print()

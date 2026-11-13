@@ -69,9 +69,20 @@ def sync_fixtures(client, league: dict, season: int | str) -> dict:
     season = int(season)
     current = season >= _current_season(db, league)
     if current:
+        # A MATCH DAY IS NOT OVER WHEN THE LAST KICK-OFF HAS PASSED.
+        #
+        # This counted only fixtures still `scheduled` in the next 24 hours, so the moment the last
+        # match of a round kicked off the league stopped looking like a match day and the fixture
+        # list fell back to the six-hour TTL -- exactly when the results are landing and we most
+        # want a fresh answer. A league could therefore be re-synced and still be handed a cached
+        # list in which every match was `scheduled`, queueing nothing.
+        #
+        # Count the recent past as well: anything that kicked off in the last six hours is either
+        # still being played or has just finished, and in both cases the answer is still moving.
+        now_ = utcnow()
         on_match_day = db.matches.count_documents({
-            "league_iid": league["iid"], "status": "scheduled",
-            "kickoff": {"$gte": utcnow(), "$lte": utcnow() + timedelta(hours=24)}}) > 0
+            "league_iid": league["iid"],
+            "kickoff": {"$gte": now_ - timedelta(hours=6), "$lte": now_ + timedelta(hours=24)}}) > 0
         hrs = S.get(db, "cache.ttl.fixtures_matchday_hours" if on_match_day else "cache.ttl.fixtures_future_hours")
         ttl = timedelta(hours=float(hrs))
     else:
@@ -131,7 +142,10 @@ def ingest_bundle(client, matches: list[dict]) -> dict:
         return {"asked": 0, "written": 0, "missing": 0, "failed": 0}
     settings = _settings(db)
     by_ext = {str(m["ext_id"]): m for m in matches}
-    bundles = AF.fixtures_bundle(client, [int(e) for e in by_ext])
+    # FORCE A FRESH ANSWER. This shares `/fixtures?ids=...` with the live-statistics step, and the
+    # whole point of this call is the FINAL numbers -- a cached answer here is, by construction,
+    # one taken while the match was still being played. It costs no extra call, only a cache miss.
+    bundles = AF.fixtures_bundle(client, [int(e) for e in by_ext], force=True)
     written = failed = 0
     for ext, match in by_ext.items():
         fixture = bundles.get(int(ext))
@@ -151,6 +165,28 @@ def ingest_bundle(client, matches: list[dict]) -> dict:
                 I.issue(db, i["kind"], i["detail"], match_iid=match["iid"], league_iid=match["league_iid"])
             I.write_match(db, match, out)
             _write_events(db, match, out.get("events") or [])
+            # THE MATCH IS OVER, SO SAY SO ON THE MATCH ROW.
+            #
+            # `sync_fixtures` used to be the only thing that queued a finished match, and it sets
+            # `status` from the fixture list as it goes. The live tick now queues one the moment it
+            # goes final (docs/90), and that path reached `write_match` without ever touching the
+            # match row's own status -- so a match could have both sides' `team_match_stats`, all
+            # 22 player rows and an `ingested_at`, while `matches.status` still read "scheduled".
+            #
+            # `queries._match_stats` returns (None, []) for anything that is not "final", so the
+            # page showed NO statistics at all on a match whose numbers were sitting in the
+            # database, until the next `af_fixtures` sweep corrected the status up to six hours
+            # later. That is the delay this whole change set out to remove, one layer further up.
+            #
+            # The bundle is the same answer the fixture list would have given, so take the status
+            # and the score from it rather than waiting to be told again.
+            row = NAF.match_row(fixture)
+            if row.get("status") == "final":
+                db.matches.update_one({"iid": match["iid"]},
+                                      {"$set": {"status": "final",
+                                                "provider_status": row.get("provider_status"),
+                                                "hg": row.get("hg"), "ag": row.get("ag"),
+                                                "extra_time": row.get("extra_time", False)}})
         except Exception as e:
             I.issue(db, "normalize_failed", f"{ext}: {type(e).__name__}: {e}",
                     match_iid=match["iid"], league_iid=match["league_iid"])
@@ -332,6 +368,76 @@ def lineup_watch(client, now: datetime | None = None, max_fixtures: int = 60) ->
             I.issue(db, "lineup_failed", f"{ext}: {type(e).__name__}: {e}",
                     match_iid=match["iid"], league_iid=match["league_iid"])
     return {"looked_at": len(by_ext), "confirmed": n, "calls": client.calls_made - before}
+
+
+# ------------------------------------------------------------------ pulling it again
+#
+# Why this exists: a column added after a match was ingested is empty on that match for ever. The
+# ingest only ever queues a match with no `ingested_at` (see `sync_fixtures`), so nothing re-reads
+# one. Ratings, coaches and the derived card fields all arrived after rows had been written, and so
+# did every normalizer fix in docs/90 -- a null the provider meant as a zero stays null on an old
+# row no matter how correctly the code now reads it.
+#
+# It is cheap: the bundle carries twenty matches a call, so a whole league-season is about 19 calls.
+def _reingest_scope(db, league_iid: int | None, season: str | None) -> dict:
+    q = {"status": "final", "ingested_at": {"$ne": None}}
+    if league_iid is not None:
+        q["league_iid"] = int(league_iid)
+    else:
+        q["league_iid"] = {"$in": [l["iid"] for l in db.leagues.find(
+            {"enabled": True, "provider": PROVIDER}, {"iid": 1})]}
+    if season is not None:
+        q["season"] = str(season)
+    return q
+
+
+def plan_reingest(db, league_iid: int | None = None, season: str | None = None) -> dict:
+    """How many matches would be pulled again, and what that costs. CHANGES NOTHING.
+
+    Always run this first. The answer is in calls, because that is the thing that can hurt.
+    """
+    q = _reingest_scope(db, league_iid, season)
+    n = db.matches.count_documents(q)
+    batch = int(S.get(db, "apifootball.reingest_batch") or 500)
+    per_call = AF.IDS_PER_CALL
+    return {"matches": n, "calls": -(-n // per_call), "batch": batch,
+            "presses": -(-n // batch) if batch else 0,
+            "cap": int(S.get(db, "apifootball.daily_cap") or 0),
+            "leagues": sorted({m["league_iid"] for m in db.matches.find(q, {"league_iid": 1})})}
+
+
+def reingest(db, league_iid: int | None = None, season: str | None = None,
+             limit: int | None = None) -> dict:
+    """Queue finished matches to be pulled again, NEWEST FIRST. Bounded, and safe to repeat.
+
+    THE STATUS HAS TO BE SET EXPLICITLY. `ingest.enqueue` writes `status` under `$setOnInsert`, and
+    a task that has already been drained is left at `status: "done"` -- so re-queueing a match that
+    was ingested once is a silent no-op: the row exists, the status stays "done", and `drain` never
+    looks at it again. A re-ingest built on `enqueue` would report every match queued and do nothing
+    at all, which is the exact shape of failure docs/90 is about.
+
+    `ingested_at` is deliberately NOT cleared. `write_match` upserts, so the rows are replaced in
+    place; clearing it would make the match look un-ingested to every other reader in the meantime,
+    and would lose that state for good if the re-pull never finished.
+
+    Newest first because recent matches are the ones on the site's front page, and bounded so one
+    press cannot queue twenty thousand matches at once. Priority 8: behind the live whistle (3),
+    the current-season sweep (5) and the backfill (7).
+    """
+    q = _reingest_scope(db, league_iid, season)
+    n = int(limit if limit is not None else (S.get(db, "apifootball.reingest_batch") or 500))
+    now = utcnow()
+    queued = 0
+    for m in db.matches.find(q, {"iid": 1, "ext_id": 1}).sort("kickoff", -1).limit(n):
+        db.ingest_queue.update_one(
+            {"task": QUEUE_TASK, "key": str(m["ext_id"])},
+            {"$set": {"task": QUEUE_TASK, "key": str(m["ext_id"]), "status": "pending",
+                      "next_run_at": now, "priority": 8, "payload": {"match_iid": m["iid"]},
+                      "requeued_at": now},
+             "$setOnInsert": {"attempts": 0, "created_at": now}},
+            upsert=True)
+        queued += 1
+    return {"queued": queued, "left": max(0, db.matches.count_documents(q) - queued)}
 
 
 # ------------------------------------------------------------------ what a tick does

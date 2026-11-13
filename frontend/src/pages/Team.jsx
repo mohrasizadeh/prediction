@@ -7,12 +7,23 @@ import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
 import { FormPills, MatchRow, STATS, Seg, Select, TEAM_STATS, TacticChip, num1, posLabel, shortDay, useStored, useTitle } from "../components/Football";
 import { FollowButton } from "../components/Actions";
-import { ForecastList, QuickView } from "../components/ui";
+import { ChipsRow, ForecastList, QuickView } from "../components/ui";
 import { SubjectHead } from "../components/ui/Subject";
 import FirstGoal from "../components/FirstGoal";
 
 const WINDOWS = [{ id: 5, label: "Last 5" }, { id: 10, label: "Last 10" }, { id: 20, label: "Last 20" }];
 const LINES = [1, 2, 3, 4, 5].map((n) => ({ id: n, label: `${n}+` }));
+const POS_ORDER = ["GK", "DEF", "MID", "FWD"];
+const POS_PLURAL = { GK: "Goalkeepers", DEF: "Defenders", MID: "Midfielders", FWD: "Forwards" };
+
+// A plan caps the window server-side (`capped`, `last`). The control used to keep "Last 10" lit
+// while the rows under it were five games, so the screen contradicted itself. The control now
+// shows the window actually drawn, and the note says why and where to get more.
+function CapNote({ data, testid }) {
+  if (!data?.capped) return null;
+  return <p className="notice small team-cap" data-testid={testid}><span>Your plan shows the last {data.last} games. <Link to="/pricing">See plans</Link> for longer windows.</span></p>;
+}
+const shownWindow = (data, asked) => (data?.capped ? data.last : asked);
 
 function Grid({ id }) {
   const [stat, setStat] = useState("shots");
@@ -28,25 +39,31 @@ function Grid({ id }) {
   const cols = all.filter((c) => !hidden.includes(c.match_iid));
   const nHidden = all.length - cols.length;
   const avg = (r) => { const v = r.games.filter((g) => !hidden.includes(g.match_iid) && g.v != null).map((g) => g.v); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  // docs/24 §8 grid: "HIT" is the column people read first -- how often he reached the line, out of
+  // the games he played in the columns shown. Minutes has no line, so it has no hit count either.
+  const counted = stat !== "minutes";
+  const colIds = new Set(cols.map((c) => c.match_iid));
+  const hitOf = (r) => { const p = r.games.filter((g) => colIds.has(g.match_iid) && g.v != null); return { h: p.filter((g) => g.v >= line).length, n: p.length }; };
   return (
     <>
       <div className="filters">
         <Select label="Stat" value={stat} onChange={setStat} options={STATS} testid="grid-stat" />
-        <Seg label="Window" value={last} onChange={setLast} options={WINDOWS} testid="grid-window" />
-        <Seg label="Line" value={line} onChange={(v) => setLine(Number(v))} options={LINES} testid="grid-line" />
+        <Seg label="Window" value={shownWindow(q.data, last)} onChange={setLast} options={WINDOWS} testid="grid-window" />
+        {counted && <Seg label="Line" value={line} onChange={(v) => setLine(Number(v))} options={LINES} testid="grid-line" />}
       </div>
-      {q.data?.capped && <p className="notice small" data-testid="grid-capped">Showing the last {q.data.last} games. Longer windows come with a bigger plan.</p>}
-      <p className="muted small grid-hint">Tap a game's × to leave it out of the averages.{nHidden > 0 && <> <button type="button" className="linkish" onClick={() => setHidden([])} data-testid="grid-show-hidden">Show {nHidden} hidden</button></>}</p>
+      <CapNote data={q.data} testid="grid-capped" />
+      <p className="muted small grid-hint">{counted && <>Filled cells reached {line}+; darker is well past it. A dashed cell means he did not play. </>}Tap a game's × to leave it out.{nHidden > 0 && <> <button type="button" className="linkish" onClick={() => setHidden([])} data-testid="grid-show-hidden">Show {nHidden} hidden</button></>}</p>
       {q.loading && !q.data ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.rows.length ? <Empty icon="grid">No player data for this club yet.</Empty> : (
         <div className="tbl-wrap"><table className="tbl grid" data-testid="squad-grid">
-          <thead><tr><th scope="col" className="sticky">Player</th>{cols.map((c) => <th key={c.match_iid} scope="col" className="gcol" title={`${c.opp?.name || ""} ${shortDay(c.kickoff)}`}><Crest team={c.opp} size={20} /><small>{shortDay(c.kickoff)}</small><button type="button" className="gcol-hide" aria-label={`Hide the game against ${c.opp?.name || "this team"}`} onClick={() => setHidden([...hidden, c.match_iid])} data-testid={`grid-hide-${c.match_iid}`}>×</button></th>)}<th scope="col">Avg</th></tr></thead>
+          <thead><tr><th scope="col" className="sticky">Player</th>{cols.map((c) => <th key={c.match_iid} scope="col" className="gcol" title={`${c.opp?.name || ""} ${shortDay(c.kickoff)}`}><Crest team={c.opp} size={20} /><small>{shortDay(c.kickoff)}</small><button type="button" className="gcol-hide" aria-label={`Hide the game against ${c.opp?.name || "this team"}`} onClick={() => setHidden([...hidden, c.match_iid])} data-testid={`grid-hide-${c.match_iid}`}>×</button></th>)}<th scope="col" className="num">Avg</th>{counted && <th scope="col" className="num">Hit</th>}</tr></thead>
           <tbody>{q.data.rows.map((r) => {
             const by = Object.fromEntries(r.games.map((g) => [g.match_iid, g]));
             return (
               <tr key={r.player_iid}>
                 <th scope="row" className="sticky"><Link className="cell-person" to={`/player/${r.player?.id}`}><PlayerAvatar player={r.player} size={28} /><span>{r.player?.name}<small className="muted"> {r.player?.pos || ""}</small></span></Link></th>
-                {cols.map((c) => { const g = by[c.match_iid]; const v = g?.v; return <td key={c.match_iid} className={"num gcell" + (v != null && v >= line && stat !== "minutes" ? " hit" : "")}>{g ? num1(v) : <span className="muted">–</span>}</td>; })}
+                {cols.map((c) => { const g = by[c.match_iid]; const v = g?.v; return <td key={c.match_iid} className={"num gcell" + (!g || v == null ? " dnp" : counted && v >= line ? (v >= line * 2 ? " hit hit--2" : " hit") : "")}>{g && v != null ? num1(v) : <span className="sr-only">Did not play</span>}</td>; })}
                 <td className="num"><b>{num1(avg(r))}</b></td>
+                {counted && (() => { const { h, n } = hitOf(r); return <td className="num gcell-hit" data-testid={`grid-hit-${r.player_iid}`}>{n ? <><b>{h}</b>/{n}</> : "–"}</td>; })()}
               </tr>
             );
           })}</tbody>
@@ -63,16 +80,22 @@ function Totals({ id }) {
   const max = Math.max(1, ...(q.data?.rows || []).flatMap((r) => [r.for || 0, r.against || 0]));
   return (
     <>
-      <div className="filters"><Select label="Stat" value={stat} onChange={setStat} options={TEAM_STATS} testid="totals-stat" /><Seg label="Window" value={last} onChange={setLast} options={WINDOWS} testid="totals-window" /></div>
-      {q.data?.capped && <p className="notice small" data-testid="totals-capped">Showing the last {q.data.last} games. Longer windows come with a bigger plan.</p>}
+      <div className="filters"><Select label="Stat" value={stat} onChange={setStat} options={TEAM_STATS} testid="totals-stat" /><Seg label="Window" value={shownWindow(q.data, last)} onChange={setLast} options={WINDOWS} testid="totals-window" /></div>
+      <CapNote data={q.data} testid="totals-capped" />
       {q.loading && !q.data ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.rows.length ? <Empty icon="activity">No finished matches loaded yet.</Empty> : (
-        <ul className="totals card" data-testid="team-totals">{q.data.rows.map((r) => (
-          <li key={r.match_iid}>
-            <span className="team"><Crest team={r.opp} size={20} /> {r.home ? "v" : "at"} {r.opp?.name || "Opponent"}<small className="muted"> {shortDay(r.kickoff)}</small></span>
-            <span className="tbar"><span className="tbar-for" style={{ width: `${((r.for || 0) / max) * 100}%` }} /><b>{num1(r.for)}</b></span>
-            <span className="tbar tbar--against"><span className="tbar-ag" style={{ width: `${((r.against || 0) / max) * 100}%` }} /><b>{num1(r.against)}</b></span>
-          </li>
-        ))}<li className="totals-key muted small"><span /><span>For</span><span>Against</span></li></ul>
+        // The key sat under the last row, so a reader met five pairs of unlabelled bars before learning
+        // which was which; and each number was printed on top of its own fill, at under 3:1 on the
+        // darker bars. Key first, numbers beside the bars on the plain track colour.
+        <div className="card team-totals">
+          <p className="totals-key small" aria-hidden="true"><span><i className="tk tk--for" />For</span><span><i className="tk tk--ag" />Against</span></p>
+          <ul className="totals" data-testid="team-totals">{q.data.rows.map((r) => (
+            <li key={r.match_iid}>
+              <span className="team"><Crest team={r.opp} size={20} /><span className="totals-opp">{r.home ? "v" : "at"} {r.opp?.name || "Opponent"}</span><small className="muted">{shortDay(r.kickoff)}</small></span>
+              <span className="tbar"><span className="tbar-track"><span className="tbar-for" style={{ width: `${((r.for || 0) / max) * 100}%` }} /></span><b><span className="sr-only">For </span>{num1(r.for)}</b></span>
+              <span className="tbar tbar--against"><span className="tbar-track"><span className="tbar-ag" style={{ width: `${((r.against || 0) / max) * 100}%` }} /></span><b><span className="sr-only">Against </span>{num1(r.against)}</b></span>
+            </li>
+          ))}</ul>
+        </div>
       )}
     </>
   );
@@ -97,22 +120,94 @@ function Against({ id }) {
 
 const SEASON_KEYS = [["apps", "Apps"], ["minutes", "Min"], ["goals", "Goals"], ["shots", "Shots"], ["tackles", "Tackles"], ["yellow_cards", "Cards"]];
 
+// The cards answer the mockup's question (docs/24 §8, team_squad_cards_dark.png): who in this squad
+// does the thing, lately. Season totals alone could not say that -- a forward with 40 shots in
+// September and none since read the same as one in form -- so each card carries the last five club
+// games for the chosen stat, from the same squad-grid route the Grid view reads. Grouped by
+// position, because a goalkeeper's zero shots beside a forward's six is noise, not information.
+const CARD_STATS = [{ id: "shots", label: "Shots" }, { id: "sot", label: "On target" }, { id: "tackles", label: "Tackles" }, { id: "goals", label: "Goals" }];
+
+function Spark({ games, max, label }) {
+  const said = games.map((g) => (g.v == null ? "did not play" : num1(g.v))).join(", ");
+  return (
+    <span className="sq-spark" role="img" aria-label={`${label}, last ${games.length} games, oldest first: ${said}`}>
+      <span className="sq-bars" aria-hidden="true">{games.map((g, i) => <i key={i} className={g.v == null ? "dnp" : g.v > 0 ? "on" : ""} style={{ "--h": g.v ? Math.max(0.12, g.v / max) : 0 }} />)}</span>
+      <small aria-hidden="true">last {games.length}</small>
+    </span>
+  );
+}
+
 function SquadCards({ id }) {
+  const [stat, setStat] = useState("shots");
   const q = useApi(`/teams/${id}/squad-season`);
+  const g = useApi(`/teams/${id}/squad-grid`, { stat, last: 5 });
+  // The club's last five games, oldest on the left like every other strip in the product, and the
+  // same five columns for every card so a gap reads as "did not play", not as a shorter run.
+  const runs = useMemo(() => {
+    const rows = g.data?.rows || [];
+    const m = new Map();
+    rows.forEach((r) => r.games.forEach((x) => m.set(x.match_iid, x)));
+    const cols = [...m.values()].sort((a, b) => (a.kickoff < b.kickoff ? 1 : -1)).slice(0, 5).reverse();
+    const out = {};
+    let max = 1;
+    rows.forEach((r) => {
+      const by = Object.fromEntries(r.games.map((x) => [x.match_iid, x.v]));
+      out[r.player_iid] = cols.map((c) => ({ v: by[c.match_iid] ?? null }));
+      out[r.player_iid].forEach((x) => { if (x.v > max) max = x.v; });
+    });
+    return { by: out, max, n: cols.length };
+  }, [g.data]);
   if (q.loading && !q.data) return <Loading rows={4} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={q.reload} />;
   const rows = q.data.players;
   if (!rows.length) return <Empty icon="users">No appearances recorded this season yet.</Empty>;
+  const groups = POS_ORDER.map((p) => [p, rows.filter((r) => (r.pos || r.player.pos) === p)])
+    .concat([["other", rows.filter((r) => !POS_ORDER.includes(r.pos || r.player.pos))]])
+    .filter(([, list]) => list.length);
+  const statLabel = CARD_STATS.find((s) => s.id === stat)?.label || "";
   return (
-    <ul className="sq-cards" data-testid="squad-cards">{rows.map((r) => (
-      <li key={r.player.id}><Link to={`/player/${r.player.id}`} className="sq-card card" data-testid={`squad-card-${r.player.id}`}>
-        <PlayerAvatar player={r.player} size={56} />
-        <span className="sq-who"><b>{r.player.name}</b><small className="muted">{posLabel(r.pos || r.player.pos)} · {r.starts} start{r.starts === 1 ? "" : "s"}</small></span>
-        <dl className="sq-nums">{SEASON_KEYS.map(([k, l]) => <div key={k}><dt>{l}</dt><dd>{Math.round(r[k] || 0)}</dd></div>)}</dl>
-      </Link></li>
+    <>
+      <ChipsRow options={CARD_STATS} value={stat} onChange={setStat} label="Stat on the cards" testid="squad-card-stat" />
+      <div className="sq-groups" data-testid="squad-cards">{groups.map(([pos, list]) => (
+        <section key={pos} className="sq-group" aria-labelledby={`sq-h-${pos}`}>
+          <h3 className="k-sec sq-pos" id={`sq-h-${pos}`}>{POS_PLURAL[pos] || "Others"}</h3>
+          <ul className="sq-cards">{list.map((r) => {
+            const run = runs.by[r.player.iid];
+            return (
+              <li key={r.player.id}><Link to={`/player/${r.player.id}`} className="sq-card card" data-testid={`squad-card-${r.player.id}`}>
+                <PlayerAvatar player={r.player} size={48} />
+                <span className="sq-who"><b>{r.player.name}</b><small className="muted">{posLabel(r.pos || r.player.pos)} · {r.starts} start{r.starts === 1 ? "" : "s"}</small></span>
+                {run && runs.n > 0 ? <Spark games={run} max={runs.max} label={statLabel} /> : <span className="sq-spark sq-spark--none" aria-hidden="true" />}
+                <dl className="sq-nums">{SEASON_KEYS.map(([k, l]) => <div key={k}><dt>{l}</dt><dd>{Math.round(r[k] || 0)}</dd></div>)}</dl>
+              </Link></li>
+            );
+          })}</ul>
+        </section>
+      ))}</div>
+    </>
+  );
+}
+
+// docs/24 §8 Fixtures: "past results as chips (W/D/L and score)". The tab listed only what is next,
+// so the five results the head summarises as letters had no score, no opponent and no way through
+// to the match. `form` already carries all of it.
+function Results({ form }) {
+  if (!form?.length) return null;
+  return (
+    <ul className="mlist card team-results" data-testid="team-results">{form.map((g) => (
+      <li key={g.match_iid}>
+        <Link to={`/match/${g.match_id}`} className="team-res" data-testid={`team-result-${g.match_iid}`}>
+          <span className={`fp fp--${g.result}`} aria-label={{ W: "Won", D: "Drew", L: "Lost" }[g.result] || g.result}>{g.result}</span>
+          <span className="team-res-opp"><Crest team={g.opp} size={20} /><span>{g.home ? "v" : "at"} {g.opp?.name || "Opponent"}</span></span>
+          <b className="team-res-score">{g.gf}–{g.ga}</b>
+          <time className="muted small">{shortDay(g.kickoff)}</time>
+        </Link>
+      </li>
     ))}</ul>
   );
 }
+
+const TABS = [{ id: "squad", label: "Squad" }, { id: "totals", label: "Stats" }, { id: "fixtures", label: "Fixtures" }];
 
 export default function Team() {
   const { id } = useParams();
@@ -142,7 +237,7 @@ export default function Team() {
         text: `${n0.home?.name || ""} v ${n0.away?.name || ""}` }
     : { team: d.team, text: "" };
   return (
-    <section data-testid="team-page">
+    <section className="team-page" data-testid="team-page">
       {/* The same head the player page and the sheet open with. The club head was .phead -- a 64px
           crest centred against a three-row column, 141px against the player's 261px -- so the two
           entity pages did not look like one product. */}
@@ -177,7 +272,9 @@ export default function Team() {
         <header className="v2-sec-head v2-sec-head--card"><h2 className="h3 v2-sec">The last ten, and any other line</h2></header>
         <QuickView teamId={id} forecasts={d.forecasts || []} testid="team-quick-view" />
       </section>
-      <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={[{ id: "squad", label: "Squad" }, { id: "totals", label: "Numbers" }, { id: "fixtures", label: "Fixtures" }]} />
+      {/* docs/24 §8 names this tab Stats; "Numbers" was the only place in the product it was called that. */}
+      <Tabs value={tab} onChange={setTab} testid="team-tabs" tabs={TABS} />
+      <div role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label} className="team-panel" data-testid={`team-panel-${tab}`}>
       {tab === "squad" && (
         <>
           <div className="v2-bar">
@@ -194,7 +291,14 @@ export default function Team() {
           <section><h2 className="k-sec">Who scores first</h2><FirstGoal team={d.team} /></section>
         </div>
       )}
-      {tab === "fixtures" && (d.next.length ? <ul className="mlist card">{d.next.map((m) => <MatchRow key={m.id} m={m} />)}</ul> : <Empty icon="calendar">No upcoming fixtures loaded.</Empty>)}
+      {tab === "fixtures" && (
+        <div className="v2-stack">
+          <section><h2 className="k-sec">Next</h2>
+            {d.next.length ? <ul className="mlist card">{d.next.map((m) => <MatchRow key={m.id} m={m} />)}</ul> : <Empty icon="calendar">No upcoming fixtures loaded.</Empty>}</section>
+          {d.form?.length > 0 && <section><h2 className="k-sec">Recent results</h2><Results form={d.form} /></section>}
+        </div>
+      )}
+      </div>
     </section>
   );
 }

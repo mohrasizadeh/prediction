@@ -17,7 +17,7 @@ import { posLabel } from "../Football";
 import { Fragment } from "react";
 import { Hl, TierBadge } from "./Marks";
 
-const BADGE = { confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" };
+export const BADGE = { confirmed: "Confirmed starter", likely: "Likely lineup", unsure: "Lineup not sure", bench: "On the bench" };
 
 // docs/56 calls `span` the quantity that separates a forecast from a count: how far this rung moves
 // between the meanest defence in the league and the leakiest. It was computed on every line, used
@@ -61,8 +61,12 @@ export function SubjectHead({ f: f0, fx, size = "sheet", action, extraMeta, fixt
   const isMatch = !!f.stat?.startsWith("match_");
   const team = fx?.team;
   const name = f.player?.name || (isMatch ? (fx?.text || "Both teams") : team?.name || "");
-  const to = f.player?.id ? `/player/${f.player.id}` : isMatch ? null : team?.id ? `/team/${team.id}` : null;
   const big = size === "page";
+  // On a page the head IS the subject's page, so its name linking to itself was a dead tap (and
+  // a 32px one); the sheet still links out. The page edition is also the document's one h1 --
+  // neither the player nor the club page had any.
+  const to = big ? null : f.player?.id ? `/player/${f.player.id}` : isMatch ? null : team?.id ? `/team/${team.id}` : null;
+  const H = big ? "h1" : "h2";
   const av = big ? 84 : 56;
   return (
     <header className={`v2-sh v2-sh--${size}`} data-testid={testid}>
@@ -84,9 +88,9 @@ export function SubjectHead({ f: f0, fx, size = "sheet", action, extraMeta, fixt
             : <Crest team={team} size={av} decorative={false} />}
       </span>
       <div className="v2-sh-main">
-        <h2 className="v2-sh-name" data-testid={`${testid}-name`}>
+        <H className="v2-sh-name" data-testid={`${testid}-name`}>
           {to ? <Link to={to} data-testid={`${testid}-player-link`}>{name}</Link> : name}
-        </h2>
+        </H>
         <p className="v2-sh-meta">
           {!isMatch && team?.id && f.player && <Link to={`/team/${team.id}`} className="v2-club" onClick={(e) => e.stopPropagation()}><Crest team={team} size={big ? 20 : 18} /> {team.name}</Link>}
           {f.pos && <span className="v2-pos">{posLabel(f.pos)}</span>}

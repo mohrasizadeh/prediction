@@ -667,9 +667,12 @@ h2, .k-sec, .td-sec-head h2, .ins h2, .mc-sec h2, .pr h2, .tm h2, .fg-head h3, .
 .mrow-best { grid-area: best; justify-self: end; }
 @media (max-width: 640px) {
   .mrow {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "time time" "home v" "away away" "bar bar" "best best";
+    /* Home, v and away stay on one line: two columns put the away club on a line of its own,
+       right-aligned under the "v", so a fixture read as two unrelated rows. */
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "time time time" "home v away" "bar bar bar" "best best best";
   }
+  .mrow .team { min-width: 0; overflow-wrap: anywhere; }
   .mrow-best { justify-self: start; }
   .mrow-bar { max-width: none; }
 }
@@ -1003,7 +1006,7 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 /* ============================================================ 26. Quick view, in the palette
    The controls were the browser's: a system select arrow and a blue checkbox, neither of which
    follows an owner's palette. Everything here is drawn from tokens so a theme change carries. */
-.v2-qv .sel select {
+.v2-qv .sel select, .team-page .sel select {
   appearance: none; -webkit-appearance: none;
   padding-right: 34px; border-radius: 10px;
   border: 1px solid var(--border); background-color: var(--surface2); color: var(--text);
@@ -1013,7 +1016,7 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   background-position: calc(100% - 17px) calc(50% + 1px), calc(100% - 12px) calc(50% + 1px);
   background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
 }
-.v2-qv .sel select:hover { border-color: var(--border-strong); }
+.v2-qv .sel select:hover, .team-page .sel select:hover { border-color: var(--border-strong); }
 .v2-qv .seg2 { background: var(--surface2); border-color: var(--border); }
 .v2-qv .seg2 button { font-variation-settings: "wdth" 92, "wght" 600; }
 .v2-qv .seg2 button.on { background: var(--brand); color: var(--on-brand); }
@@ -1816,6 +1819,9 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
 :root[data-theme="dark"] .v2-sh--page .v2-sh-main, :root[data-theme="dark"] .v2-sh--sheet .v2-sh-main,
 :root[data-theme="dark"] .v2-sh--page .v2-sh-main a, :root[data-theme="dark"] .v2-sh--sheet .v2-sh-main a,
 :root[data-theme="dark"] .v2-sh--page .v2-pos, :root[data-theme="dark"] .v2-sh--page .v2-club { color: var(--text); }
+/* The page head's name is an h1 with no link now, so the `a` rule above no longer reached it and it
+   kept --on-brand (near-black in dark) on a dark band. Same for a chip passed in as extraMeta. */
+:root[data-theme="dark"] .v2-sh--page .v2-sh-name, :root[data-theme="dark"] .v2-sh--page .k-tag { color: var(--text); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .v2-sh--page, :root:not([data-theme="light"]) .v2-sh--sheet {
     background: linear-gradient(158deg, var(--surface3) 0%, var(--surface1) 100%); color: var(--text);
@@ -1825,7 +1831,9 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   :root:not([data-theme="light"]) .v2-sh--page .v2-sh-main a,
   :root:not([data-theme="light"]) .v2-sh--sheet .v2-sh-main a,
   :root:not([data-theme="light"]) .v2-sh--page .v2-pos,
-  :root:not([data-theme="light"]) .v2-sh--page .v2-club { color: var(--text); }
+  :root:not([data-theme="light"]) .v2-sh--page .v2-club,
+  :root:not([data-theme="light"]) .v2-sh--page .v2-sh-name,
+  :root:not([data-theme="light"]) .v2-sh--page .k-tag { color: var(--text); }
 }
 
 /* --- b) the ten-game chart -------------------------------------------------------------------
@@ -2297,3 +2305,50 @@ details > summary ~ * { animation: v2-open var(--v2-move) var(--v2-ease); }
   .td-ins-set .td-ins.is-hit > em, .td-ins-set .td-ins.is-miss > em { padding: 2px 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .td-list .td-row { transition: none; } }
+
+/* --- Player page (docs/24 §10, mockups/player_phone.png). Every rule is scoped to .pl-page so the
+   shared head, answer block, ladder and Quick view keep their own look in the sheet and on clubs. */
+.pl-page > .v2-sh { margin-bottom: 16px; }            /* the head sat flush on the first card */
+/* Availability, in the hero. Same chip as position, with the band's ink. */
+.pl-page .pl-avail { font-size: .75rem; font-variation-settings: "wdth" 92, "wght" 650; }
+/* Tap areas carried by a pseudo-element, as on the v10 card: the club and fixture are inline
+   links on a dense band, and 21-23px tall targets fail the project's 44px rule. */
+@media (pointer: coarse) {
+  .pl-page .v2-sh-meta .v2-club, .pl-page .v2-sh-fx { position: relative; }
+  .pl-page .v2-sh-meta .v2-club::after, .pl-page a.v2-sh-fx::after {
+    content: ""; position: absolute; left: -4px; right: -4px; top: 50%; height: 44px; transform: translateY(-50%); }
+  .pl-page .v2-ll-act .icon-btn--sm { min-width: 44px; min-height: 44px; }
+  .pl-page .v2-qv .seg2 button { min-height: 44px; min-width: 44px; }
+  .pl-page .v2-qv select { min-height: 44px; }
+  .pl-page .v2-qv .check-inline, .pl-page .linkish { min-height: 44px; display: inline-flex; align-items: center; }
+}
+/* The next-match card: an overline, then the claim as a sentence (docs/redesign/v10 §1). */
+.pl-next-when { font-size: .8125rem; color: var(--text2); font-variant-numeric: tabular-nums; text-align: right; }
+.pl-say { margin: var(--v2-gap-block, 14px) 0 0; font-size: 1.25rem; line-height: 1.25; color: var(--text);
+  font-variation-settings: "wdth" 100, "wght" 700; letter-spacing: -.01em; text-wrap: balance; }
+/* The sentence names the market, so the uppercase market chip above the figure said it twice;
+   the grade badge beside it stays. The lineup line moved into the hero. */
+.pl-next .v2-ans-mkt, .pl-next .v2-ans-lineup { display: none; }
+/* With the chip gone the grade sat alone on a row above the figure; it goes beside it instead. */
+.pl-next .v2-ans { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center; }
+.pl-next .v2-ans > * { grid-column: 1 / -1; }
+.pl-next .v2-ans > .v2-ans-p { grid-column: 1; grid-row: 1; margin-top: 0; }
+.pl-next .v2-ans > .v2-ans-top { grid-column: 2; grid-row: 1; }
+.pl-say + .v2-ans { margin-top: 12px; }
+/* Wide screens: the answer and its ladder side by side. Stacked at 1100px, the ladder put its
+   label 840px from its percentage. */
+@media (min-width: 1000px) {
+  .pl-next { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); column-gap: 32px; align-items: start; }
+  .pl-next > .v2-sec-head, .pl-next > .pl-say, .pl-next > p { grid-column: 1 / -1; }
+  .pl-next > .v2-ans { grid-column: 1; }
+  .pl-next > .v2-ans + section { grid-column: 2; margin-top: 14px; }
+  .pl-next > .v2-ans + section > .v2-sec-head--tight { margin-top: 0; }
+}
+/* Season numbers: the per-90 figure is the tile, the rank its context. */
+.pl-ranks ul { grid-template-columns: repeat(auto-fit, minmax(min(100%, 100px), 1fr)); gap: 8px; margin-bottom: 10px; }
+.pl-ranks li { gap: 4px; padding: 12px; min-width: 0; border: 1px solid var(--border); background: var(--surface1); }
+.pl-ranks .pl-rk-k { font-size: .8125rem; color: var(--text2); }
+.pl-ranks li b.pl-rk-v { font-size: 1.5rem; line-height: 1.05; color: var(--text); font-variant-numeric: tabular-nums;
+  font-variation-settings: "wdth" 96, "wght" 800; letter-spacing: -.02em; }
+.pl-ranks .pl-rk-r { font-size: .8125rem; color: var(--text2); font-variant-numeric: tabular-nums; }
+.pl-ranks .pl-rk-r span { color: var(--text); font-weight: 700; }

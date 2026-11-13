@@ -217,6 +217,11 @@ def match_detail(db, match_iid: int) -> dict | None:
     players = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
     for f in fc:
         f["player"] = players.get(f.get("player_iid"))
+        # The words the card writes its sentence with (docs/redesign/v10 §6). _decorate attaches them
+        # to every other page's forecasts; this one runs _usual alone, so its rows and their `markets`
+        # went out with no verb and the match page read "Player 1 2+ shots".
+        f["noun"] = list(STAT_LABEL.get(f.get("stat"), (f.get("stat"), f.get("stat"))))
+        f["verb"] = verb_for(f.get("scope"), f.get("stat"))
     _usual(db, fc)
     # docs/73: after the whistle, say what happened. The forecasts were already scored into
     # `forecast_outcomes` by score_finished, and _recap below already counts them -- but only in
@@ -239,6 +244,10 @@ def match_detail(db, match_iid: int) -> dict | None:
     lp = _names(db, "players", [x["player_iid"] for x in lu])
     for x in lu:
         x["player"] = lp.get(x["player_iid"])
+    team_stats, player_stats = _match_stats(db, m)
+    rating = {r["player"]["iid"]: r["rating"] for r in player_stats if r.get("player")}
+    for x in lu:
+        x["rating"] = rating.get(x["player_iid"])
     ev = (db.match_events.find_one({"match_iid": match_iid}, {"_id": 0, "events": 1}) or {}).get("events") or []
     ep = _names(db, "players", [i for e in ev for i in (e.get("player_iid"), e.get("in_iid")) if i])
     for e in ev:
@@ -255,11 +264,86 @@ def match_detail(db, match_iid: int) -> dict | None:
                          for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "level" in c},
             "context": {c["team_iid"]: {"form_vs_expected": c.get("form_fp"), "situation": c.get("stakes"), "games_left": c.get("games_left"), "why": c.get("context_why", [])}
                         for c in db.match_context.find({"match_iid": match_iid}, {"_id": 0}) if "form_fp" in c},
-            "h2h": h2h(db, m["home_iid"], m["away_iid"]),
+            "h2h": h2h(db, m["home_iid"], m["away_iid"], exclude=match_iid),
             "availability": _availability(db, (m["home_iid"], m["away_iid"])),
-            "live": m.get("live"), "live_events": _live_events(db, m), "recap": _recap(db, m, ev)}
+            "live": m.get("live"), "live_events": _live_events(db, m), "recap": _recap(db, m, ev),
+            "team_stats": team_stats, "player_stats": player_stats, "live_stats": _live_stats(db, m),
+            # Only API-Football names a coach (ingest.save_lineups); None means "do not show".
+            "coach": {"home": (m.get("coach") or {}).get("home"), "away": (m.get("coach") or {}).get("away")}}
 
 
+# What the Stats tab reads off a player row: PLAYER_COLS as stored, plus the provider's rating
+# (display-only, outside PLAYER_COLS -- see ingest.write_match). Named here rather than
+# importing PLAYER_COLS so a new engine column does not silently become a public table column.
+MATCH_PLAYER_COLS = ("minutes", "goals", "assists", "shots", "sot", "xg", "tackles", "saves", "interceptions",
+                     "clearances", "fouls_committed", "fouls_won", "passes", "rating")
+
+
+def _match_stats(db, m):
+    """Finished match: both sides' team_match_stats and every player row. (None, []) otherwise.
+
+    A value the provider did not send stays None so the page can print a dash -- a 0 here would be a
+    claim we do not hold.
+    """
+    if m.get("status") != "final":
+        return None, []
+    import normalize as N
+    side_of = {m["home_iid"]: "home", m["away_iid"]: "away"}
+    ts = {side_of[r["team_iid"]]: {c: r.get(c) for c in N.TEAM_COLS}
+          for r in db.team_match_stats.find({"match_iid": m["iid"]}, {"_id": 0}) if r.get("team_iid") in side_of}
+    team_stats = {"home": ts.get("home"), "away": ts.get("away")} if ts else None
+    if team_stats:
+        # Keeper saves live on the player rows (write_match stamps the side's total as team_saves).
+        for side, tid in (("home", m["home_iid"]), ("away", m["away_iid"])):
+            if team_stats.get(side) is not None:
+                r = db.player_match_stats.find_one({"match_iid": m["iid"], "team_iid": tid, "team_saves": {"$ne": None}},
+                                                   {"_id": 0, "team_saves": 1})
+                team_stats[side]["saves"] = (r or {}).get("team_saves")
+    rows = [r for r in db.player_match_stats.find({"match_iid": m["iid"]}, {"_id": 0}) if r.get("team_iid") in side_of]
+    pl = _names(db, "players", [r["player_iid"] for r in rows])
+    out = [{"player": pl.get(r["player_iid"]), "side": side_of[r["team_iid"]], "pos": r.get("pos"),
+            "started": r.get("started"), **{c: r.get(c) for c in MATCH_PLAYER_COLS}}
+           for r in rows if r.get("minutes") is None or r["minutes"] > 0]
+    out.sort(key=lambda r: (r["side"] != "home", not r.get("started"), -(r.get("minutes") or 0)))
+    return team_stats, out
+
+
+def _live_stats(db, m):
+    """The team statistics the live tick stored for this match (live_af.live_tick), or None.
+
+    TEAM_COLS per side, the same columns `team_stats` carries after full time, so the Stats tab draws
+    one set of bars from either. A column the provider did not send stays None. `at` is when the
+    tick stored them, so the page can say how old they are. Player rows stay out: the live table
+    is not built, and `live_track` reads them from the collection directly.
+    """
+    sid = (m.get("live") or {}).get("sid")
+    if sid is None:
+        lf = db.live_fixtures.find_one({"match_iid": m["iid"]}, {"sid": 1})
+        sid = (lf or {}).get("sid")
+    if sid is None:
+        return None
+    st = db.live_stats.find_one({"fixture_sid": sid}, {"_id": 0, "teams": 1, "at": 1})
+    teams = (st or {}).get("teams") or {}
+    import normalize as N
+    # TEAM_COLS PLUS SAVES. `_match_stats` adds the side's keeper saves to the finished row (from
+    # `team_saves` on the player rows), and `live_af` stores the same figure in the live block -- but
+    # `N.TEAM_COLS` does not list `saves`, so mapping over it alone dropped the column here and the
+    # Saves row appeared for the first time at the whistle. A row that turns up only at full time
+    # reads as a number that changed when all that changed is which document was read.
+    cols = (*N.TEAM_COLS, "saves")
+    out = {side: {c: (teams.get(side) or {}).get(c) for c in cols} for side in ("home", "away")}
+    if not any(v is not None for s in out.values() for v in s.values()):
+        return None
+    at = st.get("at")
+    if hasattr(at, "isoformat"):
+        # Mongo hands back naive UTC; without the offset a browser reads it as local time and the
+        # "updated n min ago" line is off by the viewer's timezone.
+        at = (at if at.tzinfo else at.replace(tzinfo=timezone.utc)).isoformat()
+    out["at"] = at
+    return out
+
+# The columns the match page shows, in the order a reader expects them. Possession first because it
+# frames everything else; the shot columns together; cards last.
 def _recap(db, m, ev):
     """Finished match: half-time score (SportAPI, else goal minutes) and how our Strong/Solid forecasts did."""
     if m.get("status") != "final":
@@ -578,13 +662,29 @@ FEED_SORTS = {
 }
 
 
-def h2h(db, a: int, b: int, limit: int = 10) -> dict:
-    ms = list(db.matches.find({"status": "final", "$or": [{"home_iid": a, "away_iid": b}, {"home_iid": b, "away_iid": a}]},
-                              {"_id": 0}).sort("kickoff", -1).limit(limit))
+def h2h(db, a: int, b: int, limit: int = 20, exclude: int | None = None) -> dict:
+    """The finished meetings of clubs a and b, newest first, with what they add up to.
+
+    `exclude`: the match being viewed, so a finished match's own result is not counted as its own
+    history (the page filtered it out of the list, but the counts above the list still included it).
+    `summary` / `insights` come from h2h_summary over the same meetings the list shows; each match row
+    also carries its `league` {id, name} so the list can say which competition it was.
+    """
+    import h2h_summary as HS
+    q = {"status": "final", "hg": {"$ne": None}, "$or": [{"home_iid": a, "away_iid": b}, {"home_iid": b, "away_iid": a}]}
+    if exclude is not None:
+        q["iid"] = {"$ne": exclude}
+    ms = list(db.matches.find(q, {"_id": 0}).sort("kickoff", -1).limit(limit))
+    ms = [m for m in ms if m.get("hg") is not None and m.get("ag") is not None]
     wa = sum(1 for m in ms if (m["home_iid"] == a and m["hg"] > m["ag"]) or (m["away_iid"] == a and m["ag"] > m["hg"]))
     wb = sum(1 for m in ms if (m["home_iid"] == b and m["hg"] > m["ag"]) or (m["away_iid"] == b and m["ag"] > m["hg"]))
+    summary, insights = HS.summarize(db, a, b, ms)
     _with_teams(db, ms)
-    return {"a_wins": wa, "b_wins": wb, "draws": len(ms) - wa - wb, "matches": ms}
+    lg = {d["iid"]: {"id": d.get("id"), "name": d.get("name")}
+          for d in db.leagues.find({"iid": {"$in": list({m.get("league_iid") for m in ms})}}, {"_id": 0, "iid": 1, "id": 1, "name": 1})}
+    for m in ms:
+        m["league"] = lg.get(m.get("league_iid"))
+    return {"a_wins": wa, "b_wins": wb, "draws": len(ms) - wa - wb, "matches": ms, "summary": summary, "insights": insights}
 
 
 def _with_teams(db, ms: list[dict]) -> list[dict]:

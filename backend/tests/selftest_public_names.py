@@ -24,4 +24,15 @@ check(Q.squad_grid(db, 1, "shots")[0]["games"][0]["opp"]["name"] == "Beta", "squ
 m = Q.match_detail(db, 11)
 check(m["starters"][0]["player"]["name"] == "Pat Doe" and m["h2h"]["matches"][0]["home"]["name"] == "Alpha", "match: starter names and H2H teams")
 check(Q.player_detail(db, 5, now)["next_match"]["away"]["name"] == "Alpha", "player: next match teams")
+# The match page's Stats tab (team_stats / player_stats / coach). A PitchAPI-shaped match: no rating
+# and no coach were ever stored, so both must come back as None -- the page hides them on None.
+f = Q.match_detail(db, 10)
+check(f["team_stats"]["home"]["shots"] == 9 and f["team_stats"]["away"] is None and f["team_stats"]["home"]["xg"] is None,
+      "finished match: team_stats per side, an unstored value stays None (never 0)")
+ps = f["player_stats"]
+check(len(ps) == 1 and ps[0]["player"]["name"] == "Pat Doe" and ps[0]["side"] == "home" and ps[0]["shots"] == 2,
+      "finished match: player_stats rows carry the player and his side")
+check(ps[0]["rating"] is None and f["coach"] == {"home": None, "away": None},
+      "no rating and no coach stored: both are None, not invented")
+check(m["team_stats"] is None and m["player_stats"] == [], "an unplayed match has no stats")
 print("public names self-test passed")

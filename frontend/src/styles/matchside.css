@@ -1,0 +1,75 @@
+/* The match page's side column (components/MatchSide.jsx) and the compact league table it holds
+   (components/Standings.jsx, compact mode). Placement -- beside the tabs or under the default tab --
+   is matchday.css (.mc-aside); this file is the cards themselves. Tokens only. */
+
+.msd { display: grid; gap: 12px; min-width: 0; }
+/* Two columns of cards between a phone and the side-column breakpoint, so a tablet does not get one
+   long 900px-wide strip of short cards. */
+@media (min-width: 700px) and (max-width: 1279px) { .msd { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+.msd-card { margin: 0; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; background: var(--surface1); }
+.msd-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
+.msd-h { margin: 0; font-size: 13px; font-weight: 600; color: var(--text2); }
+.msd-more { display: inline-flex; align-items: center; min-height: 44px; margin: -10px 0; font-size: 14px; font-weight: 600; color: var(--brand); text-decoration: none; }
+.msd-more:hover { text-decoration: underline; }
+.msd-faint { color: var(--text2); font-weight: 400; }
+.msd-note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text2); }
+
+/* Match info: label over value, so a long venue or competition wraps instead of squeezing a column. */
+.msd-dl { margin: 0; display: grid; gap: 10px; }
+.msd-dl > div { display: grid; gap: 2px; min-width: 0; }
+.msd-dl dt { font-size: 12px; color: var(--text2); }
+.msd-dl dd { margin: 0; font-size: 15px; color: var(--text); overflow-wrap: anywhere; }
+.msd-dl a, .msd-ref a { color: var(--text); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; }
+.msd-dl a:hover, .msd-ref a:hover { text-decoration-color: currentColor; }
+
+/* Referee */
+.msd-ref { margin: 0; font-size: 15px; }
+.msd-nums { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.msd-nums > div { display: grid; gap: 2px; padding: 8px; border-radius: 10px; background: var(--surface2); min-width: 0; }
+.msd-nums dt { font-size: 11px; line-height: 1.25; color: var(--text2); }
+.msd-nums dd { margin: 0; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+
+/* Worth knowing, per club */
+.msd-club { display: grid; gap: 6px; min-width: 0; }
+.msd-club + .msd-club { padding-top: 10px; border-top: .5px solid var(--hig-separator, var(--border)); }
+.msd-club-h { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text); }
+.msd-why { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; line-height: 1.45; color: var(--text); }
+
+/* Next match */
+.msd-next { list-style: none; margin: 0; padding: 0; display: grid; }
+.msd-next li + li { border-top: .5px solid var(--hig-separator, var(--border)); }
+.msd-next a { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; min-height: 52px; color: var(--text); text-decoration: none; }
+.msd-next a:hover .msd-next-t b { text-decoration: underline; }
+.msd-next-t, .msd-next-when { display: grid; min-width: 0; }
+.msd-next-t b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msd-next-t small, .msd-next-when small { font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msd-next-when { text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* Compact league table. Every row is in the DOM; a phone shows the six around the two clubs (the far
+   ones carry .st-far), with a dashed rule where rows were skipped. In the desktop column the whole
+   table shows, scrolling inside its card, opened at the clubs (Standings.jsx). */
+.st-compact { position: relative; margin: 0 -6px; min-width: 0; }
+.st-ctbl { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.st-ctbl th, .st-ctbl td { height: 36px; padding: 0 6px; text-align: right; white-space: nowrap; }
+.st-ctbl thead th { height: 28px; font-size: 11px; font-weight: 600; color: var(--text2); background: var(--surface1); position: sticky; top: 0; z-index: 1; }
+.st-ctbl abbr { text-decoration: none; }
+.st-ctbl td:first-child, .st-ctbl thead th:first-child { width: 28px; text-align: center; color: var(--text2); }
+.st-ctbl .st-c-club { text-align: left; width: 100%; max-width: 0; }
+.st-ctbl .st-c-club a { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text); font-weight: 500; text-decoration: none; }
+.st-ctbl .st-c-club a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-ctbl .st-c-club a:hover span { text-decoration: underline; }
+.st-ctbl tbody tr { border-top: .5px solid var(--hig-separator, var(--border)); }
+.st-ctbl tr.is-hl { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.st-ctbl tr.is-hl td, .st-ctbl tr.is-hl a { color: var(--text); font-weight: 700; }
+.st-ctbl tr.is-hl td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
+@media (max-width: 1279px) {
+  .st-ctbl tr.st-far { display: none; }
+  .st-ctbl tr.st-gap { border-top: 1px dashed var(--border-strong); }
+}
+@media (min-width: 1280px) {
+  .st-compact { max-height: 360px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+}
+@media (prefers-contrast: more) {
+  .msd-card { outline: 1px solid var(--border-strong); }
+  .st-ctbl tr.is-hl { outline: 2px solid var(--brand); outline-offset: -2px; }
+}

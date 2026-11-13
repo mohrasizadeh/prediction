@@ -28,6 +28,9 @@ LOCK_MINUTES = 5
 # did nothing, and nothing said why.
 MANUAL = {"reference_sync", "fixtures_sync", "results_sync", "backfill",
           "af_fixtures", "af_backfill",
+          # Re-pull: ASKED FOR ONLY, never on a schedule. It re-reads matches that are already
+          # ingested, so a timer would re-read the same league for ever.
+          "af_reingest",
           "engine", "alerts", "digest", "images", "referees", "waitlist_mail"}
 
 
@@ -118,6 +121,18 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
 
                 # `left()` OR asked for. Run now has to mean now: a tick that has already spent its
                 # seconds would otherwise take the request and do nothing with it.
+                # ONLY when asked. `_due_every` is deliberately not consulted: this job exists to
+                # re-read matches that already have an `ingested_at`, so anything periodic would
+                # walk the same league again and again. One press takes one batch; the result says
+                # how many are left, so the Jobs screen can show progress.
+                if "af_reingest" in forced:
+                    def af_re():
+                        plan = IA.plan_reingest(db)
+                        out_ = IA.reingest(db)
+                        return {**out_, "total": plan["matches"], "calls_for_all": plan["calls"]}
+                    if _run(db, "af_reingest", af_re, now) is not None:
+                        out["ran"].append("af_reingest")
+
                 if left() or "af_backfill" in forced:
                     res = _run(db, "af_backfill",
                                lambda: IA.backfill_tick(afc, max_seconds=max(5.0, max_seconds - (time.monotonic() - t0) - 10)),
