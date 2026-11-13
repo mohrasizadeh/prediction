@@ -131,7 +131,7 @@ function TopStats({ d, onAll }) {
         <h2 className="k-sec" id="mfx-top-h">Top stats</h2>
         {onAll && <button type="button" className="btn btn--secondary btn--sm" onClick={onAll} data-testid="facts-all-stats">All stats</button>}
       </header>
-      {poss && <div data-testid="facts-stat-poss"><Possession h={ph} a={pa} home={d.home} away={d.away} /></div>}
+      {poss && <div data-testid="facts-stat-poss"><Possession h={ph} a={pa} home={d.home?.name} away={d.away?.name} /></div>}
       {rows.length > 0 && <ul className="mst-rows">{rows.map(([k, label, fmt]) => {
         const h = ts.home?.[k], a = ts.away?.[k];
         const max = Math.max(known(h) ? h : 0, known(a) ? a : 0);
