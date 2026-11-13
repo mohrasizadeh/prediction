@@ -1,19 +1,20 @@
-// Screen 2, Match (docs/34): hero with win/draw/loss, then four tabs: Live or Recap (while on / after), Forecasts, Lineups (pitch + notes), Analysis (form, H2H, first goal, players, style).
+// Screen 2, Match (docs/34): hero with win/draw/loss, then four tabs: Live (while on) or Facts (after),
+// Forecasts (with a short Preview under it before kick-off: first goal, style, head to head), Lineups, Stats.
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/useApi";
-import { Crest, PlayerAvatar } from "../components/Media";
+import { Crest } from "../components/Media";
 import { Empty, ErrorBox, Loading } from "../components/States";
 import { Tabs } from "../components/Ui";
-import { Seg, TacticChip, num1, posLabel, useTitle } from "../components/Football";
-import FirstGoal from "../components/FirstGoal";
-import { Forecasts, Form, Hero, MiniBar, matchState } from "../components/MatchCentre";
+import { Seg, useTitle } from "../components/Football";
+import { Forecasts, Hero, MiniBar, matchState } from "../components/MatchCentre";
+import MatchPreview from "../components/MatchPreview";
 import MatchSide from "../components/MatchSide";
 import MatchEvents, { GOALS, Momentum, normEvent } from "../components/MatchEvents";
 import LiveLineups, { PitchView, lineOf } from "../components/LiveLineups";
-import MatchStats from "../components/MatchStats";
+import MatchStats, { statsMode } from "../components/MatchStats";
 import { utc } from "../lib/time";
-import { ForecastList, ProLock, Skeleton } from "../components/ui";
+import { ForecastList, Skeleton } from "../components/ui";
 import { tierLabel } from "../lib/copy";
 import { isLiveNow } from "../lib/live";
 import { pct } from "../lib/copy";
@@ -354,78 +355,6 @@ function Lineups({ d }) {
   );
 }
 
-// ------------------------------------------------------------------ Analysis
-function Players({ d }) {
-  const [team, setTeam] = useState("home");
-  const t = team === "home" ? d.home : d.away;
-  const q = useApi(`/teams/${t.id}/squad-grid`, { stat: "shots", last: 10 });
-  return (
-    <>
-      <Seg label="Team" value={team} onChange={setTeam} options={[{ id: "home", label: d.home.name }, { id: "away", label: d.away.name }]} testid="players-team" />
-      {q.loading ? <Loading /> : q.error ? <ErrorBox error={q.error} onRetry={q.reload} /> : !q.data.rows.length ? <Empty icon="users">No player data for this club yet.</Empty> : (
-        <div className="tbl-wrap an-tbl" role="region" aria-label={`Shots by player, ${t.name}`} tabIndex={0}>
-          <table className="tbl" data-testid="players-table">
-            <thead><tr><th scope="col" className="sticky">Player</th><th scope="col" className="num"><abbr title="Games played of the last 10">Games</abbr></th><th scope="col" className="num"><abbr title="Shots per game">Per game</abbr></th><th scope="col" className="num">Total</th></tr></thead>
-            <tbody>{q.data.rows.map((r) => (
-              <tr key={r.player_iid}>
-                <th scope="row" className="sticky"><Link className="cell-person" to={`/player/${r.player?.id}`}><PlayerAvatar player={r.player} size={28} /><span className="an-who"><b>{r.player?.name}</b><small className="muted">{posLabel(r.player?.pos)}</small></span></Link></th>
-                <td className="num">{r.games.length}</td><td className="num">{num1(r.avg)}</td><td className="num">{num1(r.total)}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-      )}
-    </>
-  );
-}
-
-const shortDay = (s) => utc(s)?.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "2-digit" });
-
-function H2H({ d }) {
-  const h = d.h2h;
-  if (!h.matches.length) return <Empty icon="clock">These clubs have not met in the matches we hold.</Empty>;
-  const tot = h.a_wins + h.draws + h.b_wins || 1;
-  return (
-    <>
-      <div className="h2h-sum" data-testid="h2h-summary">
-        <span className={h.a_wins > h.b_wins ? "is-more" : ""}><b>{h.a_wins}</b><Crest team={d.home} size={20} />{d.home.name} wins</span>
-        <span><b>{h.draws}</b>Draws</span>
-        <span className={h.b_wins > h.a_wins ? "is-more" : ""}><b>{h.b_wins}</b><Crest team={d.away} size={20} />{d.away.name} wins</span>
-      </div>
-      <div className="h2h-bar" aria-hidden="true"><i className="h2h-bar-a" style={{ flexGrow: h.a_wins / tot || 0.001 }} /><i className="h2h-bar-d" style={{ flexGrow: h.draws / tot || 0.001 }} /><i className="h2h-bar-b" style={{ flexGrow: h.b_wins / tot || 0.001 }} /></div>
-      <ul className="h2h-list" aria-label="Past meetings, newest first" data-testid="h2h-list">{h.matches.map((m) => {
-        const hw = m.hg > m.ag, aw = m.ag > m.hg;
-        return (
-          <li key={m.id}><Link to={`/match/${m.id}`} data-testid={`h2h-match-${m.id}`}>
-            <time className="h2h-when">{shortDay(m.kickoff)}</time>
-            <span className={`h2h-t h2h-t--h${hw ? " is-win" : ""}`}><span>{m.home?.name}</span><Crest team={m.home} size={20} /></span>
-            <b className="h2h-score">{m.hg}–{m.ag}</b>
-            <span className={`h2h-t${aw ? " is-win" : ""}`}><Crest team={m.away} size={20} /><span>{m.away?.name}</span></span>
-          </Link></li>
-        );
-      })}</ul>
-    </>
-  );
-}
-
-const JUMPS = [["form", "Form"], ["h2h", "Head to head"], ["first", "First goal"], ["players", "Players"], ["style", "Style"]];
-function Analysis({ d }) {
-  const go = (id) => document.getElementById(`an-${id}`)?.scrollIntoView({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-  return (
-    <div className="mc-an" data-testid="match-analysis">
-      <nav className="an-jump" aria-label="Jump to a section">{JUMPS.map(([id, label]) => <button key={id} type="button" className="chip" onClick={() => go(id)} data-testid={`an-jump-${id}`}>{label}</button>)}</nav>
-      <section id="an-form" className="an-sec"><Form d={d} /></section>
-      <section id="an-h2h" className="an-sec"><h2 className="k-sec">Head to head</h2><H2H d={d} /></section>
-      <section id="an-first" className="an-sec"><h2 className="k-sec">Who scores first</h2><div className="fg-pair" data-testid="match-first-goal"><FirstGoal team={d.home} compact testid="first-goal-home" /><FirstGoal team={d.away} compact testid="first-goal-away" /></div></section>
-      <section id="an-players" className="an-sec"><h2 className="k-sec">Shots by player · last 10 games</h2><Players d={d} /></section>
-      <section id="an-style" className="an-sec"><h2 className="k-sec">Playing style</h2>
-        {d.matchup_locked ? <Empty icon="padlock" testid="matchup-locked">The style comparison is part of a bigger plan. <ProLock testid="matchup-pro" /></Empty>
-          : <div className="split2">{[d.home, d.away].map((t, i) => <div key={t.id} className="card"><h3 className="h3 team"><Crest team={t} size={22} />{t.name}</h3><div className="chips">{(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).map((x) => <TacticChip key={x} t={x} />)}{!(d.styles?.[i ? d.match.away_iid : d.match.home_iid]?.tactics || []).length && <span className="k-faint">No clear style yet</span>}</div></div>)}</div>}
-      </section>
-    </div>
-  );
-}
-
 export default function Match() {
   const { id } = useParams();
   const [poll, setPoll] = useState(0);
@@ -436,6 +365,14 @@ export default function Match() {
   // /match/:id always opens on the tab its state calls for, and that changes as the match does.
   const [sp, setSp] = useSearchParams();
   const pick = sp.get("tab");
+  // The Analysis tab became the Preview under Forecasts. An old ?tab=analysis link opens the default
+  // tab (below) and loses the dead parameter in place, so it is not shared on from the address bar.
+  useEffect(() => {
+    if (pick !== "analysis") return;
+    const next = new URLSearchParams(sp);
+    next.delete("tab");
+    setSp(next, { replace: true, preventScrollReset: true });
+  }, [pick, sp, setSp]);
   const d = q.data;
   const isLive = isLiveNow(d?.match);
   useEffect(() => setPoll(isLive ? 30000 : 0), [isLive]);                  // live score, events and minute refresh by themselves
@@ -477,13 +414,15 @@ export default function Match() {
     ...(first ? [{ id: first, label: first === "live" ? "Live" : "Facts" }] : []),
     { id: "forecasts", label: "Forecasts", badge: n || null, badgeLabel: n ? `${n} forecasts` : undefined },
     { id: "lineups", label: "Lineups", badge: confirmed ? "✓" : null, badgeLabel: "confirmed" },
-    // What each side did, once it is over and the provider's numbers are in (queries._match_stats).
-    ...(d.match.status === "final" && d.team_stats ? [{ id: "stats", label: "Stats" }] : []),
-    { id: "analysis", label: "Analysis" },
+    // What each side did: the live feed's numbers while it is on (queries._live_stats), the stored
+    // full-time ones after (queries._match_stats). Never before kick-off, and not live when the live
+    // statistics setting is off and none were stored.
+    ...(st !== "before" && st !== "lineups" && statsMode(d) ? [{ id: "stats", label: "Stats" }] : []),
   ];
   // A ?tab= this state does not have (recap on a match not yet played, an old link) opens the default.
   const def = first || "forecasts";
   // The finished match's first tab was called Recap; links shared with ?tab=recap still open it.
+  // ?tab=analysis (the tab the Preview replaced) is simply not a tab any more, so it opens the default.
   const asked = pick === "recap" ? "facts" : pick;
   const tab = tabs.some((t) => t.id === asked) ? asked : def;
   const setTab = (t) => {
@@ -501,7 +440,10 @@ export default function Match() {
     }
   };
   return (
-    <section className={`mc-page mc-page--side${mini ? " is-mini" : ""}`} data-testid="match-page">
+    // The Forecasts tab takes the whole width: its table (docs/redesign/v10 §2) needs about 900px
+    // for eight columns, and beside the side column the pane had 754px at 1366, so the locked
+    // desktop table came out as a stack of phone cards. There the side column drops under the list.
+    <section className={`mc-page mc-page--side${tab === "forecasts" ? " mc-page--full" : ""}${mini ? " is-mini" : ""}`} data-testid="match-page">
       <h1 className="sr-only">{d.home.name} v {d.away.name}</h1>
       <div className="mc-main">
         <div ref={heroRef}><Hero d={d} teams={[th, ta]} /></div>
@@ -513,12 +455,12 @@ export default function Match() {
           {tab === "live" && (d.live?.sid ? <LiveTab d={d} /> : <Events d={d} />)}
           {tab === "facts" && <Facts d={d} finals={finals} onStats={tabs.some((t) => t.id === "stats") ? () => setTab("stats") : null} onForecasts={() => setTab("forecasts")} />}
           {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
+          {tab === "forecasts" && (st === "before" || st === "lineups") && <MatchPreview d={d} />}
           {tab === "lineups" && <Lineups d={d} />}
           {tab === "stats" && <MatchStats d={d} />}
-          {tab === "analysis" && <Analysis d={d} />}
         </div>
       </div>
-      {/* The side column: beside the tabs from 1280px (matchday.css), every tab. Narrower, it falls
+      {/* The side column: beside the tabs from 1280px (matchday.css), every tab but Forecasts. Narrower, it falls
           under the pane and shows only on the default tab -- the cards once, not under every tab.
           It stays mounted while hidden, so switching back does not ask the server again. */}
       <aside className={`mc-aside${tab === def ? "" : " is-away"}`} aria-label="About this match" data-testid="match-aside">

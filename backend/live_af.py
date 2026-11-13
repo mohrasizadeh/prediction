@@ -240,6 +240,52 @@ def _store_lineups(db, fixture: dict, now: datetime) -> int:
     return n
 
 
+def _store_stats(db, fixture: dict, now: datetime) -> dict:
+    """One fixture's live statistics, into `live_stats`, in THE SHAPE ITS READER EXPECTS.
+
+    `live_track.evaluate` finds the row by `fixture_sid` and reads `teams.home.shots` and
+    `players[].player_iid`. This used to write their raw `statistics` list keyed by `ext_id`, so the
+    reader found nothing and no shots, corners or tackles forecast ever ticked live -- with the tick
+    reporting stats stored. (It also upserted with no `fixture_sid`, against the unique index on it.)
+
+    Normalized with the same `team_keys` map and player paths a finished match goes through, so a
+    live "6 shots" and a full-time "6 shots" are the same number read the same way. The raw list is
+    kept beside it, so the admin can see what arrived when a name in the map is wrong.
+    """
+    fid = (fixture.get("fixture") or {}).get("id")
+    if fid is None:
+        return {}
+    teams = fixture.get("teams") or {}
+    home_ext = str((teams.get("home") or {}).get("id"))
+    away_ext = str((teams.get("away") or {}).get("id"))
+    ts = NAF.team_stats(fixture, S.get(db, "provider.apifootball.team_keys") or {}, home_ext, away_ext)
+    pl = NAF.players(fixture, S.get(db, "provider.apifootball.position_map") or {})
+    side_of = {home_ext: "home", away_ext: "away"}
+    players = []
+    for p in pl:
+        side = side_of.get(str(p.get("team_ext_id")))
+        if side is None:
+            continue
+        # The same join a finished match uses (ingest.upsert_player keys players by ext_id), as a
+        # lookup only: a live tick does not create players.
+        ours = db.players.find_one({"ext_id": p["ext_id"]}, {"iid": 1})
+        players.append({"player_iid": (ours or {}).get("iid"), "ext_id": p["ext_id"], "name": p.get("name"),
+                        "side": side, **{c: p.get(c) for c in ("minutes", "shots", "sot", "tackles", "goals",
+                                                                "assists", "saves", "fouls_committed", "passes")}})
+    # No team tackles statistic exists on API-Football, and shots on target can be missing: the team
+    # total is the players' sum, the fallback normalize_af.normalize_match uses for finished matches.
+    for side, ext in (("home", home_ext), ("away", away_ext)):
+        for col in ("tackles", "sot", "shots"):
+            if ts[side].get(col) is None:
+                ts[side][col] = NAF._sum_team(pl, ext, col)
+    has = any(v is not None for s in ts.values() for v in s.values())
+    doc = {"fixture_sid": int(fid), "ext_id": str(fid), "provider": PROVIDER, "at": now,
+           "teams": ts if has else {"home": {}, "away": {}}, "players": players,
+           "statistics": fixture.get("statistics") or []}
+    db.live_stats.update_one({"fixture_sid": int(fid)}, {"$set": doc}, upsert=True)
+    return doc
+
+
 def live_tick(db, client=None, now: datetime | None = None) -> dict:
     """One call for every in-play fixture in our competitions, plus statistics where they exist."""
     now = now or utcnow()
@@ -270,10 +316,7 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
     if want and S.get(db, "apifootball.live_stats"):
         bundles = AF.fixtures_bundle(client, want, ttl=None, purpose="live_stats")
         for fid, fixture in bundles.items():
-            db.live_stats.update_one({"ext_id": str(fid)},
-                                     {"$set": {"ext_id": str(fid), "at": now,
-                                               "statistics": fixture.get("statistics") or []}},
-                                     upsert=True)
+            _store_stats(db, fixture, now)
             out["stats"] += 1
             out["lineups"] = out.get("lineups", 0) + _store_lineups(db, fixture, now)
     db.job_state.update_one({"_id": "live_tick"},

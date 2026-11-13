@@ -390,6 +390,84 @@ def t_live_is_a_lookup_not_a_guess():
           db.live_events.count_documents({}) == 2)
 
 
+# ------------------------------------------------------------------ 8b. live statistics a reader can read
+def t_live_stats_reach_live_track_and_the_match_page():
+    """`live_af` stored their raw statistics list keyed by `ext_id`, while `live_track` looks the row
+    up by `fixture_sid` and reads `teams.home.shots`. Nothing ever read them, so a shots, corners or
+    tackles forecast never ticked live. Normalized at storage now, with the finished-match map."""
+    import live_af as LA, live_track as LT, queries as Q
+    db = seed()
+    for k, v in (("features.live", True), ("apifootball.live_stats", True)):
+        db.settings.update_one({"key": k}, {"$set": {"value": v}}, upsert=True)
+    lg = league_row(db)
+    IA.sync_fixtures(client(db, env(lambda r: [fixture(1, (10, "A"), (20, "B"), None, None, short="NS")])), lg, 2024)
+    ours = db.matches.find_one({"ext_id": "1"})
+    pid = __import__("ingest").upsert_entity(db, "players", "101", {"name": "A. One", "team_iid": ours["home_iid"]})
+
+    live = detailed(1, (10, "A"), (20, "B"), 1, 0)
+    live["fixture"]["status"] = {"short": "2H", "elapsed": 67}
+    live.pop("lineups")
+    db.forecasts.insert_many([
+        {"fkey": "t-shots", "match_iid": ours["iid"], "is_current": True, "stat": "shots", "scope": "team",
+         "thr": 9.5, "team_iid": ours["home_iid"]},
+        {"fkey": "t-corners", "match_iid": ours["iid"], "is_current": True, "stat": "corners", "scope": "team",
+         "thr": 7.5, "team_iid": ours["away_iid"]},
+        {"fkey": "p-tackles", "match_iid": ours["iid"], "is_current": True, "stat": "tackles", "scope": "player",
+         "thr": 2.5, "player_iid": pid}])
+    calls = []
+    def body(req):
+        calls.append(dict(req.url.params))
+        return [live]
+    out = LA.live_tick(db, client(db, env(body)))
+    check(f"a fixture in play fetches its statistics in the same tick ({out.get('stats')}, {len(calls)} calls)",
+          out.get("stats") == 1 and len(calls) == 2)
+    row = db.live_stats.find_one({"fixture_sid": 1}) or {}
+    check(f"stored under fixture_sid, the key live_track reads ({row.get('fixture_sid')})", row.get("fixture_sid") == 1)
+    home = (row.get("teams") or {}).get("home") or {}
+    check(f"team stats read through the same name map as a finished match ({home.get('shots')}, {home.get('corners')})",
+          home.get("shots") == 14 and home.get("sot") == 6 and home.get("corners") == 7 and home.get("poss") == 55)
+    check(f"no team tackles statistic, so the team figure is the players' sum ({home.get('tackles')})",
+          home.get("tackles") == 6)
+    p1 = next((p for p in row.get("players") or [] if p.get("ext_id") == "101"), {})
+    check(f"a player row joins our player by ext_id ({p1.get('player_iid')} == {pid}, tackles {p1.get('tackles')})",
+          p1.get("player_iid") == pid and p1.get("tackles") == 4 and p1.get("side") == "home")
+    check("the raw list stays beside it, for the admin", len(row.get("statistics") or []) == 2)
+
+    ev = LT.evaluate(db, ours["iid"])
+    it = ev.get("items") or {}
+    check(f"live_track ticks a team shots line from the stats ({it.get('t-shots')})",
+          (it.get("t-shots") or {}).get("state") == "hit" and it["t-shots"].get("current") == 14
+          and it["t-shots"].get("source") == "stats")
+    check(f"...and a line not yet reached reads live, not unknown ({it.get('t-corners')})",
+          (it.get("t-corners") or {}).get("state") == "live" and it["t-corners"].get("current") == 4)
+    check(f"...and a player tackles line ({it.get('p-tackles')})",
+          (it.get("p-tackles") or {}).get("state") == "hit" and it["p-tackles"].get("current") == 4)
+
+    db.forecasts.delete_many({})                   # bare rows for live_track; the page wants full ones
+    md = Q.match_detail(db, ours["iid"]) or {}
+    ls = md.get("live_stats") or {}
+    check(f"the match endpoint carries live team stats ({(ls.get('home') or {}).get('shots')}-{(ls.get('away') or {}).get('shots')})",
+          (ls.get("home") or {}).get("shots") == 14 and (ls.get("away") or {}).get("shots") == 9)
+    import normalize as N
+    check("...exactly TEAM_COLS per side, plus when they were stored",
+          set(ls.get("home") or {}) == set(N.TEAM_COLS) and isinstance(ls.get("at"), str) and ls["at"].endswith("+00:00"))
+
+    # polled again: one row per fixture, replaced, not a second one
+    LA.live_tick(db, client(db, env(body)))
+    check(f"a second poll replaces the row ({db.live_stats.count_documents({})})", db.live_stats.count_documents({}) == 1)
+
+    # the setting off: nothing stored, and the page reads null rather than an empty panel
+    db2 = seed()
+    for k, v in (("features.live", True), ("apifootball.live_stats", False)):
+        db2.settings.update_one({"key": k}, {"$set": {"value": v}}, upsert=True)
+    lg2 = league_row(db2)
+    IA.sync_fixtures(client(db2, env(lambda r: [fixture(1, (10, "A"), (20, "B"), None, None, short="NS")])), lg2, 2024)
+    LA.live_tick(db2, client(db2, env(body)))
+    m2 = db2.matches.find_one({"ext_id": "1"})
+    check("with live statistics off, live_stats is null on the match endpoint",
+          (Q.match_detail(db2, m2["iid"]) or {}).get("live_stats", "missing") is None)
+
+
 # ------------------------------------------------------------------ 9. images need no matching
 def t_images_map_is_an_identity():
     """`images.py` scores club names against a league's squad list to find an API-Football id.
@@ -918,7 +996,7 @@ def t_the_stale_banner_sees_the_api_football_pulls():
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
-           t_live_is_a_lookup_not_a_guess, t_images_map_is_an_identity,
+           t_live_is_a_lookup_not_a_guess, t_live_stats_reach_live_track_and_the_match_page, t_images_map_is_an_identity,
            t_events_come_with_the_statistics,
            t_the_public_scoreboard_can_read_what_live_writes,
            t_the_jobs_screen_offers_jobs_that_can_run,

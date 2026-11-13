@@ -208,6 +208,11 @@ def match_detail(db, match_iid: int) -> dict | None:
     players = _names(db, "players", [f["player_iid"] for f in fc if f.get("player_iid")])
     for f in fc:
         f["player"] = players.get(f.get("player_iid"))
+        # The words the card writes its sentence with (docs/redesign/v10 §6). _decorate attaches them
+        # to every other page's forecasts; this one runs _usual alone, so its rows and their `markets`
+        # went out with no verb and the match page read "Player 1 2+ shots".
+        f["noun"] = list(STAT_LABEL.get(f.get("stat"), (f.get("stat"), f.get("stat"))))
+        f["verb"] = verb_for(f.get("scope"), f.get("stat"))
     _usual(db, fc)
     # docs/73: after the whistle, say what happened. The forecasts were already scored into
     # `forecast_outcomes` by score_finished, and _recap below already counts them -- but only in
@@ -253,7 +258,7 @@ def match_detail(db, match_iid: int) -> dict | None:
             "h2h": h2h(db, m["home_iid"], m["away_iid"]),
             "availability": _availability(db, (m["home_iid"], m["away_iid"])),
             "live": m.get("live"), "live_events": _live_events(db, m), "recap": _recap(db, m, ev),
-            "team_stats": team_stats, "player_stats": player_stats,
+            "team_stats": team_stats, "player_stats": player_stats, "live_stats": _live_stats(db, m),
             # Only API-Football names a coach (ingest.save_lineups); None means "do not show".
             "coach": {"home": (m.get("coach") or {}).get("home"), "away": (m.get("coach") or {}).get("away")}}
 
@@ -285,6 +290,35 @@ def _match_stats(db, m):
            for r in rows if r.get("minutes") is None or r["minutes"] > 0]
     out.sort(key=lambda r: (r["side"] != "home", not r.get("started"), -(r.get("minutes") or 0)))
     return team_stats, out
+
+
+def _live_stats(db, m):
+    """The team statistics the live tick stored for this match (live_af._store_stats), or None.
+
+    TEAM_COLS per side, the same columns `team_stats` carries after full time, so the Stats tab draws
+    one set of bars from either. A column the provider did not send stays None. `at` is when the
+    tick stored them, so the page can say how old they are. Player rows stay out: the live table
+    is not built, and `live_track` reads them from the collection directly.
+    """
+    sid = (m.get("live") or {}).get("sid")
+    if sid is None:
+        lf = db.live_fixtures.find_one({"match_iid": m["iid"]}, {"sid": 1})
+        sid = (lf or {}).get("sid")
+    if sid is None:
+        return None
+    st = db.live_stats.find_one({"fixture_sid": sid}, {"_id": 0, "teams": 1, "at": 1})
+    teams = (st or {}).get("teams") or {}
+    import normalize as N
+    out = {side: {c: (teams.get(side) or {}).get(c) for c in N.TEAM_COLS} for side in ("home", "away")}
+    if not any(v is not None for s in out.values() for v in s.values()):
+        return None
+    at = st.get("at")
+    if hasattr(at, "isoformat"):
+        # Mongo hands back naive UTC; without the offset a browser reads it as local time and the
+        # "updated n min ago" line is off by the viewer's timezone.
+        at = (at if at.tzinfo else at.replace(tzinfo=timezone.utc)).isoformat()
+    out["at"] = at
+    return out
 
 
 def _recap(db, m, ev):

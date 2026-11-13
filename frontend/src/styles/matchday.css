@@ -346,6 +346,13 @@
   body:has(.header--small) .mc-aside { top: calc(44px + 16px + env(safe-area-inset-top)); max-height: calc(100vh - 44px - 32px); }
   /* The column says where and who referees, so the hero's footer line would say it twice. */
   .mc-page--side .mc-hero [data-testid="match-meta"] { display: none; }
+  /* Forecasts: one column, so the list is the locked eight-column table (likely.css folds it to cards
+     under 900px of pane). The side column follows the list on the default tab, three cards abreast. */
+  .mc-page--side.mc-page--full { grid-template-columns: minmax(0, 1fr); }
+  .mc-page--full .mc-aside { position: static; max-height: none; overflow: visible; margin-top: 32px; }
+  .mc-page--full .mc-aside.is-away { display: none; }
+  .mc-page--full .msd { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+  .mc-page--full .mc-hero [data-testid="match-meta"] { display: block; }
 }
 
 /* Facts tab: one column of sections, each with its heading row. */

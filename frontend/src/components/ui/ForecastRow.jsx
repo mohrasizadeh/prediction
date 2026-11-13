@@ -389,11 +389,16 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
               <span className="lk-ava lk-ava--club"><Crest team={fx.team} size={34} /></span>
             )}
             <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${fx.team?.id}`} title={who}>{shortName(who)}</Link>
-            {verb ? <span className="lk-verb">{verb}</span> : null}
-            {/* one control, two shapes: a stepper where there is room, a word where there is not */}
-            <span className="lk-onwide"><Stepper rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
-            <span className="lk-onnarrow"><LinePicker rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
-            <MarketPicker markets={markets} stat={cur.stat} onPick={pickMarket} id={f.id} noun={verb ? nounFor(cur, n) : bareNoun(cur, n)} />
+            {/* The claim -- verb, line, market. One flex line with the name on a wide screen (it
+                dissolves there); on a phone it is the card's second line, full width under the
+                face and the figure (docs/redesign/v10 §3), so it gets a box of its own. */}
+            <span className="lk-claim">
+              {verb ? <span className="lk-verb">{verb}</span> : null}
+              {/* one control, two shapes: a stepper where there is room, a word where there is not */}
+              <span className="lk-onwide"><Stepper rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
+              <span className="lk-onnarrow"><LinePicker rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
+              <MarketPicker markets={markets} stat={cur.stat} onPick={pickMarket} id={f.id} noun={verb ? nounFor(cur, n) : bareNoun(cur, n)} />
+            </span>
           </span>
           {/* the fixture, for the phone, where its own column is folded away */}
           <span className="lk-fx-inline">{vs} {ko}</span>
@@ -417,7 +422,7 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
         </td>
         <td className="lk-cell-why">
           <button type="button" className="lk-why" aria-expanded={open} onClick={onToggle} data-testid={`lk-why-${f.id}`}>
-            Why<span className="sr-only"> {who}, {words}, {p} percent</span> {open ? "\u25b4" : "\u25be"}
+            Why<span className="sr-only"> {who}, {words}, {p} percent</span><Icon name="chevron-down" size={12} />
           </button>
         </td>
         <td className="lk-cell-lu">
