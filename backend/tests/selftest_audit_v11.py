@@ -767,13 +767,18 @@ check("...nor while it is being played",
 # THE PAGE, MID-MATCH. `match_detail` returned no statistics at all before this: `live_stats` had one
 # reader (`live_track`, grading a live forecast) and no display, and what the page showed as team
 # stats was `team_styles` -- a historical model that by design does not move during a match.
-mid = Q._stats_block(d13, d13.matches.find_one({"iid": m13["iid"]}))
-check(f"the page is given this match's numbers while it is on ({mid and mid['source']})",
-      mid is not None and mid["source"] == "live")
+# Against the functions the page ACTUALLY calls. These checks used to drive `_stats_block`, which
+# answered both halves at once -- a parallel match-page rewrite replaced it with two: `_live_stats`
+# while the match is on and `_match_stats` once it is ingested. The behaviour being pinned has not
+# changed; a test aimed at a function nothing calls is its own kind of dead code.
+mid = Q._live_stats(d13, d13.matches.find_one({"iid": m13["iid"]}))
+check("the page is given this match's numbers while it is on", mid is not None)
 check("...with possession, which has no team statistic of its own on one side",
       mid and mid["home"].get("poss") is not None and mid["away"].get("poss") is not None)
 check("...and the keeper's saves, summed from the players as the final path does",
       mid and mid["home"].get("saves") is not None)
+check("...and it says how old the numbers are, so the page can date them",
+      mid and mid.get("at") is not None)
 
 LA.live_tick(d13, client13(d13, [fx13("FT")]))
 check(f"THE WHISTLE queues it ({d13.ingest_queue.count_documents({'task': IA.QUEUE_TASK})})",
@@ -783,13 +788,13 @@ check(f"...and `drain`, which runs every tick, ingests it ({res13['written']})",
 m13b = d13.matches.find_one({"iid": m13["iid"]})
 check("so the match is ingested within a tick, not within six hours",
       m13b.get("ingested_at") is not None)
-fin = Q._stats_block(d13, m13b)
-check(f"the page now reads the final row ({fin and fin['source']})",
-      fin is not None and fin["source"] == "final")
+fin, fin_players = Q._match_stats(d13, m13b)
+check("the page now reads the final row", fin is not None and fin.get("home") is not None)
+check(f"...and every player who was on the pitch ({len(fin_players)})", len(fin_players) == 22)
 
 # A ROW THAT APPEARS ONLY AT THE WHISTLE looks like a number that changed when all that changed is
 # which document was read. The live block used to carry four columns and the final row nine.
-live_cols = {k for k, v in mid["home"].items() if v is not None}
+live_cols = {k for k, v in mid["home"].items() if v is not None and k != "at"}
 final_cols = {k for k, v in fin["home"].items() if v is not None}
 check(f"no row appears only at full time ({sorted(final_cols - live_cols) or 'none'})",
       not (final_cols - live_cols))
@@ -798,6 +803,57 @@ check(f"no row appears only at full time ({sorted(final_cols - live_cols) or 'no
 LA.live_tick(d13, client13(d13, [fx13("FT")]))
 check("an already-ingested match is not queued again",
       d13.ingest_queue.count_documents({"task": IA.QUEUE_TASK, "status": "pending"}) == 0)
+
+print("the live snapshot never stands in for the final numbers")
+#
+# `/fixtures?ids=...` IS THE SAME CACHE KEY FOR BOTH PATHS. The live-statistics step fetched it with
+# `ttl=None`, which `apifootball.fetch` documents as caching FOR EVER, so:
+#
+#   * the in-play statistics froze at the first fetch of a match -- every later tick was served the
+#     same answer, and a figure taken in the 20th minute stood for the whole ninety; and
+#   * that mid-match answer was then handed to `ingest_bundle` as the finished match, so
+#     `team_match_stats` recorded the 67th minute as full time and `matches.status` kept the value
+#     it had mid-game. `_match_stats` returns (None, []) for anything not "final", so the page
+#     showed NO statistics on a match whose numbers were already in the database.
+#
+# It was invisible while `apifootball.live_stats` shipped off, because nothing fetched the live
+# bundle at all. Turning that on (docs/90) is what made it reachable.
+d14 = mongomock.MongoClient()["n"]
+security.save_provider_key(d14, AF.PROVIDER, "k" * 24)
+S.put(d14, "features.live", True)
+d14.leagues.insert_one({"iid": 1, "ext_id": "39", "provider": "apifootball", "enabled": True,
+                        "name": "L", "kind": "domestic", "role": AFL.FORECAST, "current_season": "2025"})
+
+
+def fx14(short, elapsed, shots):
+    """The same fixture at two points in the match: the numbers grow, as real ones do."""
+    f = fx13(short, elapsed)
+    for blk in f["statistics"]:
+        for st in blk["statistics"]:
+            if st["type"] == "Total Shots":
+                st["value"] = shots
+    return f
+
+
+IA.sync_fixtures(client13(d14, [fx14("NS", None, 0)]), d14.leagues.find_one({"iid": 1}), 2025)
+LA.live_tick(d14, client13(d14, [fx14("2H", 67, 6)]))      # mid-match: 6 shots
+m14 = d14.matches.find_one({"ext_id": "777"})
+mid14 = Q._live_stats(d14, m14)
+check(f"mid-match the live block reads the mid-match figure ({mid14 and mid14['home'].get('shots')})",
+      mid14 and mid14["home"].get("shots") == 6.0)
+
+LA.live_tick(d14, client13(d14, [fx14("FT", None, 17)]))   # full time: 17 shots
+IA.drain(client13(d14, [fx14("FT", None, 17)]), max_seconds=20.0)
+m14b = d14.matches.find_one({"ext_id": "777"})
+check(f"the match is recorded as finished ({m14b.get('status')!r})", m14b.get("status") == "final")
+fin14, _ = Q._match_stats(d14, m14b)
+got = fin14 and fin14["home"].get("shots")
+check(f"the FINAL row holds the final figure, not the 67th minute ({got})", got == 17.0)
+# Against the fixture's own score, not a number written out here: the helper derives it from the
+# fixture id, and a hand-copied expectation is a test that fails when the helper changes.
+want14 = fx14("FT", None, 17)["goals"]
+check(f"...and the score came over with it ({m14b.get('hg')}-{m14b.get('ag')})",
+      (m14b.get("hg"), m14b.get("ag")) == (want14["home"], want14["away"]))
 
 print("a match day still looks like one after the last kick-off")
 # `on_match_day` picks a 1-hour fixture-list TTL instead of 6. It counted only fixtures still

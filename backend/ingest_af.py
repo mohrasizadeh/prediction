@@ -142,7 +142,10 @@ def ingest_bundle(client, matches: list[dict]) -> dict:
         return {"asked": 0, "written": 0, "missing": 0, "failed": 0}
     settings = _settings(db)
     by_ext = {str(m["ext_id"]): m for m in matches}
-    bundles = AF.fixtures_bundle(client, [int(e) for e in by_ext])
+    # FORCE A FRESH ANSWER. This shares `/fixtures?ids=...` with the live-statistics step, and the
+    # whole point of this call is the FINAL numbers -- a cached answer here is, by construction,
+    # one taken while the match was still being played. It costs no extra call, only a cache miss.
+    bundles = AF.fixtures_bundle(client, [int(e) for e in by_ext], force=True)
     written = failed = 0
     for ext, match in by_ext.items():
         fixture = bundles.get(int(ext))
@@ -162,6 +165,28 @@ def ingest_bundle(client, matches: list[dict]) -> dict:
                 I.issue(db, i["kind"], i["detail"], match_iid=match["iid"], league_iid=match["league_iid"])
             I.write_match(db, match, out)
             _write_events(db, match, out.get("events") or [])
+            # THE MATCH IS OVER, SO SAY SO ON THE MATCH ROW.
+            #
+            # `sync_fixtures` used to be the only thing that queued a finished match, and it sets
+            # `status` from the fixture list as it goes. The live tick now queues one the moment it
+            # goes final (docs/90), and that path reached `write_match` without ever touching the
+            # match row's own status -- so a match could have both sides' `team_match_stats`, all
+            # 22 player rows and an `ingested_at`, while `matches.status` still read "scheduled".
+            #
+            # `queries._match_stats` returns (None, []) for anything that is not "final", so the
+            # page showed NO statistics at all on a match whose numbers were sitting in the
+            # database, until the next `af_fixtures` sweep corrected the status up to six hours
+            # later. That is the delay this whole change set out to remove, one layer further up.
+            #
+            # The bundle is the same answer the fixture list would have given, so take the status
+            # and the score from it rather than waiting to be told again.
+            row = NAF.match_row(fixture)
+            if row.get("status") == "final":
+                db.matches.update_one({"iid": match["iid"]},
+                                      {"$set": {"status": "final",
+                                                "provider_status": row.get("provider_status"),
+                                                "hg": row.get("hg"), "ag": row.get("ag"),
+                                                "extra_time": row.get("extra_time", False)}})
         except Exception as e:
             I.issue(db, "normalize_failed", f"{ext}: {type(e).__name__}: {e}",
                     match_iid=match["iid"], league_iid=match["league_iid"])

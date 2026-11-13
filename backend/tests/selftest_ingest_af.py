@@ -464,8 +464,14 @@ def t_live_stats_reach_live_track_and_the_match_page():
     check(f"the match endpoint carries live team stats ({(ls.get('home') or {}).get('shots')}-{(ls.get('away') or {}).get('shots')})",
           (ls.get("home") or {}).get("shots") == 14 and (ls.get("away") or {}).get("shots") == 9)
     import normalize as N
-    check("...exactly TEAM_COLS per side, plus when they were stored",
-          set(ls.get("home") or {}) == set(N.TEAM_COLS) and isinstance(ls.get("at"), str) and ls["at"].endswith("+00:00"))
+    # TEAM_COLS PLUS SAVES. This pinned exactly `N.TEAM_COLS`, and saves is not in that list -- but
+    # the FINISHED row carries it (`_match_stats` reads `team_saves` off the player rows), so the
+    # Saves row appeared for the first time at the whistle and read as a number that had changed
+    # when all that changed was which document the page was given. The assertion that pinned the
+    # narrower set is what allowed it, so it is widened here rather than relaxed to a subset.
+    check("...exactly TEAM_COLS and saves per side, plus when they were stored",
+          set(ls.get("home") or {}) == set(N.TEAM_COLS) | {"saves"}
+          and isinstance(ls.get("at"), str) and ls["at"].endswith("+00:00"))
 
     # polled again: one row per fixture, replaced, not a second one
     LA.live_tick(db, client(db, env(body)))

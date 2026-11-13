@@ -30,7 +30,7 @@ worth it -- half time is live but barren, and a call spent then buys nothing.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import apifootball as AF
 import normalize_af as NAF
@@ -290,7 +290,18 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
     # call -- half time is live and barren -- and they go twenty at a time like everything else.
     want = AF.needs_stats(fixtures)
     if want and S.get(db, "apifootball.live_stats"):
-        bundles = AF.fixtures_bundle(client, want, ttl=None, purpose="live_stats")
+        # NOT `ttl=None`, which caches FOR EVER (apifootball.fetch). Two things went wrong with it:
+        #
+        #  1. the in-play statistics FROZE at the first fetch of a match -- every later tick was
+        #     served the same cached answer, so a figure stored in the 20th minute stood for the
+        #     whole ninety; and
+        #  2. `/fixtures?ids=...` is the same cache key the FINAL ingest uses, so that mid-match
+        #     snapshot was handed to `ingest_bundle` as the finished match. The match row kept the
+        #     status it had mid-game and `team_match_stats` recorded the 67th minute as full time.
+        #
+        # A live answer is worth keeping only until the next tick could want it, so it expires.
+        # `ingest_bundle` forces a fresh one regardless, which is the belt to this brace.
+        bundles = AF.fixtures_bundle(client, want, ttl=timedelta(seconds=45), purpose="live_stats")
         for fid, fixture in bundles.items():
             # THE SHAPE `live_track` READS, not the provider's raw array.
             #

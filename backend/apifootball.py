@@ -508,13 +508,22 @@ def coverage(client: Client, league_id: int, season: int) -> dict:
 IDS_PER_CALL = 20
 
 
-def fixtures_bundle(client: Client, fixture_ids: list[int], ttl=FOREVER, purpose="bundle") -> dict:
-    """{fixture_id: fixture-with-everything} for up to 20 ids per call."""
+def fixtures_bundle(client: Client, fixture_ids: list[int], ttl=FOREVER, purpose="bundle",
+                    force: bool = False) -> dict:
+    """{fixture_id: fixture-with-everything} for up to 20 ids per call.
+
+    `force` skips the cache. It exists because THE LIVE PATH AND THE FINAL PATH SHARE THIS CACHE
+    KEY: `/fixtures?ids=...` is the same request whether a match is in its 67th minute or over, so a
+    mid-match answer cached under it is served to the ingest that is trying to record the final
+    numbers. Caching a live snapshot for ever poisons that key permanently (see `live_af` and
+    `ingest_af.ingest_bundle`).
+    """
     out = {}
     ids = [int(i) for i in fixture_ids]
     for i in range(0, len(ids), IDS_PER_CALL):
         chunk = ids[i:i + IDS_PER_CALL]
-        rows = client.fetch("/fixtures", {"ids": "-".join(str(x) for x in chunk)}, ttl=ttl, purpose=purpose)
+        rows = client.fetch("/fixtures", {"ids": "-".join(str(x) for x in chunk)}, ttl=ttl,
+                            purpose=purpose, force=force)
         for row in rows:
             fid = ((row.get("fixture") or {}).get("id"))
             if fid is not None:

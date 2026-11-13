@@ -236,7 +236,7 @@ already broken at least once:
 
 ## What is pinned
 
-`tests/selftest_audit_v11.py`, 124 checks, every one of them executing the real function:
+`tests/selftest_audit_v11.py`, 130 checks, every one of them executing the real function:
 the involvements fix on a no-assist fixture, the sot fix, the untracked-block case that must
 *still* read `None`, the bench man, the one-sided squad, the team zero-fill and the possession
 mirror, a renamed display string that must still surface as missing, the pitch coordinates of a
@@ -303,6 +303,43 @@ happened to need to all of `TEAM_COLS` plus saves, summed from the players the w
 already does. `MatchStats.jsx` draws them as opposed bars, reusing the kit's own home/away pairing
 and the flex-grow technique `FirstGoal` and `Momentum` already use -- a layout, not a new visual
 language.
+
+## The live snapshot that became the final result
+
+Found while tidying up after a parallel session's match-page rewrite, and the most serious defect in
+this document.
+
+`/fixtures?ids=...` is **the same cache key for the live path and the final path** -- it is the same
+request whether a match is in its 67th minute or over. `live_af` fetched it with `ttl=None`, which
+`apifootball.fetch` documents as caching FOR EVER. So:
+
+* the in-play statistics **froze at the first fetch of a match**. Every later tick was served the
+  same cached answer, and a figure taken in the 20th minute stood for the whole ninety.
+* that mid-match answer was then handed to `ingest_bundle` as the finished match, so
+  `team_match_stats` recorded the 67th minute as full time -- permanently, because the entry never
+  expired.
+
+It was invisible while `apifootball.live_stats` shipped off, since nothing fetched the live bundle
+at all. Turning that on, earlier in this same pass, is what made it reachable. The live bundle now
+expires after 45 seconds, and `ingest_bundle` forces a fresh answer, which costs no extra call --
+only a cache miss on a call it was going to make anyway.
+
+Two smaller faults came out of the same investigation:
+
+* **A match ingested at the whistle kept `status: "scheduled"`.** `sync_fixtures` used to be the
+  only thing that queued a finished match and it sets the status as it goes; the new live-tick
+  enqueue reached `write_match` without touching the match row. `queries._match_stats` returns
+  `(None, [])` for anything that is not final, so the page showed **no statistics at all** on a
+  match whose numbers were already in the database -- until the next six-hourly sweep corrected it.
+  That is the delay this change set out to remove, one layer further up. The ingest now records the
+  status and score from the bundle it already has.
+* **`_live_stats` dropped the saves column**, because it maps `normalize.TEAM_COLS` and saves is not
+  in it, while the finished row adds `team_saves`. The Saves row appeared for the first time at the
+  whistle -- a number that looks as though it changed when all that changed is which document was
+  read.
+
+The dead code from the merge went with them: `_stats_block`, `MATCH_STAT_COLS`, the `stats` key in
+`match_detail` (computed on every request, read by nothing) and fifteen orphaned CSS lines.
 
 ## Still open, and not ours to close
 
