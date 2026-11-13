@@ -26,6 +26,7 @@ import "./styles/swiss.css";
 import "./styles/v2.css";
 import "./styles/likely.css";
 import "./styles/waitlist.css";
+import "./styles/engine-reveal.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

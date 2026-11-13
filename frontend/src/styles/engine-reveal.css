@@ -1,0 +1,67 @@
+/* Engine reveal overlay (components/EngineReveal.jsx). Uses the site theme tokens from base.css. */
+.er-scrim {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent); backdrop-filter: blur(10px);
+  animation: er-fade 200ms ease both;
+}
+.er-scrim.is-shut { animation: er-out 260ms ease both; }
+.er-box {
+  width: min(420px, 100%); background: var(--surface1); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 20px; box-shadow: 0 24px 60px rgb(0 0 0 / 0.35);
+  font-family: var(--font-body); animation: er-rise 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.er-box:focus { outline: none; }
+.er-head { display: flex; justify-content: space-between; align-items: center; }
+.er-chip { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--brand); }
+.er-skip {
+  min-height: 44px; min-width: 44px; padding: 0 12px; border: 0; background: none; color: var(--text3);
+  font: inherit; font-size: 14px; cursor: pointer; border-radius: var(--radius-sm);
+}
+.er-skip:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.er-title { margin: 4px 0 2px; font-family: var(--font-heading); font-size: 18px; line-height: 1.3; }
+.er-sub { margin: 0 0 8px; font-size: 13px; color: var(--text3); }
+
+.er-net { display: block; width: 100%; height: auto; margin: 4px 0 8px; }
+.er-edge { stroke: var(--border-strong); stroke-width: 1; opacity: 0.35; transition: stroke 200ms, opacity 200ms; }
+.er-edge.is-done { stroke: var(--brand); opacity: 0.45; }
+.er-edge.is-live { stroke: var(--brand); opacity: 0.9; stroke-dasharray: 4 6; animation: er-flow 600ms linear infinite; }
+.er-node { fill: var(--surface3); stroke: var(--border-strong); stroke-width: 1.5; transition: fill 200ms, stroke 200ms; }
+.er-node.is-done { fill: var(--brand); stroke: var(--brand); }
+.er-node.is-live { fill: var(--surface1); stroke: var(--brand); animation: er-pulse 700ms ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+
+.er-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.er-step { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: 14px; color: var(--text3); transition: color 200ms; }
+.er-step.is-live, .er-step.is-done { color: var(--text); }
+.er-name { display: flex; flex-direction: column; line-height: 1.25; }
+.er-name small { font-size: 12px; color: var(--text3); }
+.er-val { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text2); text-align: right; animation: er-fade 240ms ease both; }
+.er-tick { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--border-strong); position: relative; }
+.er-step.is-live .er-tick { border-color: var(--brand); border-right-color: transparent; animation: er-spin 700ms linear infinite; }
+.er-step.is-done .er-tick { background: var(--brand); border-color: var(--brand); }
+.er-step.is-done .er-tick::after {
+  content: ""; position: absolute; left: 4px; top: 1.5px; width: 3px; height: 6px;
+  border: solid var(--on-brand); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
+}
+
+.er-result {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 4px 10px;
+  max-height: 0; opacity: 0; overflow: hidden; border-top: 1px solid transparent;
+  transition: max-height 320ms cubic-bezier(0.32, 0.72, 0, 1), opacity 240ms, margin 320ms, padding 320ms;
+}
+.er-result.is-in { max-height: 200px; opacity: 1; margin-top: 10px; padding-top: 12px; border-top-color: var(--border); }
+.er-p { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.er-band { font-size: 13px; color: var(--text3); }
+.er-tier { font-size: 13px; font-weight: 600; color: var(--text); }
+.er-dots--strong { color: var(--tier-strong); } .er-dots--solid { color: var(--tier-solid); } .er-dots--watch { color: var(--tier-watch); }
+.er-reason { grid-column: 1 / -1; margin: 4px 0 0; font-size: 13px; color: var(--text2); }
+
+@keyframes er-fade { from { opacity: 0; } }
+@keyframes er-out { to { opacity: 0; } }
+@keyframes er-rise { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+@keyframes er-flow { to { stroke-dashoffset: -10; } }
+@keyframes er-pulse { to { transform: scale(1.25); } }
+@keyframes er-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .er-scrim, .er-box, .er-val, .er-edge, .er-node, .er-tick, .er-result { animation: none !important; transition: none !important; }
+}

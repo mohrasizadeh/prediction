@@ -6,6 +6,7 @@ import {
   BottomSheet, ChipsRow, DateScroller, EmptyState, ErrorState, FilterGroup, FilterSheet, ForecastCard,
   HitStrip, LiveCard, LivePill, RangeSlider, Segmented, Skeleton, TierBadge, WdlBar, isoDay,
 } from "../components/ui";
+import EngineReveal from "../components/EngineReveal";
 
 const day = (o) => { const d = new Date(); d.setDate(d.getDate() + o); return isoDay(d); };
 const SAMPLE_CARD = {
@@ -74,6 +75,17 @@ function Panel({ theme }) {
   );
 }
 
+function RevealDemo() {
+  const [on, setOn] = useState(false);
+  const f = { ...SAMPLE_CARD, lo: 0.7, hi: 0.85, noun: "shots on target", lineup_badge: "likely" };
+  return (
+    <div className="kit-row">
+      <button className="btn btn--secondary btn--sm" onClick={() => { try { sessionStorage.removeItem(`er:${f.fkey}`); } catch { /* fine */ } setOn(true); }} data-testid="kit-reveal">Play engine reveal</button>
+      {on && <EngineReveal forecast={f} onDone={() => setOn(false)} />}
+    </div>
+  );
+}
+
 export default function DevKit() {
   useTitle("Component kit");
   return (
@@ -81,6 +93,7 @@ export default function DevKit() {
       <meta name="robots" content="noindex" />
       <h1>Component kit</h1>
       <p className="muted">Sample values for the kit only. Real screens read the API.</p>
+      <RevealDemo />
       <div className="kit-cols"><Panel theme="light" /><Panel theme="dark" /></div>
     </section>
   );
