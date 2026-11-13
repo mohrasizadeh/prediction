@@ -9,6 +9,6 @@ export { Skeleton, EmptyState, ErrorState } from "./StateViews";
 export { LivePill, LiveCard } from "./LiveBits";
 export { ForecastCard } from "./ForecastCard";
 export { ForecastRow } from "./ForecastRow";
-export { ForecastList } from "./ForecastList";
+export { ForecastList, ForecastHead } from "./ForecastList";
 export { ForecastSheet } from "./ForecastSheet";
 export { LockSheet, ProLock } from "./LockSheet";

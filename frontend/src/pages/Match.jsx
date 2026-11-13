@@ -10,6 +10,7 @@ import { Tabs } from "../components/Ui";
 import { Seg, useTitle } from "../components/Football";
 import { Forecasts, Hero, MiniBar, matchState } from "../components/MatchCentre";
 import MatchPreview from "../components/MatchPreview";
+import MatchH2H from "../components/MatchH2H";
 import MatchSide from "../components/MatchSide";
 import MatchEvents, { GOALS, Momentum, normEvent } from "../components/MatchEvents";
 import LiveLineups, { PitchView, lineOf } from "../components/LiveLineups";
@@ -372,6 +373,7 @@ export default function Match() {
     ...(first ? [{ id: first, label: first === "live" ? "Live" : "Facts" }] : []),
     { id: "forecasts", label: "Forecasts", badge: n || null, badgeLabel: n ? `${n} forecasts` : undefined },
     { id: "lineups", label: "Lineups", badge: confirmed ? "✓" : null, badgeLabel: "confirmed" },
+    { id: "h2h", label: "H2H" },
   ];
   // A ?tab= this state does not have (recap on a match not yet played, an old link) opens the default.
   const def = first || "forecasts";
@@ -411,6 +413,7 @@ export default function Match() {
           {tab === "forecasts" && <Forecasts d={d} matchId={id} />}
           {SHOW_ANALYSIS && tab === "forecasts" && (st === "before" || st === "lineups") && <MatchPreview d={d} />}
           {tab === "lineups" && <Lineups d={d} />}
+          {tab === "h2h" && <MatchH2H d={d} />}
         </div>
       </div>
       {/* The side column: beside the tabs from 1280px (matchday.css), every tab but Forecasts. Narrower, it falls

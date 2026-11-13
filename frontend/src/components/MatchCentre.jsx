@@ -156,7 +156,8 @@ export function Hero({ d, teams }) {
           {/* After kick-off these are still our numbers from BEFORE it, and "expected goals" beside a
               real score reads as the match's own. A postponed match has no expected anything. */}
           {d.probs && st !== "off" && <small className="mc-sub" data-testid="match-xg">{pre ? "Expected goals" : "Our pre-match expected goals"} {num1(d.probs.xg_home)} – {num1(d.probs.xg_away)}</small>}
-          {pre && h?.matches?.length > 0 && <small className="mc-sub" data-testid="match-h2h-line">{h2hLine(d)}</small>}
+          {/* Links to the H2H tab, which has the meetings themselves and what they add up to. */}
+          {pre && h?.matches?.length > 0 && <small className="mc-sub" data-testid="match-h2h-line"><Link to={{ search: "?tab=h2h" }} preventScrollReset data-testid="match-h2h-link">{h2hLine(d)}</Link></small>}
           {(m.referee || m.stadium) && <small className="mc-sub" data-testid="match-meta">{m.stadium}{m.referee && m.stadium ? " · " : ""}{m.referee && <>Referee <Link to={`/referee/${encodeURIComponent(m.referee)}`} data-testid="match-referee-link">{m.referee}</Link></>}</small>}
         </div>
         <div className="mc-actions">{st !== "final" && st !== "off" && <FollowButton kind="match" refId={m.id} name={`${d.home?.name} v ${d.away?.name}`} />}<ShareCard d={d} /></div>

@@ -25,7 +25,6 @@
   color: var(--text2); margin-left: 1px; }
 .lk-name { font-stretch: 104%; font-weight: 600; font-size: 15px; letter-spacing: -.008em; color: var(--text); }
 .lk-data { font-stretch: 92%; font-weight: 550; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-.lk-label { font-stretch: 86%; font-weight: 650; font-size: 11px; letter-spacing: .01em; }
 
 .lk-lede { font-size: 15px; color: var(--text2); margin: 4px 0 14px; line-height: 1.5; max-width: 58ch; }
 .lk-lede b { color: var(--text); font-weight: 600; font-stretch: 104%; }
@@ -65,8 +64,6 @@
 .lk-tbl tbody tr:hover td { background: var(--surface2); --lk-halo: var(--surface2); }
 .lk-tbl tbody tr:hover .lk-dim { color: var(--text2); }
 .lk-tbl tbody tr:first-child td { border-top: 0; }
-.lk-c-who { width: auto; } .lk-c-fx { width: 94px; } .lk-c-mk { width: 228px; }
-.lk-c-lk { width: 188px; } .lk-c-run { width: 200px; } .lk-c-lu { width: 168px; }
 
 /* Player photo + club badge. attach_images() can return null, so initials are a first-class
  * state. object-fit:cover so a tall portrait and a wide one take the same optical mass. */
@@ -604,4 +601,47 @@ td.lk-cell-run .lk-runwrap { gap: 8px; }
   /* A line with fewer than three games of evidence draws no strip (Run returns nothing); the
      labelled panel around it then said "LAST 10" over an empty box. */
   .lk-tbl tbody tr td.lk-cell-run:not(:has(.lk-runwrap)) { display: none; }
+}
+
+/* ============================================================ v10, measured again (round 4)
+ * The built row against desktop.html at 1366 and phone.html at 390 once more, value by value.
+ * Each rule names the gap it closes; §7's deliberate differences still stand. */
+
+/* The grade's dots were the kit's 5px, so each badge came out 4-5px wider than v10's (Strong 81
+   against 76) and no longer fitted the 77px inside the Grade cell: it overflowed to the left and the
+   column lost its one x. v10 draws them 3.5px on the table and 4px on the card. */
+.lk-tbl .k-tier .k-dots i { width: 3.5px; height: 3.5px; }
+
+/* Why (54px) and Lineup (70px) were narrower than what they hold (a 64px pill, "Starting" at 63px),
+   so the two ran into each other with 6px between "Why" and the lineup dot. v10 gives them 74 and 92.
+   The width comes from Result, Chance and Actions, which each had room to spare (65px chip in 97,
+   47px figure in 70, 68px of rings in 92); Forecast keeps its 42% and Last 10 its 14% (§7). */
+col.lk-c-res  { width: 7.5%; }
+col.lk-c-lk   { width: 6%; }
+col.lk-c-why  { width: 7%; }
+col.lk-c-lu   { width: 8%; }
+col.lk-c-act  { width: 7.5%; }
+
+/* The stepper: v10's token is 92px, "−  2+  +" with 15px marks and 6px gaps; the build's was 78,
+   the two marks crowding the number. 84 here, not 92: at 92 "T. van den Berg" lost its last letters
+   in the 42% sentence cell, and a whole name outranks 4px of air either side of a mark. */
+.lk-step { padding: 0 4px; }
+.lk-step button { width: 22px; }
+
+/* The lineup dot: 6px in v10 beside a 12.5px word, 6px apart; the build's was 9px, 7px apart, and
+   read as a bullet heavier than the word. 7px, not 6: the half-filled and dashed states (which v10
+   did not draw -- it shows only "Starting") stop reading as shapes below that. */
+.lk-lu { gap: 6px; }
+.lk-lu s { width: 7px; height: 7px; }
+
+@container lk (max-width: 900px) {
+  .lk-tbl .k-tier .k-dots i { width: 4px; height: 4px; }
+  /* The two changeable words: the wide token's 0 9px padding (above, round 3) came after the card's
+     reset and won, so "2+" and "tackles" sat 20px apart in a sentence whose other words are 6px apart. */
+  .lk-mkt, .lk-mkt--one { padding: 0 0 2px; }
+  /* Band 4's hairline never drew: the card's `border-top: 0 !important` on every cell outranked it.
+     And on two content-sized cells it would have been two stubs; v10's runs the card's width. */
+  .lk-tbl tbody tr:not(.lk-whyrow) td.lk-cell-why,
+  .lk-tbl tbody tr:not(.lk-whyrow) td.lk-cell-act { border-top: 1px solid var(--border) !important; justify-self: stretch; }
+  .lk-tbl tbody tr:not(.lk-whyrow) td.lk-cell-why { margin-right: -12px; padding-right: 12px; text-align: left; }
 }

@@ -344,7 +344,12 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
   // the strip is per market: tackles and shots are different ten games
   const known = (cur.run || []).filter((g) => g && g.v != null);
   const cleared = known.filter((g) => g.v >= n).length;
-  const who = f.player?.name || fx.team?.name;
+  // A match total ("1+ goal in the match") is stored on the home club, so its row said "Team 0 1+ goal
+  // in the match" -- a claim about one club that is really about both. Its subject is the fixture, as
+  // ForecastCard's Who already draws it (v10 §5 left this sentence open; the backend sends no verb).
+  // With the fixture as subject "in the match" says it twice, and its width cut the fixture to "Team 0 v Te…".
+  const matchLine = !f.player && (cur.stat || f.stat || "").startsWith("match_") && !!fx.opp;
+  const who = f.player?.name || (matchLine ? fx.text : fx.team?.name);
   const res = n === chosen ? (cur.outcome || f.outcome || null) : null;
   const tk = n === chosen ? track?.[cur.fkey] : null;
   const words = lineWords(cur, n);
@@ -388,7 +393,8 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
             ) : (
               <span className="lk-ava lk-ava--club"><Crest team={fx.team} size={34} /></span>
             )}
-            <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${fx.team?.id}`} title={who}>{shortName(who)}</Link>
+            {matchLine ? <span className="lk-name" title={who}>{who}</span>
+              : <Link className="lk-name" to={f.player ? `/player/${f.player.id}` : `/team/${fx.team?.id}`} title={who}>{shortName(who)}</Link>}
             {/* The claim -- verb, line, market. One flex line with the name on a wide screen (it
                 dissolves there); on a phone it is the card's second line, full width under the
                 face and the figure (docs/redesign/v10 §3), so it gets a box of its own. */}
@@ -397,7 +403,7 @@ export function ForecastRow({ f, open, onToggle, floor, extras = true, teams, ho
               {/* one control, two shapes: a stepper where there is room, a word where there is not */}
               <span className="lk-onwide"><Stepper rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
               <span className="lk-onnarrow"><LinePicker rows={lad} cur={n} onPick={setPick} noun={nounFor(cur, 2)} id={f.id} /></span>
-              <MarketPicker markets={markets} stat={cur.stat} onPick={pickMarket} id={f.id} noun={verb ? nounFor(cur, n) : bareNoun(cur, n)} />
+              <MarketPicker markets={markets} stat={cur.stat} onPick={pickMarket} id={f.id} noun={verb ? nounFor(cur, n) : matchLine ? bareNoun(cur, n)?.replace(/\s+in the match$/, "") : bareNoun(cur, n)} />
             </span>
           </span>
           {/* the fixture, for the phone, where its own column is folded away */}

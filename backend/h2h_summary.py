@@ -24,6 +24,7 @@ DEFAULTS = {"draw": 0.26, "home": 0.45, "away": 0.29, "both": 0.50, "three": 0.5
 MIN_BASE = 30          # finished matches a league needs before its own rates replace DEFAULTS
 MAX_TAIL = 0.30        # a count at least this ordinary is not worth a sentence
 MAX_INSIGHTS = 5
+STAT_WEIGHT = 0.7
 STAT_AVG = ("shots", "sot", "corners", "fouls", "yellow_cards", "poss", "xg")
 # The stats the comparison sentences may speak about, with the words they use.
 STAT_WORDS = {"shots": "shots", "corners": "corners", "yellow_cards": "yellow cards"}
@@ -262,7 +263,9 @@ def _insights(s: dict, base: dict, na: str, nb: str, ms, ts, a, b) -> list[dict]
             if more + less < 2:
                 continue
             hi, lo, nhi, nlo = (ta, tb, na, nb) if ta > tb else (tb, ta, nb, na)
-            add(_binom_tail(more, more + less, 0.5), "stat", col,
+            # A better side out-shooting a weaker one is the usual thing, so a stat gap counts for less
+            # than a result run of the same rarity (STAT_WEIGHT on the tail's log).
+            add(_binom_tail(more, more + less, 0.5) ** STAT_WEIGHT, "stat", col,
                 f"{nhi} averaged {hi / len(xa):.1f} {word} to {nlo}'s {lo / len(xa):.1f} in these meetings.")
 
     # One sentence per family, except the stat comparisons, which may take two places: they are each

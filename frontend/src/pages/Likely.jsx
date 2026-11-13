@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
 import { DISCLAIMER, pct } from "../lib/copy";
 import { useTitle } from "../components/Football";
-import { EmptyState, ErrorState, ForecastRow, Skeleton } from "../components/ui";
+import { EmptyState, ErrorState, ForecastHead, ForecastRow, Skeleton } from "../components/ui";
 
 const WINDOWS = [4, 12, 24];
 
@@ -96,23 +96,7 @@ export function Likely() {
         </EmptyState>
       ) : (
         <table className="lk-tbl" data-testid="lk-table">
-          <colgroup>
-            <col className="lk-c-who" /><col className="lk-c-fx" /><col className="lk-c-mk" />
-            <col className="lk-c-lk" /><col className="lk-c-run" /><col className="lk-c-lu" />
-          </colgroup>
-          <thead><tr>
-            <th scope="col" className="lk-label">Player</th>
-            <th scope="col" className="lk-label">Match</th>
-            <th scope="col" className="lk-label">Line</th>
-            <th scope="col" className="lk-label" aria-sort="descending">
-              <div style={{ textAlign: "right" }}>How likely, and how sure ↓</div>
-              <div className="lk-axis">
-                <span style={{ left: 31.6 }}>60</span><span style={{ left: 94.8 }}>80</span><span style={{ left: 158 }}>100</span>
-              </div>
-            </th>
-            <th scope="col" className="lk-label">Last 10 against that line</th>
-            <th scope="col" className="lk-label">Lineup</th>
-          </tr></thead>
+          <ForecastHead sorted="chance" />
           <tbody>
             {rows.map((f, i) => (
               <ForecastRow key={f.id || i} f={f} floor={floor} open={open === f.id} onToggle={() => toggle(f.id)} />
