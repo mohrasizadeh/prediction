@@ -25,6 +25,15 @@ function place(players, formation) {
   const xy = players.filter((p) => typeof p.x === "number" && typeof p.y === "number");
   const spread = new Set(xy.map((p) => `${p.x.toFixed(2)}:${p.y.toFixed(2)}`)).size;
   if (xy.length === players.length && spread > players.length / 2) return players.map((p) => ({ ...p, d: p.x, w: p.y }));
+  // API-Football's "row:col" grid is the formation itself: row 1 the keeper, one row per line, so a 4-2-3-1
+  // keeps its two midfield rows apart even though both call themselves "M".
+  const g = players.map((p) => /^(\d+):(\d+)$/.exec(String(p.grid || "")));
+  if (players.length && g.every(Boolean)) {
+    const by = {}; players.forEach((p, i) => (by[+g[i][1]] = by[+g[i][1]] || []).push({ ...p, c: +g[i][2] }));
+    const rows = Object.keys(by).map(Number).sort((a, b) => a - b).map((r) => by[r].sort((a, b) => a.c - b.c));
+    const R = rows.length;
+    return rows.flatMap((row, r) => row.map((p, j) => ({ ...p, d: R === 1 ? 0.5 : 0.11 + (r * 0.72) / (R - 1), w: 0.1 + (0.8 * (j + 0.5)) / row.length })));
+  }
   const ranked = players.map((p, i) => ({ ...p, i, r: p.line ?? 2 })).sort((a, b) => a.r - b.r || a.i - b.i);
   const parts = String(formation || "").split("-").map(Number).filter((n) => n > 0);
   let rows;

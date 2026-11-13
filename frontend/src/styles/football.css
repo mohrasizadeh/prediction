@@ -62,8 +62,8 @@
 .ev-txt a { color: inherit; text-decoration: none; } .ev-txt a:hover { text-decoration: underline; }
 .ev-ico { width: 18px; height: 18px; justify-self: center; border-radius: 50%; }
 .ev-ico--goal { background: radial-gradient(circle at 50% 50%, var(--text) 0 30%, transparent 31%), var(--up); }
-.ev-ico--yellow, .card-dot--y { width: 13px; height: 18px; border-radius: 3px; background: #f5c518; }
-.ev-ico--red, .card-dot--r { width: 13px; height: 18px; border-radius: 3px; background: #e5484d; }
+.ev-ico--yellow, .card-dot--y { width: 13px; height: 18px; border-radius: 3px; background: var(--c-card-yellow); }
+.ev-ico--red, .card-dot--r { width: 13px; height: 18px; border-radius: 3px; background: var(--c-card-red); }
 .ev-ico--sub { border-radius: 4px; background: linear-gradient(135deg, var(--up) 0 50%, var(--down) 50% 100%); clip-path: polygon(50% 0, 100% 40%, 70% 40%, 70% 100%, 30% 100%, 30% 40%, 0 40%); }
 .card-dot { display: inline-block; width: 9px; height: 13px; margin: 0 1px; vertical-align: middle; }
 .sub-note { display: block; font-size: .75rem; color: var(--text3, var(--text2)); margin-top: 2px; }
@@ -95,7 +95,7 @@
 .fg-opp { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .fg-opp { grid-area: opp; font-weight: 600; } .fg-games .small { grid-area: who; } .fg-res { grid-area: res; font-variant-numeric: tabular-nums; }
 .fg-res--w { color: var(--up); } .fg-res--l { color: var(--down); }
-.ref-badge { width: 64px; height: 64px; border-radius: 18px; flex: none; background: linear-gradient(135deg, #f5c518 0 50%, #e5484d 50% 100%); box-shadow: inset 0 0 0 3px var(--surface1); }
+.ref-badge { width: 64px; height: 64px; border-radius: 18px; flex: none; background: linear-gradient(135deg, var(--c-card-yellow) 0 50%, var(--c-card-red) 50% 100%); box-shadow: inset 0 0 0 3px var(--surface1); }
 .ref-eyebrow { margin: 0; text-transform: uppercase; letter-spacing: .08em; }
 .ref-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
 @media (min-width: 900px) { .ref-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
@@ -110,7 +110,7 @@
 .book-who { display: grid; min-width: 0; } .book-who b { overflow-wrap: anywhere; } .book-who small { overflow-wrap: anywhere; }
 .book-who > a { text-decoration: none; }
 .book-p { display: grid; gap: 4px; justify-items: end; } .book-p b { font-variant-numeric: tabular-nums; }
-.book-bar { width: 100%; height: 6px; border-radius: 999px; background: var(--surface2); overflow: hidden; } .book-bar i { display: block; height: 100%; background: #f5c518; border-radius: inherit; }
+.book-bar { width: 100%; height: 6px; border-radius: 999px; background: var(--surface2); overflow: hidden; } .book-bar i { display: block; height: 100%; background: var(--c-card-yellow); border-radius: inherit; }
 .ref-bar { display: block; margin-top: 4px; height: 4px; }
 .bell-btn { position: relative; }
 .bell-badge { position: absolute; top: 2px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #f5c518; color: #111; font-size: 11px; font-weight: 800; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px var(--surface1); animation: rise .2s ease; }
@@ -125,7 +125,7 @@
    above it. --up was on the low one, so again the colours were inverted; and is-high was a
    raw hex that no theme can follow. Both are tokens now, the right way round. */
 .ra-tag.is-high { background: color-mix(in srgb, var(--up) 16%, transparent); color: var(--text); } .ra-tag.is-low { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--text); }
-.book-alert { display: grid; gap: 8px; padding: 18px; margin-bottom: 16px; border-color: color-mix(in srgb, #f5c518 45%, var(--border)); }
+.book-alert { display: grid; gap: 8px; padding: 18px; margin-bottom: 16px; border-color: color-mix(in srgb, var(--c-card-yellow) 45%, var(--border)); }
 .fg-pair { display: grid; gap: 14px; } @media (min-width: 900px) { .fg-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 @media (max-width: 480px) { .hero-team .chips { display: none; } .hero-mid time { font-size: 12px; } }
 

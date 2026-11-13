@@ -66,21 +66,57 @@ def _our_match(db, fixture_id) -> dict | None:
     return db.matches.find_one({"ext_id": str(fixture_id)})
 
 
-def _event_rows(fixture: dict, match: dict | None) -> list[dict]:
-    """Their inline events, flattened. Goals and cards are what the feed is for."""
+# Their (type, detail) pairs in the vocabulary SportAPI rows already use, which every reader of
+# `live_events` matches on: live_track counts "yellow" types per side, follow_alerts looks for goal and
+# red types, and the match page draws icons from them. Stored raw ("Card" with the colour in `detail`,
+# the club as an id), none of those readers could tell a yellow from a red or a home card from an away
+# one, so a yellow-card forecast could never tick and a red card never raised an alert.
+_AF_KIND = {("goal", "normal goal"): "goal", ("goal", "own goal"): "own_goal", ("goal", "penalty"): "penalty",
+            ("goal", "missed penalty"): "missed_penalty", ("card", "yellow card"): "yellow_card",
+            ("card", "second yellow card"): "second_yellow", ("card", "red card"): "red_card"}
+
+
+def _af_kind(typ, detail) -> str | None:
+    t, d = str(typ or "").strip().lower(), str(detail or "").strip().lower()
+    if t == "subst":
+        return "substitution"
+    if t == "var":
+        return "var"
+    return _AF_KIND.get((t, d), t or None)
+
+
+def _event_rows(fixture: dict, match: dict | None, db=None) -> list[dict]:
+    """Their inline events, flattened into the shape SportAPI rows have, raw type and detail kept beside."""
+    import sportapi as SP                                    # its careful name match ties an event to our player
     fid = str(((fixture.get("fixture") or {}).get("id")))
+    teams = fixture.get("teams") or {}
+    home_ext, away_ext = str((teams.get("home") or {}).get("id")), str((teams.get("away") or {}).get("id"))
+    fx = {"home_iid": (match or {}).get("home_iid"), "away_iid": (match or {}).get("away_iid")}
     rows = []
     for e in (fixture.get("events") or []):
         t = e.get("time") or {}
+        team_ext = str((e.get("team") or {}).get("id"))
+        side = "home" if team_ext == home_ext else "away" if team_ext == away_ext else None
+        kind = _af_kind(e.get("type"), e.get("detail"))
+        base, add = t.get("elapsed"), t.get("extra") or 0
+        player, assist = (e.get("player") or {}).get("name"), (e.get("assist") or {}).get("name")
+        sub = kind == "substitution"
+        # On a substitution their `player` is the one going off and `assist` the one coming on.
+        name = assist if sub else player
         rows.append({
             "sid": int(fid), "fixture_sid": int(fid), "fixture_ext": str(fid),
             "match_iid": (match or {}).get("iid"),
-            "minute": t.get("elapsed"), "extra": t.get("extra"),
-            "team_ext": str((e.get("team") or {}).get("id")),
+            "type": kind, "side": side,
+            "minute": (f"{base}+{add}'" if add else f"{base}'") if base is not None else None,
+            "minute_num": float((base or 0) + add),
+            "player_name": name, "in_name": assist if sub else None, "out_name": player if sub else None,
+            "assist_name": None if sub else assist,
+            "player_iid": SP._event_player(db, fx, side, name) if db is not None and kind != "var" else None,
+            "team_iid": fx.get(f"{side}_iid") if side else None,
+            "extra": e.get("detail") if kind == "var" else None,
+            "team_ext": team_ext,
             "player_ext": str((e.get("player") or {}).get("id")) if (e.get("player") or {}).get("id") else None,
-            "player_name": (e.get("player") or {}).get("name"),
-            "assist_name": (e.get("assist") or {}).get("name"),
-            "type": e.get("type"), "detail": e.get("detail"), "comments": e.get("comments"),
+            "af_type": e.get("type"), "detail": e.get("detail"), "comments": e.get("comments"),
         })
     return rows
 
@@ -141,7 +177,7 @@ def _store(db, fixture: dict, now: datetime) -> dict:
         doc["final_at"] = now
     db.live_fixtures.update_one({"sid": int(fid)}, {"$set": doc}, upsert=True)
 
-    rows = _event_rows(fixture, match)
+    rows = _event_rows(fixture, match, db)
     if rows:
         # Replace rather than append: their feed restates the whole list each poll, so appending
         # would write a goal again on every tick for the rest of the match.

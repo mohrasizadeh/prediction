@@ -256,6 +256,8 @@ def save_lineups(db, match: dict, lu: dict, iid_of_team: dict | None = None) -> 
                                   {"$set": {"started": x["started"], "confirmed": d["confirmed"], "formation": d["formation"],
                                             "lineup_type": d["lineup_type"], "shirt_number": x["shirt_number"],
                                             "position_id": x["position_id"], "pitch_x": x["pitch_x"], "pitch_y": x["pitch_y"],
+                                            # API-Football's "row:col" slot (None elsewhere): the pitch's rows, where pitch_x is missing.
+                                            "grid": x.get("grid"),
                                             "is_captain": x["is_captain"], "fetched_at": utcnow()}}, upsert=True)
 
 

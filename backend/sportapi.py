@@ -569,7 +569,8 @@ def scoreboard(db, day: str | None = None, tz_offset_min: int = 0, now=None) -> 
 
 
 def events_for(db, sid: int) -> list:
-    return [{k: e.get(k) for k in ("type", "side", "player_name", "minute", "minute_num", "extra")}
+    # in_name / out_name / assist_name are only on rows live_af writes; SportAPI rows read them as None.
+    return [{k: e.get(k) for k in ("type", "side", "player_name", "minute", "minute_num", "extra", "in_name", "out_name", "assist_name")}
             for e in db.live_events.find({"fixture_sid": sid}, {"_id": 0}).sort("minute_num", 1)]
 
 
@@ -577,7 +578,8 @@ def lineups_for(db, sid: int) -> dict:
     out = {}
     for l in db.live_lineups.find({"fixture_sid": sid}, {"_id": 0}):
         ids = {p["iid"]: p["id"] for p in db.players.find({"iid": {"$in": [r["player_iid"] for r in l["players"] if r.get("player_iid")]}}, {"_id": 0, "iid": 1, "id": 1})}
-        out[l["side"]] = {"starters": [dict({k: r.get(k) for k in ("name", "position", "shirt", "captain", "mins")}, player_id=ids.get(r.get("player_iid"))) for r in l["players"] if r["started"]],
+        # formation and grid ("row:col", live_af only) let the pitch put players on the right line and flank.
+        out[l["side"]] = {"formation": l.get("formation"), "starters": [dict({k: r.get(k) for k in ("name", "position", "shirt", "captain", "mins", "grid")}, player_id=ids.get(r.get("player_iid"))) for r in l["players"] if r["started"]],
                           "subs": [dict({k: r.get(k) for k in ("name", "position", "shirt", "captain", "mins")}, player_id=ids.get(r.get("player_iid"))) for r in l["players"] if not r["started"]]}
     return out
 

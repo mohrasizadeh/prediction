@@ -352,7 +352,17 @@ def t_live_is_a_lookup_not_a_guess():
     check(f"events arrive inline, costing no second call ({db.live_events.count_documents({})})",
           db.live_events.count_documents({}) == 2)
     check("a goal keeps its scorer",
-          db.live_events.find_one({"type": "Goal"}).get("player_name") == "A. One")
+          db.live_events.find_one({"type": "goal"}).get("player_name") == "A. One")
+    yc = db.live_events.find_one({"af_type": "Card"}) or {}
+    check(f"a card reads as a yellow on the away side, as live_track counts it ({yc.get('type')}, {yc.get('side')})",
+          yc.get("type") == "yellow_card" and yc.get("side") == "away")
+    g = db.live_events.find_one({"type": "goal"}) or {}
+    check(f"a goal is home's, with a minute label and its assist ({g.get('side')}, {g.get('minute')}, {g.get('assist_name')})",
+          g.get("side") == "home" and g.get("minute") == "23'" and g.get("minute_num") == 23 and g.get("assist_name") == "B. Two")
+    import live_track as LT
+    ec = LT.event_counts(db, row["sid"])
+    check(f"live_track counts the yellow against the away side, so a card forecast can tick ({ec['side']})",
+          ec["side"] == {"home": 0, "away": 1})
     check("the match carries a light live mirror for the pages",
           (db.matches.find_one({"iid": ours["iid"]}).get("live") or {}).get("minute") == 67)
 

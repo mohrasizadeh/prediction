@@ -172,7 +172,7 @@ function Lineups({ d }) {
         const p = pp[s.player_iid] ?? s.p_play;
         return {
           key: `${key}-${s.player_iid}`, id: s.player?.id, name: s.player?.name || "", image: s.player?.image, shirt: s.shirt_number,
-          captain: !!s.is_captain, line: lineOf(s.position_id, s.pos, s.player?.pos),
+          captain: !!s.is_captain, line: lineOf(s.position_id, s.pos, s.player?.pos), grid: s.grid,
           x: typeof s.pitch_x === "number" ? s.pitch_x : undefined, y: typeof s.pitch_y === "number" ? s.pitch_y : undefined,
           pct: !conf && p != null ? pct(p) : null, unsure: !conf && p != null && p < 0.7, badges: marks[s.player_iid],
         };
