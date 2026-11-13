@@ -20,8 +20,22 @@ function Img({ image, size, alt, round, onFail, eager }) {
   );
 }
 
+// A country is drawn as its flag in a circle, edge to edge, instead of its federation badge. The
+// backend sets `team.flag` only on national teams (backend/flags.py), so clubs never come here.
+// The SVGs ship with the app (public/flags), so they are same-origin like every other picture.
+function Flag({ team, size, decorative, eager, onFail }) {
+  return (
+    <span className="media-chip media-flag" style={{ width: size, height: size }} data-flag={team.flag}>
+      <img src={`${process.env.PUBLIC_URL || ""}/flags/${team.flag}.svg`} width={size} height={size}
+        alt={decorative ? "" : `${team.name || "Country"} flag`} loading={eager ? "eager" : "lazy"} decoding="async" onError={onFail} />
+    </span>
+  );
+}
+
 export function Crest({ team, size = 28, decorative = true, eager }) {
   const [failed, setFailed] = useState(false);
+  const [flagFailed, setFlagFailed] = useState(false);
+  if (team?.flag && !flagFailed) return <Flag team={team} size={size} decorative={decorative} eager={eager} onFail={() => setFlagFailed(true)} />;
   const alt = decorative ? "" : `${team?.name || "Club"} crest`;
   if (!team?.image || failed) {
     return (

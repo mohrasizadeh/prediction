@@ -295,6 +295,14 @@ time { white-space: nowrap; color: var(--text2); font-variant-numeric: tabular-n
 .media-round { border-radius: 50%; object-fit: cover; object-position: center top; }
 .media-chip, .media-fallback { display: inline-grid; place-items: center; flex: none; border-radius: 8px; }
 .media-fallback { background: var(--surface2); color: var(--text3); font-weight: 600; }
+/* Countries: the flag fills a circle (Media.jsx Flag). !important because a dozen screens round
+   .media-chip to their own radius for club crests, and none of them is meant to square a flag. */
+.media-chip.media-flag { border-radius: 50% !important; overflow: hidden; position: relative; background: var(--surface2) !important; }
+.media-chip.media-flag > img { display: block; width: 100% !important; height: 100% !important; object-fit: cover; border-radius: 0 !important; box-shadow: none !important; }
+/* a hairline so a white flag (Japan, England) still has an edge on a white card, and a dark one on a dark card */
+.media-chip.media-flag::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14); pointer-events: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .media-chip.media-flag::after { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); } }
+:root[data-theme="dark"] .media-chip.media-flag::after { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
 .media-initials { background: color-mix(in srgb, var(--tint) 30%, var(--surface2)); color: var(--text); }
 .prose { max-width: 720px; } .prose h1 { margin-bottom: 16px; } .prose p, .prose ul { margin: 0 0 14px; color: var(--text2); }
 

@@ -20,7 +20,7 @@ export function lineOf(f) {
     fkey: f.fkey, id: f.id || null, entity: entityOf(f), stat: f.stat, scope: f.scope, name, market: f.market, p: f.p,
     match_iid: f.match_iid, kickoff: f.kickoff || null,          // a combo can hold lines from several matches (docs/40)
     player: f.player ? { id: f.player.id, name: f.player.name, image: f.player.image } : null,
-    team: f.team ? { id: f.team.id, name: f.team.name, image: f.team.image } : null,
+    team: f.team ? { id: f.team.id, name: f.team.name, image: f.team.image, flag: f.team.flag } : null,
     more: [...(f.more_lines || [])].filter((x) => x.fkey).map((x) => ({ fkey: x.fkey, market: x.market, p: x.p })),
   };
 }

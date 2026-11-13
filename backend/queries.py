@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 import settings_store as S
 import referees as RF
+import flags as FL
 # The one map of stat -> (singular, plural). The "most likely" screen lets a reader move the line,
 # so it needs the words for rungs the engine did not pick a label for; building a second copy of
 # this map in JavaScript is how the two would come to disagree about "1 shot on target".
@@ -48,6 +49,14 @@ def attach_images(db, coll, docs):
     for d in docs:
         url = d.pop("image_url", None)
         d["image"] = f"/api/media/{kind}/{d['id']}?v={have[d['iid']][:8]}" if d["iid"] in have and d.get("id") else (url if fallback else None)
+    if coll == "teams" and docs:
+        # A country is drawn as its round flag, not its federation badge (flags.py). `flag` is set
+        # only on teams that have played an international competition, so clubs never get one.
+        nat = FL.national_iids(db)
+        for d in docs:
+            code = FL.code_for(d.get("name")) if d["iid"] in nat else None
+            if code:
+                d["flag"] = code
     return docs
 
 

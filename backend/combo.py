@@ -118,7 +118,10 @@ def _ref(x) -> dict | None:
     """What a screen needs to draw a player or a club: the public id, the name and the image."""
     if not x:
         return None
-    return {"id": x.get("id"), "name": x.get("name"), "image": x.get("image") or x.get("image_url")}
+    out = {"id": x.get("id"), "name": x.get("name"), "image": x.get("image") or x.get("image_url")}
+    if x.get("flag"):
+        out["flag"] = x["flag"]          # a country: drawn as its round flag (flags.py)
+    return out
 
 
 def _name(x) -> str:
