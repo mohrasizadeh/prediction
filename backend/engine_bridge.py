@@ -138,6 +138,30 @@ def build_frames(db, league_iid: int, history_rounds: int):
     ms = ms[ms["game_id"].isin(set(tg["game_id"]))]
 
     pg = pd.DataFrame(list(db.player_match_stats.find({"match_iid": {"$in": list(set(tg["game_id"]))}}, {"_id": 0})))
+    # NO PLAYER ROWS, OR NONE THAT CARRIES `pos`. Either way `pg["pos"]` a few lines down raises
+    # `KeyError: 'pos'` -- an empty DataFrame has no columns at all, and a DataFrame built from
+    # dicts has no `pos` column if not one of them holds that key. That crash was reported from
+    # production as `Job engine:36 failed: KeyError('pos')`.
+    #
+    # The guards above cover the TEAM frame coming out empty; this is the player frame, and it can
+    # be empty while the team frame is full -- a league whose matches were ingested before the
+    # player rows were written, or whose position map answers nothing.
+    #
+    # Returning `None` would be honest but vague: `run_league` records it as "no data" on a league
+    # that plainly has team data. `blank_columns` already exists for exactly this and makes
+    # `run_league` skip with the column named, so hand it the diagnostic instead of crashing. The
+    # team markets are lost with it, which is the existing behaviour for an unmapped player column
+    # and a deliberate one: a league of team lines and no player lines is indistinguishable, from
+    # the outside, from a quiet week (see the note in run_league).
+    if pg.empty or "pos" not in pg.columns:
+        why = "no player rows at all" if pg.empty else "no row carries a position"
+        log.error("engine: league %s has team data but %s; skipping", league_iid, why)
+        empty = pd.DataFrame(columns=["player", "team", "game_id"])
+        return (ms, tg, pg, empty,
+                {"appearances": 0, "player_rows_kept": 0, "blank_columns": ["pos"],
+                 "matches_before": matches_before, "matches_kept": matches_after,
+                 "team_nulls": {c: n for c, n in team_nulls.items() if n},
+                 "note": why})
     excl = set(S.get(db, "engine.exclude_positions"))
     # A keeper is excluded from every market by that setting, which is the only tool it has. When
     # the saves market is asked for, keepers have to reach the frame -- MARKET_POSITIONS then

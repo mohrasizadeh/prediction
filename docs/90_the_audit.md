@@ -236,7 +236,7 @@ already broken at least once:
 
 ## What is pinned
 
-`tests/selftest_audit_v11.py`, 130 checks, every one of them executing the real function:
+`tests/selftest_audit_v11.py`, 138 checks, every one of them executing the real function:
 the involvements fix on a no-assist fixture, the sot fix, the untracked-block case that must
 *still* read `None`, the bench man, the one-sided squad, the team zero-fill and the possession
 mirror, a renamed display string that must still surface as missing, the pitch coordinates of a
@@ -340,6 +340,32 @@ Two smaller faults came out of the same investigation:
 
 The dead code from the merge went with them: `_stats_block`, `MATCH_STAT_COLS`, the `stats` key in
 `match_detail` (computed on every request, read by nothing) and fifteen orphaned CSS lines.
+
+## `KeyError('pos')`, reported from production after all of the above
+
+`Job engine:36 failed at 12:30 PM: KeyError('pos')`. The same crash this document already claims to
+have fixed -- and the fix was incomplete. Two guards were added for the TEAM frame coming out empty;
+**the PLAYER frame had none**, and it can be empty while the team frame is full.
+
+`pd.DataFrame([])` has no columns at all, and a frame built from dicts has no `pos` column when not
+one of them carries that key, so `pg["pos"]` raises on both. Reproduced both ways before touching
+anything.
+
+The likely cause for a real competition is not a bug at all: **API-Football's player-statistics
+coverage is narrower than its fixture and team-statistics coverage**, so a less-covered competition
+returns team numbers and an empty `players` array. `scratchpad/diagnose_36.js` settles which of the
+two it is, read-only.
+
+The right behaviour already existed and was not being used. `blank_columns` makes `run_league` skip
+with the column named -- *"player stats not mapped: pos"* -- which reaches `engine_runs` and the
+admin's "Needs you", where a bare `None` would have recorded the vague "no data" on a league that
+plainly has team data. The guard hands it that diagnostic instead of crashing. Team markets go with
+it, which is the existing and deliberate behaviour for an unmapped player column: a league of team
+lines and no player lines is indistinguishable, from the outside, from a quiet week.
+
+The lesson repeats the one at the top of this document. Fixing the case in front of you is not the
+same as fixing the class: `tg` and `pg` are the same shape of mistake, the first was guarded twice
+and the second not at all, and nothing in the suite asked the obvious next question.
 
 ## Still open, and not ours to close
 

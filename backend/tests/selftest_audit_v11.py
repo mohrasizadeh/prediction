@@ -228,6 +228,65 @@ except Exception as e:
     check(f"build_frames returns None rather than raising ({type(e).__name__}: {e})", False)
 
 
+print("a league with team data but no usable player rows is skipped, not crashed")
+# REPORTED FROM PRODUCTION: `Job engine:36 failed at 12:30 PM: KeyError('pos')`.
+#
+# The guards above cover the TEAM frame coming out empty. This is the PLAYER frame, and it can be
+# empty while the team frame is full -- API-Football's player coverage is narrower than its fixture
+# and team-statistics coverage, so a less-covered competition returns team numbers and an empty
+# `players` array. `pd.DataFrame([])` has no columns at all, and a frame built from dicts has no
+# `pos` column when not one of them holds that key, so `pg["pos"]` raised on both.
+#
+# The right answer already existed: `blank_columns` makes `run_league` skip with the column named,
+# which is far more use than the vague "no data" a bare `None` produces on a league that plainly
+# has team data.
+def _league(with_players, with_pos=True):
+    dz = mongomock.MongoClient()["pz"]
+    pos6 = ["GK", "DEF", "DEF", "MID", "MID", "FWD"]
+    for i in range(30):
+        dz.matches.insert_one({"iid": i, "league_iid": 1, "status": "final", "round": i,
+                               "home_iid": 1, "away_iid": 2, "hg": 1, "ag": 0,
+                               "ingested_at": utc(2026, 3, 1), "kickoff": utc(2026, 3, 1)})
+        for t, o in ((1, 2), (2, 1)):
+            dz.team_match_stats.insert_one({
+                "match_iid": i, "team_iid": t, "opp_iid": o, "home": t == 1, "league_iid": 1,
+                "goals": 1.0, "goals_against": 0.0, "shots": 10.0, "sot": 4.0, "corners": 5.0,
+                "tackles": 15.0, "poss": 50.0, "shots_against": 10.0, "corners_against": 5.0,
+                "tackles_against": 15.0, "saves": 3.0, "fouls": 11.0, "yellow_cards": 2.0, "xg": 1.2})
+            if not with_players:
+                continue
+            for k, p in enumerate(pos6):
+                row = {"match_iid": i, "player_iid": t * 100 + k, "team_iid": t, "opp_iid": o,
+                       "league_iid": 1, "minutes": 90.0, "shots": 2.0, "sot": 1.0, "tackles": 2.0,
+                       "saves": (3.0 if p == "GK" else 0.0), "team_shots": 10.0, "team_sot": 4.0,
+                       "team_tackles": 15.0, "team_saves": 3.0, "fouls_committed": 1.0,
+                       "goal_involvements": 0.0, "kickoff": utc(2026, 3, 1), "started": True}
+                if with_pos:
+                    row["pos"] = p
+                dz.player_match_stats.insert_one(row)
+    return dz
+
+
+for label, dz in (("no player rows at all", _league(False)),
+                  ("player rows, none with a position", _league(True, with_pos=False))):
+    try:
+        fr = B.build_frames(dz, 1, 60)
+        crashed = None
+    except Exception as e:
+        fr, crashed = None, f"{type(e).__name__}: {e}"
+    check(f"{label}: build_frames does not raise ({crashed or 'no raise'})", crashed is None)
+    check(f"{label}: ...and names the column", fr is not None and fr[4]["blank_columns"] == ["pos"])
+    res = B.run_league(dz, 1)
+    check(f"{label}: run_league skips with a reason a person can act on ({res.get('note')})",
+          res.get("status") == "skipped" and "pos" in (res.get("note") or ""))
+
+ok_db = _league(True)
+okfr = B.build_frames(ok_db, 1, 60)
+check("a healthy league is untouched by the guard",
+      okfr is not None and okfr[4]["blank_columns"] == [])
+check("...and still runs", B.run_league(ok_db, 1).get("status") == "done")
+
+
 # ==================================================================
 print("a player's club never becomes his national team, and never moves backwards")
 d4 = mongomock.MongoClient()["d"]
