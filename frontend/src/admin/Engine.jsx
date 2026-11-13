@@ -147,10 +147,10 @@ function Images() {
   return (
     <div className="a-stack">
       <div className="a-btns">
-        {/* Both spend PitchAPI quota. The second re-reads every squad as well, which is the larger
+        {/* Both spend API-Football quota. The second re-reads every squad as well, which is the larger
             of the two by a long way, so it says so and is marked. */}
         <Guard className="btn btn--primary btn--sm" confirmLabel="Queue the sync" title="Sync the missing pictures?"
-               body={<Cost lead="This asks PitchAPI for league logos, club crests and player photos we do not hold yet, at one call each. Pictures we already have cost nothing. It runs at the next tick." />}
+               body={<Cost lead="This asks API-Football for league logos, club crests and player photos we do not hold yet, at one call each. Pictures we already have cost nothing. It runs at the next tick." />}
                onRun={() => sync(false)} testid="images-sync"><Icon name="refresh" size={16} />Sync images</Guard>
         <Guard className="btn btn--danger btn--sm" label="Sync and re-read squads" danger confirmLabel="Re-read every squad"
                title="Re-read every squad and sync pictures?"

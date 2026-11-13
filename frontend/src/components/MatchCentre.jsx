@@ -8,6 +8,10 @@ import { utc } from "../lib/time";
 import { Crest } from "./Media";
 import { FollowButton } from "./Actions";
 import LiveStatus from "./LiveStatus";
+// The word the writer actually uses for a substitution, from the one file that defines the
+// vocabulary. This filtered on "substitution", which nothing has written since the provider moved,
+// so it excluded nothing and a substitution could become the hero's headline "last event".
+import { NOT_HEADLINE } from "./eventWords";
 import TeamRadar from "./TeamRadar";
 import TeamNews from "./TeamNews";
 import { ShareCard } from "./Share";
@@ -49,7 +53,7 @@ function Side({ team, align }) {
 export function Hero({ d }) {
   const m = d.match, st = matchState(d), lv = m.live;
   const cd = useCountdown(m.kickoff);
-  const last = (d.live_events || []).filter((e) => e.type !== "substitution").slice(-1)[0];
+  const last = (d.live_events || []).filter((e) => e.type !== NOT_HEADLINE).slice(-1)[0];
   return (
     <section className={`mc-hero card mc-hero--${st}`} data-testid="match-hero">
       <p className="mc-when" data-testid="match-when">{st === "live" && <span className="k-livedot" aria-hidden="true" />}{utc(m.kickoff).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>

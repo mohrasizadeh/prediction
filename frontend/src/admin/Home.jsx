@@ -21,7 +21,7 @@ const greet = () => { const h = new Date().getHours(); return h < 12 ? "Good mor
 
 function line(t) {
   switch (t.id) {
-    case "data": return t.breaker_open ? "PitchAPI breaker is open" : `${t.provider} ${num(t.used)} of ${num(t.cap)} · sync ${at(t.last_sync)}`;
+    case "data": return t.breaker_open ? `${t.provider} breaker is open` : `${t.provider} ${num(t.used)} of ${num(t.cap)} · sync ${at(t.last_sync)}`;
     case "live": return t.enabled ? `${t.provider} ${num(t.used)} of ${num(t.cap)} · ${num(t.live_now)} live` : `${t.provider} is off`;
     case "engine": return `Run ${at(t.last_run)} · ${num(t.forecasts)} forecasts · map ${t.map}${t.errors_24h ? ` · ${t.errors_24h} failed` : ""}`;
     case "images": return t.review ? `${num(t.review)} to review` : `Nothing to review · ${num(t.stored)} player photos`;

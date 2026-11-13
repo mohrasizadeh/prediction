@@ -122,7 +122,10 @@ def feeds(db, now: datetime | None = None) -> dict:
     h = AQ.health(db, now)
     sync = db.job_runs.find_one({"job": {"$in": PULL_JOBS}, "status": "ok"},
                                 {"_id": 0, "finished_at": 1, "started_at": 1}, sort=[("started_at", -1)])
-    queued = db.ingest_queue.count_documents({"status": "queued"})
+    # `pending` IS THE STATUS `ingest.enqueue` WRITES. This asked for "queued", which nothing in the
+    # codebase ever sets, so the panel's queue depth was a hard-coded zero -- on the one screen
+    # whose job is to answer "is the feed backed up".
+    queued = db.ingest_queue.count_documents({"status": "pending"})
     af = _af_status(db, now)
     # ONE PROVIDER, ONE ROW. This used to return two, named PitchAPI and SportAPI, each linking to
     # its own screen -- and those screens are gone (docs/88). The panel exists to answer "which feed

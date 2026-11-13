@@ -222,12 +222,12 @@
   {
     "key": "features.live",
     "group": "Features",
-    "label": "Live in-play data (SportAPI)",
+    "label": "Live in-play data",
     "type": "boolean",
     "default": false,
     "public": true,
     "applies_at": "immediately",
-    "help": "Live scores, match events and lineups from SportAPI. Turning this on also turns on the SportAPI job. Needs the SportAPI key and the league mapping."
+    "help": "Live scores, the minute, match events, lineups and in-play statistics from API-Football. Turning this on also turns on the live job. Needs the API-Football key."
   },
   {
     "key": "home.sections",
@@ -610,6 +610,16 @@
     "help": ""
   },
   {
+    "key": "ingest.lineups_watch_hours",
+    "group": "Ingest",
+    "label": "Look for lineups this far ahead",
+    "type": "number",
+    "default": 6,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "How many hours before kick-off to start asking for the announced eleven. One call covers twenty fixtures and a lineup is cached for ever once it appears, so a wider window costs little."
+  },
+  {
     "key": "ingest.reference_sync_days",
     "group": "Ingest",
     "label": "Leagues and seasons refresh",
@@ -657,7 +667,7 @@
     "default": false,
     "public": false,
     "applies_at": "next_ingest_run",
-    "help": ""
+    "help": "Has no effect under API-Football: the referee, the stadium and the match events all arrive attached to the fixture answer we already fetch, so there is nothing extra to buy."
   },
   {
     "key": "ingest.match_extra_detail",
@@ -667,7 +677,7 @@
     "default": false,
     "public": false,
     "applies_at": "next_ingest_run",
-    "help": ""
+    "help": "Has no effect under API-Football: the referee, the stadium and the match events all arrive attached to the fixture answer we already fetch, so there is nothing extra to buy."
   },
   {
     "key": "cache.ttl.fixtures_future_hours",
@@ -1386,11 +1396,16 @@
       "team.corners": true,
       "team.shots": true,
       "team.sot": true,
-      "team.goals": true
+      "team.goals": true,
+      "player.fouls_committed": true,
+      "player.goal_involvements": true,
+      "player.saves": true,
+      "match.yellow_cards": true,
+      "player.yellow_cards": true
     },
     "public": false,
     "applies_at": "next_engine_run",
-    "help": ""
+    "help": "Which markets the engine publishes. A market also needs enough data in the league: below Minimum data coverage it stays off however this is set."
   },
   {
     "key": "engine.tier_strong",
@@ -2383,6 +2398,16 @@
     "public": true,
     "applies_at": "immediately",
     "help": "Shown next to the tick box. It is saved with each sign-up as proof of consent."
+  },
+  {
+    "key": "images.sync_hours",
+    "group": "Images",
+    "label": "Fetch missing pictures every",
+    "type": "number",
+    "default": 6,
+    "public": false,
+    "applies_at": "immediately",
+    "help": "How often the job looks for crests, logos and player photos it does not have yet. API-Football carries the picture's URL on the entity, so finding one costs no provider call and only the download itself takes time. 0 turns the schedule off and leaves it to Run now."
   },
   {
     "key": "images.enabled",
@@ -3391,10 +3416,10 @@
     "group": "Provider",
     "label": "Live statistics",
     "type": "boolean",
-    "default": false,
+    "default": true,
     "public": false,
     "applies_at": "immediately",
-    "help": "Refresh team statistics for matches actually in play. Statistics are not on the live payload, so this costs one call per twenty such matches each tick; the score and the events are free either way."
+    "help": "On: while a match is being played, fetch its in-play statistics and its lineups. This is what turns a forecast green during the match and what fills the lineups on the match page. It costs one call per twenty matches actually producing statistics, so a busy Saturday is a few hundred calls out of the daily allowance. Off: live scores, the minute and match events still work; the in-play statistics and lineups do not."
   },
   {
     "key": "provider.apifootball.team_keys",

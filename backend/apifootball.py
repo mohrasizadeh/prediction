@@ -173,8 +173,13 @@ class Client:
 
     # ------------------------------------------------------------- guards
     def _calls_today(self) -> int:
+        # OUR provider's rows only. `api_call_log` is shared -- PitchAPI wrote into it, and the
+        # image and injury calls now do too -- so an unfiltered count charged another provider's
+        # calls against this one's budget and could refuse to work for the rest of the day over
+        # rows that cost this account nothing. Every screen that reports usage already filters by
+        # provider; the guard that actually stops the ingest did not.
         start = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        return self.db.api_call_log.count_documents({"at": {"$gte": start}})
+        return self.db.api_call_log.count_documents({"at": {"$gte": start}, "provider": PROVIDER})
 
     def quota(self) -> dict:
         """What the provider last told us about our quota. Their numbers, not ours."""

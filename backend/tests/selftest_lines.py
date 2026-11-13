@@ -400,8 +400,22 @@ print("[old behaviour is one switch away]")
 S.put(db, "engine.auto_lines", False)
 B.run_league(db, lg["iid"], now=now)
 thr = {(r["scope"], r["stat"], r["thr"]) for r in db.forecasts.find({}, {"_id": 0})}
-check(thr <= {("team", "shots", 11.5), ("team", "corners", 4.5), ("player", "shots", 0.5), ("player", "shots", 1.5),
-              ("player", "sot", 0.5), ("player", "tackles", 1.5), ("player", "tackles", 2.5)}, "auto lines off: the fixed thresholds again")
+# DERIVED FROM THE SETTINGS, AND NON-EMPTY. Two faults, both of which this hit:
+#
+#   * `thr <= {...}` is True for the empty set, so this passed if `run_league` published NOTHING --
+#     the exact failure it exists to catch. `thr and` fixes that.
+#   * the set was written out by hand, so it broke the moment a market was added. It just did:
+#     registering saves, fouls and goal involvements in `MARKET_COVERAGE` (docs/90) made this league
+#     publish `player.goal_involvements` lines as well, which is the fix working. A test that has to
+#     be edited every time the product gains a market is a test that gets edited carelessly.
+#
+# What the check actually means is "with auto lines off, every line sits on one of the thresholds
+# the owner configured", so it reads them from the settings and says exactly that.
+fixed = {("player", st, t) for st, ts in S.get(db, "engine.player_thresholds").items() for t in ts}
+fixed |= {("team", st, t) for st, ts in S.get(db, "engine.team_thresholds").items() for t in ts}
+check(bool(thr) and thr <= fixed, f"auto lines off: every line is on a configured threshold ({len(thr)} lines)")
+check(("player", "goal_involvements", 0.5) in thr,
+      "...and the goal involvements market now publishes, having been dropped by the market gate")
 S.put(db, "engine.auto_lines", True)
 
 print("[normalised team averages]")

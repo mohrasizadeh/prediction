@@ -81,7 +81,12 @@ FOOTBALL = [
 
 DERIVED = ["forecasts", "forecast_outcomes", "engine_runs", "engine_gates", "engine_calibration"]
 
-MINE = ["follows", "follow_alerts", "notes", "saved_forecasts", "combos", "booking_alerts"]
+# `alert_subscriptions` was missing from every group, so `unknown()` returned it on every call and
+# the admin screen showed a permanent "this module has never been told about" warning that no
+# action could ever clear. It holds a reader's own alert subscriptions, so it belongs with the rest
+# of a reader's things.
+MINE = ["follows", "follow_alerts", "notes", "saved_forecasts", "combos", "booking_alerts",
+        "alert_subscriptions"]
 
 # NOT reset, and the reason is the bug that made the owner ask for this.
 #

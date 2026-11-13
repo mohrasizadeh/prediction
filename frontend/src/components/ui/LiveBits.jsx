@@ -1,8 +1,11 @@
 // Live pill and live card (docs/24). The pill floats while something is live and opens the live sheet.
-// The card reads the public fixture shape of GET /api/live (sportapi.public_fixture) and, optionally, its events.
+// The card reads the public fixture shape of GET /api/live and, optionally, its events.
 import { Crest } from "../Media";
 import LiveStatus from "../LiveStatus";
 import { fxLive, fxStarted } from "../../lib/live";
+// One vocabulary, shared with MatchEvents: see components/eventWords.js for why this is not a
+// local map any more.
+import { eventLabel, NOT_HEADLINE } from "../eventWords";
 
 export function LivePill({ count, onClick, floating = false, testid = "ui-live-pill" }) {
   if (!count) return null;
@@ -12,8 +15,6 @@ export function LivePill({ count, onClick, floating = false, testid = "ui-live-p
     </button>
   );
 }
-
-const WORD = { goal: "Goal", own_goal: "Own goal", penalty: "Penalty goal", yellow_card: "Yellow card", red_card: "Red card", second_yellow: "Second yellow", substitution: "Substitution", missed_penalty: "Penalty missed" };
 
 function Momentum({ events }) {
   const n = (side, half) => events.filter((e) => e.side === side && (half === 1 ? e.minute_num <= 45 : e.minute_num > 45)).length;
@@ -29,7 +30,7 @@ function Momentum({ events }) {
 export function LiveCard({ f, events = [], flash = false, onOpen, testid }) {
   const playing = fxLive(f);
   const sc = f.score || {};
-  const last = [...events].reverse().find((e) => e.type !== "substitution") || events[events.length - 1];
+  const last = [...events].reverse().find((e) => e.type !== NOT_HEADLINE) || events[events.length - 1];
   const id = testid || `ui-live-card-${f.sid}`;
   const started = fxStarted(f) && sc.home != null;
   return (
@@ -40,7 +41,7 @@ export function LiveCard({ f, events = [], flash = false, onOpen, testid }) {
         <b className="k-lc-score" data-testid={`${id}-score`}>{started ? `${sc.home}–${sc.away}` : "v"}</b>
         <span className="k-lc-team k-lc-team--a"><span>{f.away.team?.name || f.away.name}</span><Crest team={f.away.team} size={24} /></span>
       </div>
-      {last && <p className="k-lc-last">{WORD[last.type] || (last.type || "Event").replace(/_/g, " ")}{last.player_name ? `, ${last.player_name}` : ""} {last.minute}</p>}
+      {last && <p className="k-lc-last">{eventLabel(last)}{last.player_name ? `, ${last.player_name}` : ""} {last.minute}</p>}
       <Momentum events={events} />
     </button>
   );

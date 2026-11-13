@@ -48,15 +48,15 @@ export default function Feeds() {
     <DataState q={q}>{(d) => (
       <div className="a-page" data-testid="admin-feeds">
         <PageHead title="Football data feeds"
-          lead="Two providers, two jobs. PitchAPI backfills history and the depth the forecasts are built from; SportAPI does everything live. Keys live under Keys, numbers under Settings."
+          lead="One provider, one feed. API-Football supplies the history the forecasts are built from, the season backfill, everything live, and the crests and photos. The key lives under Keys, the numbers under Settings."
           actions={<button className="btn btn--ghost btn--sm" onClick={q.reload} data-testid="feeds-refresh"><Icon name="refresh" size={16} />Refresh</button>} />
         <div className="a-grid2">{d.providers.map((p) => <Provider key={p.id} p={p} />)}</div>
         <Card title="Which feed to look at" testid="feeds-help">
           <dl className="a-dl">
-            <div><dt>A score, the minute or a match event is wrong or late</dt><dd>SportAPI</dd></div>
-            <div><dt>A forecast did not turn green while the match was on</dt><dd>SportAPI — its live statistics and events</dd></div>
-            <div><dt>A match or player is missing, or a season has gaps</dt><dd>PitchAPI — Leagues for the season, then Jobs for the queue</dd></div>
-            <div><dt>A statistic reads zero for everyone</dt><dd>PitchAPI — the field mapping on its Quality tab</dd></div>
+            <div><dt>A score, the minute or a match event is wrong or late</dt><dd>Live — check the live job and the breaker</dd></div>
+            <div><dt>A forecast did not turn green while the match was on</dt><dd>Live — in-play statistics and events</dd></div>
+            <div><dt>A match or player is missing, or a season has gaps</dt><dd>Competitions for the season, then Jobs for the queue</dd></div>
+            <div><dt>A statistic reads zero for everyone</dt><dd>The field mapping on the Quality tab</dd></div>
             <div><dt>Forecasts look wrong but the data is there</dt><dd>Engine</dd></div>
           </dl>
         </Card>

@@ -65,12 +65,21 @@ def jobs_status(user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
             # "stopped" and Run now queued a request the tick skips -- a dead button with nothing to
             # say why. The server decides, because the server is what knows (docs/88).
             "provider": S.get(db, "provider.source"),
-            "budget": {"cap": S.get(db, "ingest.daily_call_budget"), "left": _calls_left(db)}}
+            # THE BUDGET OF THE PROVIDER ACTUALLY RUNNING. `ingest.daily_call_budget` is PitchAPI's
+            # 2,000 and means nothing under API-Football, whose cap is `apifootball.daily_cap`.
+            # This screen showing the wrong provider's allowance is what "why is backfill still
+            # showing the PitchAPI limit" was about.
+            "budget": {"cap": _budget(db), "left": _calls_left(db)}}
+
+
+def _budget(db) -> int:
+    from routes_data_admin import _provider_budget      # one definition, shared by every screen
+    return int(_provider_budget(db) or S.get(db, "ingest.daily_call_budget") or 0)
 
 
 def _calls_left(db) -> int:
     # Same source as AD-05a's "Calls today": one row per provider call in api_call_log.
-    cap = int(S.get(db, "ingest.daily_call_budget") or 0)
+    cap = _budget(db)
     midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     used = db.api_call_log.count_documents({"at": {"$gte": midnight}})
     return max(0, cap - used)

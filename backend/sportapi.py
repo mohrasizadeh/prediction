@@ -511,8 +511,16 @@ def league_list(db, client: Client | None = None) -> list:
 
 
 # ------------------------------------------------------------------ reads for the pages (no external calls)
+# BOTH VOCABULARIES. The long words are SportAPI's; the short codes are API-Football's, and they
+# were missing -- so `status_text` fell through to `str(status)` and the public live cards printed
+# the raw code: "PST", "CANC", "ABD", "PEN". FT and AET happened to be in both tables, which is why
+# it was easy to miss. docs/89.
 STATUS_WORDS = {"Scheduled": "Not started", "LIVE": "Live", "FT": "Full time", "AET": "After extra time", "PENS": "After penalties",
-                "Postponed": "Postponed", "Cancelled": "Cancelled", "Suspended": "Suspended"}
+                "Postponed": "Postponed", "Cancelled": "Cancelled", "Suspended": "Suspended",
+                "NS": "Not started", "TBD": "Not started", "PEN": "After penalties",
+                "PST": "Postponed", "CANC": "Cancelled", "ABD": "Abandoned",
+                "AWD": "Awarded", "WO": "Walkover", "SUSP": "Suspended", "INT": "Interrupted",
+                "HT": "Half time", "1H": "Live", "2H": "Live", "ET": "Extra time", "BT": "Break", "P": "Penalties"}
 
 
 def status_text(status) -> str:
@@ -558,7 +566,11 @@ def scoreboard(db, day: str | None = None, tz_offset_min: int = 0, now=None) -> 
     d0 = d - timedelta(minutes=tz_offset_min)
     rows = list(db.live_fixtures.find({"kickoff": {"$gte": d0, "$lt": d0 + timedelta(days=1)}}, {"_id": 0}).sort("kickoff", 1))
     names = _names(db, rows)
-    rows.sort(key=lambda f: (0 if in_play(f.get("status")) else 1 if f.get("status") == "Scheduled" else 2,
+    # `phase_of`, not a literal. This compared against the string "Scheduled" and API-Football
+    # sends "NS", so every upcoming fixture fell into the last bucket with the finished ones and a
+    # match that ended at 15:00 was listed above a 17:30 kick-off -- the opposite of what this
+    # function's own docstring promises.
+    rows.sort(key=lambda f: (0 if in_play(f.get("status")) else 1 if phase_of(f.get("status")) == "scheduled" else 2,
                              f.get("kickoff") or now))
     groups = {}
     for f in rows:
@@ -623,7 +635,16 @@ def fixture_links(db, now=None, days: int = 7, limit: int = 25) -> dict:
 
 
 # ------------------------------------------------------------------ SportAPI is the source of truth for the match itself
-PHASE = {"Scheduled": "scheduled", LIVE: "live", "FT": "final", "AET": "final", "PENS": "final", "Postponed": "postponed", "Cancelled": "cancelled"}
+# Both vocabularies again. API-Football sends PST/CANC/ABD/AWD/WO, all of which are in DEAD, so
+# `in_play` was false and `phase_of` returned None -- and `overlay` only writes
+# `m["status"] = phase` for "postponed"/"cancelled", which nothing else in the codebase writes. So
+# a called-off match sat on Today and on its own page as a normal upcoming fixture with a kick-off
+# time. `NS` fell through the same way, which is what broke the scoreboard's ordering.
+PHASE = {"Scheduled": "scheduled", LIVE: "live", "FT": "final", "AET": "final", "PENS": "final",
+         "Postponed": "postponed", "Cancelled": "cancelled",
+         "NS": "scheduled", "TBD": "scheduled", "PEN": "final",
+         "PST": "postponed", "CANC": "cancelled", "ABD": "cancelled",
+         "AWD": "final", "WO": "final"}
 
 
 def phase_of(status) -> str | None:

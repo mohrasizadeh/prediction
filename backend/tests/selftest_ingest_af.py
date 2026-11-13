@@ -21,6 +21,7 @@ import mongomock
 import af_leagues as AFL
 import apifootball as AF
 import ingest_af as IA
+import normalize_af as NAF
 import security
 import settings_store as S
 
@@ -342,7 +343,16 @@ def t_live_is_a_lookup_not_a_guess():
         return [live]
 
     out = LA.live_tick(db, client(db, env(body)))
-    check(f"one call covers every match in play ({len(calls)})", len(calls) == 1)
+    # TWO calls now, and that is the point: one `?live=` for the scores, the minute and the events
+    # (which arrive inline and are free), plus one `?ids=` for the in-play STATISTICS and lineups of
+    # the fixtures actually producing them. This asserted one call because `apifootball.live_stats`
+    # shipped OFF, so that whole branch -- the live statistics write, the live lineups write -- had
+    # zero execution in the entire suite, which is where two of the live path's bugs were hiding and
+    # why the live-lineups endpoint answered `{}`. It is on by default now (docs/90).
+    lives = [c for c in calls if "live" in c]
+    ids = [c for c in calls if "ids" in c]
+    check(f"one call covers every match in play ({len(lives)})", len(lives) == 1)
+    check(f"...and one more covers the statistics of those producing them ({len(ids)})", len(ids) == 1)
     check("...asked for as a live query", "live" in (calls[0] if calls else {}))
     row = db.live_fixtures.find_one({"ext_id": "1"})
     check(f"the live row joins OUR match by id, with no name matching ({row.get('match_iid')})",
@@ -541,8 +551,19 @@ def t_the_public_scoreboard_can_read_what_live_writes():
     check(f"...and the half-time score ({(f.get('score') or {}).get('ht_home')})",
           (f.get("score") or {}).get("ht_home") == 1)
     check(f"...carrying an sid the events route can use ({f.get('sid')})", f.get("sid") == 1)
-    check(f"the events route finds them by that sid ({len(SP.events_for(db, 1))})",
-          len(SP.events_for(db, 1)) >= 0 and db.live_events.count_documents({"fixture_sid": 1}) == 1)
+    # `len(...) >= 0` IS TRUE FOR EVERY POSSIBLE VALUE, so half of this check could not fail and
+    # the surviving half only counted rows in Mongo -- it never looked at what the route returned.
+    # Before the live path was fixed this same line passed while the route was handing the page
+    # `{'type': 'Card', 'side': None, 'minute_num': None}` and sorting on a field that was not
+    # there. Assert the row the page is actually given.
+    rows = SP.events_for(db, 1)
+    check(f"the events route finds them by that sid ({len(rows)})", len(rows) == 1)
+    check(f"...with a side the page can put it on ({(rows or [{}])[0].get('side')})",
+          rows and rows[0].get("side") in ("home", "away"))
+    check(f"...and a minute it can sort and show ({(rows or [{}])[0].get('minute_num')})",
+          rows and rows[0].get("minute_num") is not None)
+    check(f"...in our vocabulary, not theirs ({(rows or [{}])[0].get('type')})",
+          rows and rows[0].get("type") in NAF.EVENT_TYPES)
 
 
 
