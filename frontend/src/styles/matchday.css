@@ -182,7 +182,10 @@
 .lv-lines-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .lv-lines .lv-sum { margin: 0; }
 /* four tabs always fit on a phone */
-@media (max-width: 520px) { .mc-tabs .tab { flex: 1 1 0; min-width: 0; padding: 0 6px; font-size: 14px; gap: 4px; } .tab-badge { padding: 1px 5px; min-width: 18px; } }
+/* Equal shares squeezed five labels (Facts, Forecasts, Lineups, Stats, Analysis) until two ran into
+   each other at 390px; each tab keeps its own width now, grows to fill when there is room, and the
+   bar scrolls sideways when there is not. */
+@media (max-width: 520px) { .mc-tabs .tab { flex: 1 0 auto; padding: 0 9px; font-size: 14px; gap: 4px; } .tab-badge { padding: 1px 5px; min-width: 18px; } }
 
 .tr-how { margin-top: 10px; } .tr-how summary { cursor: pointer; font-weight: 600; color: var(--text2); min-height: 32px; }
 .tr-how ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; color: var(--text2); }

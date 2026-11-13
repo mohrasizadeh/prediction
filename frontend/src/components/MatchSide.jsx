@@ -36,7 +36,8 @@ function Info({ d, league }) {
       <dl className="msd-dl">
         {m.stadium && <div><dt>Venue</dt><dd data-testid="msd-venue">{m.stadium}</dd></div>}
         {league && <div><dt>Competition</dt><dd><Link to={`/league/${league.id}`}>{league.name}</Link>{m.round != null && <span className="msd-faint"> · Round {m.round}</span>}</dd></div>}
-        <div><dt>Kick-off</dt><dd><time dateTime={m.kickoff} data-testid="msd-kickoff">{longDay(m.kickoff)}, {hhmm(m.kickoff)}</time></dd></div>
+        {/* A postponed or cancelled match keeps the date it was due on; "Kick-off" would promise it. */}
+        <div><dt>{m.status === "postponed" || m.status === "cancelled" ? "Original date" : "Kick-off"}</dt><dd><time dateTime={m.kickoff} data-testid="msd-kickoff">{longDay(m.kickoff)}, {hhmm(m.kickoff)}</time></dd></div>
       </dl>
     </Card>
   );
@@ -58,7 +59,7 @@ function Referee({ d }) {
         <dl className="msd-nums">
           {r.cards_per_game != null && <div><dt>Cards per game</dt><dd>{num1(r.cards_per_game)}</dd></div>}
           {r.cards_per_game_normalised != null && <div><dt>For the teams involved</dt><dd>{num1(r.cards_per_game_normalised)}</dd></div>}
-          {r.factor != null && <div><dt>vs teams' usual</dt><dd className={r.factor > 1.03 ? "is-up" : r.factor < 0.97 ? "is-down" : ""}>{vsUsual(r.factor)}</dd></div>}
+          {r.factor != null && <div><dt>vs teams' usual</dt><dd>{vsUsual(r.factor)}</dd></div>}
         </dl>
       )}
       {r?.sentence && <p className="msd-note">{r.sentence}</p>}
