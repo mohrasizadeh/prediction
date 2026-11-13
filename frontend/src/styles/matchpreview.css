@@ -20,7 +20,7 @@
    of the pair, so its frame comes off and its type steps onto this scale. */
 .mpv-pair { display: grid; gap: 16px; min-width: 0; }
 @media (min-width: 700px) { .mpv-pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; } }
-.mpv .fg { margin: 0; padding: 0; gap: 12px; background: none; border: 0; border-radius: 0; box-shadow: none; outline: 0; }
+.mpv .mpv-pair .fg.card, .mpv .fg { margin: 0; padding: 0; gap: 12px; background: none; border: 0; border-radius: 0; box-shadow: none; outline: 0; }
 .mpv-pair > * + * { padding-top: 16px; border-top: 1px solid var(--border); }
 @media (min-width: 700px) { .mpv-pair > * + * { padding-top: 0; border-top: 0; } }
 .mpv .fg-head { gap: 8px; }
@@ -91,3 +91,11 @@
   .mpv-card { border-color: var(--border-strong); }
   .mpv-h2h-sum .is-more { box-shadow: inset 0 0 0 2px var(--brand); }
 }
+/* FirstGoal's error state is a full empty-state card on the club page; here it is one line and a
+   retry inside a card that already frames it, so it loses the frame and the large icon. */
+.mpv-pair .k-state { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0; padding: 0;
+  background: none; border: 0; box-shadow: none; text-align: left; min-height: 44px; }
+.mpv-pair .k-state p { margin: 0; flex: 1 1 180px; font-size: 13.5px; color: var(--text2); }
+.mpv-pair .k-state-ico { width: auto; height: auto; padding: 0; background: none; color: var(--down); }
+.mpv-pair .k-state .btn { min-height: 44px; }
+@media (max-width: 699px) { .mpv-pair > * + .k-state { padding-top: 16px; border-top: 1px solid var(--border); } }

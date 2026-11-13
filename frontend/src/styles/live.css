@@ -150,6 +150,9 @@
 @media (min-width: 900px) {
   .lpv { grid-template-areas: "h a" "p p"; }
   .lpv-team--away { justify-content: flex-end; }
+  /* Top, not centred: the side with a coach line is taller, and centring dropped the other club's
+     name 10px below its opposite number. */
+  .lpv-team { align-self: start; }
   .lpv-pitch { max-width: none; aspect-ratio: 105 / 64;
     background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--up) 15%, var(--surface1)) 0 8.33%, color-mix(in srgb, var(--up) 9%, var(--surface1)) 8.33% 16.66%); }
   .lpv-p { top: var(--w); left: var(--d); width: 92px; }
@@ -160,7 +163,7 @@
   .lpv-box--away { top: 22%; bottom: 22%; right: -1px; left: auto; height: auto; width: 9%; }
 }
 
-/* ---------------------------------------------------------------- Match page: Lineups, Recap, Analysis parts (pages/Match.jsx) */
+/* ---------------------------------------------------------------- Match page: Lineups and Facts parts (pages/Match.jsx) */
 .mc-lineups--v3 { display: grid; gap: 18px; min-width: 0; }
 @media (min-width: 900px) { .mc-lineups.mc-lineups--v3 { grid-template-columns: minmax(0, 1fr); } .mc-lineups.mc-lineups--v3 .mc-notes { position: static; } }
 .lu-head { display: grid; justify-items: start; gap: 6px; }
@@ -188,32 +191,7 @@
 .ev-sum2 td.is-more { color: var(--text); font-weight: 800; }
 .ev-sum2 tbody tr { border-top: .5px solid var(--hig-separator, var(--border)); }
 
-.h2h-sum .is-more { background: color-mix(in srgb, var(--up) 14%, var(--surface2)); }
-.h2h-bar { display: flex; gap: 2px; height: 6px; border-radius: 3px; overflow: hidden; margin: -4px 0 6px; }
-.h2h-bar i { display: block; } .h2h-bar-a { background: var(--chart1); } .h2h-bar-d { background: var(--v2-miss, var(--text3)); } .h2h-bar-b { background: var(--chart2); }
-.h2h-list { list-style: none; margin: 0; padding: 0; }
-.h2h-list a { display: grid; grid-template-columns: 72px minmax(0, 1fr) 48px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 48px; padding: 4px;
-  border-top: .5px solid var(--hig-separator, var(--border)); color: var(--text); text-decoration: none; border-radius: 6px; }
-.h2h-list li:first-child a { border-top: 0; }
-.h2h-list a:hover { background: var(--surface2); } .h2h-list a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.h2h-when { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; }
-.h2h-t { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; color: var(--text2); }
-.h2h-t > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.h2h-t--h { justify-content: flex-end; text-align: right; }
-.h2h-t.is-win { color: var(--text); font-weight: 700; }
-.h2h-score { text-align: center; font-variant-numeric: tabular-nums; font-size: 15px; }
-@media (max-width: 420px) { .h2h-list a { grid-template-columns: 54px minmax(0, 1fr) 40px minmax(0, 1fr); gap: 6px; } .h2h-t { font-size: 13px; } }
 
-.an-tbl { max-width: 100%; }
-.an-tbl:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.an-tbl .tbl th.num, .an-tbl .tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.an-tbl .tbl abbr { text-decoration: none; }
-.an-tbl tbody th { text-align: left; font-weight: 400; }
-.an-tbl .tbl .sticky { max-width: 220px; }
-.an-who { display: grid; min-width: 0; line-height: 1.2; }
-.an-who b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.an-who small { font-size: 12px; }
-@media (max-width: 480px) { .an-tbl .tbl .sticky { max-width: 150px; } .an-tbl .tbl th, .an-tbl .tbl td { padding: 0 8px; } }
 .fg-empty { margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--surface1); font-size: 14px; color: var(--text2); display: flex; align-items: center; gap: 8px; }
 
 .fx-live { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }

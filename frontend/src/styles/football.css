@@ -126,7 +126,6 @@
    raw hex that no theme can follow. Both are tokens now, the right way round. */
 .ra-tag.is-high { background: color-mix(in srgb, var(--up) 16%, transparent); color: var(--text); } .ra-tag.is-low { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--text); }
 .book-alert { display: grid; gap: 8px; padding: 18px; margin-bottom: 16px; border-color: color-mix(in srgb, var(--c-card-yellow) 45%, var(--border)); }
-.fg-pair { display: grid; gap: 14px; } @media (min-width: 900px) { .fg-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 @media (max-width: 480px) { .hero-team .chips { display: none; } .hero-mid time { font-size: 12px; } }
 
 .pitch { position: relative; aspect-ratio: 68 / 105; max-height: 760px; margin: 0 auto 16px; border-radius: 16px; overflow: hidden;
@@ -174,10 +173,6 @@
 @media (min-width: 768px) { .mrow { grid-template-columns: 150px minmax(0, 1fr) 60px minmax(0, 1fr); grid-template-areas: "t h s a"; } .mrow-score { text-align: center; } }
 .mrow:hover .team { color: var(--brand); }
 
-.h2h-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
-.h2h-sum span { display: grid; justify-items: center; padding: 12px 6px; border-radius: 14px; background: var(--surface2); text-align: center; font-size: 12px; color: var(--text2); overflow-wrap: anywhere; }
-.h2h-sum b { font-size: 1.5rem; color: var(--text); }
-.split2 { display: grid; gap: 12px; } @media (min-width: 768px) { .split2 { grid-template-columns: 1fr 1fr; } }
 
 .phead { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
 .phead h1 { margin: 0; font-size: clamp(1.75rem, 5vw, 2.75rem); line-height: 1.1; }

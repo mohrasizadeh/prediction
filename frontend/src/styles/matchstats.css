@@ -2,10 +2,10 @@
    (components/LiveLineups.jsx). Home is --chart1 and away --chart2, the same pair the pitch rings and
    the head-to-head bar use, so a side keeps one colour across the whole page. Tokens only. */
 
-/* Measured against the locked v10 card (docs/redesign/v10, likely.css): a 16px radius, a 1px --border
-   edge and 16px padding (24px on a desktop, the table rows' side padding); uppercase micro-labels at
-   10px/800/.07em in --text3 like "LAST 10 · DID HE REACH IT"; tabular figures with a small unit at
-   .52em; gaps on the 4/8px rhythm. Facts' "Top stats" (Match.jsx TopStats) draws with these classes
+/* Measured against the locked v10 card (docs/redesign/v10, likely.css) and the match page's other
+   cards: a 16px radius, a 1px --border edge and 16px padding at every width; uppercase micro-labels at
+   10px/800/.07em in --text3 like "LAST 10 · DID HE REACH IT"; tabular figures (800, -.035em) with a small unit at
+   .42em; gaps on the 4/8px rhythm. Facts' "Top stats" (Match.jsx TopStats) draws with these classes
    too, so the two read as one object. */
 .mst { display: grid; gap: 24px; min-width: 0; }
 .mst-team { display: grid; gap: 16px; padding: 16px; border-radius: 16px; background: var(--surface1); border: 1px solid var(--border); min-width: 0; }
@@ -26,9 +26,9 @@
 .mst-poss { display: grid; gap: 8px; }
 .mst-poss-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 8px; }
 .mst-poss-top .mst-micro { text-align: center; padding-bottom: 6px; }
-.mst-fig { font-stretch: 112%; font-weight: 650; font-size: 32px; letter-spacing: -.03em; line-height: 1;
+.mst-fig { font-stretch: 112%; font-weight: 800; font-size: 32px; letter-spacing: -.035em; line-height: 1;
   font-variant-numeric: tabular-nums; color: var(--text); }
-.mst-fig u { font-stretch: 92%; font-weight: 600; font-size: .52em; letter-spacing: 0; text-decoration: none; color: var(--text2); margin-left: 1px; }
+.mst-fig u { font-stretch: 92%; font-weight: 600; font-size: .42em; letter-spacing: 0; text-decoration: none; color: var(--text2); margin-left: 1px; }
 .mst-split { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }
 .mst-split i { display: block; min-width: 4px; }
 .mst-split-home { background: var(--chart1); }
@@ -53,9 +53,10 @@
 .mst-row { display: grid; gap: 8px; }
 .mst-row-top { display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px; align-items: center; gap: 8px; }
 .mst-label { text-align: center; font-size: 14px; color: var(--text); }
-/* A value is a 24px chip in the result chip's shape (999px, tint not fill). */
-.mst-val { justify-self: start; display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 24px; padding: 0 8px;
-  border-radius: var(--r-pill, 999px); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+/* A value is a 22px chip in the page's chip shape (999px, padding 0 9px, weight 800, tint not fill).
+   13px rather than the label chips' 11px: these are the numbers the tab exists to show. */
+.mst-val { justify-self: start; display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 22px; padding: 0 9px;
+  border-radius: var(--r-pill, 999px); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text); }
 .mst-val--away { justify-self: end; }
 /* The bigger number is the one the eye should land on: its side's colour behind it.
    Same reason as possession: a tint in the page's ink, edged in the solid side colour. */
@@ -80,7 +81,7 @@
 .mst-sets .chip { min-height: 44px; }
 /* relative: the sr-only labels in the headers are absolutely placed, and without a positioned scroll box
    they escape it and widen the page on a phone. */
-.mst-tbl { position: relative; max-width: 100%; overscroll-behavior-x: contain; margin: 0; border: 1px solid var(--border); border-radius: 14px; }
+.mst-tbl { position: relative; max-width: 100%; overscroll-behavior-x: contain; margin: 0; border: 1px solid var(--border); border-radius: 16px; }
 /* Headers in the locked table's voice (likely.css .lk-tbl th): uppercase micro-labels on --surface2. */
 /* --text2, not the locked table's --text3: on --surface2 that measured 4.3:1 in dark, under 4.5. */
 .mst-tbl .tbl thead th { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text2); background: var(--surface2); }
@@ -120,7 +121,6 @@
 .mst-coach { flex-basis: 100%; padding-left: 28px; font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (min-width: 900px) { .lpv-team--away.mst-coach-team .mst-coach { padding: 0 28px 0 0; text-align: right; } }
 
-@media (min-width: 900px) { .mst-team { padding: 24px; gap: 20px; } }
 @media (max-width: 480px) {
   .mst-row-top { grid-template-columns: 48px minmax(0, 1fr) 48px; }
   .mst-fig { font-size: 28px; }

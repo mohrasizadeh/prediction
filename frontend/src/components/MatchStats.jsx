@@ -228,7 +228,7 @@ function TeamStats({ d, ts, mode }) {
   return (
     <section className="mst-team" aria-labelledby="mst-team-h" data-testid="stats-team-block" data-mode={mode}>
       <header className="mst-cardhead">
-        <h2 className="k-sec" id="mst-team-h">Team stats</h2>
+        <h2 className="mst-micro" id="mst-team-h">Team stats</h2>
         {mode === "final" ? <p className="mst-when" data-testid="stats-updated">Full time</p>
           : <Updated at={ts.at} lead={mode === "live" ? "Live" : "From the match feed"} />}
       </header>

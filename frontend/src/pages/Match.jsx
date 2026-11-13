@@ -57,8 +57,11 @@ function LiveTab({ d }) {
     <div className="live-detail mc-live" data-testid="match-live">
       <Stale at={d.match.live?.at || d.live?.at} />
       <Momentum events={ev} testid="match-momentum" {...names} />
-      <MatchEvents events={ev} testid="match-live-events" phase="live" score={feedScore(d)} status={d.match.live?.status} {...names}
-        emptyText="Goals, cards and substitutions appear here as they happen. This page refreshes every 30 seconds." />
+      <section className="mfx-sec card" aria-labelledby="mc-live-tl-h">
+        <header className="mfx-head"><h2 className="k-sec" id="mc-live-tl-h">Timeline · newest first</h2></header>
+        <MatchEvents events={ev} testid="match-live-events" phase="live" score={feedScore(d)} status={d.match.live?.status} {...names}
+          emptyText="Goals, cards and substitutions appear here as they happen. This page refreshes every 30 seconds." />
+      </section>
       {q.loading ? <Loading rows={2} /> : q.error
         ? <p className="muted small" data-testid="match-live-lineups-error">The lineups from the match feed did not load. <button type="button" className="k-link" onClick={q.reload}>Try again</button></p>
         : (q.data?.lineups?.home || q.data?.lineups?.away) && (
@@ -219,7 +222,7 @@ function Facts({ d, finals, onStats, onForecasts }) {
   return (
     <div className="mc-facts" data-testid="match-facts">
       <TopStats d={d} onAll={onStats} />
-      <section className="mfx-sec" aria-labelledby="mfx-ev-h"><h2 className="k-sec" id="mfx-ev-h">Timeline</h2><Events d={d} /></section>
+      <section className="mfx-sec card" aria-labelledby="mfx-ev-h" data-testid="facts-timeline"><header className="mfx-head"><h2 className="k-sec" id="mfx-ev-h">Timeline</h2></header><Events d={d} /></section>
       <FactsForm d={d} finals={finals} />
       <ForecastRecap d={d} onAll={onForecasts} />
     </div>

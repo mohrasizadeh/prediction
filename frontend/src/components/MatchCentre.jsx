@@ -1,5 +1,5 @@
-// Match centre parts (docs/24 §3): the hero and first tab change with the match state, Preview, Forecasts with
-// a minimum-likelihood slider and By team / By market, and team Stats as split bars.
+// Match centre parts (docs/24 §3): the hero changes with the match state; Forecasts with a
+// minimum-likelihood slider and By team / By market; the compact bar that replaces the hero on scroll.
 import { useEffect, useState } from "react";
 import { tierLabel } from "../lib/copy";
 import { Link } from "react-router-dom";
@@ -8,11 +8,10 @@ import { utc } from "../lib/time";
 import { Crest } from "./Media";
 import { FollowButton } from "./Actions";
 import LiveStatus from "./LiveStatus";
-import TeamRadar from "./TeamRadar";
 import { ShareCard } from "./Share";
 import { num1 } from "./Football";
 import BuildForMe from "./BuildForMe";
-import { ChipsRow, EmptyState, ErrorState, ForecastList, RangeSlider, Segmented, Skeleton, WdlBar } from "./ui";
+import { ChipsRow, EmptyState, ForecastList, RangeSlider, Segmented, WdlBar } from "./ui";
 import { fxState, mLive } from "../lib/live";
 
 const cardsOf = (d) => d.cards || d.forecasts;
@@ -182,10 +181,6 @@ export function MiniBar({ d, shown }) {
   );
 }
 
-function useCompare(d) {
-  return useApi("/teams/compare", { a: d.home.id, b: d.away.id, as_fixture: true });
-}
-
 // A By market heading is the market's name, not one rung of it: "1+ shot" became "shot · 2", lower
 // case and singular above a list of 2+ and 3+ lines. "Shots · 2".
 const marketHead = (m) => {
@@ -277,25 +272,6 @@ export function Forecasts({ d, matchId }) {
                 market shrank to "s". It also brings the column headings Most likely has. */}
             <ForecastList rows={xs} teams={fxTeams} homeIid={d.match.home_iid} track={track} testid={`match-fc-${title}`} /></section>
         ))}
-    </div>
-  );
-}
-
-export function Form({ d }) {
-  const c = useCompare(d);
-  if (c.loading && !c.data) return <Skeleton shape="row" count={5} testid="match-stats-loading" />;
-  if (c.error) return <ErrorState message="We could not load the team numbers." onRetry={c.reload} testid="match-stats-error" />;
-  const e = (c.data?.edges || []).filter((x) => ["shots", "sot", "corners", "poss", "xg", "goals"].includes(x.key));
-  if (!e.length && !c.data?.radar?.length) return <EmptyState icon="bar-chart" title="No team numbers yet" testid="match-stats-empty">They appear after each club's first finished match this season.</EmptyState>;
-  return (
-    <div className="mc-form" data-testid="match-stats">
-      {e.length > 0 && <div className="card mc-stats">
-        <header className="v2-sec-head"><h2 className="k-sec v2-sec">Per game this season</h2></header>
-        <p className="k-faint k-small">{d.home.name} at home, {d.away.name} away. Numbers from before kick-off.</p>
-        <ul className="cp-edges">{e.map((x) => { const t = (x.a || 0) + (x.b || 0) || 1; return (
-          <li key={x.key} className={`lean-${x.lean || "none"}`}><b>{num1(x.a)}</b><span className="cp-edge-mid"><small>{x.label}</small><span className="cp-edge-bar" aria-hidden="true"><i className="ea" style={{ width: `${(x.a / t) * 100}%` }} /><i className="eb" style={{ width: `${(x.b / t) * 100}%` }} /></span></span><b>{num1(x.b)}</b></li>); })}</ul>
-      </div>}
-      {c.data?.radar?.length > 0 && <div className="card mc-radar"><header className="v2-sec-head"><h2 className="k-sec v2-sec">Style shape</h2></header><TeamRadar axes={c.data.radar} aName={d.home.name} bName={d.away.name} games={c.data.radar_games} testid="match-radar" /></div>}
     </div>
   );
 }
