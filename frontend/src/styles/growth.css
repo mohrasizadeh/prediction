@@ -56,3 +56,36 @@
 .contact-form { display: grid; gap: 16px; padding: 22px; }
 .contact-form .field span { font-size: .875rem; font-weight: 600; color: var(--text2); }
 .contact-form textarea { padding: 12px 14px; min-height: 140px; resize: vertical; }
+
+/* Admin > Waitlist (docs/68 "Measuring it"). A meter is a label, a bar and the number: the bar
+   shows the share, the number carries it, so nothing depends on reading a bar length. */
+.wl-meters { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.wl-meter { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr) 4.5rem; align-items: center; gap: 10px; min-width: 0; }
+.wl-meter-label { font-size: .875rem; color: var(--text2); min-width: 0; overflow-wrap: anywhere; }
+.wl-meter-track { height: 10px; border-radius: 999px; background: var(--surface2); overflow: hidden; }
+.wl-meter-track > span { display: block; height: 100%; border-radius: inherit; background: var(--brand); }
+.wl-meter-val { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.wl-meter-val b { font-size: .95rem; color: var(--text); }
+.wl-meter-val small { font-size: .75rem; color: var(--text3); }
+.wl-sub { margin: 18px 0 10px; font-size: .8125rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); }
+.wl-link-row { display: grid; gap: 12px; margin-top: 12px; }
+@media (min-width: 600px) { .wl-link-row { grid-template-columns: 1fr 1fr; } }
+.wl-link-row .field { display: grid; gap: 6px; }
+.wl-link-row .field span { font-size: .875rem; font-weight: 600; color: var(--text2); }
+.wl-link-row input { min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface2); color: var(--text); font: inherit; font-size: 16px; }
+.wl-link-out { display: flex; align-items: center; gap: 10px; margin-top: 12px; min-width: 0; }
+.wl-link-out code { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface2); color: var(--text); font-size: .8125rem; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .wl-meter { grid-template-columns: minmax(0, 1fr) 4rem; } .wl-meter-track { grid-column: 1 / -1; grid-row: 2; } }
+
+/* Ad builder: Head to head's match controls and the two squads side by side (docs/60 section 4). */
+.ad-match-ctl { display: grid; gap: 12px; margin-bottom: 12px; }
+.ad-match-ctl .field { display: grid; gap: 6px; }
+.ad-match-ctl select, [data-testid="ad-settled"] select { min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface2); color: var(--text); font-size: 16px; max-width: 100%; }
+[data-testid="ad-settled"] .field { display: grid; gap: 6px; margin-bottom: 12px; }
+.ad-match-ctl .field span, [data-testid="ad-settled"] .field span { font-size: .875rem; font-weight: 600; color: var(--text2); }
+.ad-sides { display: grid; gap: 14px; }
+@media (min-width: 600px) { .ad-sides { grid-template-columns: 1fr 1fr; } }
+.ad-side-team { display: block; margin-bottom: 8px; }
+.ad-pick-btn .ad-hit, .ad-pick-btn .ad-miss { font-style: normal; font-weight: 700; font-size: .8125rem; }
+.ad-pick-btn .ad-hit { color: var(--up, var(--brand)); }
+.ad-pick-btn .ad-miss { color: var(--down); }

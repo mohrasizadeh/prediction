@@ -397,8 +397,291 @@ function record(ctx, W, H, p, t, d) {
   D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
 }
 
+// ================================================================ the match, before and after
+// docs/60 section 4. These three read backend/ad_sources.py rather than the public feed: one match's
+// two squads, and one scored match day with its misses left in.
+
+// A whole number prints as one ("5", not "5.0"); anything else keeps one decimal.
+const count = (x) => (x == null ? "–" : Number.isInteger(+x) ? String(+x) : (+x).toFixed(1));
+// The thing being counted, singular or plural. `noun` is ["shot", "shots"] off the forecast.
+const unit = (c, n) => {
+  const nn = Array.isArray(c?.noun) && c.noun.length === 2 ? c.noun : null;
+  const base = nn ? (+n === 1 ? nn[0] : nn[1]) : String(c?.stat || "").replace(/_/g, " ");
+  return base || "";
+};
+// The subject of a sentence: the player as the card names him (shortName), or the club for a team
+// line. Never "he" -- the ad names who it is about.
+const subject = (c) => shortName(c?.player?.name) || c?.team?.name || "";
+// Kick-off as a reader says it: "Sat 15 Nov, 19:00". The API's datetimes are UTC, sometimes
+// without the Z, so it is added before parsing; shown in the owner's own time.
+const when = (k, withTime = true) => {
+  if (!k) return "";
+  const d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(k) ? k : `${k}Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  return withTime ? `${day}, ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : day;
+};
+
+/** A tick or a cross in a filled circle. Shape AND colour, so the result never rests on colour
+ *  alone (docs/03). */
+function mark(ctx, ok, cx, cy, d, p) {
+  ctx.save();
+  ctx.fillStyle = ok ? p.accent : p.down;
+  ctx.beginPath(); ctx.arc(cx, cy, d / 2, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = ok ? p.onAccent : "#fff"; ctx.lineWidth = Math.max(3, d * 0.12); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath();
+  if (ok) { ctx.moveTo(cx - d * 0.22, cy + d * 0.02); ctx.lineTo(cx - d * 0.05, cy + d * 0.19); ctx.lineTo(cx + d * 0.24, cy - d * 0.17); }
+  else { ctx.moveTo(cx - d * 0.18, cy - d * 0.18); ctx.lineTo(cx + d * 0.18, cy + d * 0.18); ctx.moveTo(cx + d * 0.18, cy - d * 0.18); ctx.lineTo(cx - d * 0.18, cy + d * 0.18); }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** The published line against what he recorded: the track is the scale, the bar is the count, the
+ *  upright is the line. The waitlist page's proof strip, at poster size. */
+function lineStrip(ctx, thr, actual, ok, x, y, w, h, p, fam, s) {
+  const steps = Math.max(Math.ceil(+actual || 0), Math.ceil(+thr || 0)) + 1;
+  const ux = w / steps;
+  D.card(ctx, x, y, w, h, h / 2, D.alpha(p.text, 0.1));
+  if (+actual > 0) D.card(ctx, x, y, Math.max(h, (+actual) * ux), h, h / 2, ok ? p.accent : p.down);
+  const xt = x + (+thr) * ux;
+  ctx.fillStyle = p.text; ctx.fillRect(xt - 3 * s, y - 14 * s, 6 * s, h + 28 * s);
+  ctx.fillStyle = p.text3; ctx.font = D.font(fam, 600, 22 * s); ctx.textAlign = "center";
+  // "needed 3", not "the line: 2.5": a reader counts shots, the half is the engine's bookkeeping
+  ctx.fillText(`needed ${Math.floor(+thr) + 1}`, Math.min(Math.max(xt, x + 70 * s), x + w - 70 * s), y + h + 46 * s);
+  ctx.textAlign = "left";
+}
+
+// ---------------------------------------------------------------- 11. head to head
+// One player from each side, before kick-off. Two columns in every size, because the comparison is
+// the claim: in a stack, the second player is read as an afterthought.
+//
+// With no market picked each player shows his strongest lines, one per market. With one picked,
+// both stand on the same question and the number is set large, because then the two numbers ARE
+// the ad.
+function faceoff(ctx, W, H, p, t, d) {
+  const m = d.matchup || {};
+  const pad = W * 0.072, inner = W - pad * 2;
+  const foot = footRoom(W, H);
+  const wide = isWide(W, H);
+  const one = !!m.stat;
+  const gap = (wide ? 90 : 40) * t.s;
+  // A story is 9:16. Laid out at square proportions it left half the frame empty, so on a tall
+  // canvas every block is allowed to grow.
+  const grow = H / W > 1.5 ? 1.32 : 1;
+  const colW = (inner - gap) / 2;
+  let y = pad;
+  ctx.textAlign = "left"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 26 * t.s);
+  ctx.fillText((d.text.kicker || "Before kick-off").toUpperCase(), pad, y + 24 * t.s);
+  ctx.textAlign = "right"; ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 24 * t.s);
+  ctx.fillText(D.fit(ctx, [m.league_name, when(m.kickoff)].filter(Boolean).join("  ·  "), inner * 0.58), W - pad, y + 24 * t.s);
+  y += 52 * t.s;
+  if (d.text.headline) {
+    ctx.textAlign = "left"; ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, (wide ? 46 : 58) * t.s);
+    y = D.block(ctx, d.text.headline, pad, y + (wide ? 44 : 54) * t.s, inner, { lineHeight: (wide ? 52 : 64) * t.s, lines: 2 });
+    y += 10 * t.s;
+  }
+  const sides = [m.home, m.away];
+  const pics = [d.images.homeP, d.images.awayP], crests = [d.images.homeT, d.images.awayT];
+  const avail = H - foot - y - (d.text.subhead ? 50 * t.s : 0);
+  // Sized from the room there is, then centred in it: fixed sizes left a story two-thirds empty
+  // and squeezed a landscape's rows to slivers.
+  const cd = 54 * t.s;
+  const headH = 18 * t.s + cd + 26 * t.s;
+  const ph = wide ? Math.min(colW * 0.3, 160 * t.s, avail * 0.36) : Math.min(colW * 0.62, 300 * grow * t.s, avail * 0.3);
+  const idH = wide ? ph + 30 * t.s : ph + 56 * grow * t.s + 66 * grow * t.s;
+  const lh = one ? Math.min(Math.max(avail * 0.24, 170 * t.s), 260 * grow * t.s)
+    : Math.min(Math.max(avail * (wide ? 0.2 : 0.11), (wide ? 70 : 84) * t.s), (wide ? 96 : 124 * grow) * t.s);
+  const nLines = one ? 1 : Math.max(1, Math.min(3, Math.floor((avail - headH - idH) / lh)));
+  const used = one ? 1 : Math.max(1, ...sides.map((sd) => Math.min(nLines, sd?.pick?.lines?.length || 0)));
+  const content = headH + idH + used * lh;
+  const top = y + Math.max(0, (avail - content) * 0.42);
+
+  sides.forEach((sd, i) => {
+    const c = sd?.pick;
+    const x = pad + i * (colW + gap);
+    let yy = top + 18 * t.s;
+    // the club, small, above its player
+    D.chip(ctx, crests[i], x + cd / 2, yy + cd / 2, cd, p);
+    ctx.textAlign = "left"; ctx.fillStyle = p.text2; ctx.font = D.font(t.body, 700, 28 * t.s);
+    ctx.fillText(D.fit(ctx, sd?.team?.name || "", colW - cd - 16 * t.s), x + cd + 16 * t.s, yy + cd * 0.66);
+    yy += cd + 26 * t.s;
+    if (wide) {
+      D.portrait(ctx, pics[i], x + ph / 2, yy + ph / 2, ph, p, initials(c?.player?.name), t.heading);
+      const tx = x + ph + 20 * t.s, tw = colW - ph - 20 * t.s;
+      ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, 40 * t.s);
+      ctx.fillText(D.fit(ctx, shortName(c?.player?.name) || "Nobody yet", tw), tx, yy + ph * 0.48);
+      ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 24 * t.s);
+      ctx.fillText(D.fit(ctx, c?.pos ? String(c.pos).toUpperCase() : "", tw), tx, yy + ph * 0.48 + 36 * t.s);
+      yy += ph + 30 * t.s;
+    } else {
+      D.portrait(ctx, pics[i], x + colW / 2, yy + ph / 2, ph, p, initials(c?.player?.name), t.heading);
+      yy += ph + 56 * grow * t.s;
+      ctx.textAlign = "center"; ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, 46 * grow * t.s);
+      ctx.fillText(D.fit(ctx, shortName(c?.player?.name) || "Nobody yet", colW), x + colW / 2, yy);
+      ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 24 * grow * t.s);
+      ctx.fillText(D.fit(ctx, c?.pos ? String(c.pos).toUpperCase() : "", colW), x + colW / 2, yy + 36 * grow * t.s);
+      yy += 66 * grow * t.s;
+    }
+    const lines = (c?.lines || []).slice(0, nLines);
+    if (one && lines[0]) {
+      const l = lines[0];
+      D.card(ctx, x, yy, colW, lh, 28, p.surface1, p.border);
+      ctx.textAlign = "center"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, Math.min(lh * 0.46, 120 * t.s));
+      ctx.fillText(pct(l.p), x + colW / 2, yy + lh * 0.5);
+      ctx.fillStyle = p.text2; ctx.font = D.font(t.body, 700, 28 * t.s);
+      ctx.fillText(D.fit(ctx, l.market || "", colW - 40 * t.s), x + colW / 2, yy + lh * 0.5 + 44 * t.s);
+      D.meter(ctx, { p: l.p, lo: l.lo, hi: l.hi }, x + 30 * t.s, yy + lh - 34 * t.s, colW - 60 * t.s, 12 * t.s, p);
+    } else {
+      lines.forEach((l, k) => {
+        const ry = yy + k * lh, h = lh - 12 * t.s;
+        D.card(ctx, x, ry, colW, h, 20, p.surface1, p.border);
+        ctx.textAlign = "left"; ctx.fillStyle = p.text2; ctx.font = D.font(t.body, 700, Math.min(28 * grow * t.s, h * 0.3));
+        ctx.fillText(D.fit(ctx, l.market || "", colW * 0.58), x + 22 * t.s, ry + h * 0.48);
+        ctx.textAlign = "right"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, Math.min(46 * grow * t.s, h * 0.46));
+        ctx.fillText(pct(l.p), x + colW - 22 * t.s, ry + h * 0.52);
+        D.meter(ctx, { p: l.p, lo: l.lo, hi: l.hi }, x + 22 * t.s, ry + h * 0.74, colW - 44 * t.s, Math.max(8 * t.s, h * 0.09), p);
+      });
+      if (!lines.length) {
+        ctx.textAlign = "left"; ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 26 * t.s);
+        D.block(ctx, one ? "No published line on this market" : "No published line yet", x, yy + 30 * t.s, colW, { lineHeight: 34 * t.s, lines: 2 });
+      }
+    }
+  });
+  // the "v" sits between the two portraits
+  const vy = top + headH + ph / 2;
+  ctx.textAlign = "center"; ctx.fillStyle = p.text3; ctx.font = D.font(t.heading, 800, 40 * t.s);
+  ctx.fillText("v", W / 2, vy + 14 * t.s);
+  if (d.text.subhead) {
+    ctx.textAlign = "left"; ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 500, 26 * t.s);
+    ctx.fillText(D.fit(ctx, d.text.subhead, inner), pad, H - foot - 6 * t.s);
+  }
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
+}
+
+// ---------------------------------------------------------------- 12. we said, it happened
+// One forecast as it was published, and what happened. Drawn the same way whether it came in or
+// not: a builder that could only draw hits would be a builder for cherry-picking.
+function verdict(ctx, W, H, p, t, d) {
+  const c = d.card || {};
+  const pad = W * 0.072, inner = W - pad * 2;
+  const foot = footRoom(W, H);
+  const wide = isWide(W, H);
+  const ok = !!c.reached;
+  const grow = H / W > 1.5 ? 1.4 : 1;                       // a story gets bigger blocks, not more empty frame
+  const kick = (d.text.kicker || "We said. It happened.").toUpperCase();
+  let y = pad;
+  ctx.textAlign = "left"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 26 * t.s);
+  ctx.fillText(kick, pad, y + 24 * t.s);
+  ctx.textAlign = "right"; ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 24 * t.s);
+  ctx.fillText(D.fit(ctx, when(c.kickoff, false), inner * 0.4), W - pad, y + 24 * t.s);
+  y += 52 * t.s;
+  const ph = Math.min(W * (wide ? 0.13 : 0.2 * grow), 200 * grow * t.s);
+  const headW = wide ? inner * 0.42 : inner;
+  cardHead(ctx, c, d, p, t, pad, y, headW, ph);
+  // two boxes: what we said, what happened
+  const bx = wide ? pad + headW + 40 * t.s : pad;
+  const bw = wide ? W - pad - bx : inner;
+  const by = wide ? y : y + ph + 40 * grow * t.s;
+  const stripRoom = 120 * t.s;
+  const bh = Math.min(wide ? H - foot - by - stripRoom : 400 * grow * t.s, (H - foot - by - stripRoom - 30 * t.s));
+  const half = (bw - 24 * t.s) / 2;
+  [0, 1].forEach((k) => {
+    const x = bx + k * (half + 24 * t.s);
+    D.card(ctx, x, by, half, bh, 30, p.surface1, k === 1 ? (ok ? p.accent : p.down) : p.border);
+    ctx.textAlign = "left"; ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 700, 24 * t.s);
+    ctx.fillText(k === 0 ? "WE SAID" : "IT HAPPENED", x + 30 * t.s, by + 50 * t.s);
+    const big = Math.min(bh * 0.4, 128 * grow * t.s, half * 0.42);
+    ctx.font = D.font(t.heading, 800, big);
+    ctx.fillStyle = k === 0 ? p.ink : p.text;
+    ctx.fillText(k === 0 ? pct(c.p) : count(c.actual), x + 30 * t.s, by + 50 * t.s + big * 1.02);
+    ctx.fillStyle = p.text2; ctx.font = D.font(t.body, 600, Math.min(26 * t.s, half * 0.07));
+    const sub = k === 0 ? `for ${c.market || "the line"}` : `${unit(c, c.actual)} for ${subject(c)}`;
+    D.block(ctx, sub, x + 30 * t.s, by + 50 * t.s + big * 1.02 + 44 * t.s, half - 60 * t.s, { lineHeight: 32 * t.s, lines: 2 });
+    if (k === 1) {
+      const md = 44 * t.s;
+      mark(ctx, ok, x + half - 30 * t.s - md / 2, by + 40 * t.s, md, p);
+    } else {
+      D.tier(ctx, c.tier, x + 30 * t.s, by + bh - 76 * t.s, p, t.body, t.s * 0.9);
+    }
+  });
+  // the line, and how far past (or short of) it he finished
+  const sy = by + bh + 44 * t.s;
+  if (sy + 30 * t.s < H - foot) lineStrip(ctx, c.thr, c.actual, ok, bx, sy, bw, 22 * t.s, p, t.body, t.s);
+  if (d.text.subhead && !wide) {
+    ctx.textAlign = "left"; ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 500, 26 * t.s);
+    D.block(ctx, d.text.subhead, pad, Math.min(sy + 120 * t.s, H - foot - 40 * t.s), inner, { lineHeight: 34 * t.s, lines: 2 });
+  }
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
+}
+
+// ---------------------------------------------------------------- 13. how the day went
+// A match day's forecasts against what happened. The rows are the owner's pick; the COUNT on the
+// image is the whole day's, always, so showing the five that came in cannot pass for a perfect day.
+function results(ctx, W, H, p, t, d) {
+  const st = d.settled || {};
+  const pad = W * 0.072, inner = W - pad * 2;
+  const wide = isWide(W, H);
+  const ratio = H / W;
+  const want = wide ? 8 : ratio > 1.4 ? 8 : ratio > 1.1 ? 6 : 5;
+  const rows = (st.rows || []).slice(0, want);
+  const foot = footRoom(W, H);
+  let y = pad;
+  ctx.textAlign = "left"; ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, 26 * t.s);
+  ctx.fillText((d.text.kicker || "After the whistle").toUpperCase(), pad, y + 24 * t.s);
+  ctx.textAlign = "right"; ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, 24 * t.s);
+  ctx.fillText(D.fit(ctx, when(st.day, false), inner * 0.4), W - pad, y + 24 * t.s);
+  y += 52 * t.s;
+  ctx.textAlign = "left"; ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, (wide ? 50 : 62) * t.s);
+  y = D.block(ctx, d.text.headline || "What we said, and what happened", pad, y + (wide ? 46 : 56) * t.s, inner, { lineHeight: (wide ? 56 : 68) * t.s, lines: 2 });
+  // The day's own count, in words, under the headline.
+  if (st.n) {
+    ctx.fillStyle = p.text2; ctx.font = D.font(t.body, 600, 28 * t.s);
+    const line = `${st.came_in} of ${st.n} came in that day.${rows.length < st.n ? ` Showing ${rows.length}; every scored line counts.` : ""}`;
+    // Not replaceable by the sub-head: this sentence is what keeps a list of five hits honest.
+    y = D.block(ctx, line, pad, y + 8 * t.s, inner, { lineHeight: 36 * t.s, lines: 2 });
+  }
+  y += 24 * t.s;
+  const cols = wide ? 2 : 1;
+  const perCol = Math.ceil(rows.length / cols);
+  const colW = (inner - (cols - 1) * 20 * t.s) / cols;
+  const rh = Math.min((H - y - foot) / Math.max(perCol, 1), 140 * t.s);
+  rows.forEach((c, i) => {
+    const col = Math.floor(i / perCol), k = i % perCol;
+    const rx = pad + col * (colW + 20 * t.s), ry = y + k * rh;
+    const h = rh - 12 * t.s;
+    D.card(ctx, rx, ry, colW, h, 22, p.surface1, p.border);
+    const cy = ry + h / 2;
+    const cd = Math.min(h * 0.58, 60 * t.s);
+    D.chip(ctx, d.images.rows?.[i], rx + 20 * t.s + cd / 2, cy, cd, p);
+    const nx = rx + 20 * t.s + cd + 18 * t.s;
+    const right = Math.min(250 * t.s, colW * 0.42);
+    const tw = colW - (nx - rx) - right;
+    ctx.textAlign = "left"; ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, Math.min(h * 0.27, 34 * t.s));
+    ctx.fillText(D.fit(ctx, shortName(c.player?.name) || c.team?.name || "", tw), nx, cy - 3 * t.s);
+    ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, Math.min(h * 0.2, 24 * t.s));
+    ctx.fillText(D.fit(ctx, [c.market, c.opp?.name && `vs ${c.opp.name}`].filter(Boolean).join("  ·  "), tw), nx, cy + Math.min(h * 0.24, 30 * t.s));
+    // right side: said -> happened, then the mark
+    const md = Math.min(h * 0.42, 44 * t.s);
+    const mx = rx + colW - 18 * t.s - md / 2;
+    mark(ctx, !!c.reached, mx, cy, md, p);
+    const ax = mx - md / 2 - 16 * t.s;
+    ctx.textAlign = "right";
+    ctx.fillStyle = p.text; ctx.font = D.font(t.heading, 800, Math.min(h * 0.34, 40 * t.s));
+    ctx.fillText(count(c.actual), ax, cy + 6 * t.s);
+    const aw = ctx.measureText(count(c.actual)).width;
+    ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, Math.min(h * 0.18, 22 * t.s));
+    ctx.fillText("had", ax, cy + Math.min(h * 0.3, 32 * t.s));
+    ctx.fillStyle = p.ink; ctx.font = D.font(t.heading, 800, Math.min(h * 0.3, 34 * t.s));
+    const px = ax - aw - 26 * t.s;
+    ctx.fillText(pct(c.p), px, cy + 6 * t.s);
+    ctx.fillStyle = p.text3; ctx.font = D.font(t.body, 600, Math.min(h * 0.18, 22 * t.s));
+    ctx.fillText("said", px, cy + Math.min(h * 0.3, 32 * t.s));
+  });
+  D.footer(ctx, W, H, p, t.heading, { brand: d.brand, site: d.site, logo: d.images.logo, disclaimer: d.disclaimer });
+}
+
 export const TEMPLATES = {
-  card, run, table, fixture, finder, stat, teamstat, record,
+  card, run, table, fixture, finder, stat, teamstat, record, faceoff, verdict, results,
   quote: (ctx, W, H, p, t, d) => headline(ctx, W, H, p, t, d, false),
   cover: (ctx, W, H, p, t, d) => headline(ctx, W, H, p, t, d, true),
   // A question and an ask are the same composition as a headline. They are separate ids because the
@@ -412,6 +695,7 @@ export const TEMPLATES = {
 export const BG = {
   card: "wash", run: "wash", table: "wash", fixture: "wash", finder: "wash", teamstat: "wash", record: "wash",
   stat: "wash", quote: "brand", cover: "brand", curiosity: "brand", cta: "brand",
+  faceoff: "wash", verdict: "wash", results: "wash",
 };
 
 /** The images a template needs, so the page can fetch them before it draws. */
@@ -420,6 +704,16 @@ export function needed(template, dcard, cards, logo, extra) {
   if (template === "teamstat") out.team = extra?.teamStat?.team?.image || null;
   if (template === "record") out.league = extra?.record?.league_image || null;
   if (template === "table") out.rows = (cards || []).map((c) => c.player?.image || c.team?.image || null);
+  if (template === "faceoff") {
+    const m = extra?.matchup || {};
+    out.homeP = m.home?.pick?.player?.image || null; out.awayP = m.away?.pick?.player?.image || null;
+    out.homeT = m.home?.team?.image || null; out.awayT = m.away?.team?.image || null;
+    return out;
+  }
+  if (template === "results") {
+    out.rows = (extra?.settled?.rows || []).map((c) => c.player?.image || c.team?.image || null);
+    return out;
+  }
   if (dcard) {
     out.player = dcard.player?.image || null;
     out.team = dcard.team?.image || null;

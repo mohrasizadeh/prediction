@@ -33,7 +33,25 @@ const SEED = {
   stat: { stat_value: "72%", headline: "of our Strong forecasts happened", subhead: "Every forecast we publish is scored after the match, and the record is on the site." },
   quote: { kicker: "Why us", headline: "We show you the reason, not just the number", subhead: "", cta: "See today's forecasts" },
   cover: { kicker: "Today", headline: "Five players worth watching tonight", subhead: "", cta: "Swipe" },
+  faceoff: { kicker: "Before kick-off", headline: "", subhead: "" },
+  verdict: { kicker: "We said. It happened.", headline: "", subhead: "" },
+  results: { kicker: "After the whistle", headline: "What we said, and what happened", subhead: "" },
 };
+
+// The families a template belongs to. Switching between families clears the picks, because a
+// forecast key from tomorrow's feed means nothing to a scored match day and the other way round.
+const family = (needs) => (needs === "match" ? "match" : needs === "settled" || needs === "settled_one" ? "settled" : "feed");
+// Finer than the family: the one-result ad and the day's-results ad read the same rows but pick
+// differently, and a single forecast chosen for the first made the second a one-row list.
+const pickKind = (needs) => (needs === "settled_one" ? "settled_one" : family(needs));
+const statLabel = (k) => { const s = String(k || "").replace(/_/g, " "); return s.charAt(0).toUpperCase() + s.slice(1); };
+const kickoffText = (k) => {
+  if (!k) return "";
+  const d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(k) ? k : `${k}Z`);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+};
+const dayText = (s) => (s ? new Date(`${s}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "");
+const countText = (x) => (x == null ? "–" : Number.isInteger(+x) ? String(+x) : (+x).toFixed(1));
 
 function useBrandFonts(brand) {
   const [ready, setReady] = useState(false);
@@ -115,7 +133,8 @@ export default function Ads() {
   const q = useApi("/admin/ads");
   const feed = useApi("/insights", { limit: 60, tiers: "Strong,Solid,Watch" });
   const leagues = useApi("/leagues");
-  const [design, setDesign] = useState({ template: "card", size: "square", mode: "dark", name: "", headline: "", subhead: "", kicker: "", cta: "", footnote: "", finder_q: "", stat_value: "", accent: "" });
+  const [design, setDesign] = useState({ template: "card", size: "square", mode: "dark", name: "", headline: "", subhead: "", kicker: "", cta: "", footnote: "", finder_q: "", stat_value: "", accent: "",
+    match_id: "", stat: "", day: "", players: [] });
   const [picked, setPicked] = useState([]);           // fkeys, in the order chosen
   const [editing, setEditing] = useState(null);       // saved design id being replaced
   const [busy, setBusy] = useState("");
@@ -136,16 +155,48 @@ export default function Ads() {
 
   // Cards, with the league mark attached: a forecast carries league_id but not the image.
   const cards = useMemo(() => {
-    const byId = Object.fromEntries((leagues.data?.leagues || leagues.data || []).map((l) => [l.id, l]));
+    // /api/leagues answers {countries: [{country, leagues: [...]}]}, as Insights and the Finder read
+    // it. This read `.leagues` or the body itself and called .map on an object, which threw on
+    // render: the whole Ad builder screen came up as "This screen hit a problem".
+    const ls = Array.isArray(leagues.data) ? leagues.data : (leagues.data?.countries || []).flatMap((c) => c.leagues || []);
+    const byId = Object.fromEntries(ls.map((l) => [l.id, l]));
     return (feed.data || []).map((c) => ({ ...c, league_image: byId[c.league_id]?.image || null }));
   }, [feed.data, leagues.data]);
   const chosen = useMemo(() => picked.map((k) => cards.find((c) => c.fkey === k)).filter(Boolean), [picked, cards]);
   const needs = cat?.templates?.find((t) => t.id === design.template)?.needs || "none";
-  const one = chosen[0] || (needs === "card" || needs === "cards" ? cards[0] : null);
+  const fam = family(needs);
+
+  // ---- Head to head: the match list, then the chosen match's two squads (docs/60 section 4)
+  const mList = useApi(tab === "build" && fam === "match" ? "/admin/ads/matchups" : null);
+  const matchId = design.match_id || mList.data?.matches?.[0]?.match_id || "";
+  const mOne = useApi(tab === "build" && fam === "match" && matchId ? "/admin/ads/matchup" : null, { match_id: matchId, ...(design.stat ? { stat: design.stat } : {}) });
+  const matchup = useMemo(() => {
+    const m = mOne.data;
+    if (!m) return null;
+    const pick = (side, i) => side.candidates.find((c) => c.player?.id === design.players?.[i]) || side.candidates[0] || null;
+    return { kickoff: m.kickoff, league_name: m.league_name, stat: m.stat, home: { team: m.home.team, pick: pick(m.home, 0) }, away: { team: m.away.team, pick: pick(m.away, 1) } };
+  }, [mOne.data, design.players]);
+
+  // ---- After the whistle: one scored match day, hits and misses
+  const sQ = useApi(tab === "build" && fam === "settled" ? "/admin/ads/settled" : null, design.day ? { day: design.day } : {});
+  const sRows = useMemo(() => sQ.data?.rows || [], [sQ.data]);
+  const sPicked = useMemo(() => picked.map((k) => sRows.find((r) => r.fkey === k)).filter(Boolean), [picked, sRows]);
+  const settled = useMemo(() => (sQ.data ? { day: sQ.data.day, n: sQ.data.n, came_in: sQ.data.came_in, rows: sPicked.length ? sPicked : sRows } : null),
+    [sQ.data, sPicked, sRows]);
+
+  const one = fam === "settled" ? (sPicked[0] || sRows[0] || null) : chosen[0] || (needs === "card" || needs === "cards" ? cards[0] : null);
   const many = chosen.length ? chosen : cards.slice(0, 8);
+  // What the canvas draws: the saved fields plus the resolved data, which is never saved itself --
+  // a saved ad redraws from today's numbers, not the ones on screen when it was saved.
+  const drawn = useMemo(() => ({ ...design, ...(fam === "match" ? { matchup } : {}), ...(fam === "settled" ? { settled } : {}) }),
+    [design, fam, matchup, settled]);
 
   const set = (patch) => setDesign((d) => ({ ...d, ...patch }));
-  const pickTemplate = (id) => setDesign((d) => ({ ...d, template: id, ...SEED[id] }));
+  const pickTemplate = (id) => {
+    const next = pickKind(cat?.templates?.find((t) => t.id === id)?.needs || "none");
+    if (next !== pickKind(needs)) setPicked([]);
+    setDesign((d) => ({ ...d, template: id, ...SEED[id] }));
+  };
   // Seed the first template once the catalogue is in, so the screen opens on something drawn.
   useEffect(() => { if (cat && !design.headline && !design.kicker) setDesign((d) => ({ ...d, ...SEED[d.template] })); }, [cat]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -226,8 +277,8 @@ export default function Ads() {
     try {
       // Re-painted clean: the preview may be carrying the safe-area guide.
       const off = document.createElement("canvas");
-      const data = await buildData({ design, brand: d0.brand, card: one, cards: many, mode });
-      paint(off, { design, brand: d0.brand, data, mode, accent: design.accent });
+      const data = await buildData({ design: drawn, brand: d0.brand, card: one, cards: many, mode });
+      paint(off, { design: drawn, brand: d0.brand, data, mode, accent: design.accent });
       const blob = await blobOf(off);
       if (!blob) throw new Error("The browser could not make the image.");
       const r = await shareOrSave(blob, `${file}.png`, design.headline || brand?.name || "Ad");
@@ -264,14 +315,14 @@ export default function Ads() {
   const save = async () => {
     setBusy("save-ad");
     try {
-      const body = { ...design, fkeys: picked };
+      const body = { ...design, match_id: fam === "match" ? matchId : design.match_id, day: fam === "settled" ? (sQ.data?.day || design.day) : design.day, fkeys: picked };
       const r = editing ? await put(`/admin/ads/${editing}`, body) : await post("/admin/ads", body);
       setEditing(r.id); toast("Ad saved"); q.reload();
     } catch (e) { toast(sayError(e), "err"); } finally { setBusy(""); }
   };
 
   const open = (d) => {
-    setDesign({ ...design, ...d });
+    setDesign({ ...design, ...d, players: d.players || [], stat: d.stat || "", day: d.day || "", match_id: d.match_id || "" });
     setPicked(d.fkeys || []);
     setEditing(d.id);
     setTab("build");
@@ -279,7 +330,7 @@ export default function Ads() {
 
   const toggleCard = (fkey) => setPicked((ps) => {
     if (ps.includes(fkey)) return ps.filter((x) => x !== fkey);
-    const cap = needs === "card" ? 1 : cat?.max_slides || 10;
+    const cap = needs === "card" || needs === "settled_one" ? 1 : cat?.max_slides || 10;
     return [...ps, fkey].slice(-cap);
   });
 
@@ -386,13 +437,92 @@ export default function Ads() {
               <Field label="Kicker" hint="The small line above, in the accent colour." value={design.kicker} onChange={(e) => set({ kicker: e.target.value })} testid="ad-kicker" />
               {needs === "finder" && <Field label="The question" as="textarea" rows={2} value={design.finder_q} onChange={(e) => set({ finder_q: e.target.value })} testid="ad-finderq" />}
               {(design.template === "stat" || needs === "finder") && <Field label="The number" value={design.stat_value} onChange={(e) => set({ stat_value: e.target.value })} testid="ad-stat" />}
-              {design.template !== "card" && design.template !== "run" && <Field label="Headline" as="textarea" rows={2} value={design.headline} onChange={(e) => set({ headline: e.target.value })} testid="ad-headline" />}
-              <Field label={design.template === "card" || design.template === "run" ? "Line under the strip" : "Sub-head"} as="textarea" rows={2} value={design.subhead} onChange={(e) => set({ subhead: e.target.value })} testid="ad-subhead" />
+              {!["card", "run", "verdict"].includes(design.template) && <Field label="Headline" as="textarea" rows={2} value={design.headline} onChange={(e) => set({ headline: e.target.value })} testid="ad-headline" />}
+              {design.template !== "results" && <Field label={design.template === "card" || design.template === "run" ? "Line under the strip" : design.template === "faceoff" || design.template === "verdict" ? "Small line at the bottom" : "Sub-head"} as="textarea" rows={2} value={design.subhead} onChange={(e) => set({ subhead: e.target.value })} testid="ad-subhead" />}
+              {design.template === "results" && <small className="muted">Under the headline the ad always says how many of that day's scored forecasts came in. It is the day's count, not the rows you pick, so it cannot be edited.</small>}
               {(design.template === "quote" || design.template === "cover") && <Field label="Button" value={design.cta} onChange={(e) => set({ cta: e.target.value })} testid="ad-cta" />}
               <small className="muted">The disclaimer is drawn on every ad and there is no switch for it. The words rules apply here exactly as they do on the site.</small>
             </Card>
 
-            {needs !== "none" && (
+            {fam === "match" && (
+              <Card title="The match" testid="ad-match">
+                {mList.error && <p className="form-error" role="alert">{sayError(mList.error)}</p>}
+                {mList.data && !mList.data.matches.length && <p className="muted" data-testid="ad-match-empty">No upcoming match has published lines on both sides yet. Run the engine first.</p>}
+                {!!mList.data?.matches?.length && (
+                  <div className="ad-match-ctl">
+                    <label className="field"><span>Match</span>
+                      <select value={matchId} onChange={(e) => set({ match_id: e.target.value, players: [] })} data-testid="ad-match-select">
+                        {mList.data.matches.map((m) => <option key={m.match_id} value={m.match_id}>{m.home?.name} v {m.away?.name} · {kickoffText(m.kickoff)}</option>)}
+                      </select></label>
+                    <label className="field"><span>Market</span>
+                      <select value={design.stat} onChange={(e) => set({ stat: e.target.value, players: [] })} data-testid="ad-match-stat">
+                        <option value="">Each player's strongest lines</option>
+                        {(mOne.data?.stats || mList.data.matches.find((m) => m.match_id === matchId)?.stats || []).map((k) => <option key={k} value={k}>{statLabel(k)}, for both</option>)}
+                      </select></label>
+                  </div>
+                )}
+                {mOne.error && <p className="form-error" role="alert">{sayError(mOne.error)}</p>}
+                {mOne.data && (
+                  <div className="ad-sides">
+                    {[mOne.data.home, mOne.data.away].map((side, i) => (
+                      <div key={i} className="ad-side-pick" data-testid={`ad-side-${i ? "away" : "home"}`}>
+                        <b className="ad-side-team">{side.team?.name}</b>
+                        {!side.candidates.length && <small className="muted">No published line{design.stat ? " on this market" : ""}.</small>}
+                        <ul className="ad-pickers">
+                          {side.candidates.map((c, k) => {
+                            const on = (design.players?.[i] || side.candidates[0]?.player?.id) === c.player?.id;
+                            return (
+                              <li key={c.player?.id || k}>
+                                <button type="button" className={"ad-pick-btn" + (on ? " on" : "")} aria-pressed={on}
+                                        onClick={() => { const ps = [...(design.players || [])]; ps[i] = c.player?.id; ps[1 - i] = ps[1 - i] || (i ? mOne.data.home : mOne.data.away).candidates[0]?.player?.id; set({ players: ps }); }}
+                                        data-testid={`ad-side-${i ? "away" : "home"}-${k}`}>
+                                  <b>{c.player?.name}</b>
+                                  <small>{c.lines.map((l) => `${l.market} ${Math.round(l.p * 100)}%`).join(" · ")}</small>
+                                  {on && <Icon name="check" size={16} />}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <small className="muted">The strongest player on each side is picked first. Lines above the feed's ceiling are left out, so a near-certain one-plus never leads.</small>
+              </Card>
+            )}
+
+            {fam === "settled" && (
+              <Card title={needs === "settled_one" ? "Which result" : "Which results"} testid="ad-settled"
+                    actions={picked.length ? <button className="k-link" onClick={() => setPicked([])} data-testid="ad-settled-clear">Clear</button> : null}>
+                {sQ.error && <p className="form-error" role="alert">{sayError(sQ.error)}</p>}
+                {sQ.data && !sQ.data.rows.length && <p className="muted" data-testid="ad-settled-empty">Nothing has been scored in the last 30 days. Results appear here the morning after a match is played.</p>}
+                {!!sQ.data?.days?.length && (
+                  <label className="field"><span>Match day</span>
+                    <select value={sQ.data.day} onChange={(e) => { setPicked([]); set({ day: e.target.value }); }} data-testid="ad-settled-day">
+                      {sQ.data.days.map((x) => <option key={x.day} value={x.day}>{dayText(x.day)} · {x.came_in} of {x.n} came in</option>)}
+                    </select></label>
+                )}
+                <ul className="ad-pickers">
+                  {sRows.map((r) => (
+                    <li key={r.fkey}>
+                      <button type="button" className={"ad-pick-btn" + (picked.includes(r.fkey) ? " on" : "")} aria-pressed={picked.includes(r.fkey)}
+                              onClick={() => toggleCard(r.fkey)} data-testid={`ad-settled-${r.fkey}`}>
+                        <b>{r.player?.name || r.team?.name}</b>
+                        <small>{r.market} · said {Math.round(r.p * 100)}%, had {countText(r.actual)}</small>
+                        <em className={r.reached ? "ad-hit" : "ad-miss"}>{r.reached ? "Came in" : "Missed"}</em>
+                        {picked.includes(r.fkey) && <Icon name="check" size={16} />}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <small className="muted">{needs === "settled_one"
+                  ? "Hits and misses are both here, and the ad draws either one exactly as it went."
+                  : "Nothing picked shows the day's strongest first. The ad always prints the whole day's count."}</small>
+              </Card>
+            )}
+
+            {fam === "feed" && needs !== "none" && (
               <Card title={needs === "card" ? "Which forecast" : "Which forecasts"} testid="ad-pick"
                     actions={picked.length ? <button className="k-link" onClick={() => setPicked([])} data-testid="ad-clear">Clear</button> : null}>
                 {feed.error && <p className="form-error" role="alert">{sayError(feed.error)}</p>}
@@ -418,7 +548,7 @@ export default function Ads() {
           <div className="ad-side">
             <Card title="Preview" testid="ad-preview-card"
                   actions={<Chip tone="brand" testid="ad-px">{SIZES[design.size]?.w} x {SIZES[design.size]?.h}</Chip>}>
-              <Preview design={design} brand={d.brand} card={one} cards={many} mode={mode} accent={design.accent} fontsReady={fontsReady} guide={showSafe} onCanvas={(c) => { canvasRef.current = c; }} />
+              <Preview design={drawn} brand={d.brand} card={one} cards={many} mode={mode} accent={design.accent} fontsReady={fontsReady} guide={showSafe} onCanvas={(c) => { canvasRef.current = c; }} />
               {(design.size === "story") && (
                 <label className="ad-guide"><input type="checkbox" checked={showSafe} onChange={(e) => setShowSafe(e.target.checked)} data-testid="ad-safe" />
                   Show what Instagram covers</label>
@@ -428,8 +558,8 @@ export default function Ads() {
                   <Icon name="download" size={16} />{busy === "save" ? "Making the image…" : "Download PNG"}</button>
                 <button className="btn btn--secondary btn--sm" disabled={!!busy} onClick={() => exportOne("share")} data-testid="ad-share">
                   <Icon name="send" size={16} />Share</button>
-                <button className="btn btn--secondary btn--sm" disabled={!!busy} onClick={exportCarousel} data-testid="ad-carousel">
-                  <Icon name="layers" size={16} />{busy === "zip" ? "Rendering slides…" : "Carousel as a zip"}</button>
+                {fam === "feed" && <button className="btn btn--secondary btn--sm" disabled={!!busy} onClick={exportCarousel} data-testid="ad-carousel">
+                  <Icon name="layers" size={16} />{busy === "zip" ? "Rendering slides…" : "Carousel as a zip"}</button>}
                 <button className="btn btn--secondary btn--sm" disabled={!!busy} onClick={save} data-testid="ad-save">
                   {busy === "save-ad" ? "Saving…" : editing ? "Save changes" : "Save ad"}</button>
                 {editing && <button className="k-link" onClick={() => setEditing(null)} data-testid="ad-new">Save as a new ad instead</button>}

@@ -41,6 +41,9 @@ MODULES = [
     ("announcements", "Announcements", "Marketing", "flag", "/admin/announcements", ("content.write",)),
     ("blog", "Blog", "Marketing", "book", "/admin/blog", ("content.write",)),
     ("campaigns", "Campaigns", "Marketing", "send", "/admin/campaigns", ("email.write",)),
+    # The landing page's own numbers (docs/68): traffic, scroll depth, sources, sign-ups. Beside
+    # the list it fills, and readable by anyone who can read Analytics.
+    ("waitlist", "Waitlist", "Marketing", "trending-up", "/admin/waitlist", ("analytics.read",)),
     ("newsletter", "E-mail list", "Marketing", "list", "/admin/newsletter", ("email.read",)),
     # Both new in docs/60. Media sat under Website as "Images" while its only reader was Site Studio;
     # an e-mail or an ad needs the same library, and that is marketing work, so it moved here and

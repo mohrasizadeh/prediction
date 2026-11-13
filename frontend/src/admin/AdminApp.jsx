@@ -30,6 +30,7 @@ import Schedule from "./Schedule";
 import Screens from "./Screens";
 import Popups from "./Popups";
 import Newsletter from "./Newsletter";
+import WaitlistStats from "./WaitlistStats";
 import Integrations from "./Integrations";
 import Analytics from "./Analytics";
 import AdminHome, { Needs } from "./Home";
@@ -41,7 +42,7 @@ const SCREENS = { dashboard: AdminHome, needs: Needs, analytics: Analytics, user
   studio: Studio, pages: Content, inbox: Inbox, announcements: Announcements, plans: Plans, leagues: Leagues, jobs: Jobs, engine: Engine,
   feeds: Feeds, apifootball: APIFootball,
   subscriptions: Subscriptions, payments: Payments, coupons: Coupons, revenue: Revenue, templates: Templates, suppressions: Suppressions, campaigns: Campaigns,
-  popups: Popups, newsletter: Newsletter, integrations: Integrations, email_log: EmailLog, media: Media, ads: Ads, schedule: Schedule, screens: Screens, blog: Blog };
+  popups: Popups, waitlist: WaitlistStats, newsletter: Newsletter, integrations: Integrations, email_log: EmailLog, media: Media, ads: Ads, schedule: Schedule, screens: Screens, blog: Blog };
 // A tabbed screen owns the routes below its own, so a link to one tab works and Back leaves the screen.
 const WITH_TABS = { analytics: "analytics/:tab", apifootball: "data/apifootball/:tab" };
 // Screens that were folded into a tabbed one. An old bookmark or an in-app link still lands in the right place.

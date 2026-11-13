@@ -77,7 +77,10 @@ with TestClient(srv.app) as owner:
     # ---------------- the ad builder
     check(anon.get("/api/admin/ads").status_code in (401, 403), "a signed-out visitor cannot open the ad builder")
     r = admin.get("/api/admin/ads"); a = r.json()
-    check(r.status_code == 200 and len(a["catalogue"]["templates"]) == 8 and len(a["catalogue"]["sizes"]) == 5, "eight templates and five sizes")
+    # Eight from docs/60 section 2, and the match before and after from section 4.
+    ids = [t["id"] for t in a["catalogue"]["templates"]]
+    check(r.status_code == 200 and len(ids) == 11 and {"faceoff", "verdict", "results"} <= set(ids) and len(a["catalogue"]["sizes"]) == 5,
+          "eleven templates (the three match ads among them) and five sizes")
     sq = next(s for s in a["catalogue"]["sizes"] if s["id"] == "square")
     check(sq["w"] == 1080 and sq["h"] == 1080, "a square exports at the real 1080, not an upscale")
     b = a["brand"]

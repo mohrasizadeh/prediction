@@ -20,9 +20,12 @@ from urllib.parse import urlparse
 
 import settings_store as S
 
-CLIENT_EVENTS = {"page_view", "pricing_view", "paywall_view", "insight_view"}       # the browser may send these
+# wl_* are the waitlist landing page's own (docs/68 section "Measuring it"): how far down a visitor
+# read, which sections they reached, and whether they started the form. They carry one small prop
+# each and nothing about the person.
+CLIENT_EVENTS = {"page_view", "pricing_view", "paywall_view", "insight_view", "wl_scroll", "wl_section", "wl_form_start"}  # the browser may send these
 SERVER_EVENTS = {"signup", "verified", "login", "finder_search", "checkout_started", "checkout_completed", "subscribed",
-                 "follow", "save", "contact"}
+                 "follow", "save", "contact", "waitlist_signup"}
 _BOT = re.compile(r"bot|crawl|spider|slurp|headless|lighthouse|preview|monitor|curl|python-requests|wget", re.I)
 
 
@@ -62,6 +65,37 @@ def clean_utm(utm) -> dict | None:
             if v:
                 out[k] = v
     return out or None
+
+
+# Where a visit came from, in the words an owner uses. A campaign tag wins, because the owner put it
+# there on purpose; then the referring site, folded so l.instagram.com and instagram.com are one row;
+# then "direct", which is also what a privacy-minded browser that strips the referrer looks like.
+_REF_FOLD = [(r"(^|\.)(t\.co|twitter\.com|x\.com)$", "x"), (r"(^|\.)instagram\.com$", "instagram"),
+             (r"(^|\.)(facebook\.com|fb\.com|fb\.me|messenger\.com)$", "facebook"), (r"(^|\.)tiktok\.com$", "tiktok"),
+             (r"(^|\.)(reddit\.com|redd\.it)$", "reddit"), (r"(^|\.)(youtube\.com|youtu\.be)$", "youtube"),
+             (r"(^|\.)linkedin\.com$|(^|\.)lnkd\.in$", "linkedin"), (r"(^|\.)(whatsapp\.com|wa\.me)$", "whatsapp"),
+             (r"(^|\.)t\.me$|(^|\.)telegram\.org$", "telegram"), (r"(^|\.)google\.[a-z.]+$", "google"),
+             (r"(^|\.)bing\.com$", "bing"), (r"(^|\.)duckduckgo\.com$", "duckduckgo")]
+
+
+def source_of(utm: dict | None, ref_host: str | None) -> str:
+    if utm and utm.get("source"):
+        return utm["source"]
+    h = (ref_host or "").lower()
+    if not h:
+        return "direct"
+    for pat, name in _REF_FOLD:
+        if re.search(pat, h):
+            return name
+    return h[4:] if h.startswith("www.") else h
+
+
+def attribution(utm, ref: str | None) -> dict:
+    """The same source, medium and campaign a page view records, for storing beside a sign-up."""
+    u = clean_utm(utm) or {}
+    host = (urlparse(ref).hostname or "")[:80] if ref else ""
+    return {"source": source_of(u, host), "medium": u.get("medium") or ("referral" if host else "none"),
+            "campaign": u.get("campaign") or "", "ref_host": host}
 
 
 def device_of(ua: str) -> str:

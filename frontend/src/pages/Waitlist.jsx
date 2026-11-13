@@ -23,8 +23,57 @@ import { sayError } from "../lib/errors";
 import { useTitle } from "../components/Football";
 import { ErrorState, Skeleton } from "../components/ui";
 import { paint } from "../lib/lpfigures";
+import { usePageBeacon } from "../lib/growth";
 
 const CONSENT = "Yes, send me the match-day e-mail. I can unsubscribe from any of them.";
+
+// Where this visit came from, sent with the sign-up so Admin > Waitlist can say which source brought
+// which sign-ups. The same two things the page-view beacon already records (growth.js): the landing
+// URL's utm_* tags and an outside referrer. The server ignores both under Do Not Track.
+function arrival() {
+  const q = new URLSearchParams(window.location.search);
+  const utm = { source: q.get("utm_source"), medium: q.get("utm_medium"), campaign: q.get("utm_campaign") };
+  const ref = document.referrer && !document.referrer.startsWith(window.location.origin) ? document.referrer.slice(0, 300) : undefined;
+  return { ...(utm.source || utm.medium || utm.campaign ? { utm: Object.fromEntries(Object.entries(utm).map(([k, v]) => [k, (v || "").slice(0, 80)])) } : {}), ...(ref ? { ref } : {}) };
+}
+
+const PAGE = "/waitlist";
+function beacon(name, detail) {
+  const body = { name, path: PAGE };
+  if (detail) body.props = detail;
+  post("/analytics/collect", body).catch(() => {});
+}
+
+// How far down a visitor read (docs/68 "Measuring it"). Four depth marks and five sections, each
+// sent at most once per page load, so a reader scrolling up and down sends nothing more. Passive and
+// frame-throttled: this page is the first thing a stranger sees and must not jank to measure itself.
+function useReadTracking() {
+  useEffect(() => {
+    const sent = new Set();
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const doc = document.documentElement;
+      const seen = (window.scrollY + window.innerHeight) / Math.max(doc.scrollHeight, 1);
+      [25, 50, 75, 100].forEach((d) => {
+        // 100 means the bottom was reached; the last few pixels of a footer are not worth waiting for
+        if (!sent.has(d) && seen >= (d === 100 ? 0.98 : d / 100)) { sent.add(d); beacon("wl_scroll", { depth: d }); }
+      });
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(measure); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    measure();
+    let io;
+    if ("IntersectionObserver" in window) {
+      io = new IntersectionObserver((entries) => entries.forEach((e) => {
+        const id = e.target.dataset.track;
+        if (e.isIntersecting && !sent.has(id)) { sent.add(id); beacon("wl_section", { section: id }); io.unobserve(e.target); }
+      }), { threshold: 0.35 });
+      document.querySelectorAll("[data-track]").forEach((el) => io.observe(el));
+    }
+    return () => { window.removeEventListener("scroll", onScroll); if (raf) cancelAnimationFrame(raf); io?.disconnect(); };
+  }, []);
+}
 
 function Form() {
   const [name, setName] = useState("");
@@ -32,6 +81,7 @@ function Form() {
   const [consent, setConsent] = useState(false);
   const [state, setState] = useState("");
   const [err, setErr] = useState("");
+  const started = useRef(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -39,7 +89,7 @@ function Form() {
     if (!consent) { setErr("Please tick the box so we know you want the e-mail."); return; }
     setState("busy");
     try {
-      await post("/newsletter/subscribe", { email, name, consent, source: "waitlist" });
+      await post("/newsletter/subscribe", { email, name, consent, source: "waitlist", ...arrival() });
       setState("done");
     } catch (x) { setErr(sayError(x)); setState(""); }
   };
@@ -58,7 +108,8 @@ function Form() {
   }
 
   return (
-    <form className="form-card" onSubmit={submit} noValidate data-testid="wl-form">
+    <form className="form-card" onSubmit={submit} noValidate data-testid="wl-form"
+      onFocus={() => { if (!started.current) { started.current = true; beacon("wl_form_start"); } }}>
       <h2>Three forecasts, every match day</h2>
       <p className="fc-sub">Free while we are in private build. No card, no app to install.</p>
       <label className="field"><span>First name</span>
@@ -89,6 +140,10 @@ export default function Waitlist() {
     return typeof v === "string" && v.trim() ? v : fallback;
   };
   useTitle("Join the waitlist");
+  // This page sits outside <Layout>, which is where every other page's view beacon lives -- so
+  // /waitlist, the one page adverts point at, recorded no visits at all.
+  usePageBeacon("/waitlist");
+  useReadTracking();
   const rec = useApi("/track-record");
   const pf = useApi("/proof", { limit: 8 });
   const lk = useApi("/likely", { within_h: 24, limit: 1 });
@@ -172,7 +227,7 @@ export default function Waitlist() {
           </div>
         </section>
 
-        <section className="band" id="proof">
+        <section className="band" id="proof" data-track="proof">
           <div className="wrap">
             <p className="eyebrow">{t("proof_eyebrow", "Published, scored, settled")}</p>
             <h2>{t("proof_title", "The cards that already happened")}</h2>
@@ -186,7 +241,7 @@ export default function Waitlist() {
           </div>
         </section>
 
-        <section className="plain" id="engine">
+        <section className="plain" id="engine" data-track="engine">
           <div className="wrap">
             <p className="eyebrow">{t("engine_eyebrow", "Inside the engine")}</p>
             <h2>{t("engine_title", "Four things a table of averages cannot do")}</h2>
@@ -203,7 +258,7 @@ export default function Waitlist() {
           </div>
         </section>
 
-        <section className="band" id="record">
+        <section className="band" id="record" data-track="record">
           <div className="wrap">
             <p className="eyebrow">{t("record_eyebrow", "The whole record")}</p>
             <h2>{t("record_title", "What we said, against what happened")}</h2>
@@ -219,7 +274,7 @@ export default function Waitlist() {
           </div>
         </section>
 
-        <section className="plain">
+        <section className="plain" id="costs" data-track="costs">
           <div className="wrap">
             <p className="eyebrow">{t("costs_eyebrow", "On purpose")}</p>
             <h2>{t("costs_title", "Three things we do that cost us")}</h2>
@@ -231,7 +286,7 @@ export default function Waitlist() {
           </div>
         </section>
 
-        <section className="cta">
+        <section className="cta" id="close" data-track="close">
           <div className="wrap">
             <h2>{t("close_title", "Three forecasts. Every match day. Until we open.")}</h2>
             <p>

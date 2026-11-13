@@ -159,6 +159,10 @@ class FormBody(BaseModel):
     consent: bool = False
     name: str = Field("", max_length=80)
     source: str = Field("", max_length=40)
+    # Where the visitor arrived from: the landing URL's utm_* tags and the outside referrer. Sent by
+    # the waitlist page only, and used only for counting (docs/68). Ignored under DNT / GPC.
+    utm: Optional[dict] = None
+    ref: Optional[str] = Field(None, max_length=300)
 
 
 @public.post("/popups/{pid}/submit")
@@ -177,8 +181,26 @@ def newsletter_subscribe(body: FormBody, request: Request, db=Depends(D.get_db))
     # The waitlist page sends its own source so the two audiences can be told apart later; anything
     # else is the footer form, as before.
     src = "waitlist" if body.source == "waitlist" else "footer"
+    dnt = request.headers.get("dnt") == "1" or request.headers.get("sec-gpc") == "1"
+    attrib = AN.attribution(body.utm, body.ref) if src == "waitlist" and not dnt else None
+    # A sign-up is a NEW person: someone pressing the button again, or already on the list, is not
+    # counted twice. An address that had unsubscribed and comes back is new again.
+    try:
+        prior = db.newsletter.find_one({"email": A.norm_email(body.email)}, {"status": 1}) if src == "waitlist" else None
+    except A.AuthError:
+        prior = None                                    # subscribe() below refuses the address itself
+    is_new = src == "waitlist" and (not prior or prior.get("status") == "unsubscribed")
     N.subscribe(db, body.email, source=src, consent_text=S.get(db, "newsletter.consent_text"),
-                consent=body.consent, ip_hash=hashlib.sha256(ip.encode()).hexdigest()[:16], name=body.name)
+                consent=body.consent, ip_hash=hashlib.sha256(ip.encode()).hexdigest()[:16], name=body.name, attrib=attrib)
+    if is_new:
+        # Counted at the moment of asking, whatever the address turns out to be: the dashboard's
+        # "sign-ups" is people who filled the form in, and "confirmed" comes from the list itself.
+        # A tracking failure must never fail a sign-up the reader has already pressed.
+        try:
+            AN.track(db, "waitlist_signup", ip=ip, ua=request.headers.get("user-agent", "")[:200], path="/waitlist",
+                     ref=None if dnt else body.ref, utm=None if dnt else body.utm, server=True)
+        except Exception:
+            pass
     return {"ok": True, "message": "Thanks. If that address can join, we sent a link to confirm it."}
 
 

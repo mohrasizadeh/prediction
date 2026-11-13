@@ -57,3 +57,34 @@ different company is an advert for a different company.
 
 Rendered before it was written, at 900px and at 390px, with no horizontal scroll and no page
 errors.
+
+## Measuring it (added 2026-11-13)
+
+**Admin > Waitlist** (Marketing, `analytics.read`) answers whether the page is doing its one job. It
+shows visitors, page views, sign-ups and the sign-up rate (each against the period before), how
+many are on the list, and who is on the page right now. Below that: visitors and sign-ups per day;
+the funnel (visited, read half the page, started the form, signed up); how far people scroll (25,
+50, 75, 100%); which sections they reached; and sources and campaigns with visitors, sign-ups, rate
+and confirmations. A link builder makes tagged links for each place the owner posts. Report:
+`backend/waitlist_stats.py`, route `GET /api/admin/waitlist/analytics?days=`.
+
+**Until this pass the page recorded no visits at all.** The page-view beacon lives in `<Layout>`,
+and `/waitlist` sits outside it on purpose. The page now calls `usePageBeacon` itself.
+
+The page sends three small events through the same first-party `/analytics/collect`: `wl_scroll`
+(depth 25/50/75/100), `wl_section` (proof/engine/record/costs/close) and `wl_form_start`. Each is
+sent at most once per page load and carries one small field and nothing about the person. The
+server writes `waitlist_signup` when the form is submitted. That event carries the visit's UTM tags
+and referrer, and it is written only for a **new** address: pressing the button twice, or signing up
+while already on the list, is one sign-up. The list row keeps the source too (`attrib`, first touch
+only), so confirmations can be credited to a source.
+
+What it does not do: no cookies, no third-party script, no IP stored. Do Not Track and Global Privacy
+Control drop the events and strip the source from a sign-up. Bots are dropped at collection. Because
+the anonymous id changes daily by design, "visitors" over a period is the sum of each day's
+visitors, and the screen says so.
+
+**Sources.** A `utm_source` tag wins. Otherwise the referrer is folded into a name (t.co is `x`,
+l.instagram.com is `instagram`, any Google domain is `google`), and with neither the visit is
+`direct`. Instagram, TikTok and WhatsApp apps usually send no referrer, which is why the screen hands
+over tagged links.

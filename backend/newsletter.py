@@ -23,7 +23,7 @@ def utcnow():
 
 
 def subscribe(db, email: str, *, source: str, consent_text: str, consent: bool, ip_hash: str | None = None,
-              name: str | None = None) -> str:
+              name: str | None = None, attrib: dict | None = None) -> str:
     """Returns 'pending', 'confirmed', 'already' or 'blocked'. The route shows the same message for all four."""
     if not consent:
         raise A.AuthError("CONSENT_REQUIRED", 400, "Please tick the box to say yes.")
@@ -43,7 +43,11 @@ def subscribe(db, email: str, *, source: str, consent_text: str, consent: bool, 
     # reader who signs up again with their name filled in gets it recorded the second time.
     if (name or "").strip():
         fields["name"] = name.strip()[:80]
-    db.newsletter.update_one({"email": email}, {"$set": fields, "$setOnInsert": {"created_at": now}}, upsert=True)
+    # `attrib` is where the visit came from (analytics.attribution). On insert only: the FIRST
+    # source that brought this person is the one that earned them, and a later visit from
+    # somewhere else must not take the credit.
+    ins = {"created_at": now, **({"attrib": attrib} if attrib else {})}
+    db.newsletter.update_one({"email": email}, {"$set": fields, "$setOnInsert": ins}, upsert=True)
     # the e-mail address may also belong to an unsubscribed suppression; a fresh opt-in lifts only that kind
     sup = db.email_suppressions.find_one({"email": email})
     if sup and sup.get("reason") == "unsubscribe":

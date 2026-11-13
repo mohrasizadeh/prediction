@@ -41,8 +41,18 @@ TEMPLATES = {
                 "about": "A headline on the brand gradient with the mark. Messaging, with no data in it."},
     "cover":   {"label": "Carousel cover", "needs": "none",
                 "about": "A hook and the brand, built to be the first slide of a carousel."},
+    # docs/60 section 4: the match, before and after. They read ad_sources, not the public feed.
+    "faceoff": {"label": "Head to head", "needs": "match",
+                "about": "Before kick-off: one player from each side with his strongest lines, or both on the market you pick."},
+    "verdict": {"label": "We said, it happened", "needs": "settled_one",
+                "about": "After the whistle: one forecast as we published it, and what he actually did. Hit or miss, drawn as it was."},
+    "results": {"label": "How the day went", "needs": "settled",
+                "about": "After the whistle: a match day's forecasts against what happened, with the day's true count of how many came in."},
 }
 CARD_TEMPLATES = ("card", "run", "table", "fixture")
+
+STAT_RE = re.compile(r"^[a-z_]{1,30}$")
+DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # Real platform pixel sizes. Exported at these, never upscaled from a preview.
 SIZES = {
@@ -110,7 +120,15 @@ def normalise(body: dict) -> dict:
         "logo": str(body.get("logo") or "")[:300],
         "accent": str(body.get("accent") or "")[:9] if re.fullmatch(r"#[0-9A-Fa-f]{6}", str(body.get("accent") or "")) else "",
         "slides": [s for s in (body.get("slides") or []) if isinstance(s, dict)][:MAX_SLIDES],
+        # Head to head: the match, the market ("" = each player's strongest) and the two players
+        # chosen (player ids, home first). The after-the-whistle ads: the scored match day.
+        "match_id": str(body.get("match_id") or "")[:60],
+        "stat": str(body.get("stat") or "") if STAT_RE.match(str(body.get("stat") or "")) else "",
+        "day": str(body.get("day") or "") if DAY_RE.match(str(body.get("day") or "")) else "",
+        "players": [str(x)[:60] for x in (body.get("players") or [])][:2],
     }
+    if t == "faceoff" and not out["match_id"]:
+        raise AdError("Pick the match this ad is about.")
     if not out["name"]:
         out["name"] = TEMPLATES[t]["label"]
     _clean_text(out)

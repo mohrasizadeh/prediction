@@ -48,6 +48,10 @@ export async function buildData({ design, brand, card, cards, mode }) {
     // Whatever the planner attached for the templates that are not about a forecast.
     teamStat: design.team_stat || design.teamStat || null,
     record: design.record || null,
+    // docs/60 section 4: Head to head's resolved match (two sides, each with the player picked),
+    // and the scored match day the after-the-whistle ads draw from.
+    matchup: design.matchup || null,
+    settled: design.settled || null,
     text: {
       headline: design.headline || "", subhead: design.subhead || "", kicker: design.kicker || "",
       cta: design.cta || "", footnote: design.footnote || "", finder_q: design.finder_q || "",

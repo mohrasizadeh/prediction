@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 import admin_queries as AQ
 import ad_plan as AP
+import ad_sources as AS
 import ads as AD
 import deps as D
 import settings_store as S
@@ -68,6 +69,12 @@ class Design(BaseModel):
     logo: str = Field(default="", max_length=300)
     accent: str = Field(default="", max_length=9)
     slides: list[dict[str, Any]] = Field(default_factory=list)
+    # docs/60 section 4. Head to head is about one MATCH (and optionally one market), and the two
+    # players the owner chose; the after-the-whistle ads are about one scored match DAY.
+    match_id: str = Field(default="", max_length=60)
+    stat: str = Field(default="", max_length=30)
+    day: str = Field(default="", max_length=10)
+    players: list[str] = Field(default_factory=list)
 
 
 @router.get("")
@@ -92,6 +99,33 @@ def day(date: str = Query("", max_length=10), tz: int = Query(0, ge=-900, le=900
     if not out["ads"]:
         out["next_day"] = AP.next_day_with_fixtures(db, date, tz)
     return out
+
+
+@router.get("/matchups")
+def matchups(user=Depends(perm("site.read")), db=Depends(D.get_db)):
+    """Upcoming matches with published lines on both sides: the list Head to head picks from."""
+    return {"matches": AS.matchups(db)}
+
+
+@router.get("/matchup")
+def matchup(match_id: str = Query(max_length=60), stat: str = Query("", max_length=30),
+            user=Depends(perm("site.read")), db=Depends(D.get_db)):
+    """Both squads' strongest published lines for one match, ranked per side. With `stat`, only
+    that market, so the two players on the ad answer the same question."""
+    if stat and not AD.STAT_RE.match(stat):
+        raise D.err(400, "BAD_STAT", "That is not a market.")
+    out = AS.matchup(db, match_id, stat or None)
+    if out is None:
+        raise D.err(404, "NOT_FOUND", "That match is not in the data.")
+    return out
+
+
+@router.get("/settled")
+def settled(day: str = Query("", max_length=10), user=Depends(perm("site.read")), db=Depends(D.get_db)):
+    """Every published forecast scored on one match day, hits and misses, with what happened."""
+    if day and not AS.valid_day(day):
+        raise D.err(400, "BAD_DAY", "Use a date like 2026-11-12.")
+    return AS.settled(db, day or None)
 
 
 @router.post("")

@@ -184,3 +184,44 @@ happened must be within 12 points. A 97% from forty forecasts is luck, and an im
 place to make that claim. What survives is phrased the way the track record page phrases it — "we
 said 84%, it happened 86% of the time, over 1,840 forecasts" — never as a win rate, which is not
 what this product measures and not a phrase its own word rules allow.
+
+## 4. The match, before and after (added 2026-11-13)
+
+Three templates the owner asked for, all under **Build one**. They read `backend/ad_sources.py`
+instead of the public feed, because the feed answers a different question: it returns the sixty
+lines that differ most from usual across every match, one card per player. These ads need one
+match's two squads, or one scored match day.
+
+| id | the claim | data |
+|---|---|---|
+| `faceoff` (Head to head) | Before kick-off: one player from each side, with his strongest lines. Or, with a market picked, both players on that same market, set large | `GET /api/admin/ads/matchups`, then `/matchup?match_id=&stat=` |
+| `verdict` (We said, it happened) | One published forecast beside what he actually recorded, with a tick or a cross and the line it had to clear | `GET /api/admin/ads/settled?day=` |
+| `results` (How the day went) | A match day's forecasts against what happened, with the **whole day's** count | the same |
+
+**Head to head picks the strongest player per side, and the owner can change either.** A
+player's lines are one per market, strongest first, at most three. The ranking stops at
+`engine.feed_max_p` like the public feed does, so a 96% "1+ shot" never leads unless the player has
+nothing under the ceiling. With a market picked, only that market counts, so both numbers answer the
+same question.
+
+**The after-the-whistle data includes the misses.** `/proof` returns only forecasts that came in,
+which suits a landing-page strip but not an ad series: a builder that can only draw hits is a
+builder for cherry-picking. `settled()` returns hits and misses for one day (the kickoff's UTC date,
+default the most recent). It counts only published lines (Strong/Solid/Watch at 60% or more) where
+the player played, the same population as `/track-record`. Rows are ordered the way the feed leads:
+each player's strongest line under the ceiling first.
+
+**The day's count cannot be edited away.** The results ad always prints "95 of 137 came in that
+day", taken from the whole day rather than the rows the owner picked. It has no sub-head field, so
+five hits picked out of a bad day still say it was a bad day. The verdict ad draws a miss exactly as
+it draws a hit.
+
+The line strip says "needed 3", not "the line: 2.5": a reader counts shots, and the half is the
+engine's bookkeeping. Sentences name the player ("shots for J. Smith"), never "he".
+
+A saved design stores `match_id`, `stat`, `players` (home first) and `day`. As with every other
+template, it redraws from today's numbers, not the ones on screen when it was saved.
+
+Also fixed in this pass: the Ad builder screen crashed on open ("This screen hit a problem").
+`/api/leagues` answers `{countries: [{leagues: [...]}]}`, and the screen called `.map` on that
+object.

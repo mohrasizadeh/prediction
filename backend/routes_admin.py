@@ -97,6 +97,13 @@ def a_series(name: str, days: int = Query(30, ge=1, le=400), user=Depends(perm("
     return {"name": name, "series": AN.series(db, name, days)}
 
 
+@router.get("/waitlist/analytics")
+def waitlist_analytics(days: int = Query(30, ge=1, le=400), user=Depends(perm("analytics.read")), db=Depends(D.get_db)):
+    """Admin > Waitlist: visits, visitors, scroll depth, sections reached, sources, sign-ups."""
+    import waitlist_stats as WS
+    return WS.report(db, days)
+
+
 @router.get("/analytics/funnel")
 def a_funnel(days: int = Query(30, ge=1, le=400), user=Depends(perm("analytics.read")), db=Depends(D.get_db)):
     return {"steps": AN.funnel(db, days)}
