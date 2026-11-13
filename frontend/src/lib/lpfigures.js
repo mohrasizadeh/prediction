@@ -41,13 +41,25 @@ export function paint(proof, track, tonight) {
   // the largest thing on the page and meaningless without a prior the reader does not have yet --
   // 86 beside 87 reads as a typo. Here it is a credential under the promise, and the record
   // section further down is where it is explained.
-  if (SCORED != null) document.getElementById('kicker').innerHTML =
-    '<b>' + SCORED.toLocaleString('en-GB') + '</b> forecasts published, scored and left on the site';
-
-  if (SCORED != null) document.getElementById('counters').innerHTML =
-    '<div><b>' + SCORED.toLocaleString('en-GB') + '</b><span>forecasts scored and published</span></div>' +
-    '<div><b>' + hi.n + '</b><span>of them at ' + pc(hi.from) + ' or higher</span></div>' +
-    '<div><b>' + pc(Math.abs(hi.actual - hi.stated)) + '</b><span>between what we said and what happened, at ' + pc(hi.from) + '+</span></div>';
+  //
+  // /track-record answers {ready:false, scored:0} until enough forecasts are scored, and `high` is
+  // null until the top band holds 30 of them. Reading hi.n / hi.from unguarded printed
+  // "undefined" and "NaN%" on the first screen a stranger sees. Each figure is drawn only when
+  // its own inputs are real numbers; an empty kicker or counters box is hidden by CSS (:empty).
+  var num = function(x){ return typeof x === 'number' && isFinite(x); };
+  var kicker = document.getElementById('kicker'), counters = document.getElementById('counters');
+  kicker.innerHTML = ''; counters.innerHTML = '';
+  if (SCORED) {
+    kicker.innerHTML =
+      '<b>' + SCORED.toLocaleString('en-GB') + '</b> forecasts published, scored and left on the site';
+    var cells = '<div><b>' + SCORED.toLocaleString('en-GB') + '</b><span>forecasts scored and published</span></div>';
+    if (num(hi.n) && hi.n > 0 && num(hi.from)) {
+      cells += '<div><b>' + hi.n.toLocaleString('en-GB') + '</b><span>of them at ' + pc(hi.from) + ' or higher</span></div>';
+      if (num(hi.actual) && num(hi.stated))
+        cells += '<div><b>' + pc(Math.abs(hi.actual - hi.stated)) + '</b><span>between what we said and what happened, at ' + pc(hi.from) + '+</span></div>';
+    }
+    counters.innerHTML = cells;
+  }
 
   /* ---------------- run strip (shared motif) ---------------- */
   function runStrip(run, need, w){

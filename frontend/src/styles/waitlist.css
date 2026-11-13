@@ -68,7 +68,11 @@
   border-radius:999px;padding:5px 11px;letter-spacing:.02em;white-space:nowrap}
 
 /* ---------- hero ---------- */
-.lp .hero{padding:34px 0 10px}
+/* The product has its own `.hero` (football.css: grid, gap, a brand wash over --surface1;
+   swiss.css: background:var(--surface1)), and those rules are global. In dark mode --surface1 is
+   #1C1C1E, so this section painted near-black under this page's light-palette text -- 1.2:1 on the
+   headline. Reset every property they set rather than only the padding. */
+.lp .hero{padding:34px 0 10px;display:block;gap:0;background:none;box-shadow:none}
 .hero-grid{display:grid;gap:30px;align-items:start}
 /* Phones: the headline, then FOOTBALL, then the ask. The form sat above every card, so the first
    thing a reader from a football advert met was an empty text field. */
@@ -89,8 +93,8 @@
   letter-spacing:.09em;text-transform:uppercase;color:var(--brand);
   background:var(--surface2);border-radius:999px;padding:6px 13px;margin-bottom:16px}
 .lp .kicker b{color:var(--brand)}
-h1{font-size:clamp(34px,8.6vw,62px);letter-spacing:-.035em}
-h1 .said{color:var(--brand)}
+.lp h1{font-size:clamp(34px,8.6vw,62px);letter-spacing:-.035em}
+.lp h1 .said{color:var(--brand)}
 .lp .lead{margin-top:18px;font-size:17px;line-height:1.55;color:var(--text2);max-width:46ch}
 @media(min-width:960px){.lp .lead{font-size:18.5px}}
 
@@ -117,7 +121,10 @@ h1 .said{color:var(--brand)}
 
 /* ---------- counters ---------- */
 .counters{margin-top:20px;border:1px solid var(--border);border-radius:14px;padding:14px;
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:10px}
+/* lpfigures.js leaves these empty when /track-record has nothing to count yet; an empty bordered
+   box or kicker pill would read as a broken widget. */
+.counters:empty, .lp .kicker:empty{display:none}
 .counters div{min-width:0}
 .counters b{display:block;font-size:clamp(19px,5.2vw,26px);font-weight:700;
   letter-spacing:-.03em;color:var(--brand);line-height:1.05}
@@ -259,7 +266,7 @@ figure{margin:0}
 .cta h2{font-size:clamp(25px,5.4vw,38px)}
 .cta p{margin-top:14px;font-size:16.5px;color:var(--border);line-height:1.5;
   max-width:48ch;margin-left:auto;margin-right:auto}
-.cta-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;
+.lp .cta-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;
   min-height:52px;padding:0 26px;margin-top:24px;border-radius:999px;background:var(--accent);
   color:var(--brand);font-weight:700;font-size:16.5px;text-decoration:none}
 .cta-btn:hover{filter:brightness(1.06)}
