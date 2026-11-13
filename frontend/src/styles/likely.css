@@ -115,8 +115,9 @@ td.lk-cell-act { text-align: right; }
 .lk-tbl th.lk-h-lk { text-align: right; }
 .lk-tbl th.lk-h-say { text-align: left; }
 .lk-tbl th { text-align: center; font-size: 10.5px; font-weight: 800; letter-spacing: .07em;
-  text-transform: uppercase; color: var(--text3); background: var(--surface2);
+  text-transform: uppercase; color: var(--text2); background: var(--surface2);
   border-bottom: 1px solid var(--border); padding: 9px 7px; }
+/* --text2, not the prototype's --text3: on --surface2 that pairing measured 4.3:1 in dark, under 4.5. */
 
 /* The sentence. It runs on ONE line: the two-line clamp below was written for a 21% column and
  * this one is a third of the table, so wrapping there now only breaks the sentence in half. */

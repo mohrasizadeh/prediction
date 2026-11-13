@@ -12,7 +12,7 @@ import MatchPreview from "../components/MatchPreview";
 import MatchSide from "../components/MatchSide";
 import MatchEvents, { GOALS, Momentum, normEvent } from "../components/MatchEvents";
 import LiveLineups, { PitchView, lineOf } from "../components/LiveLineups";
-import MatchStats, { statsMode } from "../components/MatchStats";
+import MatchStats, { statsMode, Possession } from "../components/MatchStats";
 import { utc } from "../lib/time";
 import { ForecastList, Skeleton } from "../components/ui";
 import { tierLabel } from "../lib/copy";
@@ -131,15 +131,7 @@ function TopStats({ d, onAll }) {
         <h2 className="k-sec" id="mfx-top-h">Top stats</h2>
         {onAll && <button type="button" className="btn btn--secondary btn--sm" onClick={onAll} data-testid="facts-all-stats">All stats</button>}
       </header>
-      {poss && (
-        <div className="mst-poss" data-testid="facts-stat-poss">
-          <p className="mst-poss-h">Possession</p>
-          <div className="mst-poss-bar" role="img" aria-label={`Possession: ${d.home.name} ${Math.round(ph)}%, ${d.away.name} ${Math.round(pa)}%`}>
-            <span className="mst-poss-home" style={{ flexBasis: `${(ph / (ph + pa)) * 100}%` }}>{Math.round(ph)}%</span>
-            <span className="mst-poss-away" style={{ flexBasis: `${(pa / (ph + pa)) * 100}%` }}>{Math.round(pa)}%</span>
-          </div>
-        </div>
-      )}
+      {poss && <div data-testid="facts-stat-poss"><Possession h={ph} a={pa} home={d.home} away={d.away} /></div>}
       {rows.length > 0 && <ul className="mst-rows">{rows.map(([k, label, fmt]) => {
         const h = ts.home?.[k], a = ts.away?.[k];
         const max = Math.max(known(h) ? h : 0, known(a) ? a : 0);
