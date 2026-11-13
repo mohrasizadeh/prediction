@@ -79,7 +79,7 @@ function Events({ d }) {
   const norm = ev.map(normEvent);
   const count = (s, t) => norm.filter((e) => (t === "goal" ? e.scorer === s : e.side === s && ONLY[t](e.kind))).length;
   if (!ev.length) {
-    return <Empty icon="clock" testid="events-empty">{live ? "Goals, cards and substitutions show here once the match feed sends them." : d.match.status === "final" ? "Goals, cards and substitutions for this match are still loading." : "Goals, cards and substitutions show here after full time."}</Empty>;
+    return <Empty icon="clock" testid="events-empty">{live ? "Goals, cards and substitutions show here once the match feed sends them." : d.match.status === "final" ? "Our data feed has no goal, card or substitution details for this match." : "Goals, cards and substitutions show here after full time."}</Empty>;
   }
   const r = d.recap?.ht;
   const score = { home: d.match.hg, away: d.match.ag, ht_home: r?.[0], ht_away: r?.[1], pen_home: d.match.live?.pen_home, pen_away: d.match.live?.pen_away };
