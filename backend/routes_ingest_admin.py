@@ -109,9 +109,18 @@ def _job_costs(db) -> dict:
             if s and not s.get("backfilled"):
                 n = db.matches.count_documents({"league_iid": lg["iid"], "season": str(label)}) or DEFAULT_SEASON_MATCHES
                 backfill += 1 + n * cpm
+    # Re-pull: what ONE PRESS costs, not the whole job -- it is bounded by
+    # `apifootball.reingest_batch` and meant to be pressed repeatedly. The screen would otherwise
+    # show the cost of re-reading every finished match we hold, which is true of the job but not of
+    # the button, and a number that large next to a button reads as a warning not to touch it.
+    import ingest_af as _IA
+    batch = int(S.get(db, "apifootball.reingest_batch") or 500)
+    waiting = db.matches.count_documents({"status": "final", "ingested_at": {"$ne": None}})
+    re_press = -(-min(batch, waiting) // _IA.AF.IDS_PER_CALL) if waiting else 0
     return {"reference_sync": 1, "fixtures_sync": n_lg, "results_sync": n_lg, "backfill": backfill,
             # the same two numbers under the ids the API-Football screen uses
             "af_fixtures": n_lg, "af_backfill": round(backfill, 1),
+            "af_reingest": re_press,
             "engine": 0, "images": None}         # the engine reads what we hold; images is unknown up front
 
 

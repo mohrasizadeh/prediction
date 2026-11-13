@@ -370,6 +370,76 @@ def lineup_watch(client, now: datetime | None = None, max_fixtures: int = 60) ->
     return {"looked_at": len(by_ext), "confirmed": n, "calls": client.calls_made - before}
 
 
+# ------------------------------------------------------------------ pulling it again
+#
+# Why this exists: a column added after a match was ingested is empty on that match for ever. The
+# ingest only ever queues a match with no `ingested_at` (see `sync_fixtures`), so nothing re-reads
+# one. Ratings, coaches and the derived card fields all arrived after rows had been written, and so
+# did every normalizer fix in docs/90 -- a null the provider meant as a zero stays null on an old
+# row no matter how correctly the code now reads it.
+#
+# It is cheap: the bundle carries twenty matches a call, so a whole league-season is about 19 calls.
+def _reingest_scope(db, league_iid: int | None, season: str | None) -> dict:
+    q = {"status": "final", "ingested_at": {"$ne": None}}
+    if league_iid is not None:
+        q["league_iid"] = int(league_iid)
+    else:
+        q["league_iid"] = {"$in": [l["iid"] for l in db.leagues.find(
+            {"enabled": True, "provider": PROVIDER}, {"iid": 1})]}
+    if season is not None:
+        q["season"] = str(season)
+    return q
+
+
+def plan_reingest(db, league_iid: int | None = None, season: str | None = None) -> dict:
+    """How many matches would be pulled again, and what that costs. CHANGES NOTHING.
+
+    Always run this first. The answer is in calls, because that is the thing that can hurt.
+    """
+    q = _reingest_scope(db, league_iid, season)
+    n = db.matches.count_documents(q)
+    batch = int(S.get(db, "apifootball.reingest_batch") or 500)
+    per_call = AF.IDS_PER_CALL
+    return {"matches": n, "calls": -(-n // per_call), "batch": batch,
+            "presses": -(-n // batch) if batch else 0,
+            "cap": int(S.get(db, "apifootball.daily_cap") or 0),
+            "leagues": sorted({m["league_iid"] for m in db.matches.find(q, {"league_iid": 1})})}
+
+
+def reingest(db, league_iid: int | None = None, season: str | None = None,
+             limit: int | None = None) -> dict:
+    """Queue finished matches to be pulled again, NEWEST FIRST. Bounded, and safe to repeat.
+
+    THE STATUS HAS TO BE SET EXPLICITLY. `ingest.enqueue` writes `status` under `$setOnInsert`, and
+    a task that has already been drained is left at `status: "done"` -- so re-queueing a match that
+    was ingested once is a silent no-op: the row exists, the status stays "done", and `drain` never
+    looks at it again. A re-ingest built on `enqueue` would report every match queued and do nothing
+    at all, which is the exact shape of failure docs/90 is about.
+
+    `ingested_at` is deliberately NOT cleared. `write_match` upserts, so the rows are replaced in
+    place; clearing it would make the match look un-ingested to every other reader in the meantime,
+    and would lose that state for good if the re-pull never finished.
+
+    Newest first because recent matches are the ones on the site's front page, and bounded so one
+    press cannot queue twenty thousand matches at once. Priority 8: behind the live whistle (3),
+    the current-season sweep (5) and the backfill (7).
+    """
+    q = _reingest_scope(db, league_iid, season)
+    n = int(limit if limit is not None else (S.get(db, "apifootball.reingest_batch") or 500))
+    now = utcnow()
+    queued = 0
+    for m in db.matches.find(q, {"iid": 1, "ext_id": 1}).sort("kickoff", -1).limit(n):
+        db.ingest_queue.update_one(
+            {"task": QUEUE_TASK, "key": str(m["ext_id"])},
+            {"$set": {"task": QUEUE_TASK, "key": str(m["ext_id"]), "status": "pending",
+                      "next_run_at": now, "priority": 8, "payload": {"match_iid": m["iid"]},
+                      "requeued_at": now},
+             "$setOnInsert": {"attempts": 0, "created_at": now}},
+            upsert=True)
+        queued += 1
+    return {"queued": queued, "left": max(0, db.matches.count_documents(q) - queued)}
+
+
 # ------------------------------------------------------------------ what a tick does
 def backfill_tick(client, max_seconds: float = 40.0) -> dict:
     """Pick up where the backfill left off: sync any league-season still owed, then drain.

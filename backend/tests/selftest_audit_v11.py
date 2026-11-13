@@ -914,6 +914,66 @@ want14 = fx14("FT", None, 17)["goals"]
 check(f"...and the score came over with it ({m14b.get('hg')}-{m14b.get('ag')})",
       (m14b.get("hg"), m14b.get("ag")) == (want14["home"], want14["away"]))
 
+print("a finished match can be pulled again, which nothing could do before")
+# A column added after a match was ingested is empty on that match for ever: `sync_fixtures` only
+# queues a match with no `ingested_at`, and nothing anywhere set that back. Ratings, coaches and the
+# derived card fields all arrived after rows had been written, and so did every normalizer fix in
+# this document -- a null the provider meant as a zero stays null on an old row however correctly
+# the code now reads it.
+#
+# THE TRAP THIS HAD TO AVOID: `ingest.enqueue` writes `status` under `$setOnInsert`, and a drained
+# task is left at `status: "done"`. So a re-ingest built on `enqueue` would report every match
+# queued and do nothing at all -- the rows exist, the status stays "done", `drain` never looks
+# again. Exactly the shape of silent failure this whole document is about.
+d15 = mongomock.MongoClient()["re"]
+d15.leagues.insert_one({"iid": 1, "ext_id": "39", "provider": "apifootball", "enabled": True,
+                        "name": "L", "kind": "domestic", "role": AFL.FORECAST, "current_season": "2025"})
+now15 = datetime.now(timezone.utc)
+for i in range(60):
+    d15.matches.insert_one({"iid": i, "ext_id": str(1000 + i), "league_iid": 1, "status": "final",
+                            "season": "2025", "kickoff": now15 - timedelta(days=i),
+                            "ingested_at": now15 - timedelta(days=i)})
+for i in range(10):                       # ten were drained once, so their task sits at "done"
+    d15.ingest_queue.insert_one({"task": IA.QUEUE_TASK, "key": str(1000 + i), "status": "done",
+                                 "finished_at": now15, "priority": 5, "payload": {"match_iid": i}})
+S.put(d15, "apifootball.reingest_batch", 25)
+
+plan15 = IA.plan_reingest(d15)
+check(f"the plan counts the matches and the calls ({plan15['matches']} / {plan15['calls']})",
+      plan15["matches"] == 60 and plan15["calls"] == 3)
+check("...and queues nothing: it is a dry run",
+      d15.ingest_queue.count_documents({"status": "pending"}) == 0)
+
+r15 = IA.reingest(d15)
+pend15 = list(d15.ingest_queue.find({"task": IA.QUEUE_TASK, "status": "pending"}, {"_id": 0, "key": 1, "priority": 1}))
+check(f"one press takes one batch, not the lot ({r15['queued']} queued, {r15['left']} left)",
+      r15["queued"] == 25 and len(pend15) == 25)
+check("...behind the live whistle and the backfill in the queue",
+      {p["priority"] for p in pend15} == {8})
+# The trap, asserted directly.
+revived = d15.ingest_queue.count_documents(
+    {"task": IA.QUEUE_TASK, "key": {"$in": [str(1000 + i) for i in range(10)]}, "status": "pending"})
+check(f"a task left at 'done' by an earlier drain is made pending again ({revived} of 10)",
+      revived == 10)
+check("newest first, because those are the matches on the front page",
+      [p["key"] for p in pend15][:3] == ["1000", "1001", "1002"])
+# `ingested_at` must survive: write_match upserts, so the rows are replaced in place. Clearing it
+# would make every other reader treat the match as un-ingested in the meantime, and lose that state
+# for good if the re-pull never finished.
+check("`ingested_at` is left alone, so nothing else sees the match as un-ingested",
+      d15.matches.count_documents({"ingested_at": {"$ne": None}}) == 60)
+check("the scope can be narrowed to one competition",
+      IA.plan_reingest(d15, league_iid=1)["matches"] == 60
+      and IA.plan_reingest(d15, league_iid=999)["matches"] == 0)
+check("...and to one season",
+      IA.plan_reingest(d15, season="2025")["matches"] == 60
+      and IA.plan_reingest(d15, season="2019")["matches"] == 0)
+# Asked for only: a timer would re-read the same league for ever.
+import jobs as J15
+check("the job is manual, never scheduled", "af_reingest" in J15.MANUAL)
+check("...and nothing schedules it", "_due_every(db, \"af_reingest\"" not in open(
+    os.path.join(os.path.dirname(__file__), "..", "jobs.py")).read())
+
 print("a match day still looks like one after the last kick-off")
 # `on_match_day` picks a 1-hour fixture-list TTL instead of 6. It counted only fixtures still
 # SCHEDULED in the next 24h, so the moment the last match of a round kicked off the league stopped

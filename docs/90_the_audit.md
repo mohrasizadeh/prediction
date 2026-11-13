@@ -236,7 +236,7 @@ already broken at least once:
 
 ## What is pinned
 
-`tests/selftest_audit_v11.py`, 138 checks, every one of them executing the real function:
+`tests/selftest_audit_v11.py`, 149 checks, every one of them executing the real function:
 the involvements fix on a no-assist fixture, the sot fix, the untracked-block case that must
 *still* read `None`, the bench man, the one-sided squad, the team zero-fill and the possession
 mirror, a renamed display string that must still surface as missing, the pitch coordinates of a
@@ -366,6 +366,47 @@ lines and no player lines is indistinguishable, from the outside, from a quiet w
 The lesson repeats the one at the top of this document. Fixing the case in front of you is not the
 same as fixing the class: `tg` and `pg` are the same shape of mistake, the first was guarded twice
 and the second not at all, and nothing in the suite asked the obvious next question.
+
+## Pulling a finished match again, which nothing could do
+
+A column added after a match was ingested is empty on that match **for ever**. `sync_fixtures` only
+queues a match with no `ingested_at`, and nothing anywhere set that back -- so player ratings,
+coaches, the derived card fields and every normalizer fix in this document apply only to matches
+ingested after they landed. A null the provider meant as a zero stays null on an old row however
+correctly the code now reads it.
+
+`plan_reingest` counts the matches and the calls and changes nothing; `reingest` queues a bounded
+batch, newest first, at priority 8 -- behind the live whistle (3), the current-season sweep (5) and
+the backfill (7). `af_reingest` is in `jobs.MANUAL` and is **deliberately not on `_due_every`**: it
+re-reads matches that already have an `ingested_at`, so anything periodic would walk the same league
+for ever. One press takes one batch and the result says how many are left.
+
+It is cheap. Nineteen competitions at three seasons is roughly 19,000 finished matches, and the
+bundle carries twenty a call: about 970 calls, 1.3% of one day's allowance.
+
+**The trap it had to avoid.** `ingest.enqueue` writes `status` under `$setOnInsert`, and a drained
+task is left at `status: "done"`. A re-ingest built on `enqueue` would have reported every match
+queued and done nothing at all -- the rows exist, the status stays "done", `drain` never looks again.
+`reingest` sets the status explicitly, and a test asserts that ten tasks left at "done" by an
+earlier drain are made pending again. Exactly the shape of silent failure this whole document is
+about, caught this time before it shipped.
+
+`ingested_at` is deliberately **not** cleared: `write_match` upserts, so rows are replaced in place.
+Clearing it would make every other reader treat the match as un-ingested in the meantime, and lose
+that state for good if the re-pull never finished.
+
+## Club names came apart mid-word
+
+`overflow-wrap: anywhere` on the Live page's name classes. `anywhere` permits a break inside a word
+**and** collapses the element's min-content width to a single character, so flex squeezes the name to
+nothing and breaks every word in it. Measured: "Nottingham Forest" has a min-content width of 14px
+under `anywhere` and 90px under `break-word` -- the longest word. `break-word` still breaks a word
+that cannot fit a line on its own, so nothing overflows; it simply stops a name coming apart when it
+could have wrapped at the space.
+
+The same value is used in eighteen other public places. Only the reported page was changed: some of
+the rest are tight fixed-width labels -- a 76px shirt label on the pitch graphic -- where `anywhere`
+may genuinely be right, and that is a deliberate pass rather than a sweep.
 
 ## Still open, and not ours to close
 
