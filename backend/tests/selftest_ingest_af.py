@@ -21,6 +21,7 @@ import mongomock
 import af_leagues as AFL
 import apifootball as AF
 import ingest_af as IA
+import normalize_af as NAF
 import security
 import settings_store as S
 
@@ -360,7 +361,16 @@ def t_live_is_a_lookup_not_a_guess():
         return [live]
 
     out = LA.live_tick(db, client(db, env(body)))
-    check(f"one call covers every match in play ({len(calls)})", len(calls) == 1)
+    # TWO calls now, and that is the point: one `?live=` for the scores, the minute and the events
+    # (which arrive inline and are free), plus one `?ids=` for the in-play STATISTICS and lineups of
+    # the fixtures actually producing them. This asserted one call because `apifootball.live_stats`
+    # shipped OFF, so that whole branch -- the live statistics write, the live lineups write -- had
+    # zero execution in the entire suite, which is where two of the live path's bugs were hiding and
+    # why the live-lineups endpoint answered `{}`. It is on by default now (docs/90).
+    lives = [c for c in calls if "live" in c]
+    ids = [c for c in calls if "ids" in c]
+    check(f"one call covers every match in play ({len(lives)})", len(lives) == 1)
+    check(f"...and one more covers the statistics of those producing them ({len(ids)})", len(ids) == 1)
     check("...asked for as a live query", "live" in (calls[0] if calls else {}))
     row = db.live_fixtures.find_one({"ext_id": "1"})
     check(f"the live row joins OUR match by id, with no name matching ({row.get('match_iid')})",
@@ -369,18 +379,23 @@ def t_live_is_a_lookup_not_a_guess():
           row["hs"] == 1 and row["as"] == 0 and row["minute"] == 67)
     check(f"events arrive inline, costing no second call ({db.live_events.count_documents({})})",
           db.live_events.count_documents({}) == 2)
-    check("a goal keeps its scorer",
-          db.live_events.find_one({"type": "goal"}).get("player_name") == "A. One")
-    yc = db.live_events.find_one({"af_type": "Card"}) or {}
-    check(f"a card reads as a yellow on the away side, as live_track counts it ({yc.get('type')}, {yc.get('side')})",
-          yc.get("type") == "yellow_card" and yc.get("side") == "away")
-    g = db.live_events.find_one({"type": "goal"}) or {}
-    check(f"a goal is home's, with a minute label and its assist ({g.get('side')}, {g.get('minute')}, {g.get('assist_name')})",
-          g.get("side") == "home" and g.get("minute") == "23'" and g.get("minute_num") == 23 and g.get("assist_name") == "B. Two")
-    import live_track as LT
-    ec = LT.event_counts(db, row["sid"])
-    check(f"live_track counts the yellow against the away side, so a card forecast can tick ({ec['side']})",
-          ec["side"] == {"home": 0, "away": 1})
+    # OUR vocabulary, not theirs. This asserted type == "Goal", the provider's raw word -- which is
+    # exactly the bug: `live_track.is_yellow` tests `"yellow" in type`, so a row typed "Card" was
+    # never counted and both card markets settled "missed" whatever happened. The test was pinning
+    # the defect. Assert the translation, and that the tracker can read what we wrote.
+    import live_track as _LT
+    goal = db.live_events.find_one({"type": "goal"})
+    check(f"a goal is stored in our vocabulary, with its scorer ({(goal or {}).get('player_name')})",
+          goal is not None and goal.get("player_name") == "A. One")
+    card = db.live_events.find_one({"type": "yellow"})
+    check(f"a booking is 'yellow', not the provider's 'Card' ({(card or {}).get('type')})",
+          card is not None)
+    check("...with the side and the player the tracker needs",
+          card and card.get("side") in ("home", "away") and "player_iid" in card)
+    counts = _LT.event_counts(db, 1)
+    check(f"live_track counts the booking instead of reporting a confident zero ({counts['side']})",
+          counts["side"]["home"] + counts["side"]["away"] == 1)
+    check(f"...the away side's, as live_track counts it ({(card or {}).get('side')})", (card or {}).get("side") == "away")
     check("the match carries a light live mirror for the pages",
           (db.matches.find_one({"iid": ours["iid"]}).get("live") or {}).get("minute") == 67)
 
@@ -430,7 +445,7 @@ def t_live_stats_reach_live_track_and_the_match_page():
           home.get("tackles") == 6)
     p1 = next((p for p in row.get("players") or [] if p.get("ext_id") == "101"), {})
     check(f"a player row joins our player by ext_id ({p1.get('player_iid')} == {pid}, tackles {p1.get('tackles')})",
-          p1.get("player_iid") == pid and p1.get("tackles") == 4 and p1.get("side") == "home")
+          p1.get("player_iid") == pid and p1.get("tackles") == 4)
     check("the raw list stays beside it, for the admin", len(row.get("statistics") or []) == 2)
 
     ev = LT.evaluate(db, ours["iid"])
@@ -633,8 +648,19 @@ def t_the_public_scoreboard_can_read_what_live_writes():
     check(f"...and the half-time score ({(f.get('score') or {}).get('ht_home')})",
           (f.get("score") or {}).get("ht_home") == 1)
     check(f"...carrying an sid the events route can use ({f.get('sid')})", f.get("sid") == 1)
-    check(f"the events route finds them by that sid ({len(SP.events_for(db, 1))})",
-          len(SP.events_for(db, 1)) >= 0 and db.live_events.count_documents({"fixture_sid": 1}) == 1)
+    # `len(...) >= 0` IS TRUE FOR EVERY POSSIBLE VALUE, so half of this check could not fail and
+    # the surviving half only counted rows in Mongo -- it never looked at what the route returned.
+    # Before the live path was fixed this same line passed while the route was handing the page
+    # `{'type': 'Card', 'side': None, 'minute_num': None}` and sorting on a field that was not
+    # there. Assert the row the page is actually given.
+    rows = SP.events_for(db, 1)
+    check(f"the events route finds them by that sid ({len(rows)})", len(rows) == 1)
+    check(f"...with a side the page can put it on ({(rows or [{}])[0].get('side')})",
+          rows and rows[0].get("side") in ("home", "away"))
+    check(f"...and a minute it can sort and show ({(rows or [{}])[0].get('minute_num')})",
+          rows and rows[0].get("minute_num") is not None)
+    check(f"...in our vocabulary, not theirs ({(rows or [{}])[0].get('type')})",
+          rows and rows[0].get("type") in NAF.EVENT_TYPES)
 
 
 
@@ -993,6 +1019,84 @@ def t_the_stale_banner_sees_the_api_football_pulls():
 
 
 
+# ------------------------------------------------------------------ 19. the FRONTEND side of the move
+def _code_only(src: str) -> str:
+    """Source with comments stripped -- JSX `//` and `{/* */}`, Python `#`.
+
+    THIS HELPER EXISTS BECAUSE I HAVE MADE THE SAME MISTAKE THREE TIMES. A test that greps source
+    text for the name of a retired thing matches the COMMENT EXPLAINING THE REMOVAL, so the fix
+    fails its own check. It happened with `pitch_photos` in jobs.py, with `SP.Client` in
+    routes_live.py, and again here with four separate checks at once. A test that forbids naming a
+    thing forbids explaining it, and the explanation is the part worth keeping.
+    """
+    import re as _re
+    src = _re.sub(r"\{/\*.*?\*/\}", "", src, flags=_re.S)   # JSX block comments
+    src = _re.sub(r"/\*.*?\*/", "", src, flags=_re.S)         # C-style
+    out = []
+    for line in src.splitlines():
+        for marker in ("//", "#"):
+            i = line.find(marker)
+            if i != -1:
+                line = line[:i]
+        out.append(line)
+    return "\n".join(out)
+
+
+def t_no_screen_calls_a_route_that_is_gone():
+    """The backend side of this was already pinned and the frontend was not, which is why four
+    defects survived: the tests asserted the SportAPI endpoints were removed, and nothing asked
+    whether a screen still called them. docs/89.
+    """
+    import pathlib, re as _re
+    root = pathlib.Path(__file__).resolve().parent.parent
+    admin = root.parent / "frontend" / "src" / "admin"
+
+    # 1. BEHAVIOUR, not text. Three buttons on Admin Home posted to /admin/sportapi/teams/{sid},
+    #    deleted with the provider, so every press answered 404 and the item could never clear.
+    #    The need itself is what must not be generated, so seed the row and ask.
+    import admin_home as AH
+    db = seed()
+    db.sportapi_team_map.insert_one({"sid": 77, "status": "review", "name": "Stray FC",
+                                     "score": 0.8, "candidates": []})
+    owner = {"email": "o@x", "role": "owner", "perms": ["*"]}
+    try:
+        got = AH.needs(db, owner, IA.utcnow())
+        err = None
+    except Exception as e:
+        got, err = [], f"{type(e).__name__}: {e}"
+    kinds = [n.get("kind") for n in got]
+    check(f"a leftover club-matching row produces no need{(' -- ' + err) if err else ''} ({kinds})",
+          err is None and "match" not in kinds)
+    check("no screen posts to a deleted sportapi route",
+          "/admin/sportapi/teams/" not in _code_only((admin / "Home.jsx").read_text()))
+
+    # 2. the Run-now cost map must carry the ids the screen shows, or the typed-confirm guard on
+    #    the most expensive button is silently off.
+    import routes_ingest_admin as RIA, inspect as _inspect
+    costs = RIA._job_costs(seed())
+    jobs_jsx = (admin / "Jobs.jsx").read_text()
+    af_ids = _re.findall(r'\["(af_[a-z_]+)"', jobs_jsx)
+    missing = [i for i in af_ids if i not in costs]
+    check(f"every job the screen lists has a cost ({af_ids} -> {missing or 'all present'})",
+          af_ids and not missing)
+    check("...and the backfill estimate uses the provider's per-match figure, not the constant",
+          "calls_per_match(db)" in _inspect.getsource(RIA._job_costs))
+
+    # 3. the Feeds panel branched on a provider id the payload no longer carries, so it showed
+    #    hard-coded zeros and hid the queue depth and breaker state it had already fetched.
+    feeds = _code_only((admin / "Feeds.jsx").read_text())
+    check("Feeds does not branch on the retired provider id", 'p.id === "pitchapi"' not in feeds)
+    for field in ("p.queued", "p.breaker_open"):
+        check(f"...and shows {field}, which the payload carries", field in feeds)
+    check("...and does not read last_result, which left the payload", "p.last_result" not in feeds)
+
+    # 4. a switch that reported success and changed nothing
+    af = _code_only((admin / "APIFootball.jsx").read_text())
+    check("no switch is offered for a provider nothing calls",
+          "sportapi.enabled" not in af and "pitchapi.enabled" not in af)
+
+
+
 for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_writes_our_tables,
            t_one_bad_fixture_does_not_lose_the_batch, t_missing_fixture_is_reported,
            t_backfill_resumes, t_the_tick_runs_one_provider_only,
@@ -1005,7 +1109,8 @@ for fn in (t_schedule, t_only_a_forecast_competition_stamps_the_club, t_bundle_w
            t_backfill_survives_a_second_season,
            t_the_engine_gets_every_column_it_asks_for,
            t_images_need_no_provider_call_and_the_dead_queue_goes,
-           t_the_stale_banner_sees_the_api_football_pulls):
+           t_the_stale_banner_sees_the_api_football_pulls,
+           t_no_screen_calls_a_route_that_is_gone):
     print(fn.__name__)
     fn()
 

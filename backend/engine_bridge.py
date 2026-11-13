@@ -33,7 +33,22 @@ import match_context as MC    # noqa: E402  (backend/match_context.py)
 
 MARKET_COVERAGE = {"player.shots": "player_match_stats.shots", "player.sot": "player_match_stats.sot",
                    "player.tackles": "player_match_stats.tackles", "team.corners": "team_match_stats.corners",
-                   "team.shots": "team_match_stats.shots", "team.sot": "team_match_stats.sot"}
+                   "team.shots": "team_match_stats.shots", "team.sot": "team_match_stats.sot",
+                   # THE THREE NEWER MARKETS WERE MISSING FROM THIS DICT, and that alone threw every
+                   # one of their forecasts away. `enabled_markets` builds its answer by iterating
+                   # THIS dict, so a market absent from it is absent from the answer -- and the
+                   # publish loop below reads `markets.get(mk, False)`, defaulting to False. So the
+                   # engine fitted saves, fouls and goal involvements, produced the lines, and the
+                   # loop silently dropped all of them: no log, no counter, nothing in `forecasts`.
+                   # Measured on a 96-match league: 104 of ~540 lines a fixture computes, 19%, went
+                   # in the bin. It read as "the engine does not support these markets" when the
+                   # engine supported them fine and the gate had never heard of them.
+                   #
+                   # `engine.markets_enabled` could not rescue it either: switching a market ON
+                   # there does nothing if its key never reaches this loop.
+                   "player.fouls_committed": "player_match_stats.fouls_committed",
+                   "player.goal_involvements": "player_match_stats.goal_involvements",
+                   "player.saves": "player_match_stats.saves"}
 # Total goals in the match come from the team-strength model, not from the statistics feed, so they need no
 # coverage check: a finished match always has a score (docs/39).
 log = logging.getLogger("engine")
@@ -77,12 +92,39 @@ def build_frames(db, league_iid: int, history_rounds: int):
     ids = set(ms["game_id"])
 
     tg = pd.DataFrame(list(db.team_match_stats.find({"match_iid": {"$in": list(ids)}}, {"_id": 0})))
+    if tg.empty:
+        # Matches exist but not one team row for them -- a league whose fixtures were listed and
+        # whose results have not been ingested yet. `tg["home"]` on a frame with no columns raises
+        # KeyError, which is the same crash the all-null case used to produce further down: it left
+        # `run_league`'s `engine_runs` row stuck at `running` for ever and made `jobs.tick`'s dirty
+        # check fire on every tick thereafter. `None` is the documented "no frames" answer.
+        log.info("engine: league %s has matches but no team statistics yet", league_iid)
+        return None
     tg = tg.rename(columns={"match_iid": "game_id", "team_iid": "team", "opp_iid": "opp"})
     tg["home"] = tg["home"].astype(int)
     tg = tg.merge(ms[["game_id", "round"]], on="game_id")
+    matches_before = len(set(tg["game_id"])) if not tg.empty else 0
+    # WHICH required column did the deleting. Without this the drop is invisible: `dropna` takes the
+    # row out, the match goes with it, and every later count is taken from the survivors -- `ap`
+    # included, which is the frame built specifically to measure drops. So the 97% warning below
+    # could never fire for a team-level loss, and `run_league` returned `done` having silently
+    # binned a fifth of the league.
+    team_nulls = {c: int(tg[c].isna().sum()) for c in TEAM_REQUIRED if c in tg.columns} if not tg.empty else {}
     tg = tg.dropna(subset=TEAM_REQUIRED)
     ok = tg.groupby("game_id")["team"].transform("count") == 2        # keep matches with both sides complete
     tg = tg[ok]
+    matches_after = len(set(tg["game_id"])) if not tg.empty else 0
+    if tg.empty:
+        # RETURN, DO NOT RAISE. When a required team column is null for every row -- a provider
+        # renaming one of its display strings is enough, which docs/80 §6 warns about -- `tg` came
+        # out empty, `pg` was then queried for an empty id list, and `pg["pos"]` raised KeyError on
+        # a frame with no columns. `run_league` had already written its `engine_runs` row as
+        # `running` and never updated it, so the league sat "running" for ever and `jobs.tick`'s
+        # dirty check fired on every tick from then on. `None` is the documented "no frames" answer
+        # and `run_league` already handles it.
+        worst = sorted(team_nulls.items(), key=lambda kv: -kv[1])[:3]
+        log.error("engine: league %s has no usable team rows; most-null required columns: %s", league_iid, worst)
+        return None
     # On-target conceded. ingest.py mirrors the opponent's `sot` onto every row it writes, but rows
     # stored before that did not carry it and the engine's style snapshot reads EVERY column in
     # sum_cols -- a missing one would raise, and putting it in TEAM_REQUIRED would delete the older
@@ -100,7 +142,22 @@ def build_frames(db, league_iid: int, history_rounds: int):
     # A keeper is excluded from every market by that setting, which is the only tool it has. When
     # the saves market is asked for, keepers have to reach the frame -- MARKET_POSITIONS then
     # decides, per market, that they get saves and nothing else (docs/70).
-    if "saves" in E.PLAYER_THR:
+    #
+    # READ THE SETTING, NOT `E.PLAYER_THR`. That is module state, and the only thing that fills it
+    # is `configure_engine` -- which `run_league` calls AFTER this function, not before. So on the
+    # first league of a fresh worker `E.PLAYER_THR` still held its import-time default of
+    # {shots, sot, tackles}, "saves" was not in it, the discard did nothing, and every keeper in the
+    # league was deleted from the frame. Leagues two onward in the same process were fine, because
+    # by then a previous `configure_engine` had filled it: an order-dependent bug that disappears
+    # the moment you look at it twice in one process.
+    #
+    # It did not merely lose the saves lines. `tg`'s team saves total is derived from this very
+    # frame a few lines below, so with no keeper in it the column came out all 0.0 -- zeros, not
+    # nulls, so the frame's own `isna()` guard could not see it and the team layer fitted a saves
+    # model on an all-zero column. `MARKETS_WITH_DATA` admitted saves too, because the zero-filled
+    # outfielders carry `saves = 0.0`.
+    ladder = "engine.player_ladder" if S.get(db, "engine.auto_lines") else "engine.player_thresholds"
+    if "saves" in (S.get(db, ladder) or {}):
         excl.discard("GK")
     pg = pg.rename(columns={"match_iid": "game_id", "team_iid": "team", "opp_iid": "opp", "player_iid": "player"})
     pg = pg[pg["pos"].notna() & ~pg["pos"].isin(excl)]
@@ -203,7 +260,9 @@ def build_frames(db, league_iid: int, history_rounds: int):
     if raw and kept < raw * 0.97:
         log.warning("engine: %d of %d player appearances dropped for incomplete stats (%.1f%%)",
                     raw - kept, raw, 100.0 * (raw - kept) / raw)
-    diag = {"appearances": raw, "player_rows_kept": kept, "blank_columns": blank}
+    diag = {"appearances": raw, "player_rows_kept": kept, "blank_columns": blank,
+            "matches_before": matches_before, "matches_kept": matches_after,
+            "team_nulls": {c: n for c, n in team_nulls.items() if n}}
     return ms.reset_index(drop=True), tg.reset_index(drop=True), pg.reset_index(drop=True), ap.reset_index(drop=True), diag
 
 
@@ -612,6 +671,21 @@ def run_league(db, league_iid: int, now=None) -> dict:
     if diag["appearances"] and diag["player_rows_kept"] < diag["appearances"] * 0.97:
         db.engine_runs.update_one({"run_id": run_id}, {"$set": {"dropped_player_rows":
                                   diag["appearances"] - diag["player_rows_kept"], "appearances": diag["appearances"]}})
+    # The team-level loss, which no counter reported before: a null in one TEAM_REQUIRED column
+    # deletes the whole match, and every player-row count downstream is already taken from the
+    # survivors, so this is the only place it can be seen. Recorded on the run and raised as an
+    # issue past 5%, because it is both silent and one-sided -- the matches it removes are the
+    # low-count ones, so every model left behind reads high.
+    if diag["matches_before"] and diag["matches_kept"] < diag["matches_before"]:
+        lost = diag["matches_before"] - diag["matches_kept"]
+        db.engine_runs.update_one({"run_id": run_id}, {"$set": {"dropped_matches": lost,
+                                  "matches_before": diag["matches_before"], "team_nulls": diag["team_nulls"]}})
+        if lost > diag["matches_before"] * 0.05:
+            worst = ", ".join(f"{c} ({n})" for c, n in sorted(diag["team_nulls"].items(), key=lambda kv: -kv[1])[:3])
+            import ingest as I          # local: the engine does not otherwise depend on the ingest
+            I.issue(db, "team_rows_incomplete",
+                    f"{lost} of {diag['matches_before']} matches dropped from the engine frame; most-null required columns: {worst}",
+                    league_iid=league_iid)
 
     eng = configure_engine(db)
     as_of = int(ms["round"].max()) + 1

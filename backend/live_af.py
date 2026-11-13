@@ -43,6 +43,17 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _settings(db) -> dict:
+    """What the normalizer needs, read once a tick rather than once a fixture.
+
+    The same three `ingest_af._settings` reads: the live path translates the same payload with the
+    same map, so a statistic renamed in Settings changes both at once.
+    """
+    return {"team_keys": S.get(db, "provider.apifootball.team_keys"),
+            "position_map": S.get(db, "provider.apifootball.position_map"),
+            "exclude_extra_time": S.get(db, "provider.apifootball.exclude_extra_time")}
+
+
 def _dt(iso):
     """Their ISO date into an aware datetime. `scoreboard` range-queries `kickoff`, so a string
     stored there matches nothing and the board comes back empty with no error raised anywhere."""
@@ -66,57 +77,40 @@ def _our_match(db, fixture_id) -> dict | None:
     return db.matches.find_one({"ext_id": str(fixture_id)})
 
 
-# Their (type, detail) pairs in the vocabulary SportAPI rows already use, which every reader of
-# `live_events` matches on: live_track counts "yellow" types per side, follow_alerts looks for goal and
-# red types, and the match page draws icons from them. Stored raw ("Card" with the colour in `detail`,
-# the club as an id), none of those readers could tell a yellow from a red or a home card from an away
-# one, so a yellow-card forecast could never tick and a red card never raised an alert.
-_AF_KIND = {("goal", "normal goal"): "goal", ("goal", "own goal"): "own_goal", ("goal", "penalty"): "penalty",
-            ("goal", "missed penalty"): "missed_penalty", ("card", "yellow card"): "yellow_card",
-            ("card", "second yellow card"): "second_yellow", ("card", "red card"): "red_card"}
+def _event_rows(db, fixture: dict, match: dict | None) -> list[dict]:
+    """Their inline events, in the shape `live_track` and `sportapi.events_for` actually read.
 
+    THIS WROTE THE PROVIDER'S OWN WORDS. `type` was API-Football's raw "Card", with "Yellow Card" in
+    `detail` -- and `live_track.is_yellow` tests `"yellow" in type`, so NO LIVE BOOKING WAS EVER
+    COUNTED and live card tracking was dead. `side`, `player_iid` and `minute_num` were missing
+    too, so `events_for` sorted on a field that did not exist and the match page's event list was
+    empty.
 
-def _af_kind(typ, detail) -> str | None:
-    t, d = str(typ or "").strip().lower(), str(detail or "").strip().lower()
-    if t == "subst":
-        return "substitution"
-    if t == "var":
-        return "var"
-    return _AF_KIND.get((t, d), t or None)
-
-
-def _event_rows(fixture: dict, match: dict | None, db=None) -> list[dict]:
-    """Their inline events, flattened into the shape SportAPI rows have, raw type and detail kept beside."""
-    import sportapi as SP                                    # its careful name match ties an event to our player
-    fid = str(((fixture.get("fixture") or {}).get("id")))
+    `normalize_af.events` already does this translation correctly for the finished-match path, and
+    the live path did it again by hand and got it wrong. One translator, both paths.
+    """
+    fx = fixture.get("fixture") or {}
+    fid = fx.get("id")
     teams = fixture.get("teams") or {}
-    home_ext, away_ext = str((teams.get("home") or {}).get("id")), str((teams.get("away") or {}).get("id"))
-    fx = {"home_iid": (match or {}).get("home_iid"), "away_iid": (match or {}).get("away_iid")}
+    home_ext = str((teams.get("home") or {}).get("id"))
+    away_ext = str((teams.get("away") or {}).get("id"))
+    tid = {"home": (match or {}).get("home_iid"), "away": (match or {}).get("away_iid")}
     rows = []
-    for e in (fixture.get("events") or []):
-        t = e.get("time") or {}
-        team_ext = str((e.get("team") or {}).get("id"))
-        side = "home" if team_ext == home_ext else "away" if team_ext == away_ext else None
-        kind = _af_kind(e.get("type"), e.get("detail"))
-        base, add = t.get("elapsed"), t.get("extra") or 0
-        player, assist = (e.get("player") or {}).get("name"), (e.get("assist") or {}).get("name")
-        sub = kind == "substitution"
-        # On a substitution their `player` is the one going off and `assist` the one coming on.
-        name = assist if sub else player
+    for e in NAF.events(fixture, home_ext, away_ext):
+        pl = db.players.find_one({"ext_id": e.get("player_ext")}, {"iid": 1}) if e.get("player_ext") else None
+        minute, extra = e.get("minute") or 0, e.get("added") or 0
         rows.append({
             "sid": int(fid), "fixture_sid": int(fid), "fixture_ext": str(fid),
             "match_iid": (match or {}).get("iid"),
-            "type": kind, "side": side,
-            "minute": (f"{base}+{add}'" if add else f"{base}'") if base is not None else None,
-            "minute_num": float((base or 0) + add),
-            "player_name": name, "in_name": assist if sub else None, "out_name": player if sub else None,
-            "assist_name": None if sub else assist,
-            "player_iid": SP._event_player(db, fx, side, name) if db is not None and kind != "var" else None,
-            "team_iid": fx.get(f"{side}_iid") if side else None,
-            "extra": e.get("detail") if kind == "var" else None,
-            "team_ext": team_ext,
-            "player_ext": str((e.get("player") or {}).get("id")) if (e.get("player") or {}).get("id") else None,
-            "af_type": e.get("type"), "detail": e.get("detail"), "comments": e.get("comments"),
+            # `type` is OUR vocabulary -- goal / yellow / red / sub -- not theirs.
+            "type": e["type"], "side": e["side"], "team_iid": tid.get(e["side"]),
+            "minute": minute, "extra": extra,
+            # what events_for sorts on; a plain minute cannot order 45+2 against 46.
+            "minute_num": minute + (extra or 0) / 100.0,
+            "player_iid": (pl or {}).get("iid"),
+            "player_ext": e.get("player_ext"), "player_name": e.get("player_name"),
+            "assist_name": e.get("in_name"),
+            "own_goal": e.get("own_goal"), "penalty": e.get("penalty"), "second_yellow": e.get("second_yellow"),
         })
     return rows
 
@@ -173,11 +167,34 @@ def _store(db, fixture: dict, now: datetime) -> dict:
         "polled_at": now,
     }
     changed = (not old) or any(old.get(k) != doc[k] for k in ("status", "hs", "as", "minute"))
-    if old.get("status") != st and str(st or "").upper() in NAF.FINAL_SHORTS:
+    went_final = old.get("status") != st and str(st or "").upper() in NAF.FINAL_SHORTS
+    if went_final:
         doc["final_at"] = now
     db.live_fixtures.update_one({"sid": int(fid)}, {"$set": doc}, upsert=True)
 
-    rows = _event_rows(fixture, match, db)
+    # THE WHISTLE IS THE SIGNAL TO FETCH THE STATISTICS, and nothing was acting on it.
+    #
+    # This line knew the match had just ended -- it has been stamping `final_at` all along -- and
+    # then left it there. The only thing in the codebase that queues a finished match's statistics
+    # is `ingest_af.sync_fixtures`, which runs from the `af_fixtures` job every
+    # `ingest.fixtures_sync_hours`: SIX HOURS by default. Worse, when it does run it reads
+    # `/fixtures` through a cache whose TTL is six hours off a match day, so it could run and still
+    # see the match as `scheduled` and queue nothing at all.
+    #
+    # So a match that finished at five o'clock could have no shots, no possession and no player
+    # numbers until nearly midnight, and the delay looked exactly like the one the retired provider
+    # used to have -- because that provider's `results_sync` was on the same six-hour cadence. It
+    # was never about which provider; it was about nobody asking until the next scheduled sweep.
+    #
+    # `drain` runs on every tick, so queueing here turns six hours into about a minute. It costs no
+    # extra call: this bundle was going to be fetched regardless, just later.
+    if went_final and match and not match.get("ingested_at"):
+        import ingest as I
+        import ingest_af as IA
+        I.enqueue(db, IA.QUEUE_TASK, str(fid), priority=3,          # ahead of the backfill
+                  payload={"match_iid": match["iid"]})
+
+    rows = _event_rows(db, fixture, match)
     if rows:
         # Replace rather than append: their feed restates the whole list each poll, so appending
         # would write a goal again on every tick for the rest of the match.
@@ -187,9 +204,14 @@ def _store(db, fixture: dict, now: datetime) -> dict:
                                 {"$set": {"events_at": now, "events_n": len(rows)}})
 
     if match:                       # the light mirror the Today and match pages read
+        # `sid`, which is what every reader of this mirror wants: `queries._live_events` does
+        # `(m.get("live") or {}).get("sid")` and `follow_alerts.goals` queries `{"live.sid": ...}`.
+        # Writing `ext_id` here left both permanently empty -- no event list on the match page, and
+        # goal and red-card alert e-mails that never went out, with `return 0` reading as a quiet
+        # night.
         db.matches.update_one({"iid": match["iid"]}, {"$set": {"live": {
             "status": st, "minute": doc["minute"], "hs": doc["hs"], "as": doc["as"],
-            "ext_id": str(fid), "at": now}}})
+            "sid": int(fid), "ext_id": str(fid), "at": now}}})
     return {"changed": changed, "match_iid": (match or {}).get("iid"), "events": len(rows),
             "orphan": match is None}
 
@@ -239,53 +261,6 @@ def _store_lineups(db, fixture: dict, now: datetime) -> int:
         n += 1
     return n
 
-
-def _store_stats(db, fixture: dict, now: datetime) -> dict:
-    """One fixture's live statistics, into `live_stats`, in THE SHAPE ITS READER EXPECTS.
-
-    `live_track.evaluate` finds the row by `fixture_sid` and reads `teams.home.shots` and
-    `players[].player_iid`. This used to write their raw `statistics` list keyed by `ext_id`, so the
-    reader found nothing and no shots, corners or tackles forecast ever ticked live -- with the tick
-    reporting stats stored. (It also upserted with no `fixture_sid`, against the unique index on it.)
-
-    Normalized with the same `team_keys` map and player paths a finished match goes through, so a
-    live "6 shots" and a full-time "6 shots" are the same number read the same way. The raw list is
-    kept beside it, so the admin can see what arrived when a name in the map is wrong.
-    """
-    fid = (fixture.get("fixture") or {}).get("id")
-    if fid is None:
-        return {}
-    teams = fixture.get("teams") or {}
-    home_ext = str((teams.get("home") or {}).get("id"))
-    away_ext = str((teams.get("away") or {}).get("id"))
-    ts = NAF.team_stats(fixture, S.get(db, "provider.apifootball.team_keys") or {}, home_ext, away_ext)
-    pl = NAF.players(fixture, S.get(db, "provider.apifootball.position_map") or {})
-    side_of = {home_ext: "home", away_ext: "away"}
-    players = []
-    for p in pl:
-        side = side_of.get(str(p.get("team_ext_id")))
-        if side is None:
-            continue
-        # The same join a finished match uses (ingest.upsert_player keys players by ext_id), as a
-        # lookup only: a live tick does not create players.
-        ours = db.players.find_one({"ext_id": p["ext_id"]}, {"iid": 1})
-        players.append({"player_iid": (ours or {}).get("iid"), "ext_id": p["ext_id"], "name": p.get("name"),
-                        "side": side, **{c: p.get(c) for c in ("minutes", "shots", "sot", "tackles", "goals",
-                                                                "assists", "saves", "fouls_committed", "passes")}})
-    # No team tackles statistic exists on API-Football, and shots on target can be missing: the team
-    # total is the players' sum, the fallback normalize_af.normalize_match uses for finished matches.
-    for side, ext in (("home", home_ext), ("away", away_ext)):
-        for col in ("tackles", "sot", "shots"):
-            if ts[side].get(col) is None:
-                ts[side][col] = NAF._sum_team(pl, ext, col)
-    has = any(v is not None for s in ts.values() for v in s.values())
-    doc = {"fixture_sid": int(fid), "ext_id": str(fid), "provider": PROVIDER, "at": now,
-           "teams": ts if has else {"home": {}, "away": {}}, "players": players,
-           "statistics": fixture.get("statistics") or []}
-    db.live_stats.update_one({"fixture_sid": int(fid)}, {"$set": doc}, upsert=True)
-    return doc
-
-
 def live_tick(db, client=None, now: datetime | None = None) -> dict:
     """One call for every in-play fixture in our competitions, plus statistics where they exist."""
     now = now or utcnow()
@@ -303,6 +278,7 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
     except (AF.BudgetExhausted, AF.BreakerOpen, AF.Unauthorized, AF.PlanLimited) as e:
         return {"skipped": f"{type(e).__name__}: {e}", "fixtures": 0}
 
+    settings = _settings(db)
     out = {"fixtures": len(fixtures), "changed": 0, "events": 0, "orphans": 0, "stats": 0, "lineups": 0}
     for f in fixtures:
         r = _store(db, f, now)
@@ -316,7 +292,61 @@ def live_tick(db, client=None, now: datetime | None = None) -> dict:
     if want and S.get(db, "apifootball.live_stats"):
         bundles = AF.fixtures_bundle(client, want, ttl=None, purpose="live_stats")
         for fid, fixture in bundles.items():
-            _store_stats(db, fixture, now)
+            # THE SHAPE `live_track` READS, not the provider's raw array.
+            #
+            # This stored API-Football's `statistics` list verbatim, and `live_track.evaluate`
+            # (line 67-70) wants `teams: {home|away: {shots, sot, corners, tackles}}` and
+            # `players: [{player_iid, ...}]`. So every live stat line sat at "unknown" for the whole
+            # match -- the four markets in STATS_STATS could never be tracked.
+            #
+            # `normalize_af` already turns their payload into our column names for the finished
+            # match; using it here too means one translator, and the live numbers are the same
+            # numbers the final row will carry.
+            #
+            # Keyed on `fixture_sid`: mongo_init indexes live_stats UNIQUE on that field and NOT
+            # sparse, so keying on `ext_id` gave every document `fixture_sid: null` -- the first
+            # fixture stored and the SECOND raised DuplicateKeyError, killing the statistics step
+            # for the rest of the tick. Same shape as the seasons.label crash.
+            teams_block, players_block = {}, []
+            try:
+                tms = fixture.get("teams") or {}
+                hx, ax = str((tms.get("home") or {}).get("id")), str((tms.get("away") or {}).get("id"))
+                ts = NAF.team_stats(fixture, settings["team_keys"], hx, ax)
+                # EVERY column the finished-match row carries, not the four `live_track` happens to
+                # need. The same numbers are now shown on the match page while the match is on, and
+                # a live table that silently holds fewer rows than the final one makes the figures
+                # appear to change at the whistle when all that changed is which document was read.
+                teams_block = {side: {c: ts[side].get(c) for c in NAF.TEAM_COLS}
+                               for side in ("home", "away")}
+                pls = NAF.players(fixture, settings["position_map"])
+                for pl in pls:
+                    ours = db.players.find_one({"ext_id": pl["ext_id"]}, {"iid": 1})
+                    players_block.append({"player_iid": (ours or {}).get("iid"),
+                                          "ext_id": pl["ext_id"],
+                                          **{c: pl.get(c) for c in ("shots", "sot", "tackles")}})
+                # Team tackles, from the players. API-Football publishes no team Tackles statistic
+                # at all, so without this the live tackles line reads "unknown" for ninety minutes
+                # on a market the product actually sells. The finished-match path does exactly the
+                # same (normalize_af, docs/80 section 2), so the live number and the final number
+                # are computed the same way rather than disagreeing at the whistle.
+                for side, ext in (("home", hx), ("away", ax)):
+                    if teams_block[side].get("tackles") is None:
+                        teams_block[side]["tackles"] = NAF._sum_team(pls, ext, "tackles")
+                    # Saves the same way, and for the same reason the finished path does it: the
+                    # keeper's saves are a player number with no team statistic behind them, and
+                    # `saves` is a market we publish. Without this the match page would show a saves
+                    # row that filled in only at the whistle.
+                    teams_block[side]["saves"] = (teams_block[side].get("saves")
+                                                  if teams_block[side].get("saves") is not None
+                                                  else NAF._sum_team(pls, ext, "saves"))
+            except Exception as e:      # one fixture's statistics, not the tick's
+                db.ingest_issues.insert_one({"at": now, "kind": "live_stats_shape",
+                                             "detail": f"{fid}: {type(e).__name__}: {e}"})
+            db.live_stats.update_one({"fixture_sid": int(fid)},
+                                     {"$set": {"fixture_sid": int(fid), "ext_id": str(fid), "at": now,
+                                               "teams": teams_block, "players": players_block,
+                                               "statistics": fixture.get("statistics") or []}},
+                                     upsert=True)
             out["stats"] += 1
             out["lineups"] = out.get("lineups", 0) + _store_lineups(db, fixture, now)
     db.job_state.update_one({"_id": "live_tick"},

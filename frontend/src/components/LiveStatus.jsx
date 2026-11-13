@@ -2,7 +2,18 @@
 import { utc } from "../lib/time";
 import { atHalfTime, fxLive, fxState } from "../lib/live";
 
-const WORDS = { FT: "Full time", AET: "After extra time", PENS: "After penalties", Postponed: "Postponed", Cancelled: "Cancelled", Suspended: "Suspended" };
+// Both vocabularies: SportAPI's long words and API-Football's short codes. The codes were missing,
+// so a called-off match showed the raw "PST" or "CANC" and lost its warning styling. The server
+// sends `text` (status_text) and this is only the fallback -- but a fallback that prints a provider
+// code is not a fallback. docs/89.
+const WORDS = {
+  FT: "Full time", AET: "After extra time", PENS: "After penalties", PEN: "After penalties",
+  Postponed: "Postponed", Cancelled: "Cancelled", Suspended: "Suspended",
+  PST: "Postponed", CANC: "Cancelled", ABD: "Abandoned", AWD: "Awarded", WO: "Walkover",
+  SUSP: "Suspended", INT: "Interrupted", NS: "Not started", TBD: "Not started",
+};
+// The ones that deserve a warning tone, in either vocabulary.
+const WARN = ["Postponed", "Cancelled", "Suspended", "PST", "CANC", "ABD", "SUSP", "INT", "WO"];
 
 // The minute as a reader writes it: 67', 45+2'. The feed sends a number (API-Football) or a label ("67'", SportAPI).
 export const minuteText = (m) => {
@@ -28,5 +39,5 @@ export default function LiveStatus({ status, minute, kickoff, text, state, live,
   if (fxState(f) === "later") {
     return <time className="muted" data-testid={testid}>{kickoff ? utc(kickoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "–"}</time>;
   }
-  return <span className={`status-chip ${["Postponed", "Cancelled", "Suspended"].includes(status) ? "status-warn" : ""}`} data-testid={testid}>{text || WORDS[status] || status}</span>;
+  return <span className={`status-chip ${WARN.includes(status) ? "status-warn" : ""}`} data-testid={testid}>{text || WORDS[status] || status}</span>;
 }

@@ -3,9 +3,9 @@
 // provider does both plus images and injuries. Three tabs, the tab in the URL so Back works.
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { post, put } from "../lib/api";
+import { post } from "../lib/api";
 import { useApi } from "../lib/useApi";
-import { Confirm, Tabs, useToast } from "../components/Ui";
+import { Tabs, useToast } from "../components/Ui";
 import { ErrorBox, Loading } from "../components/States";
 import Icon from "../components/Icon";
 import { Card, Chip, PageHead, num } from "./parts";
@@ -89,56 +89,29 @@ function Status() {
 // calls PitchClient and the live tick calls SportAPI (docs/81 section 4) -- so turning either off
 // stops the site getting that data. The switches exist so the owner can retire them deliberately,
 // in order, once the replacement is backfilling.
-function OtherProviders({ onChanged }) {
-  const toast = useToast();
-  const q = useApi("/admin/leagues");
-  const [ask, setAsk] = useState(null);
-  if (q.loading && !q.data) return null;
-  if (q.error) return null;
-  const on = q.data.providers_on || {};
-  const set = async (key, value) => {
-    try {
-      await put(`/admin/settings/${key}`, { value });
-      toast(value ? "Switched on" : "Switched off");
-      q.reload(); if (onChanged) onChanged();
-    } catch (x) { toast(x.message || "Could not save", "err"); }
-  };
-  const ROWS = [
-    { key: "pitchapi.enabled", name: "PitchAPI", on: on.pitchapi,
-      does: "Match and player history, the season backfill, and the image lookups.",
-      off: "Off stops every PitchAPI call. The engine keeps running on the data already stored, but nothing new arrives and no new match is ingested." },
-    { key: "sportapi.enabled", name: "SportAPI", on: on.sportapi,
-      does: "Live scores, the minute, match events and lineups.",
-      off: "Off stops the live tick. Scores and the clock stop updating, and no new lineup is confirmed." },
-  ];
+// The two providers this one replaced. A CARD OF FACT, not a control.
+//
+// It used to offer a switch for each, reading `providers_on` from /admin/leagues. Both ends of that
+// went stale: the route hard-codes `sportapi: false` now, so the chip read "Off" for ever and the
+// button read "Turn SportAPI back on" -- and pressing it SUCCEEDED, because `sportapi.enabled` is
+// still a registered setting. It toasted "Switched on", changed nothing a tick reads, and quietly
+// desynced the setting from `features.live`, which settings_store keeps it mirrored to. A switch
+// that reports success and does nothing is worse than one that 404s.
+//
+// Nothing calls either provider now (docs/88, docs/89), so there is nothing to turn on or off.
+function OtherProviders() {
   return (
     <Card>
       <h2>The providers this one replaces</h2>
-      <p className="a-muted small">
-        Both still run: the ingest calls PitchAPI and the live tick calls SportAPI. Turn them off
-        once API-Football is backfilling, in that order — not before, or the site stops getting data.
+      <p className="a-muted small" data-testid="off-retired">
+        PitchAPI and SportAPI are retired. Every football pull — history, the backfill, live scores,
+        match events, lineups, crests and player photos — comes from API-Football and from nowhere
+        else. Their screens and their calls are gone, so there is nothing here to switch.
       </p>
-      {ROWS.map((r) => (
-        <div key={r.key} className="a-stack a-stack--tight" data-testid={`off-${r.key}`}>
-          <div className="a-row a-row--between">
-            <div><strong>{r.name}</strong><div className="a-muted small">{r.does}</div></div>
-            <Chip tone={r.on ? "ok" : "mute"}>{r.on ? "On" : "Off"}</Chip>
-          </div>
-          <button className={"btn btn--sm self-start " + (r.on ? "btn--danger" : "btn--secondary")}
-                  onClick={() => (r.on ? setAsk(r) : set(r.key, true))}
-                  data-testid={`off-${r.key}-toggle`}>
-            {r.on ? `Turn ${r.name} off` : `Turn ${r.name} back on`}
-          </button>
-        </div>
-      ))}
-      <Confirm open={!!ask} title={`Turn ${ask?.name} off?`} confirmLabel={`Turn ${ask?.name} off`}
-               testid="off-confirm" onClose={() => setAsk(null)}
-               body={<div className="a-stack"><p>{ask?.off}</p>
-                 <p className="muted small">Switching it back on takes one click and spends nothing by itself.</p></div>}
-               onConfirm={async () => { await set(ask.key, false); setAsk(null); }} />
     </Card>
   );
 }
+
 
 function Mapping() {
   const q = useApi("/admin/apifootball/types");

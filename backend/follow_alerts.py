@@ -14,8 +14,29 @@ def Q_minute(s):
     return _minute_num(s) if s else None
 
 
-GOALS = {"goal": "Goal", "own_goal": "Own goal", "penalty": "Penalty goal"}
-REDS = {"red_card": "Red card", "second_yellow": "Second yellow, sent off"}
+# THE WRITER'S WORDS, not the retired provider's. These two dicts were keyed on `red_card`,
+# `second_yellow`, `own_goal` and `penalty` as event TYPES -- the shapes PitchAPI and SportAPI
+# emitted. `normalize_af.events` is the only writer now and it emits `goal`, `missed_penalty`,
+# `yellow`, `red` and `sub`, with `own_goal`, `penalty` and `second_yellow` as BOOLEANS on the row.
+#
+# So the Mongo query below, `type: {"$in": [*GOALS, *REDS]}`, matched nothing for a red card at all
+# -- a sending-off never reached a single follower -- and an own goal was e-mailed as a plain "Goal"
+# for the side that conceded it. Both silent: the query simply returned fewer rows.
+#
+# `ALERT_TYPES` is what we subscribe to; the label comes from the row, because the distinctions that
+# matter to a reader (own goal, penalty, second yellow) are flags and not types.
+ALERT_TYPES = ("goal", "red")
+
+
+def label_for(e: dict) -> str:
+    """What a follower is told this event was."""
+    if e.get("type") == "red":
+        return "Second yellow, sent off" if e.get("second_yellow") else "Red card"
+    if e.get("own_goal"):
+        return "Own goal"
+    if e.get("penalty"):
+        return "Penalty goal"
+    return "Goal"
 
 
 def _users(db, uids, pref):
@@ -67,7 +88,7 @@ def goals(db, now) -> int:
     if not ms:
         return 0
     sent = 0
-    evs = db.live_events.find({"fixture_sid": {"$in": list(ms)}, "type": {"$in": [*GOALS, *REDS]}}, {"_id": 0})
+    evs = db.live_events.find({"fixture_sid": {"$in": list(ms)}, "type": {"$in": list(ALERT_TYPES)}}, {"_id": 0})
     for e in evs:
         m = ms[e["fixture_sid"]]
         now_min = Q_minute(m["live"].get("minute"))
@@ -79,7 +100,7 @@ def goals(db, now) -> int:
             continue
         teams = Q._names(db, "teams", [m["home_iid"], m["away_iid"]])
         h, a = (teams.get(m["home_iid"]) or {}).get("name", "?"), (teams.get(m["away_iid"]) or {}).get("name", "?")
-        what = GOALS.get(e["type"]) or REDS.get(e["type"])
+        what = label_for(e)
         score = f"{h} {m['live'].get('hs', 0)}-{m['live'].get('as', 0)} {a}"
         for u in _users(db, uids, "alert_goals"):
             sent += _send(db, f"live:{u['id']}:{e['fixture_sid']}:{e['eid']}", u, "goal_alert",

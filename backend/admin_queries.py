@@ -260,17 +260,31 @@ def health(db, now=None) -> dict:
     day_ago = now - timedelta(hours=24)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     last_run = db.job_runs.find_one({}, sort=[("started_at", -1)])
-    breaker = db.job_locks.find_one({"_id": "pitch_breaker"})
+    # EITHER BREAKER, and name the one that actually tripped. This looked only at `pitch_breaker`,
+    # so when API-Football cut us off -- the only provider in use -- Health reported
+    # `breaker_open: false`, raised no alert, and left the admin Data tile green. The one alarm for
+    # "the provider has stopped answering" was blind to the only provider there is. docs/89.
+    breaker = None
+    for lock_id, who in (("af_breaker", "API-Football"), ("pitch_breaker", "PitchAPI")):
+        row = db.job_locks.find_one({"_id": lock_id})
+        if row:
+            breaker = {**row, "provider": who}
+            break
     queue = {r["_id"]: r["n"] for r in db.ingest_queue.aggregate([{"$group": {"_id": "$status", "n": {"$sum": 1}}}])}
     calls_today = db.api_call_log.count_documents({"at": {"$gte": start}, "cached": {"$ne": True}})
-    budget = S.get(db, "ingest.daily_call_budget")
+    # The budget of the provider in use. `ingest.daily_call_budget` is PitchAPI's 2,000 and
+    # API-Football allows 75,000, so this fired a permanent daily false amber past 1,600 calls --
+    # naming a provider that is not running, long before any real limit.
+    from routes_data_admin import _provider_budget
+    budget = _provider_budget(db) or S.get(db, "ingest.daily_call_budget")
     emailed = db.email_log.count_documents({"at": {"$gte": start}, "status": {"$in": ["sent", "delivered"]}})
     alerts = []
     def alert(level, msg): alerts.append({"level": level, "message": msg})
-    if breaker: alert("red", f"PitchAPI breaker is open: {breaker.get('reason', '')}")
+    if breaker: alert("red", f"{breaker['provider']} breaker is open: {breaker.get('reason', '')}")
     if S.get(db, "ingest.paused_reason"): alert("red", S.get(db, "ingest.paused_reason"))
     if last_run is None or (now - A._aware(last_run["started_at"])) > timedelta(hours=3): alert("amber", "No background job has run in the last 3 hours. Check the scheduler ping.")
-    if calls_today > 0.8 * budget: alert("amber", f"PitchAPI calls today: {calls_today} of {budget}.")
+    if budget and calls_today > 0.8 * budget:
+        alert("amber", f"Provider calls today: {calls_today} of {budget}.")
     we = db.webhook_events.count_documents({"status": "error", "received_at": {"$gte": day_ago}})
     if we: alert("red", f"{we} webhook event(s) failed in the last 24 hours. Billing may be out of date.")
     e5 = db.app_logs.count_documents({"level": "error", "at": {"$gte": day_ago}})

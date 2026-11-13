@@ -4,7 +4,7 @@ import { useApi } from "../lib/useApi";
 import { Tabs } from "../components/Ui";
 import { DataState, KV, PageHead, Pager, when } from "./parts";
 
-const KINDS = [["audit", "Audit"], ["auth", "Sign-ins"], ["app", "Application"], ["api", "PitchAPI calls"], ["webhooks", "Webhooks"], ["jobs", "Jobs"], ["issues", "Data issues"], ["email", "E-mail"]];
+const KINDS = [["audit", "Audit"], ["auth", "Sign-ins"], ["app", "Application"], ["api", "Provider calls"], ["webhooks", "Webhooks"], ["jobs", "Jobs"], ["issues", "Data issues"], ["email", "E-mail"]];
 const RANGES = [["", "Any time"], ["24", "Last 24 hours"], ["168", "Last 7 days"], ["720", "Last 30 days"]];
 const head = (r) => r.action || r.event || r.path || r.type || r.job || r.template || r.kind || r.purpose || "Entry";
 const at = (r) => r.at || r.received_at || r.started_at || r.created_at;

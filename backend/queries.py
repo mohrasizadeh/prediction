@@ -260,7 +260,10 @@ def match_detail(db, match_iid: int) -> dict | None:
             "live": m.get("live"), "live_events": _live_events(db, m), "recap": _recap(db, m, ev),
             "team_stats": team_stats, "player_stats": player_stats, "live_stats": _live_stats(db, m),
             # Only API-Football names a coach (ingest.save_lineups); None means "do not show".
-            "coach": {"home": (m.get("coach") or {}).get("home"), "away": (m.get("coach") or {}).get("away")}}
+            "coach": {"home": (m.get("coach") or {}).get("home"), "away": (m.get("coach") or {}).get("away")},
+            # One block, live then final, in the shape main's audit introduced (kept for its readers
+            # and tests); the page itself reads team_stats / player_stats / live_stats above.
+            "stats": _stats_block(db, m)}
 
 
 # What the Stats tab reads off a player row: PLAYER_COLS as stored, plus the provider's rating
@@ -283,6 +286,13 @@ def _match_stats(db, m):
     ts = {side_of[r["team_iid"]]: {c: r.get(c) for c in N.TEAM_COLS}
           for r in db.team_match_stats.find({"match_iid": m["iid"]}, {"_id": 0}) if r.get("team_iid") in side_of}
     team_stats = {"home": ts.get("home"), "away": ts.get("away")} if ts else None
+    if team_stats:
+        # Keeper saves live on the player rows (write_match stamps the side's total as team_saves).
+        for side, tid in (("home", m["home_iid"]), ("away", m["away_iid"])):
+            if team_stats.get(side) is not None:
+                r = db.player_match_stats.find_one({"match_iid": m["iid"], "team_iid": tid, "team_saves": {"$ne": None}},
+                                                   {"_id": 0, "team_saves": 1})
+                team_stats[side]["saves"] = (r or {}).get("team_saves")
     rows = [r for r in db.player_match_stats.find({"match_iid": m["iid"]}, {"_id": 0}) if r.get("team_iid") in side_of]
     pl = _names(db, "players", [r["player_iid"] for r in rows])
     out = [{"player": pl.get(r["player_iid"]), "side": side_of[r["team_iid"]], "pos": r.get("pos"),
@@ -293,7 +303,7 @@ def _match_stats(db, m):
 
 
 def _live_stats(db, m):
-    """The team statistics the live tick stored for this match (live_af._store_stats), or None.
+    """The team statistics the live tick stored for this match (live_af.live_tick), or None.
 
     TEAM_COLS per side, the same columns `team_stats` carries after full time, so the Stats tab draws
     one set of bars from either. A column the provider did not send stays None. `at` is when the
@@ -319,6 +329,55 @@ def _live_stats(db, m):
         at = (at if at.tzinfo else at.replace(tzinfo=timezone.utc)).isoformat()
     out["at"] = at
     return out
+
+# The columns the match page shows, in the order a reader expects them. Possession first because it
+# frames everything else; the shot columns together; cards last.
+MATCH_STAT_COLS = ("poss", "shots", "sot", "corners", "fouls", "yellow_cards", "tackles", "saves", "xg")
+
+
+def _stats_block(db, m) -> dict | None:
+    """This match's own numbers, live while it is on and final once it is over.
+
+    NOTHING SHOWED THESE AT ALL. `match_detail` returned forecasts, events, lineups, a style model
+    and a recap, and no statistics -- so the page a reader opens to see what happened in the match
+    could not tell them how many shots there had been. `live_stats` had exactly one reader in the
+    whole codebase (`live_track`, deciding whether a live forecast had landed) and no display, and
+    what the page labelled as team stats was `team_styles`: a historical style model the engine
+    rebuilds, which by design does not move during a match.
+
+    Two sources, one shape. `team_match_stats` is authoritative once the match is ingested;
+    `live_stats` is what we have while it is being played. Both now carry the same columns
+    (`normalize_af.TEAM_COLS`), so the rows do not change at the whistle -- only their source does.
+    """
+    h, a = m["home_iid"], m["away_iid"]
+    rows = {r["team_iid"]: r for r in db.team_match_stats.find(
+        {"match_iid": m["iid"], "team_iid": {"$in": [h, a]}}, {"_id": 0})}
+    if len(rows) == 2:
+        home, away = rows[h], rows[a]
+        got = {"source": "final", "at": m.get("ingested_at"),
+               "home": {c: home.get(c) for c in MATCH_STAT_COLS},
+               "away": {c: away.get(c) for c in MATCH_STAT_COLS}}
+        # Keeper saves live on the player rows, not the team row, so they are summed here rather
+        # than left out: "saves" is a market we publish and a number a reader looks for.
+        # `write_match` stamps the team's saves total onto EVERY player row of that side, so any one
+        # of them carries it -- but ask for one that actually has a value rather than taking the
+        # first row and hoping, because a row written before the saves column existed holds None.
+        for side, tid in (("home", h), ("away", a)):
+            r = db.player_match_stats.find_one(
+                {"match_iid": m["iid"], "team_iid": tid, "team_saves": {"$ne": None}},
+                {"_id": 0, "team_saves": 1})
+            got[side]["saves"] = (r or {}).get("team_saves")
+        return got
+    sid = (m.get("live") or {}).get("sid")
+    if sid is None:
+        return None
+    ls = db.live_stats.find_one({"fixture_sid": int(sid)}, {"_id": 0, "teams": 1, "at": 1})
+    if not ls or not (ls.get("teams") or {}).get("home"):
+        return None
+    t = ls["teams"]
+    return {"source": "live", "at": ls.get("at"),
+            "home": {c: t["home"].get(c) for c in MATCH_STAT_COLS},
+            "away": {c: t["away"].get(c) for c in MATCH_STAT_COLS}}
 
 
 def _recap(db, m, ev):

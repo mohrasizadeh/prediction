@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from pymongo.errors import DuplicateKeyError
 
 import engine_bridge as B
+import af_leagues as AFL
 import ingest as I
 import settings_store as S
 from cached_fetch import BreakerOpen, BudgetExhausted, PitchClient, Unauthorized, utcnow
@@ -158,10 +159,30 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
                 return n
             if leagues and _run(db, "backfill", bf, now): out["ran"].append("backfill")
 
-        if not af and left() and S.get(db, "ingest.lineups_watch_enabled"):
-            if _run(db, "lineup_watch", lambda: I.lineup_watch(client, now), now) is not None: out["ran"].append("lineup_watch")
+        # THE ANNOUNCED ELEVEN, BEFORE KICK-OFF, on whichever provider is running. This was
+        # `not af`-gated with no replacement, so under API-Football nothing ever wrote `db.lineups`
+        # before a match -- only `write_match` did, afterwards. Three features depended on it and
+        # all three were dead: the engine fell back to its own `p_play` guesses even once the
+        # teamsheet was out (`engine_bridge` wants started+confirmed rows), the "lineups are in"
+        # e-mail never went, and `lineups_at` never moved so no forecast was ever re-fit on a
+        # confirmed eleven. One call covers twenty fixtures and a lineup is paid for once.
+        if left() and S.get(db, "ingest.lineups_watch_enabled"):
+            if af:
+                try:
+                    if _run(db, "af_lineup_watch", lambda: IA.lineup_watch(afc, now), now) is not None:
+                        out["ran"].append("af_lineup_watch")
+                except (AF.BudgetExhausted, AF.BreakerOpen, AF.Unauthorized, AF.PlanLimited) as e:
+                    out["provider_paused"] = f"{type(e).__name__}: {e}"   # the account, not this tick
+            elif _run(db, "lineup_watch", lambda: I.lineup_watch(client, now), now) is not None:
+                out["ran"].append("lineup_watch")
 
-        if left() and S.get(db, "ingest.match_extra_detail"):
+        # NOT UNDER API-FOOTBALL. `plan_referees` exists because PitchAPI charged a call per match
+        # for the referee's name, so it had to be planned and queued; `normalize_af.match_row` reads
+        # the referee straight off the fixture row we already have, for nothing. Worse than
+        # redundant: it enqueues `match_referee` tasks, and `process_queue` -- the only thing that
+        # drains them -- is `not af`-gated below, so switching this setting on would grow a queue
+        # nobody empties, for work already done.
+        if not af and left() and S.get(db, "ingest.match_extra_detail"):
             import cards_model as CM
             _run(db, "referee_watch", lambda: CM.plan_referees(db, now), now)
         # No photo_plan step. Pictures come from api-football.com and nowhere else: the logo is a
@@ -172,15 +193,28 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
             res = _run(db, "queue", lambda: I.process_queue(client, max_tasks=200), now)
             if res and (res["done"] or res["skipped"]): out["ran"].append("queue")
 
+        # ONCE, UNSCOPED, before the per-league loop. This used to sit inside that loop with the
+        # league's own iid, which scoped "the club he last played for" to one competition and let
+        # two competitions' passes move the same player back and forth on every tick (docs/41 and
+        # the note on the function). The club a player plays for is one fact about him.
+        if left():
+            I.refresh_player_clubs(db)
         for lg in leagues:
             if not left(): break
+            # A CALENDAR COMPETITION DOES NOT GET FORECASTS. `leagues` is every ENABLED competition,
+            # so this loop was fitting models for the FA Cup and for World Cup qualifying -- which
+            # docs/81 §2 says can never be forecast competitions, because there is no club history
+            # to fit. `af_leagues.is_forecast` is the existing gate and nothing here consulted it.
+            # A league with no `role` at all predates the field, so it is left alone rather than
+            # switched off by a default.
+            if lg.get("role") and lg["role"] != AFL.FORECAST:
+                continue
             last = db.engine_runs.find_one({"league_iid": lg["iid"], "status": {"$in": ["done", "skipped"]}}, sort=[("started_at", -1)])
             since = last["started_at"] if last else datetime(1970, 1, 1)
             dirty = (last is None
                      or db.matches.count_documents({"league_iid": lg["iid"], "ingested_at": {"$gt": since}}) > 0
                      or db.matches.count_documents({"league_iid": lg["iid"], "lineups_at": {"$gt": since}}) > 0)
             I.update_coverage(db, lg["iid"])
-            I.refresh_player_clubs(db, lg["iid"])     # a loan moves a player; the club follows his latest match (docs/41)
             if "engine" in forced or dirty:
                 if _run(db, f"engine:{lg['iid']}", lambda: B.run_league(db, lg["iid"], now), now) is not None: out["ran"].append(f"engine:{lg['iid']}")
         if left():
@@ -198,7 +232,14 @@ def tick(db, client: PitchClient | None = None, max_seconds: float = 50.0, now: 
             res = _run(db, "integrations", lambda: {**SOC.send_due(db, now=now, limit=int(S.get(db, "social.send_limit") or 20)),
                                                     **INT.process_audience(db, now=now), **INT.deliver_pending(db, now=now)}, now)
             if res and any(res.values()): out["ran"].append("integrations")
-        if left() and "images" in forced:
+        # ON A SCHEDULE, not only on a button. This was `"images" in forced` alone, so the sync
+        # ran only when an admin pressed Run now. That was right when each picture cost a provider
+        # call to find; on API-Football the logo is a URL on the entity and `identity_map` needs no
+        # call at all, so the sync is free. Meanwhile `purge` deletes `media` on a fresh start -- by
+        # design, so a new club cannot inherit an old club's crest -- which left a purged site with
+        # no crests and nothing scheduled to fetch them, and every club and player a backfill added
+        # waiting on a human. Reported as "I don't see any images". docs/89.
+        if left() and ("images" in forced or _due_every(db, "images", timedelta(hours=float(S.get(db, "images.sync_hours") or 6)), now)):
             import images as IMG
             if _run(db, "images", lambda: IMG.run_sync(db, max_seconds=max(5.0, min(40.0, max_seconds - (time.monotonic() - t0))), refresh=img_refresh), now) is not None: out["ran"].append("images")
         if left() and ("blog" in forced or _due_every(db, "blog", timedelta(hours=6), now)):

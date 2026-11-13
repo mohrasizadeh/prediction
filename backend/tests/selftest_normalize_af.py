@@ -159,14 +159,34 @@ def t_null_stays_none_when_nobody_has_it():
           all(p["shots"] is not None for p in r["players"]))
 
 
-def t_the_guard_looks_across_the_whole_fixture():
-    """One player on the OTHER team having the number is enough: it is a property of the match,
-    not of the team."""
+def t_the_guard_asks_per_side():
+    """REVERSED, because the premise was wrong and measurably harmful.
+
+    This used to assert the opposite: that one player on the OTHER team having the number was
+    enough, "a property of the match, not of the team". It is not. The two sides are two separate
+    answers from the provider and one can come back empty on its own -- and when it did, the other
+    side's numbers stood as proof the statistic was tracked, so all eleven of the empty side's
+    starters were filled to 0.0. Zero shots, zero tackles, for a side whose own team-statistics
+    block said ten shots, and nothing downstream could tell that from a real performance.
+    `TEAM_REQUIRED` was satisfied too, because 0.0 is not null, so the match was not dropped -- it
+    was fitted. docs/90.
+
+    The guard still looks across every player on the SIDE, which is what it is for: one player
+    with no numbers among ten who have them is a gap on him, not a league that tracks nothing.
+    """
     hp = [{"player": {"id": 3, "name": "F"}, "statistics": [pstat(minutes=90, pos="F", shots=4, inter=None)]}]
     ap = [{"player": {"id": 12, "name": "M"}, "statistics": [pstat(minutes=90, pos="M", shots=2, inter=5)]}]
     r = N.normalize_match(fixture(home_players=hp, away_players=ap), SETTINGS)
-    check("interceptions tracked for an away player makes a home null read 0",
-          next(p for p in r["players"] if p["ext_id"] == "3")["interceptions"] == 0.0)
+    check("interceptions tracked only on the away side leave the home null as None",
+          next(p for p in r["players"] if p["ext_id"] == "3")["interceptions"] is None)
+    check("...and the away player who does have one keeps it",
+          next(p for p in r["players"] if p["ext_id"] == "12")["interceptions"] == 5.0)
+    # Within one side, a player with nothing is still filled from his team-mates.
+    hp2 = [{"player": {"id": 3, "name": "F"}, "statistics": [pstat(minutes=90, pos="F", shots=4, inter=None)]},
+           {"player": {"id": 4, "name": "D"}, "statistics": [pstat(minutes=90, pos="D", shots=1, inter=3)]}]
+    r2 = N.normalize_match(fixture(home_players=hp2, away_players=ap), SETTINGS)
+    check("a team-mate with the number makes his own null a real 0",
+          next(p for p in r2["players"] if p["ext_id"] == "3")["interceptions"] == 0.0)
 
 
 def t_keepers_keep_their_tackles():
@@ -197,8 +217,18 @@ def t_goal_involvements():
     ap = [{"player": {"id": 12, "name": "M"}, "statistics": [pstat(minutes=90, pos="M", shots=1, goals=0)]}]
     r2 = N.normalize_match(fixture(home_players=hp, away_players=ap), SETTINGS)
     f2 = next(p for p in r2["players"] if p["ext_id"] == "3")
-    check("...and assists absent for the whole match leaves it None, never a half-sum",
-          f2["assists"] is None and f2["goal_involvements"] is None)
+    # REVERSED. This asserted that an absent assist column nulls the whole figure, and that is the
+    # bug: in a match where no goal was credited with an assist -- penalties, own goals, solo goals,
+    # any 0-0 -- `goals.assists` is null for all 26 players, so "never a half-sum" threw away the
+    # goal of a man who had plainly scored. Measured over a season: 10% of real involvements gone,
+    # 28% of player rows carrying a NaN, the team total 10% low, and because pandas sums an all-NaN
+    # group to 0.0 the frame's null guard could not see any of it. `goals` and `assists` are two
+    # leaves of ONE object the provider either sends or does not, so trackedness is asked of the
+    # object: here it was sent, so a null assist is a real zero. docs/90.
+    check("an absent assist beside a scored goal reads 0, and the involvement is the goal",
+          f2["assists"] == 0.0 and f2["goal_involvements"] == 1.0)
+    check("...and a player who did neither reads a real 0, not None",
+          next(p for p in r2["players"] if p["ext_id"] == "12")["goal_involvements"] == 0.0)
 
 
 def t_started_from_their_own_flag():
@@ -267,13 +297,20 @@ def t_missing_required_raises():
         check("a match with no shots anywhere, and none to sum, is refused", False)
     except MissingField:
         check("a match with no shots anywhere, and none to sum, is refused", True)
-    # and the case the first version of this test actually described
+    # The same case, now asked PER SIDE. The home side here sends not one shots number for anybody,
+    # so there is nothing to read its nulls against and they stay None -- which is why the match is
+    # refused above. The version that sums to a legitimate 0 is a side whose OWN players carry the
+    # number: one of them had a shot, the rest are real zeros.
     f_zero = fixture(home_stats={"Total Shots": None},
                      home_players=[{"player": {"id": 3, "name": "F"},
-                                    "statistics": [pstat(minutes=90, pos="F")]}])
+                                    "statistics": [pstat(minutes=90, pos="F", shots=2)]},
+                                   {"player": {"id": 4, "name": "D"},
+                                    "statistics": [pstat(minutes=90, pos="D")]}])
     r0 = N.normalize_match(f_zero, SETTINGS)
-    check("a side whose players all read 0 shots in a match that DID track them sums to 0, legitimately",
-          r0["team"]["home"]["shots"] == 0.0)
+    check("a side's own shots sum stands in for an absent team total",
+          r0["team"]["home"]["shots"] == 2.0)
+    check("...and his team-mate's null reads as the real 0 it is",
+          next(p for p in r0["players"] if p["ext_id"] == "4")["shots"] == 0.0)
     f2 = fixture(home_stats={"Total Shots": None})
     r = N.normalize_match(f2, SETTINGS)
     check("...but one that CAN be summed from the players is kept, and says so",
@@ -289,7 +326,7 @@ def t_shots_disagreement_is_reported():
 
 for fn in (t_same_shape_as_pitchapi, t_team_stats_read_by_name, t_team_tackles_from_players,
            t_null_is_zero_when_the_match_tracked_it, t_null_stays_none_when_nobody_has_it,
-           t_the_guard_looks_across_the_whole_fixture, t_keepers_keep_their_tackles,
+           t_the_guard_asks_per_side, t_keepers_keep_their_tackles,
            t_columns_the_provider_does_not_carry, t_goal_involvements, t_started_from_their_own_flag,
            t_lineups, t_extra_time_is_flagged, t_match_row, t_missing_required_raises,
            t_shots_disagreement_is_reported):

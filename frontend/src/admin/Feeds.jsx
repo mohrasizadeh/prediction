@@ -21,25 +21,22 @@ function Provider({ p }) {
 
       {/* A definition list, not stat tiles: these cards sit two to a row, and a tile grid clips its own labels there. */}
       <dl className="a-dl a-dl--tight" data-testid={`feed-${p.id}-numbers`}>
-        {p.id === "pitchapi" ? (
-          <>
-            <div><dt>Waiting to be ingested</dt><dd>{num(p.queued)}</dd></div>
-            <div><dt>Breaker</dt><dd>{p.breaker_open ? "Open — no calls are being made" : "Closed — calls are allowed"}</dd></div>
-          </>
-        ) : (
-          <>
-            <div><dt>Being played now</dt><dd>{num(p.live_now)}</dd></div>
-            <div><dt>Clubs to review</dt><dd>{num(p.review)}</dd></div>
-            <div><dt>Fixtures reaching no page</dt>
-              <dd>{num(p.unlinked)}{p.unlinked_live ? ` · ${num(p.unlinked_live)} being played, so live data is being lost` : ""}</dd></div>
-          </>
-        )}
+        {/* ONE FEED, so no branch on the provider id. This read `p.id === "pitchapi"`, and the
+            payload has carried a single row with id "apifootball" since the move -- so the else
+            branch always ran and the card showed "Clubs to review 0 · Fixtures reaching no page 0",
+            three numbers the server now hard-codes to zero because nothing is matched by name any
+            more. Meanwhile `queued` and `breaker_open`, the two an operator actually needs in a
+            live problem, were fetched and thrown away. docs/89. */}
+        <div><dt>Waiting to be ingested</dt><dd>{num(p.queued)}</dd></div>
+        <div><dt>Breaker</dt><dd>{p.breaker_open ? "Open — no calls are being made" : "Closed — calls are allowed"}</dd></div>
+        <div><dt>Being played now</dt><dd>{num(p.live_now)}</dd></div>
       </dl>
 
       {p.paused_reason && <p className="a-notice a-notice--warn" data-testid="feed-pitch-paused">Paused: {p.paused_reason}</p>}
-      {p.last_result?.status && p.last_result.status !== "ok" && (
-        <p className="a-notice a-notice--warn" data-testid="feed-live-last">Last run: {p.last_result.status}{p.last_result.note ? ` — ${p.last_result.note}` : ""}</p>
-      )}
+      {/* `last_result` came from sportapi.status() and left the payload with the provider, so this
+          banner could never appear: a failing tick had no surface here at all. `last_at` is what
+          the row carries now, and a pull that has not happened for a long time is the signal. */}
+      {p.last_at && <p className="a-muted small" data-testid="feed-last-at">Last pull: {when(p.last_at)}</p>}
       <Link to={p.route} className="btn btn--secondary btn--sm self-start" data-testid={`feed-${p.id}-open`}>Open {p.name}</Link>
     </Card>
   );
@@ -51,15 +48,15 @@ export default function Feeds() {
     <DataState q={q}>{(d) => (
       <div className="a-page" data-testid="admin-feeds">
         <PageHead title="Football data feeds"
-          lead="Two providers, two jobs. PitchAPI backfills history and the depth the forecasts are built from; SportAPI does everything live. Keys live under Keys, numbers under Settings."
+          lead="One provider, one feed. API-Football supplies the history the forecasts are built from, the season backfill, everything live, and the crests and photos. The key lives under Keys, the numbers under Settings."
           actions={<button className="btn btn--ghost btn--sm" onClick={q.reload} data-testid="feeds-refresh"><Icon name="refresh" size={16} />Refresh</button>} />
         <div className="a-grid2">{d.providers.map((p) => <Provider key={p.id} p={p} />)}</div>
         <Card title="Which feed to look at" testid="feeds-help">
           <dl className="a-dl">
-            <div><dt>A score, the minute or a match event is wrong or late</dt><dd>SportAPI</dd></div>
-            <div><dt>A forecast did not turn green while the match was on</dt><dd>SportAPI — its live statistics and events</dd></div>
-            <div><dt>A match or player is missing, or a season has gaps</dt><dd>PitchAPI — Leagues for the season, then Jobs for the queue</dd></div>
-            <div><dt>A statistic reads zero for everyone</dt><dd>PitchAPI — the field mapping on its Quality tab</dd></div>
+            <div><dt>A score, the minute or a match event is wrong or late</dt><dd>Live — check the live job and the breaker</dd></div>
+            <div><dt>A forecast did not turn green while the match was on</dt><dd>Live — in-play statistics and events</dd></div>
+            <div><dt>A match or player is missing, or a season has gaps</dt><dd>Competitions for the season, then Jobs for the queue</dd></div>
+            <div><dt>A statistic reads zero for everyone</dt><dd>The field mapping on the Quality tab</dd></div>
             <div><dt>Forecasts look wrong but the data is there</dt><dd>Engine</dd></div>
           </dl>
         </Card>
