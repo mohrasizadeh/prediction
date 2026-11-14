@@ -1,6 +1,6 @@
 # v11 — every screen, captured
 
-38 screens × 2 viewports = 76 page-views, taken from `backend/tests/demo_server.py` (the whole app
+**29 public screens** × 2 viewports, taken from `backend/tests/demo_server.py` (the whole app
 on simulated data, no keys and no MongoDB). Regenerate with the demo server running on :8011:
 
     cd backend && PORT=8011 python3 tests/demo_server.py      # terminal 1
@@ -32,6 +32,16 @@ Measured across the phone captures:
 - **9 text colours but 42 background colours** — the asymmetry is the signal
 - **15 radii and 31 gap values**
 
+## The nine admin screens are NOT captured
+
+They are in the folders, and they are all the public 404 page. The owner must pass three gates —
+sign in, enrol in two-factor, then choose a password — and the harness gets through the first two
+but not reliably the third, so the capture runs anonymous and `/admin` falls through to the public
+404. **Ignore every `admin-*` file.** Reviewing them would be reviewing a 404 nine times.
+
+That the first sign-in enrols two-factor and every later one is challenged for a code is itself
+worth knowing: the harness signs in four times, so a helper that can only enrol gets through once.
+
 ## Two things that are NOT design faults
 
 Anyone reviewing these needs to know, or they will file both as bugs:
@@ -41,10 +51,24 @@ Anyone reviewing these needs to know, or they will file both as bugs:
 2. **"Team 0", "Player 702", "Test League"** are simulated names, and the referee page could not be
    captured at all because the demo data has no referees.
 
+## The counts are now measured with a coarse pointer
+
+An earlier run of this harness called `newContext({ viewport })` with no `hasTouch` or `isMobile`,
+so every `@media (pointer: coarse)` rule in the stylesheet was inactive and the capture measured
+sizes no reader ever sees. Nine such rules exist. Measured both ways on `match`:
+
+| | without the flags | with them (a real phone) |
+|---|---|---|
+| `a.btn--sm` Sign in / Sign up | 36px | **44px** |
+| `.k-chip` | 40px | **44px** |
+
+The flags are set now, and the effect is not small: `match.phone` went from **40** flagged tap
+targets to **7**. `.lk-tk` and `.lk-mkt` also carry their own 44px hit area through a `::after`
+(`height:44px; left:-6px; right:-6px`), which a bounding box never shows.
+
 ## And one caveat on the counts
 
-`smallTapTargets` counts everything tappable under 44×44, which includes things that legitimately
-are not buttons. On `match.phone`, of the 40 flagged: the `k-chip` filters (40px tall), the
-`lk-tk` / `lk-mkt` chips (33px) and the `btn--sm` Sign in / Sign up buttons (36px) are **real**
-misses; the visually-hidden "Skip to content" link and inline links inside sentences are **not**.
-Check each one against the capture before acting on it.
+`smallTapTargets` still counts things that legitimately are not buttons. Of the 7 now flagged on
+`match.phone`: the visually-hidden "Skip to content" link, the brand mark (22px wide but 44 tall)
+and the footer links (44 tall, narrow) are **not** faults. `a.avatar-btn` at 36×36 and
+`button.linkish` "Privacy choices" at 116×31 are worth a look. Check each against the capture.
