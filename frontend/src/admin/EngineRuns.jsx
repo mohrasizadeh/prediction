@@ -8,6 +8,49 @@ import { Card, Chip, DataState, KV, Pager, ResponsiveTable, when } from "./parts
 
 const RUN_TONE = { done: "up", skipped: "warn", running: "muted" };
 
+// Why the next two days have the Strong lines they have (GET /admin/engine/tiers, tiering.funnel).
+// A line can carry a Strong number and still not be badged Strong: the bottom of its range is too
+// low, or our own record on that market is too thin or says lower. This says which.
+const HELD = {
+  range: "Range too wide: the low end is under the Strong floor",
+  record_thin: "Our record on this market is not measured yet",
+  record_lower: "Our record says similar lines happened less often",
+  ungraded: "This market carries no badge (match goals)",
+  other: "Other",
+};
+
+function TierCheck() {
+  const q = useApi("/admin/engine/tiers", { hours: 48 });
+  return (
+    <DataState q={q} empty="No forecasts in the next two days.">
+      {(d) => (
+        <Card title="Strong check, next 48 hours" testid="engine-tiers">
+          <div className="a-btns">
+            {Object.entries(d.tiers).map(([t, n]) => <Chip key={t} tone={t === "Strong" ? (n ? "up" : "warn") : "muted"} testid={`tiers-${t}`}>{t === "none" ? "No badge" : t}: {n}</Chip>)}
+          </div>
+          <p className="a-muted small">Strong needs {Math.round(d.rule.strong_min * 100)}% or more, a low end of {Math.round(d.rule.strong_lo_min * 100)}% or more, and {d.rule.record_min_n} settled lines near 90% in our own record for that market.</p>
+          {d.near.length > 0 ? (
+            <>
+              <KV obj={Object.fromEntries(Object.entries(d.held).filter(([, n]) => n).map(([k, n]) => [HELD[k], `${n} line${n === 1 ? "" : "s"}`]))} />
+              <ResponsiveTable testid="tiers-near" rowKey={(r) => r.k} rows={d.near.map((r, i) => ({ ...r, k: `${r.match_iid}-${r.player_iid || r.team_iid}-${i}` }))} columns={[
+                { key: "who", label: "Who", primary: true, render: (r) => <b>{r.player_name || r.team_name || "Unknown"}</b> },
+                { key: "market", label: "Line" },
+                { key: "p", label: "Chance", render: (r) => `${Math.round(r.p * 100)}% (low ${Math.round((r.lo || 0) * 100)}%)` },
+                { key: "tier", label: "Badge", render: (r) => r.tier || "None" },
+                { key: "why", label: "Held by", render: (r) => HELD[r.why] },
+              ]} />
+            </>
+          ) : <p className="a-muted small">No line in the next two days has a chance of {Math.round(d.rule.strong_min * 100)}% or more.</p>}
+          <details>
+            <summary>Our record near the Strong cut, by market</summary>
+            <KV obj={Object.fromEntries(d.record.map((r) => [`${r.scope} ${r.stat}`, r.n ? `${r.n} settled${r.happened != null ? `, ${Math.round(r.happened * 100)}% happened` : ""}${r.enough ? "" : " (not enough yet)"}` : "None yet"]))} />
+          </details>
+        </Card>
+      )}
+    </DataState>
+  );
+}
+
 export function Runs() {
   const q = useApi("/admin/engine", { limit: 40 });
   const cols = [
@@ -21,6 +64,7 @@ export function Runs() {
     <DataState q={q} empty="The engine has not run yet.">
       {(d) => (
         <div className="a-stack">
+          <TierCheck />
           <Card title="Markets per switched-on league" testid="engine-markets">
             {d.leagues.length ? d.leagues.map((l) => (
               <details key={l.league_iid} data-testid={`engine-league-${l.league_iid}`}>

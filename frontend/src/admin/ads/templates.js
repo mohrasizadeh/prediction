@@ -701,23 +701,23 @@ export const BG = {
 /** The images a template needs, so the page can fetch them before it draws. */
 export function needed(template, dcard, cards, logo, extra) {
   const out = { logo };
-  if (template === "teamstat") out.team = extra?.teamStat?.team?.image || null;
+  if (template === "teamstat") out.team = D.teamImage(extra?.teamStat?.team);
   if (template === "record") out.league = extra?.record?.league_image || null;
-  if (template === "table") out.rows = (cards || []).map((c) => c.player?.image || c.team?.image || null);
+  if (template === "table") out.rows = (cards || []).map((c) => c.player?.image || D.teamImage(c.team));
   if (template === "faceoff") {
     const m = extra?.matchup || {};
     out.homeP = m.home?.pick?.player?.image || null; out.awayP = m.away?.pick?.player?.image || null;
-    out.homeT = m.home?.team?.image || null; out.awayT = m.away?.team?.image || null;
+    out.homeT = D.teamImage(m.home?.team); out.awayT = D.teamImage(m.away?.team);
     return out;
   }
   if (template === "results") {
-    out.rows = (extra?.settled?.rows || []).map((c) => c.player?.image || c.team?.image || null);
+    out.rows = (extra?.settled?.rows || []).map((c) => c.player?.image || D.teamImage(c.team));
     return out;
   }
   if (dcard) {
     out.player = dcard.player?.image || null;
-    out.team = dcard.team?.image || null;
-    out.opp = dcard.opp?.image || null;
+    out.team = D.teamImage(dcard.team);
+    out.opp = D.teamImage(dcard.opp);
     // The league mark is not on a forecast: _decorate copies league_name and league_id only, so the
     // page looks the image up from /api/leagues and hangs it here.
     out.league = dcard.league_image || null;

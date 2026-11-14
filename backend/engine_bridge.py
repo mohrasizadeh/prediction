@@ -75,18 +75,77 @@ MARKET_POSITIONS = {"saves": ("GK",)}
 
 
 # ------------------------------------------------------------------ frames
+def frame_leagues(db, league_iid: int) -> list[int]:
+    """The competitions one league's frame is fitted on: itself, or for a national-team competition
+    every national-team competition we hold.
+
+    A country plays a handful of matches a year, spread across the Nations League, qualifiers,
+    friendlies and a tournament. Fitted one competition at a time, Spain's strength and every Spain
+    player's role came from three or four games and the rest from the average side -- which is what
+    a forecast for the best players in the world then looked like. Club competitions stay one frame
+    each: a fourth-tier side's shots are not Premier League shots (docs/81 §2).
+    """
+    if not S.get(db, "engine.pool_internationals"):
+        return [league_iid]
+    lg = db.leagues.find_one({"iid": league_iid}, {"_id": 0, "kind": 1}) or {}
+    if lg.get("kind") != "international":
+        return [league_iid]
+    intl = [r["iid"] for r in db.leagues.find({"kind": "international"}, {"_id": 0, "iid": 1})]
+    return sorted(set(intl) | {league_iid})
+
+
+def player_history(db, player_iids, before, n: int = 40) -> dict:
+    """pid -> DataFrame of his last `n` appearances in EVERY competition we hold, oldest first.
+
+    Feeds SoccerEngine.set_player_history: his share of the team count, his last ten and his
+    forty-game record are a fact about him, not about one competition. Only finished matches before
+    `before`, only minutes on the pitch, and only the columns the player markets read.
+    """
+    pids = sorted({int(p) for p in player_iids})
+    if not pids:
+        return {}
+    cols = ["minutes"] + [c for pair in PLAYER_MARKET_COLS.values() for c in pair]
+    proj = {"_id": 0, "player_iid": 1, "kickoff": 1, "match_iid": 1, **{c: 1 for c in cols}}
+    before = before.replace(tzinfo=None) if getattr(before, "tzinfo", None) else before
+    # Eighteen months is forty appearances for anyone who plays, and keeps a league's read to that
+    # window rather than every season we hold.
+    rows = list(db.player_match_stats.find({"player_iid": {"$in": pids}, "minutes": {"$gt": 0},
+                                            "kickoff": {"$lt": before, "$gte": before - timedelta(days=550)}}, proj))
+    if not rows:
+        return {}
+    df = pd.DataFrame(rows)
+    df = df[df["kickoff"].notna()].sort_values(["player_iid", "kickoff"])
+    for c in cols:
+        if c not in df.columns:
+            df[c] = np.nan
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    out = {}
+    for pid, g in df.groupby("player_iid"):
+        out[int(pid)] = g.tail(n)[cols].reset_index(drop=True)
+    return out
+
+
 def build_frames(db, league_iid: int, history_rounds: int):
     # A match that ran past 90 minutes reports its team totals for the WHOLE match, including extra
     # time, with nothing in the numbers to say so (docs/85). Fitting those beside 90-minute matches
     # drags every team-total model upward. The match is still stored, shown and graded; it is only
     # kept out of the frame the models are fitted on.
     et_filter = {} if not S.get(db, "provider.apifootball.exclude_extra_time") else {"extra_time": {"$ne": True}}
-    ms = pd.DataFrame(list(db.matches.find({"league_iid": league_iid, "status": "final", "round": {"$ne": None},
+    pool = frame_leagues(db, league_iid)
+    lq = {"league_iid": league_iid} if len(pool) == 1 else {"league_iid": {"$in": pool}}
+    ms = pd.DataFrame(list(db.matches.find({**lq, "status": "final", "round": {"$ne": None},
                                             **et_filter,
                                             "ingested_at": {"$ne": None}},
-                                           {"_id": 0, "iid": 1, "round": 1, "home_iid": 1, "away_iid": 1, "hg": 1, "ag": 1})))
+                                           {"_id": 0, "iid": 1, "round": 1, "home_iid": 1, "away_iid": 1, "hg": 1, "ag": 1,
+                                            "kickoff": 1})))
     if ms.empty:
         return None
+    if len(pool) > 1 and "kickoff" in ms.columns:
+        # `round` is a date rank WITHIN one competition (ingest.assign_rounds), so two pooled
+        # competitions' rounds do not line up. Re-rank by kickoff date across the pool.
+        day = pd.to_datetime(ms["kickoff"]).dt.normalize()
+        ms["round"] = day.rank(method="dense").astype(int) - 1
+    ms = ms.drop(columns=["kickoff"], errors="ignore")
     ms = ms.rename(columns={"iid": "game_id", "home_iid": "home", "away_iid": "away"})
     ms = ms[ms["round"] > ms["round"].max() - history_rounds]
     ids = set(ms["game_id"])
@@ -714,6 +773,9 @@ def run_league(db, league_iid: int, now=None) -> dict:
     eng = configure_engine(db)
     as_of = int(ms["round"].max()) + 1
     eng.fit(ms, tg, pg, as_of, appearances=ap)
+    if S.get(db, "engine.all_competitions"):
+        # His record in every competition, not only this one (SoccerEngine.set_player_history).
+        eng.set_player_history(player_history(db, pg["player"].unique(), now))
 
     # --- calendar context: who may rest, and (if the held-out test passes) who is expected to start
     cal, gate = None, None

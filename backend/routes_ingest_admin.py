@@ -337,6 +337,20 @@ def engine_status(league_iid: int = 0, limit: int = 30, user=Depends(perm("jobs.
     return {"runs": runs, "leagues": leagues}
 
 
+@router.get("/engine/tiers")
+def engine_tiers(hours: float = 48.0, user=Depends(perm("jobs.run")), db=Depends(D.get_db)):
+    """Why the next two days have the Strong lines they have (tiering.funnel)."""
+    import tiering as TI
+    out = TI.funnel(db, max(1.0, min(hours, 24.0 * 7)))
+    ps = {p["iid"]: p.get("name") for p in db.players.find({"iid": {"$in": [r["player_iid"] for r in out["near"] if r.get("player_iid")]}},
+                                                         {"iid": 1, "name": 1})}
+    ts = {t["iid"]: t.get("name") for t in db.teams.find({"iid": {"$in": [r["team_iid"] for r in out["near"] if r.get("team_iid")]}},
+                                                       {"iid": 1, "name": 1})}
+    for r in out["near"]:
+        r["player_name"] = ps.get(r.get("player_iid")); r["team_name"] = ts.get(r.get("team_iid"))
+    return out
+
+
 @router.get("/forecasts")
 def forecasts(league_iid: int = 0, scope: str = "", hidden: str = "", market: str = "", page: int = 1, limit: int = 50,
               user=Depends(perm("jobs.run")), db=Depends(D.get_db)):

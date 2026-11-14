@@ -2833,6 +2833,26 @@
     "applies_at": "next engine run"
   },
   {
+    "key": "engine.all_competitions",
+    "label": "Player record from every competition",
+    "type": "boolean",
+    "default": true,
+    "help": "Read a player's share of his team's count, his last ten and his forty-game record from every competition we hold, not only the one being forecast. Without it a country's players and a club's cup nights are forecast from a handful of games and look like the average player in their position.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
+    "key": "engine.pool_internationals",
+    "label": "Pool national-team competitions",
+    "type": "boolean",
+    "default": true,
+    "help": "Fit every national-team competition (Nations League, qualifiers, friendlies, tournaments) as one history, so a country is judged on all its recent matches instead of the few in one competition.",
+    "group": "Engine",
+    "public": false,
+    "applies_at": "next engine run"
+  },
+  {
     "key": "engine.anchor_min_games",
     "label": "Anchor: games needed",
     "type": "int",

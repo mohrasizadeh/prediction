@@ -301,6 +301,37 @@ class SoccerEngine:
         self.norm_blend = 0.5                       # weight of the normalised team average in team_norm stats
         self.start_model = None                     # context.StartModel, set by set_start_model()
         self.start_on = False                       # applied only when its walk-forward gate passed
+        self.ext_hist = {}                          # pid -> his games in every competition (set_player_history)
+
+    # ------------------------------------------------- his whole record, not one competition's
+    # A frame is ONE competition. A player's games in it are often a handful -- a country's
+    # internationals, a club's eight Champions League nights -- while the card under the forecast
+    # draws his last ten from every competition. So the number was built from one record and shown
+    # beside another: Lamine Yamal, 2-6 shots in each of his last ten, read "1+ shot 80%" for Spain
+    # because the Nations League frame held only his few internationals and the rest of the rate
+    # came from the average midfielder.
+    #
+    # `history` is pid -> DataFrame of his appearances in EVERY competition we hold, oldest first,
+    # with the stat columns, their team totals (team_<stat>) and minutes. Where it holds more games
+    # than the frame does, his SHARE of the team total, the ten-game strip and the forty-game record
+    # behind the anchor are read from it. The team total stays this fixture's -- that is where the
+    # opponent comes in -- so a share earned at his club is applied to his country's expected count.
+    def set_player_history(self, history: dict | None):
+        self.ext_hist = dict(history or {})
+        return self
+
+    def _player_hist(self, pid, ap, s):
+        """(counts, exposures) of his games for stat `s`: every competition when that is the longer
+        record, else this frame's."""
+        own = ap[ap[s].notna() & ap["team_" + s].notna()] if s in ap.columns and ("team_" + s) in ap.columns else ap
+        hx = (getattr(self, "ext_hist", None) or {}).get(int(pid))
+        if hx is not None and s in hx.columns and ("team_" + s) in hx.columns:
+            hx = hx[hx[s].notna() & hx["team_" + s].notna() & (hx["minutes"] > 0)]
+            if len(hx) > len(own):
+                own = hx
+        counts = own[s].values.astype(float)
+        E = (own["team_" + s] * own["minutes"] / 90.0).values.astype(float)
+        return counts, E
 
     def set_start_model(self, model, enabled: bool = True):
         """Attach a fitted context.StartModel. `enabled` is the stored gate result: when False the
@@ -1181,8 +1212,8 @@ class SoccerEngine:
                 opp_pos_f = {}
                 for pid, info in squad.items():
                     g = info["g"]; ap = g[g["minutes"] > 0]
-                    E = (ap["team_" + s] * ap["minutes"] / 90.0).values
-                    post[pid] = shrunk_rate(ap[s].values, E, self.rho[s][info["pos"]], self.player_prior.get(s, 40.0), self.player_hl)
+                    cnt_, E = self._player_hist(pid, ap, s)
+                    post[pid] = shrunk_rate(cnt_, E, self.rho[s][info["pos"]], self.player_prior.get(s, 40.0), self.player_hl)
                     # what this opponent allows to his position (docs/37). The shares are renormalised below, so the
                     # team total does not change: this only moves the count between the players on the pitch.
                     opp_pos_f[pid] = self._opp_pos_factor(s, Y, info["pos"]) if self.opp_pos_k > 0 else 1.0
@@ -1261,8 +1292,9 @@ class SoccerEngine:
                         pdraw = np.sum(probs[:, None] * nb_sf(k, mus[:, None] * u[None, :], self.r_player[s]), axis=0)
                         p = float(np.sum(probs * nb_sf(k, mus, self.r_player[s])))
                         lo, hi = np.percentile(pdraw, [10, 90])
-                        last = ap[s].values[-10:]
-                        last40 = ap[s].values[-40:]
+                        hist_s = self._player_hist(pid, ap, s)[0]       # every competition, when longer
+                        last = hist_s[-10:]
+                        last40 = hist_s[-40:]
                         # docs/62: the same forty appearances, weighted by how recent they are.
                         # The flat count beside this one is kept for DISPLAY -- "19 of his last 20"
                         # has to stay a pair of whole games a reader can check against the strip --

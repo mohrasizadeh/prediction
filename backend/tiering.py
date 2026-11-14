@@ -66,13 +66,30 @@ class Record:
             if o.get("p") is None or o.get("player_played") is False:
                 continue
             raw.setdefault((o["scope"], o["stat"]), []).append((o["p"], 1 if o.get("reached") else 0))
+        # The same record pooled over every market in a scope, keyed (scope, None). A market of its
+        # own may hold too few settled lines near 90% for weeks -- shots on target rarely sit that
+        # high -- and holding every Strong in it at Solid until then left whole matchdays with no
+        # Strong at all. Whether OUR 90% means 90% is mostly a property of the engine, not of one
+        # market, so a thin market is judged by its scope's record instead (`earned`).
+        for (scope, _stat), rows in list(raw.items()):
+            raw.setdefault((scope, None), []).extend(rows)
         self.t = {}
         for key, rows in raw.items():
             rows.sort()
             self.t[key] = (np.array([r for r, _ in rows]), np.concatenate([[0], np.cumsum([y for _, y in rows])]))
 
     def earned(self, scope: str, stat: str, r: float):
-        """(estimate, n) for lines with a chance near r, or (None, 0) when we hold nothing."""
+        """(estimate, n) for lines with a chance near r, or (None, 0) when we hold nothing.
+
+        The market's own record when it holds `min_n` lines near r, else the whole scope's."""
+        est, n = self._earned(scope, stat, r)
+        if n < self.min_n and stat is not None:
+            est2, n2 = self._earned(scope, None, r)
+            if n2 >= self.min_n:
+                return est2, n2
+        return est, n
+
+    def _earned(self, scope: str, stat, r: float):
         t = self.t.get((scope, stat))
         if t is None:
             return None, 0
@@ -202,3 +219,46 @@ def anchor(p, lo, hi, k, n, K, w_max, cap):
     "if he plays" player lines. The caller must move his usual game by the same shift."""
     d = anchor_shift(p, k, n, K, w_max)
     return shift_one(p, d, cap), shift_one(lo, d, cap), shift_one(hi, d, cap)
+
+
+# ------------------------------------------------------------------ why no Strong?
+def funnel(db, hours: float = 48.0, now=None) -> dict:
+    """What the next `hours` of published lines were graded, and for every line whose number would
+    be Strong but whose badge is not, the rule that held it back.
+
+    Asked by the owner as "there is not one Strong forecast tomorrow -- that is not possible". It can
+    be: three different rules decide it (the number, the bottom of the range, our own record), and
+    without this nobody could tell which one was doing it without reading the database.
+    """
+    from datetime import datetime, timedelta, timezone
+    now = now or datetime.now(timezone.utc)
+    naive = now.replace(tzinfo=None)
+    s_min, s_lo = float(S.get(db, "engine.strong_min")), float(S.get(db, "engine.strong_lo_min"))
+    min_n = int(S.get(db, "engine.earned_min_n"))
+    q = {"is_current": True, "carrier": {"$ne": True}, "hidden": {"$ne": True},
+         "kickoff": {"$gte": naive, "$lte": naive + timedelta(hours=hours)}}
+    rows = list(db.forecasts.find(q, {"_id": 0, "scope": 1, "stat": 1, "p": 1, "lo": 1, "tier": 1, "tier_note": 1,
+                                      "player_iid": 1, "team_iid": 1, "market": 1, "match_iid": 1, "rec_n": 1}))
+    tiers = {"Strong": 0, "Solid": 0, "Watch": 0, "none": 0}
+    held = {"range": 0, "record_thin": 0, "record_lower": 0, "ungraded": 0, "other": 0}
+    near = []
+    for r in rows:
+        tiers[r.get("tier") or "none"] = tiers.get(r.get("tier") or "none", 0) + 1
+        p, lo = float(r.get("p") or 0), float(r.get("lo") or 0)
+        if p >= s_min and r.get("tier") != "Strong":
+            note = r.get("tier_note") or ""
+            why = ("ungraded" if r.get("tier") is None else "record_thin" if note.startswith("Held at Solid") else "record_lower" if note.startswith("Similar lines")
+                   else "range" if lo < s_lo else "other")
+            held[why] += 1
+            near.append({**r, "why": why})
+    # How much record each market has around the Strong cut: the track record holds a Strong at
+    # Solid until `min_n` settled lines near that chance exist (tiering.assign).
+    rec = Record(db, min_n=min_n)
+    record = []
+    for (scope, stat) in sorted({(r["scope"], r["stat"]) for r in rows}):
+        est, n = rec.earned(scope, stat, s_min)
+        record.append({"scope": scope, "stat": stat, "n": n, "enough": n >= min_n,
+                       "happened": round(est, 3) if est is not None else None})
+    near.sort(key=lambda r: -float(r.get("p") or 0))
+    return {"hours": hours, "total": len(rows), "tiers": tiers, "held": held, "near": near[:25],
+            "record": record, "rule": {"strong_min": s_min, "strong_lo_min": s_lo, "record_min_n": min_n}}

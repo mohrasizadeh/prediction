@@ -11,11 +11,37 @@ import { getBlob } from "../../lib/api";
 // Our own addresses only, fetched through the same helper the share card uses, so the canvas is
 // never tainted and toBlob keeps working.
 const cache = new Map();
+// A country's flag, written `flag:fr` by teamImage below. The SVG ships with the app
+// (public/flags, square, 512 a side), same as on every page. createImageBitmap cannot read an SVG
+// blob in every browser, so it is drawn through an <img> onto a square canvas first.
+const FLAG = "flag:";
+const flags = new WeakSet();
+export const isFlag = (bmp) => !!bmp && flags.has(bmp);
+
+/** What to fetch for a team: its round flag when it is a country (backend/flags.py), else its crest. */
+export const teamImage = (team) => (team?.flag ? `${FLAG}${team.flag}` : team?.image || null);
+
+async function flagBitmap(code) {
+  const img = new Image();
+  img.decoding = "async";
+  img.src = `${process.env.PUBLIC_URL || ""}/flags/${encodeURIComponent(code)}.svg`;
+  await img.decode();
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 512;
+  c.getContext("2d").drawImage(img, 0, 0, 512, 512);
+  const bmp = await createImageBitmap(c);
+  flags.add(bmp);
+  return bmp;
+}
+
 export async function bitmap(image) {
   if (!image) return null;
   if (cache.has(image)) return cache.get(image);
   const p = (async () => {
-    try { return await createImageBitmap(await getBlob(image)); } catch { return null; }
+    try {
+      if (image.startsWith(FLAG)) return await flagBitmap(image.slice(FLAG.length));
+      return await createImageBitmap(await getBlob(image));
+    } catch { return null; }
   })();
   cache.set(image, p);
   return p;
@@ -129,6 +155,18 @@ export function chip(ctx, bmp, cx, cy, d, p) {
   ctx.fillStyle = p.surface2; ctx.beginPath(); ctx.arc(cx, cy, d / 2, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = alpha(p.text, 0.1); ctx.lineWidth = 2; ctx.stroke();
   if (bmp) {
+    if (isFlag(bmp)) {
+      // A flag fills its circle edge to edge, as it does on the site (Media.jsx), with no padding
+      // and no ring of surface around it. A hairline keeps a white flag off a white background.
+      ctx.beginPath(); ctx.arc(cx, cy, d / 2, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(bmp, cx - d / 2, cy - d / 2, d, d);
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, d / 2 - 0.5, 0, Math.PI * 2);
+      ctx.strokeStyle = alpha(p.text, 0.12); ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
+      return;
+    }
     ctx.beginPath(); ctx.arc(cx, cy, d / 2 - 2, 0, Math.PI * 2); ctx.clip();
     const pad = d * 0.16, box = d - pad * 2;
     const r = Math.min(box / bmp.width, box / bmp.height);
