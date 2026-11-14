@@ -76,7 +76,8 @@ class Record:
         self.t = {}
         for key, rows in raw.items():
             rows.sort()
-            self.t[key] = (np.array([r for r, _ in rows]), np.concatenate([[0], np.cumsum([y for _, y in rows])]))
+            self.t[key] = (np.array([r for r, _ in rows]), np.concatenate([[0], np.cumsum([y for _, y in rows])]),
+                           np.concatenate([[0.0], np.cumsum([r for r, _ in rows])]))
 
     def earned(self, scope: str, stat: str, r: float):
         """(estimate, n) for lines with a chance near r, or (None, 0) when we hold nothing.
@@ -93,7 +94,7 @@ class Record:
         t = self.t.get((scope, stat))
         if t is None:
             return None, 0
-        xs, cum = t
+        xs, cum, cum_p = t
         w = self.window
         while w <= 0.16:
             lo, hi = np.searchsorted(xs, r - w, "left"), np.searchsorted(xs, r + w, "right")
@@ -104,10 +105,20 @@ class Record:
         if n == 0:
             return None, 0
         hits = float(cum[hi] - cum[lo])
-        return (hits + self.k * r) / (n + self.k), n
+        stated = float(cum_p[hi] - cum_p[lo])
+        # How far our lines in this window fell short of (or beat) what they said, applied to r.
+        # Comparing the raw hit rate with r instead was wrong whenever the window had to widen:
+        # few lines sit at 90% and many sit lower, so a window around 0.90 is mostly 0.78-0.86
+        # lines, and a perfectly honest engine measured "84% happened" and lost its Strong.
+        return r + (hits - stated) / (n + self.k), n
 
 
-def assign(db, rec: Record | None, f: dict) -> tuple[str | None, str | None]:
+def cutoffs(db) -> dict:
+    """The five numbers `assign` grades by, read once (a run grades thousands of rungs)."""
+    return {k: float(S.get(db, f"engine.{k}")) for k in ("strong_min", "solid_min", "strong_lo_min", "solid_lo_min", "watch_min")}
+
+
+def assign(db, rec: Record | None, f: dict, cuts: dict | None = None) -> tuple[str | None, str | None]:
     """-> (tier, note). `f` carries p, lo, scope, stat, lineup_badge.
 
     Graded on `p`, the number the card shows. There is no lineup condition here any more: see the
@@ -116,9 +127,8 @@ def assign(db, rec: Record | None, f: dict) -> tuple[str | None, str | None]:
     """
     scope, badge = f["scope"], f.get("lineup_badge")
     p, lo = float(f["p"]), float(f["lo"])
-    s_min, so_min = float(S.get(db, "engine.strong_min")), float(S.get(db, "engine.solid_min"))
-    s_lo, so_lo = float(S.get(db, "engine.strong_lo_min")), float(S.get(db, "engine.solid_lo_min"))
-    watch = float(S.get(db, "engine.watch_min"))
+    c = cuts or cutoffs(db)
+    s_min, so_min, s_lo, so_lo, watch = c["strong_min"], c["solid_min"], c["strong_lo_min"], c["solid_lo_min"], c["watch_min"]
     t = "Strong" if (p >= s_min and lo >= s_lo) else "Solid" if (p >= so_min and lo >= so_lo) else "Watch" if p >= watch else None
     note = None
     if rec is not None and t in ("Strong", "Solid"):

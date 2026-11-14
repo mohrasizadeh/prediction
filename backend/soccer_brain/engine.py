@@ -29,6 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 from core import (recency_weights, shrunk_rate, nb_sf, fit_dispersion, top_reasons, STAT_WORDS)
 from nbglm import NBGLM
@@ -64,7 +65,7 @@ TEAM_DIMS = {"shots": (0, 1), "corners": (2, 3), "tackles": (4, 5)}
 # leagues -- it halved the worst calibration gap against the 5.0 first guessed, at the same
 # likelihood gain. Re-fit it on real results with engine.fit_player_r once engine_ab clears.
 DEFAULT_R_PLAYER = {"shots": 6.0, "sot": 5.0, "tackles": 10.0,
-                    "fouls_committed": 6.0, "goal_involvements": 3.0, "saves": 2.5}
+                    "fouls_committed": 6.0, "goal_involvements": 3.0, "saves": 10.0}
 
 # Which positions a market may be published for; absent means every position. A keeper must not
 # carry a "1+ shots" line and an outfielder must not carry a saves line, and exclude_positions can
@@ -297,11 +298,13 @@ class SoccerEngine:
         self.absence = True                         # availability model (missed recent matches); docs/22
         self.match_context = True                   # results form and stakes on expected goals; docs/22
         self.likely_starter_p = None                # chance to play at or above this = treated as a starter, full minutes
+        self.squad_recent = 6                       # club matches since his last appearance before he stops sharing the total
         self.start_window = 10                      # docs/59: club matches the start RECORD is read over (0 = off)
         self.norm_blend = 0.5                       # weight of the normalised team average in team_norm stats
         self.start_model = None                     # context.StartModel, set by set_start_model()
         self.start_on = False                       # applied only when its walk-forward gate passed
         self.ext_hist = {}                          # pid -> his games in every competition (set_player_history)
+        self.share_ratio = {}                       # stat -> players' sum / team figure (fit)
 
     # ------------------------------------------------- his whole record, not one competition's
     # A frame is ONE competition. A player's games in it are often a handful -- a country's
@@ -641,8 +644,27 @@ class SoccerEngine:
         # baseline toward. That baseline is now built from the same posterior and the same team
         # total as his forecast, so nothing reads it any more.
         for s in self.player_stats:
-            E = pgp["team_" + s] * pgp["minutes"] / 90.0
-            self.rho[s] = (pgp.groupby("pos")[s].sum() / E.groupby(pgp["pos"]).sum()).to_dict()
+            # Only rows that carry the count: a missing count is not a zero, and leaving its
+            # exposure in the denominator pulled the positional mean down.
+            ok = pgp[s].notna() & pgp["team_" + s].notna()
+            q = pgp[ok]
+            E = q["team_" + s] * q["minutes"] / 90.0
+            self.rho[s] = (q.groupby("pos")[s].sum() / E.groupby(q["pos"]).sum()).to_dict()
+        # What the players' own counts add up to, against the team figure the team layer forecasts.
+        # A player's number is his share of the TEAM count, and the shares add up to the whole of
+        # it -- so where the provider's team statistic runs above the sum of its player lines (a
+        # blocked or unattributed shot, a foul the player feed never carries), every player was
+        # inflated by the gap. Measured on team-matches whose player rows are complete (a full
+        # eleven's minutes), never above 1.05 or below 0.7, and 1.0 until there are 30 of them.
+        self.share_ratio = {}
+        for s in self.player_stats:
+            if s not in tg.columns or s not in pgp.columns:
+                continue
+            per = pgp[pgp[s].notna()].groupby(["game_id", "team"]).agg(ps=(s, "sum"), mins=("minutes", "sum")).reset_index()
+            per = per.merge(tg[["game_id", "team", s]].rename(columns={s: "ts"}), on=["game_id", "team"])
+            per = per[(per["mins"] >= 880) & per["ts"].notna() & (per["ts"] > 0)]
+            if len(per) >= 30 and float(per["ts"].sum()) > 0:
+                self.share_ratio[s] = float(min(1.05, max(0.7, per["ps"].sum() / per["ts"].sum())))
         self.pl = {}
         for pid, g in pg.groupby("player"):
             g = g.sort_values("round")
@@ -732,6 +754,14 @@ class SoccerEngine:
         self.squads = {}
         for pid, info in self.pl.items():
             self.squads.setdefault(info["team"], {})[pid] = info
+        # How many player-minutes a club actually puts on the pitch in a match, counted over the
+        # same rows the squads are built from (so keepers are in it exactly when they are in the
+        # squads). The share normaliser is held to this total -- see _norm.
+        self.team_minutes = {}
+        for t, g in pg.groupby("team"):
+            per = g.groupby("game_id").agg(m=("minutes", "sum"), r=("round", "max")).sort_values("r")
+            if len(per):
+                self.team_minutes[int(t)] = float(per["m"].tail(10).mean())
 
         if self.fit_player_r:
             self._fit_player_dispersion()
@@ -762,6 +792,9 @@ class SoccerEngine:
             prior_k = self.player_prior.get(st, 40.0)
             for info in self.pl.values():
                 g = info["g"]; ap = g[g["minutes"] > 0]
+                if len(ap) < 3:
+                    continue
+                ap = ap[ap[st].notna() & ap["team_" + st].notna()]       # a missing count is not a zero
                 if len(ap) < 3:
                     continue
                 counts = ap[st].values.astype(float)
@@ -949,6 +982,14 @@ class SoccerEngine:
     # ----------------------------------------------------------- minutes
     def _scenarios(self, info, confirmed_set, ps_override=None):
         g = info["g"]
+        # How often he starts and how long he plays, from every competition when this one holds only
+        # a handful of his games -- a country's caps, a club's cup nights. Read from this frame alone,
+        # five caps all started gave a start chance of 0.76, under the sure-starter cut, so his
+        # "if he plays" number carried a 20-minute cameo and his forty-game record was not used.
+        hx = (self.ext_hist or {}).get(int(info["pid"]))
+        if (hx is not None and "started" in hx.columns and len(g) < 10
+                and hx["started"].notna().sum() > len(g)):
+            g = hx[hx["started"].notna()]
         m = g["minutes"].values; st = g["started"].values.astype(float)
         w = recency_weights(len(g), 12.0)
         ps = (np.sum(w * st) + 1.0) / (np.sum(w) + 2.0)
@@ -984,6 +1025,56 @@ class SoccerEngine:
             scen.append(((1 - ps) * p_sub, float(m_sub)))
         Em = sum(p * mm for p, mm in scen)
         return scen, Em, sum(p for p, _ in scen), float(ps)
+
+    # ------------------------------------------------- who shares the team total
+    # A player's count is his share of the TEAM's count: mu_team * rate_i * f(m_i) / Z. Z used to
+    # sum rate * expected minutes over every player seen for the club in the whole history window
+    # (about three seasons), each kept at the absence model's floor of ~15 minutes however long he
+    # had been gone -- transferred, retired, loaned out, no longer called up. With a confirmed
+    # eleven, every other name, injured ones included, was still given bench minutes. So Z counted
+    # far more minutes than a match has, and every current player was cut by the excess: about a
+    # tenth for a club, a quarter or more for a country carrying years of call-ups.
+    #
+    # Now Z counts only players who can be on the pitch (named in the eleven, or seen for the club
+    # in its last `squad_recent` matches, and not ruled out), and it is held to the minutes the club
+    # really plays: the rate-weighted average of who is on the pitch, times the team's minutes.
+    # And for the player being forecast, his own expected minutes are swapped for the scenario's,
+    # so "if he plays" does not divide by a normaliser that assumed he might not.
+    def _active(self, info, conf) -> bool:
+        if conf is not None and info["pid"] in conf:
+            return True
+        if info.get("unavailable"):
+            return False
+        return int(info.get("missed", 0)) <= int(self.squad_recent)
+
+    def _norm(self, team, squad, rate, scen_all, conf):
+        """(S, E, T): rate-weighted minutes share and expected minutes over the active players, and
+        the minutes the club plays in a match (None when unknown)."""
+        S = E = 0.0
+        act = set()
+        for pid, info in squad.items():
+            if not self._active(info, conf):
+                continue
+            Em = float(scen_all[pid][1])
+            if Em <= 0:
+                continue
+            act.add(pid)
+            S += rate[pid] * self._minutes_share(Em)
+            E += Em
+        return S, E, self.team_minutes.get(int(team)), act
+
+    def _z_for(self, pid, m, rate, scen_all, S, E, T, act):
+        """The normaliser for player `pid` playing `m` minutes: the others as expected, him as `m`."""
+        if pid in act:
+            Em = float(scen_all[pid][1])
+            S_ = S - rate[pid] * self._minutes_share(Em); E_ = E - Em
+        else:
+            S_, E_ = S, E
+        S_ += rate[pid] * self._minutes_share(m); E_ += m
+        if E_ <= 0:
+            return 0.0
+        k = min(2.0, max(0.5, T / E_)) if T else 1.0
+        return S_ * k
 
     def _minutes_share(self, m):
         """How much of a full match's expectation a player of `m` minutes gets.
@@ -1049,7 +1140,13 @@ class SoccerEngine:
         return out
 
     def _draws(self, sigma):
-        return np.exp(self.rng.normal(0.0, sigma, self.n_draws) - 0.5 * sigma ** 2)
+        """Multipliers for the likely range: evenly spaced quantiles of the lognormal, not random
+        draws. The range's ends are percentiles of a quantity that rises with the multiplier, so a
+        grid gives them exactly, where sixty random draws moved the low end by up to a point from
+        run to run -- enough to flip a Strong at the 84% floor."""
+        n = max(int(self.n_draws), 20)
+        z = stats.norm.ppf((np.arange(n) + 0.5) / n)
+        return np.exp(sigma * z - 0.5 * sigma ** 2)
 
     def _reasons(self, contrib, stat, opp_tactics):
         c = dict(contrib)
@@ -1101,7 +1198,8 @@ class SoccerEngine:
                 out[team][s] = (self._rate(s, float(self.glm[s].predict_mu(feats, off)[0]), X, Y, is_home), float(self.glm[s].r), float(np.exp(off)))
         return out
 
-    def predict_fixture(self, home, away, lineups=None, xf=None, ctx=None, availability=None, match_ctx=None, team_norm=None):
+    def predict_fixture(self, home, away, lineups=None, xf=None, ctx=None, availability=None, match_ctx=None, team_norm=None,
+                        neutral=False):
         """`ctx` = {team: context.Calendar.context(...) dict} for the two clubs (optional). With it, the
         forecast carries a rotation level and, when the StartModel is on, shifts who is expected to start.
         `availability` = {player: "out" | "doubtful"} from an injury feed or the admin (optional). An "out" player
@@ -1135,7 +1233,7 @@ class SoccerEngine:
 
         tx = self.tx_snaps[self.as_of] if self.tx_on else None
         out = []
-        for team, opp, is_home in ((home, away, 1), (away, home, 0)):
+        for team, opp, is_home in (((home, away, 0.5), (away, home, 0.5)) if neutral else ((home, away, 1), (away, home, 0))):
             X, Y = self.tidx[team], self.tidx[opp]
             feats = self._feat(X, Y, is_home, snap, tx, self._xf_pair(team, opp, xf))
             opp_tac = self._team_tactics(snap, Y, tx)
@@ -1218,8 +1316,8 @@ class SoccerEngine:
                     # team total does not change: this only moves the count between the players on the pitch.
                     opp_pos_f[pid] = self._opp_pos_factor(s, Y, info["pos"]) if self.opp_pos_k > 0 else 1.0
                     rate[pid] = post[pid].mean * opp_pos_f[pid]
-                Z = sum(rate[pid] * self._minutes_share(scen_all[pid][1]) for pid in squad)
-                if Z <= 0:
+                nS, nE, nT, nact = self._norm(team, squad, rate, scen_all, lineups.get(team))
+                if nS <= 0:
                     continue
                 dlog = self._opp_log_spread(s, snap)
                 for pid, info in squad.items():
@@ -1238,7 +1336,11 @@ class SoccerEngine:
                         continue
                     sigma = float(np.sqrt(self.sigma_team ** 2 + post[pid].cv ** 2))
                     u = self._draws(sigma)
-                    mus = np.array([mu_team[s] * rate[pid] * self._minutes_share(m) / Z for _, m in sc])
+                    zs = [self._z_for(pid, m, rate, scen_all, nS, nE, nT, nact) for _, m in sc]
+                    if not all(z > 0 for z in zs):
+                        continue
+                    sr = self.share_ratio.get(s, 1.0)
+                    mus = np.array([mu_team[s] * sr * rate[pid] * self._minutes_share(m) / z for (_, m), z in zip(sc, zs)])
                     probs = np.array([pr for pr, _ in sc])
                     expected = float(np.sum(probs * mus))
                     contrib = dict(grp[s])
@@ -1278,8 +1380,8 @@ class SoccerEngine:
                     # term that survives is opp_pos_f, the opponent's concession to his position,
                     # which is the only legitimate player-specific opponent signal here (and is off
                     # by default: engine.opp_pos_k).
-                    mus_b = np.array([mu_usual[s] * post[pid].mean * self._minutes_share(m) / Z
-                                      for _, m in sc])
+                    mus_b = np.array([mu_usual[s] * sr * post[pid].mean * self._minutes_share(m) / z
+                                      for (_, m), z in zip(sc, zs)])
                     reasons = self._player_reasons(contrib, grp[s], s, opp_tac)
                     thrs_p, thr_own = PLAYER_THR[s], None
                     mu_usual_p = float(np.sum(probs * mus_b))      # his own count in this match's minutes
@@ -1352,6 +1454,11 @@ class SoccerEngine:
         if self.match_context and match_ctx:
             mh, ma = context_multipliers(match_ctx.get(home) or {}, match_ctx.get(away) or {})
         xh, xa = self._xg_mults(home, away)                      # expected goals in the strength model (docs/37)
+        if neutral:
+            # A tournament match at a neutral ground: neither side is at home, so the home advantage
+            # the strength model learned is split evenly instead of handed to whoever is listed first.
+            g = float(np.exp(0.5 * float(getattr(self.dc, "gam", 0.0) or 0.0)))
+            mh, ma = mh / g, ma * g
         probs = self.dc.outcome_probs(home, away, mult_h=mh * xh, mult_a=ma * xa)
         probs["context"] = {"mult_home": round(mh, 4), "mult_away": round(ma, 4)}
         if (xh, xa) != (1.0, 1.0):

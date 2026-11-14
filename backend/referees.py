@@ -25,6 +25,12 @@ import settings_store as S
 CARD_FIELDS = ("yellow", "yellow_cards", "yellows")
 
 
+def clean(name) -> str:
+    """One referee, one key. API-Football writes the same official as "Michael Oliver" in one fixture
+    and "Michael Oliver, England" in the next, which split his history in two."""
+    return str(name or "").split(",")[0].strip()
+
+
 def _card(doc):
     for f in CARD_FIELDS:
         v = doc.get(f)
@@ -120,7 +126,7 @@ def rows_for_league(db, league_iid: int):
         hy, ay = ts.get((m["iid"], m["home_iid"])), ts.get((m["iid"], m["away_iid"]))
         if hy is None or ay is None:
             continue
-        rows.append({"referee": str(m["referee"]).strip(), "home": m["home_iid"], "away": m["away_iid"],
+        rows.append({"referee": clean(m["referee"]), "home": m["home_iid"], "away": m["away_iid"],
                      "hy": hy, "ay": ay, "kickoff": m["kickoff"]})
     return rows
 
@@ -146,7 +152,7 @@ def for_match(db, match: dict) -> dict | None:
     if not ref:
         return None
     # older referee_stats rows (booking model) carry no normalised numbers until the referees job reaches them
-    st = db.referee_stats.find_one({"referee": str(ref).strip(), "league_iid": match.get("league_iid"), "factor": {"$exists": True}}, {"_id": 0})
+    st = db.referee_stats.find_one({"referee": clean(ref), "league_iid": match.get("league_iid"), "factor": {"$exists": True}}, {"_id": 0})
     if not st:
         return {"referee": ref, "factor": 1.0, "sentence": f"No history with {ref} yet, so we treat this referee as average."}
     return {"referee": ref, "factor": st["factor"], "matches": st["matches"], "cards_per_game": st["cards_per_game"],

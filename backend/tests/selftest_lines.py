@@ -139,7 +139,11 @@ check(all(not r["market"].startswith(("0", "1.5")) and "+" in r["market"] for r 
 pre = [r for r in rows if r["scope"] == "player"]
 likely = [r for r in pre if r["tier_basis"] == "likely_starter"]
 plain = [r for r in pre if r["tier_basis"] == "pre"]
-check(all(r["p_play"] >= 0.85 for r in likely) and all(r["p_play"] < 0.85 for r in plain), "likely starter = chance to play 85%+ before lineups")
+# A likely starter is one with an 80%+ chance to play OR a record of starting (docs/59): p_play
+# tops out at 0.88 even for an ever-present, so the chance alone left regulars "unsure".
+check(all(r["p_play"] >= 0.8 or r["lineup_badge"] == "likely" for r in likely)
+      and all(r["p_play"] < 0.8 and r["lineup_badge"] != "likely" for r in plain),
+      "likely starter = chance to play 80%+ or a starting record, before lineups")
 # The tier grades the NUMBER. It used to grade p x p_play, so a likely starter could not be Strong
 # and an unsure one could not be Solid whatever his number was -- which, with every feed admitting
 # Strong and Solid only, took the best players off Today and Insights until the lineup was out.
@@ -149,7 +153,10 @@ so_min, s_min = float(S.get(db, "engine.solid_min")), float(S.get(db, "engine.st
 wrong = [(r["p"], r["tier"], r["lineup_badge"]) for r in pre
          if r["tier"] in ("Strong", "Solid") and r["p"] < so_min - 1e-9]
 check(not wrong, f"Strong and Solid are read off the number shown, not off a discounted one: {wrong[:3]}")
-check(any(r["tier"] in ("Strong", "Solid") for r in plain) or not plain,
+# Asked of the rule rather than of the data: since regulars are read as likely starters off their
+# record of starting, the few left "unsure" in this league have no line over 80% to show it with.
+import tiering as TI
+check(TI.assign(db, None, {"p": 0.85, "lo": 0.75, "scope": "player", "stat": "shots", "lineup_badge": "unsure"})[0] == "Solid",
       "a player whose lineup is not settled can still reach Solid on his number alone")
 # This used to look for BOTH badges among the Solid and Strong rows. Since docs/59 the badge is
 # read off the player's record of starting, and almost every published regular is correctly
@@ -293,21 +300,23 @@ check(_blank[4]["blank_columns"] == ["minutes"] and len(_blank[2]) == 0,
 for _mi, _pi, _v in _saved:
     db.player_match_stats.update_one({"match_iid": _mi, "player_iid": _pi}, {"$set": {"minutes": _v}})
 
-# The whole league, with the rule off and on. The badge is a DISPLAY signal: the tier grades the
-# percentage alone (tiering.py), engine.min_p_play still decides on the chance to play whether a
-# card exists at all, and neither may move when the badge does.
+# The whole league, with the rule off and on. The record of starting used to be a DISPLAY signal
+# only, and that was the Hermansen bug: a country's first-choice keeper with a handful of caps could
+# not pass `p_play >= likely_starter_p`, so his forty-game record was never applied and his card
+# could be dropped as a doubt. A regular by his record now counts as a likely starter for those two
+# questions as well. So the rule may ADD cards and may move the number of a player it promotes --
+# and must change nothing for anybody it does not.
 S.put(db, "engine.starter_from_record", False)
 B.run_league(db, lg["iid"], now=now)
 _off = {r["fkey"]: r for r in db.forecasts.find({"scope": "player"}, {"_id": 0, "contrib": 0})}
 S.put(db, "engine.starter_from_record", True)
 B.run_league(db, lg["iid"], now=now)
 _on = {r["fkey"]: r for r in db.forecasts.find({"scope": "player"}, {"_id": 0, "contrib": 0})}
-check(set(_off) == set(_on), f"the same cards exist either way: {len(_off)} off, {len(_on)} on")
-check(all(_off[k]["tier"] == _on[k]["tier"] for k in _off), "...with the same tier on every one of them")
-check(all(_off[k]["tier_basis"] == _on[k]["tier_basis"] and _off[k]["tier_note"] == _on[k]["tier_note"] for k in _off),
-      "...the same tier basis and the same note")
-check(all(abs(_off[k]["p"] - _on[k]["p"]) < 1e-12 and abs(_off[k]["p_play"] - _on[k]["p_play"]) < 1e-12 for k in _off),
-      "...and the same percentage and chance to play: only the badge moved")
+check(set(_off) <= set(_on), f"the record only adds cards, it never drops a regular as a doubt: {len(_off)} off, {len(_on)} on")
+_same = [k for k in _off if _off[k]["lineup_badge"] == _on[k]["lineup_badge"]]
+check(_same and all(abs(_off[k]["p"] - _on[k]["p"]) < 1e-12 and _off[k]["tier"] == _on[k]["tier"] for k in _same),
+      "...and nobody whose badge did not move has a different number or tier")
+check(all(abs(_off[k]["p_play"] - _on[k]["p_play"]) < 1e-12 for k in _off), "...the chance to play is never touched")
 _pre = [k for k in _off if _off[k]["state"] == "pre"]
 check(not [k for k in _pre if _off[k]["lineup_badge"] == "likely" and _on[k]["lineup_badge"] == "unsure"],
       "no player the old gate called a likely starter is demoted by his record")
@@ -340,8 +349,11 @@ if _drift:
           f"...e.g. started 6 of the club's last 10, but weighted that reads {_share(_k):.0%}, under the {_bar:.0%} bar")
 check(all(_on[k].get("starts_share") is not None for k in _pre if _on[k].get("club_recent")),
       "every readable record carries the weighted share beside the countable pair")
-check(len(_still) < len([k for k in _pre if _off[k]["lineup_badge"] == "unsure"]) / 2,
-      "pre-lineup doubt is no longer the majority verdict: "
+# Fewer doubts than the chance-to-play gate alone. It used to ask for half as many; the gate's own
+# bar fell from 0.85 to 0.8 (it tops out at 0.88), so the baseline it is measured against already
+# calls far fewer regulars a doubt.
+check(len(_still) < len([k for k in _pre if _off[k]["lineup_badge"] == "unsure"]),
+      "the start record removes doubts the chance to play alone would have shown: "
       f"{len([k for k in _pre if _off[k]['lineup_badge'] == 'unsure'])} of {len(_pre)} -> {len(_still)} of {len(_pre)}")
 
 S.put(db, "engine.condition_on_play", False)
@@ -354,7 +366,10 @@ both = [k for k in old_rows if k in new_rows]
 check(both and all(old_rows[k]["p_basis"] == "all" for k in both), "switch off: the old all-in number comes back")
 down = [k for k in both if new_rows[k]["p_model"] + 1e-9 < old_rows[k]["p_model"]]
 check(not down, f"'if he plays' is never below the old number (chance to play only ever lowered it), {len(both)} lines compared")
-lift = [new_rows[k]["p_model"] / max(old_rows[k]["p_model"], 1e-9) for k in both if old_rows[k]["p_play"] < 0.85]
+# Under the likely-starter bar a player is treated as starting in both modes, so only those below it
+# can rise (the bar is a setting: 0.85 before, 0.8 now).
+lift = [new_rows[k]["p_model"] / max(old_rows[k]["p_model"], 1e-9) for k in both
+        if old_rows[k]["p_play"] < float(S.get(db, "engine.likely_starter_p"))]
 check(not lift or float(np.median(lift)) > 1.05, "players with a real chance of missing the match rise the most")
 rows = list(db.forecasts.find({}, {"_id": 0, "contrib": 0}))
 
@@ -385,8 +400,12 @@ heads = [f for f in feed if f["tier"] in ("Strong", "Solid")]
 # likelihood -- not simply the likeliest. "Mbappe 1+ shot" and "Benfica 7+ shots" are near certainties that are
 # also entirely usual, and they were heading cards and dragging the feed's own lift sort down with them.
 W = S.get(db, "engine.market_weights")
-check(all(Q.prominence(f, W) >= max([Q.prominence({**m, "scope": f["scope"]}, W) for m in f["more_lines"]] or [0])
-          for f in heads if f["p"] <= fmax),
+# ...among the lines that are a real question: a line far below his usual count (Q.is_obvious) never
+# leads while one of those is available, however much lift it carries.
+_ob = float(S.get(db, "engine.obvious_ratio"))
+check(all(Q.prominence(f, W) >= max([Q.prominence({**m, "scope": f["scope"]}, W) for m in f["more_lines"]
+                                      if not Q.is_obvious(m, _ob)] or [0])
+          for f in heads if f["p"] <= fmax and not Q.is_obvious(f, _ob)),
       "headline: the line with the most to say leads the card, not the likeliest (docs/46)")
 dull = [f for f in heads if (f.get("edge") or 0) <= 0.01 and any((m.get("edge") or 0) > 0.05 for m in f["more_lines"])]
 check(not dull, f"no card is headed by a line that is exactly as usual while it holds one that is not: {len(dull)}")

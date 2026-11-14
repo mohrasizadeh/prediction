@@ -53,7 +53,15 @@ def apply(cal: dict | None, p: float, state: str, scope: str) -> float:
     if cal is None or p is None:
         return p
     if scope == "team":
-        q = 0.5 + float(cal.get("team_shrink", 1.0)) * (p - 0.5)
+        if cal.get("team_slope") is not None:
+            # In log-odds. The straight-line shrink below (0.5 + 0.84 * (p - 0.5)) fixed the middle
+            # -- a stated 85% that happened 78% -- and wrecked the top: no team line could ever be
+            # shown above 92%, so a team line could almost never be Strong. A slope in log-odds
+            # makes the same correction at 85% and leaves a near-certain line near-certain.
+            z = float(np.log(max(p, 1e-6) / max(1 - p, 1e-6)))
+            q = float(1.0 / (1.0 + np.exp(-float(cal["team_slope"]) * z)))
+        else:                                              # a map saved before the slope existed
+            q = 0.5 + float(cal.get("team_shrink", 1.0)) * (p - 0.5)
     elif state == "lineup" and cal.get("lineup_player"):
         q = float(np.interp(p, cal["lineup_player"]["x"], cal["lineup_player"]["y"]))
     elif state == "pre" and cal.get("pre_player"):
@@ -83,15 +91,19 @@ def _iso(p, y):
 def _fit(rows) -> dict:
     lp = [(r["p_model"], r["reached"]) for r in rows if r["scope"] == "player" and r["state"] == "lineup"]
     pp = [(r["p_model"], r["reached"]) for r in rows if r["scope"] == "player" and r["state"] == "pre"]
-    tm = [(r["p_model"], r["reached"]) for r in rows if r["scope"] == "team"]
-    out = {"team_shrink": 1.0}
+    # Match goals are read off the score matrix and never go through this map (engine_bridge
+    # _goal_lines), so they cannot be part of what fits it or of what judges it.
+    tm = [(r["p_model"], r["reached"]) for r in rows if r["scope"] == "team" and r.get("stat") != "match_goals"]
+    out = {"team_slope": 1.0}
     if len(lp) >= 2000:
         out["lineup_player"] = _iso(*zip(*lp))
     if len(pp) >= 2000:
         out["pre_player"] = _iso(*zip(*pp))
     if len(tm) >= 300:
         p = np.array([a for a, _ in tm]); y = np.array([b for _, b in tm], float)
-        out["team_shrink"] = min(((_ll(0.5 + a * (p - 0.5), y), round(float(a), 2)) for a in np.arange(0.6, 1.01, 0.02)))[1]
+        z = np.log(np.clip(p, 1e-6, 1 - 1e-6) / np.clip(1 - p, 1e-6, 1))
+        # Both ways: the old search only allowed a shrink, so it could never undo one.
+        out["team_slope"] = min(((_ll(1 / (1 + np.exp(-a * z)), y), round(float(a), 2)) for a in np.arange(0.5, 1.51, 0.02)))[1]
     return out
 
 
@@ -101,6 +113,7 @@ def _ll(p, y):
 
 
 def _score(cal, rows):
+    rows = [r for r in rows if r.get("stat") != "match_goals"]
     return _ll([apply(cal, r["p_model"], r["state"], r["scope"]) for r in rows], [float(r["reached"]) for r in rows])
 
 
@@ -115,7 +128,7 @@ def eligible(db) -> list[dict]:
     that reports its progress, so the two can never disagree again.
     """
     rows = list(db.forecast_outcomes.find({"p_model": {"$ne": None}, "state": {"$in": ["pre", "lineup"]}},
-                                          {"_id": 0, "p_model": 1, "reached": 1, "scope": 1, "state": 1, "scored_at": 1,
+                                          {"_id": 0, "p_model": 1, "reached": 1, "scope": 1, "state": 1, "scored_at": 1, "stat": 1,
                                            "p_basis": 1, "player_played": 1}).sort("scored_at", 1))
     cond = bool(S.get(db, "engine.condition_on_play"))
     return [r for r in rows if r["scope"] == "team"

@@ -1045,10 +1045,12 @@
         0.5
       ],
       "saves": [
+        0.5,
         1.5,
         2.5,
         3.5,
-        4.5
+        4.5,
+        5.5
       ]
     },
     "public": false,
@@ -1156,10 +1158,20 @@
     "group": "Engine",
     "label": "Likely starter: chance to play for full tiers",
     "type": "number",
-    "default": 0.85,
+    "default": 0.8,
     "public": false,
     "applies_at": "next_engine_run",
-    "help": "Before lineups, a player with at least this chance to play can be Solid or Strong. On 2015/16 data, pre-lineup Strong for these players came true 83% of the time, Solid 71% (docs/25). 1.0 = only confirmed lineups."
+    "help": "Before lineups, a player with at least this chance to play can be Solid or Strong. On 2015/16 data, pre-lineup Strong for these players came true 83% of the time, Solid 71% (docs/25). 1.0 = only confirmed lineups. Lowered from 0.85 to 0.8: the chance to play tops out at 0.88 even for a player who starts every match, so 0.85 needed about ten straight starts in one competition."
+  },
+  {
+    "key": "engine.squad_recent",
+    "group": "Engine",
+    "label": "Squad: matches since last appearance",
+    "type": "number",
+    "default": 6,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "A player shares his team's expected shots, tackles and saves only if he played in one of the club's last this-many matches (or is in the announced eleven). Before this, every player seen in three seasons -- transferred, retired, no longer called up -- kept a slice, and every current player's number was cut by it."
   },
   {
     "key": "engine.starter_from_record",
@@ -1240,6 +1252,16 @@
     "public": false,
     "applies_at": "immediately",
     "help": "A line only leads a card if its likelihood would move at least this much (in likelihood, so 0.06 is 6 points) between the league's leakiest and meanest opponent for that stat. It stops cards like \"9+ shots, 88%\" or \"1+ shot, 90%\", which read the same whoever the opponent is, so they say nothing about this match. Measured on a full run, the lines this catches are exactly those: 7+ shots at 92% moves 0.4 of a point, 1+ shot at 96% moves 1.2. The line is only demoted, never deleted: it stays under \"more lines\", in the ladder, in the Finder and available to a combo. A line whose movement is unknown is never hidden, and a card whose every line is insensitive still shows, because an empty feed is no better than a dull one. 0 switches it off. Raising it too far switches it off again in effect: once almost every line is below the threshold that last rule takes over and leads go back to what they were. On the measured run, 0.06 changed 10 leads of 134, 0.08 changed 28, and 0.20 changed only 3 for that reason. docs/56."
+  },
+  {
+    "key": "engine.obvious_ratio",
+    "group": "Engine",
+    "label": "Obvious line: share of his usual count",
+    "type": "number",
+    "default": 0.4,
+    "public": false,
+    "applies_at": "next_engine_run",
+    "help": "A line asking for no more than this share of a player's (or team's) usual count is obvious -- 1+ shot for a player who averages 3 or more -- and never leads a card or takes one of its lines while a real question is available. It stays on the ladder, in the Finder and in combos. 0 switches it off."
   },
   {
     "key": "engine.min_p_start",
@@ -1444,11 +1466,11 @@
       "tackles": 10.0,
       "fouls_committed": 6.0,
       "goal_involvements": 3.0,
-      "saves": 2.5
+      "saves": 10.0
     },
     "public": false,
     "applies_at": "next_engine_run",
-    "help": "Negative-binomial dispersion per player market: var = mu + mu^2/r, so a LOWER r means more clustering. Saves sit lowest because a keeper's count follows what the defence in front of him concedes on target, which swings far more than a forward's own shot count. Every market the engine fits needs an entry; one missing here falls back to the built-in value rather than failing mid-run. Replaced from the data when engine.fit_player_r is on."
+    "help": "Negative-binomial dispersion per player market: var = mu + mu^2/r, so a LOWER r means more clustering. Saves sit lowest because a keeper's count follows what the defence in front of him concedes on target, which swings far more than a forward's own shot count. Every market the engine fits needs an entry; one missing here falls back to the built-in value rather than failing mid-run. Replaced from the data when engine.fit_player_r is on. Saves raised from 2.5 to 10: a keeper's saves are shots on target faced minus goals, close to Poisson, and 2.5 put a keeper expected to make 2.5 saves at 82% for 1+ (Poisson: 92%)."
   },
   {
     "key": "engine.absence_model",
@@ -2926,10 +2948,10 @@
     "group": "Engine",
     "label": "Fit player spread from results",
     "type": "boolean",
-    "default": false,
+    "default": true,
     "public": false,
     "applies_at": "next engine run",
-    "help": "Works out how much a player's count bounces around its average from your own results, instead of the fixed numbers in 'Player dispersion'. Off until engine_ab.py passes it on your data (docs/37)."
+    "help": "Works out how much a player's count bounces around its average from your own results, instead of the fixed numbers in 'Player dispersion'. Off until engine_ab.py passes it on your data (docs/37). On by default: each market's spread is fitted on this league's own results (leave one out, against the predicted team total) instead of the fixed guess, which was tuned on simulated leagues."
   },
   {
     "key": "engine.personal_lines",

@@ -54,6 +54,5 @@ class RatingsModel:
         """Expected count for `team` against `opp`."""
         if not self.ok:
             return None
-        if is_home:
-            return float(np.exp(self.c + self.h + self.a[team] + self.d[opp]))
-        return float(np.exp(self.c + self.a[team] + self.d[opp]))
+        # is_home may be 0.5 for a neutral ground: half the home term, the same for both sides.
+        return float(np.exp(self.c + self.h * float(is_home) + self.a[team] + self.d[opp]))

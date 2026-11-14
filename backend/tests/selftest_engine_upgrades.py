@@ -40,7 +40,9 @@ d = E.SoccerEngine()
 check(d.script_v2 is False and d.fit_player_r is False and d.opp_pos_k == 0.0 and d.xg_blend == 0.0,
       "every upgrade is off in a plain engine")
 reg = S.registry()
-check(all(reg[k]["default"] in (False, 0) for k in ("engine.script_v2", "engine.fit_player_r", "engine.opp_pos_k", "engine.xg_blend")),
+check(reg["engine.fit_player_r"]["default"] is True,
+      "the fitted player spread is on in production: a fit from our own results beats a guess tuned on simulated leagues")
+check(all(reg[k]["default"] in (False, 0) for k in ("engine.script_v2", "engine.opp_pos_k", "engine.xg_blend")),
       "...and off in the settings registry, so production is unchanged until a gate passes")
 
 base = fit()
@@ -83,7 +85,10 @@ check(abs(float(np.mean(vals)) - 1.0) < 0.25, f"...and sit around 1.0 on average
 op_rows, _ = player_totals(op)
 moved = sum(abs(op_rows[p] - b_rows[p]) for p in b_rows)
 check(moved > 1e-6, "player forecasts move")
-check(abs(sum(op_rows.values()) - sum(b_rows.values())) < 1e-6,
+# Within a hundredth of a percent rather than exactly: each player's share is now normalised with
+# his own minutes as the scenario's (SoccerEngine._z_for), so the total is conserved to rounding,
+# not to the last digit.
+check(abs(sum(op_rows.values()) - sum(b_rows.values())) < 1e-3 * sum(b_rows.values()),
       "...but the team total is unchanged: it splits the count between players, it does not invent shots")
 flat = fit(opp_pos_k=1e9)
 flat_rows, _ = player_totals(flat)

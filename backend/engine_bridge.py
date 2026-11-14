@@ -104,7 +104,7 @@ def player_history(db, player_iids, before, n: int = 40) -> dict:
     pids = sorted({int(p) for p in player_iids})
     if not pids:
         return {}
-    cols = ["minutes"] + [c for pair in PLAYER_MARKET_COLS.values() for c in pair]
+    cols = ["minutes", "started"] + [c for pair in PLAYER_MARKET_COLS.values() for c in pair]
     proj = {"_id": 0, "player_iid": 1, "kickoff": 1, "match_iid": 1, **{c: 1 for c in cols}}
     before = before.replace(tzinfo=None) if getattr(before, "tzinfo", None) else before
     # Eighteen months is forty appearances for anyone who plays, and keeps a league's read to that
@@ -114,6 +114,16 @@ def player_history(db, player_iids, before, n: int = 40) -> dict:
     if not rows:
         return {}
     df = pd.DataFrame(rows)
+    # Ninety-minute lines read ninety-minute games: a cup tie that went to extra time reports its
+    # counts for 120 minutes, so it is left out of the record exactly as build_frames leaves it out
+    # of the fit.
+    if S.get(db, "provider.apifootball.exclude_extra_time"):
+        et = {m["iid"] for m in db.matches.find({"iid": {"$in": list({int(x) for x in df["match_iid"]})}, "extra_time": True},
+                                                {"_id": 0, "iid": 1})}
+        if et:
+            df = df[~df["match_iid"].isin(et)]
+        if df.empty:
+            return {}
     df = df[df["kickoff"].notna()].sort_values(["player_iid", "kickoff"])
     for c in cols:
         if c not in df.columns:
@@ -194,7 +204,11 @@ def build_frames(db, league_iid: int, history_rounds: int):
     have = tg["sot_against"] if "sot_against" in tg.columns else pd.Series(np.nan, index=tg.index)
     tg["sot_against"] = have.fillna(tg["_sot_opp"]).fillna(0.0)
     tg = tg.drop(columns=["_sot_opp"])
-    ms = ms[ms["game_id"].isin(set(tg["game_id"]))]
+    # The strength model (Dixon-Coles) reads only the score, so it keeps every finished match with
+    # one. It used to keep only matches whose TEAM STATS were complete: a null tackles count removed
+    # a match from the goals model too, and the matches that lose a stat are disproportionately the
+    # quiet ones. Everything else the engine fits reads `tg`/`pg`, which stay filtered.
+    ms = ms[ms["hg"].notna() & ms["ag"].notna()]
 
     pg = pd.DataFrame(list(db.player_match_stats.find({"match_iid": {"$in": list(set(tg["game_id"]))}}, {"_id": 0})))
     # NO PLAYER ROWS, OR NONE THAT CARRIES `pos`. Either way `pg["pos"]` a few lines down raises
@@ -279,10 +293,13 @@ def build_frames(db, league_iid: int, history_rounds: int):
         # and that is the point: the team layer is what knows this side concedes shots, so the
         # keeper's near-1.0 share of a well-forecast team total is a real forecast rather than the
         # degenerate constant it would be if the share were doing the work (docs/70).
-        sv = pg.groupby(["game_id", "team"])["saves"].sum().rename("saves").reset_index()
+        # min_count=1: a match where no keeper row carries saves is UNKNOWN, not a match with no
+        # saves. A plain sum turns the all-missing group into 0.0, which the null guard below then
+        # cannot see, and the team layer is fitted on the fake zeros.
+        sv = pg.groupby(["game_id", "team"])["saves"].sum(min_count=1).rename("saves").reset_index()
         tg = tg.merge(sv, on=["game_id", "team"], how="left")
     if "goal_involvements" in pg.columns:
-        inv = (pg.groupby(["game_id", "team"])["goal_involvements"].sum()
+        inv = (pg.groupby(["game_id", "team"])["goal_involvements"].sum(min_count=1)
                  .rename("goal_involvements").reset_index())
         tg = tg.merge(inv, on=["game_id", "team"], how="left")
     for col in ("fouls_committed", "goal_involvements", "saves"):
@@ -413,6 +430,7 @@ def configure_engine(db) -> E.SoccerEngine:
     eng.absence = bool(S.get(db, "engine.absence_model"))              # missed recent matches -> likely out (docs/22)
     eng.match_context = bool(S.get(db, "engine.match_context"))        # results form and stakes on expected goals (docs/22)
     eng.likely_starter_p = float(S.get(db, "engine.likely_starter_p"))   # likely starters get full minutes, no chance-to-play discount
+    eng.squad_recent = int(S.get(db, "engine.squad_recent"))           # only recent players share the team total
     eng.start_window = int(S.get(db, "engine.starter_record_n"))         # docs/59: club matches the start record is read over
     return eng
 
@@ -567,7 +585,8 @@ def band_for(band, by_stat, scope: str, stat: str):
     return float(b[0]), float(b[1])
 
 
-def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = None, cuts=None) -> list[dict]:
+def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = None, cuts=None, grade=None,
+                 obvious: float = 0.0) -> list[dict]:
     """Automatic lines (docs/25): per player (or team) and stat, keep only lines whose likelihood sits inside `band`,
     and of those the `max_lines` **most likely**.
 
@@ -598,8 +617,12 @@ def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = 
                           key=lambda d: abs(d["p"] - 0.5))
             keep = (personal + rest)[:max_lines]
         else:
-            # -p first, then -thr: of two lines equally likely, the more ambitious one is worth more to the reader
-            keep = sorted((d for d in g if lo <= d["p"] <= hi), key=lambda d: (-d["p"], -d["thr"]))[:max_lines]
+            # -p first, then -thr: of two lines equally likely, the more ambitious one is worth more to the reader.
+            # An obvious line -- 1+ shot for a player who averages four -- takes a place only when
+            # there are not enough real questions to fill them (queries.is_obvious).
+            import queries as Q
+            keep = sorted((d for d in g if lo <= d["p"] <= hi),
+                          key=lambda d: (Q.is_obvious(d, obvious), -d["p"], -d["thr"]))[:max_lines]
         ladder = {f"{d['thr']:g}": round(float(d["p"]), 4) for d in g}   # the whole ladder, so the Finder can answer any line
         # docs/63: and each rung's band. A screen that lets a reader move the line has to move the
         # range with it; without this it could only show a likelihood and would have to invent the
@@ -624,7 +647,11 @@ def select_lines(docs: list[dict], band, max_lines: int, by_stat: dict | None = 
             lo_d = d.get("lo")
             if lo_d is None:
                 continue
-            t_d = tier(float(d["p"]), float(lo_d), bool(d.get("lineup_confirmed", True)), strong=st, solid=sl)
+            # `grade`, when given, is the rule the lead line is graded by (tiering.assign): the same
+            # cut-offs, no lineup cap and the same record check, so a rung a reader steps to cannot
+            # read Strong at 82% beside a lead at 88% reading Solid.
+            t_d = (grade(d) if grade is not None
+                   else tier(float(d["p"]), float(lo_d), bool(d.get("lineup_confirmed", True)), strong=st, solid=sl))
             if t_d:
                 tier_of[f"{d['thr']:g}"] = t_d
         for d in keep:
@@ -821,6 +848,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
     band_by_stat = S.get(db, "engine.line_band_by_stat")       # per-market floors; {} = one band for all
     earned = S.get(db, "engine.tier_mode") == "earned"
     rec = TI.Record(db, min_n=int(S.get(db, "engine.earned_min_n")), k=float(S.get(db, "engine.earned_prior_k"))) if earned else None
+    tcuts = TI.cutoffs(db)
     anchor = bool(S.get(db, "engine.player_anchor")); anchor_min = int(S.get(db, "engine.anchor_min_games"))
     anchor_k = float(S.get(db, "engine.anchor_k")); anchor_w = float(S.get(db, "engine.anchor_max_w")); p_cap = float(S.get(db, "engine.p_cap"))
     anchor_rec = bool(S.get(db, "engine.anchor_recency"))
@@ -840,12 +868,13 @@ def run_league(db, league_iid: int, now=None) -> dict:
             rows = list(db.lineups.find({"match_iid": m["iid"], "team_iid": team, "started": True, "confirmed": True}, {"player_iid": 1}))
             if len(rows) >= 11:
                 lineups[team] = {r["player_iid"] for r in rows}
-        ctx = context_for_match(cal, m) if cal is not None else None
+        ctx = context_for_match(cal, m, comp_of(lgdoc)) if cal is not None else None
         avail = AV.for_match(db, (h, a), m["kickoff"])                  # injuries and suspensions (feed or admin)
         mctx = {t: lctx.get(t) for t in (h, a) if lctx.get(t)}
         tnorm = ({t: {"corners": cn.predict(t, o), "corners_usual": cn.usual(t)} for t, o in ((h, a), (a, h))}
                  if cn is not None and cn.cnt >= 20 else None)       # normalised corner averages (opponent-adjusted)
-        fcs, probs = eng.predict_fixture(h, a, lineups, ctx=ctx, availability=avail, match_ctx=mctx, team_norm=tnorm)
+        fcs, probs = eng.predict_fixture(h, a, lineups, ctx=ctx, availability=avail, match_ctx=mctx, team_norm=tnorm,
+                                         neutral=is_neutral(lgdoc, m))
         for t in (h, a):
             if lctx.get(t):
                 c_ = lctx[t]
@@ -895,6 +924,13 @@ def run_league(db, league_iid: int, now=None) -> dict:
                 badge, badge_why = starter_call(f.starts_recent, f.club_recent, f.missed_recent, f.doubtful,
                                                 enabled=from_record, share=rec_share, max_missed=rec_missed,
                                                 fallback=gate_badge, weighted=f.starts_share)
+                # A regular by his record of starting is a regular. `p_play` cannot pass
+                # likely_starter_p without about ten straight starts IN THIS COMPETITION (it tops out
+                # at 0.88), so a country's first-choice keeper with a handful of caps read "unsure":
+                # his forty-game record was never applied and his card could be dropped. The badge
+                # is read off his starts, which is the question this gate asks.
+                if badge == "likely":
+                    gate_badge = "likely"
             # His own record counts (docs/32), but only when he is expected to start: the record comes mostly from
             # starts, so for a substitute it pulled a short-minutes chance far above the model (docs/36 H9).
             anchor_d = 0.0
@@ -938,7 +974,7 @@ def run_league(db, league_iid: int, now=None) -> dict:
                 t, tier_note = TI.assign(db, rec, {"p": p, "lo": lo, "hi": hi, "scope": f.scope, "stat": f.stat,
                                                    "p_play": float(f.p_play), "lineup_badge": badge,
                                                    # docs/52: the departure tier needs to know which rung this is
-                                                   "is_personal": is_own, "p_usual": p_usual_raw})
+                                                   "is_personal": is_own, "p_usual": p_usual_raw}, tcuts)
             else:
                 t = tier(p, lo, solid_ok, strong=strong, solid=solid)
                 t_full = tier(p, lo, True, strong=strong, solid=solid)
@@ -1006,7 +1042,11 @@ def run_league(db, league_iid: int, now=None) -> dict:
                          "expected_usual": (float(f.expected_usual) if f.expected_usual is not None else None)})
         docs += goal_lines
         if auto_lines:
-            docs = select_lines(docs, line_band, max_lines, band_by_stat, cuts=(strong, solid))
+            grade = ((lambda d: TI.assign(db, rec, {"p": d["p"], "lo": d["lo"], "hi": d.get("hi"), "scope": d["scope"],
+                                                    "stat": d["stat"], "lineup_badge": d.get("lineup_badge")}, tcuts)[0])
+                     if earned else None)
+            docs = select_lines(docs, line_band, max_lines, band_by_stat, cuts=(strong, solid), grade=grade,
+                                obvious=float(S.get(db, "engine.obvious_ratio")))
         for d in docs:   # an admin's Hide survives the next run
             if d["fkey"] in kept:
                 d.update(kept[d["fkey"]], hidden=True)
@@ -1042,16 +1082,68 @@ def import_calendar(db, rows, source: str = "import") -> dict:
     return {"rows": n}
 
 
+# Which line of `context.importance` a competition is. Every stored match used to be labelled
+# "league", so the rotation model could not see a Champions League night three days away or tell a
+# League Cup tie from a league match -- and API-Football stores all of those as leagues of their own.
+_COMP_BY_KEY = {"uefa.ucl": "ucl", "uefa.uel": "uel", "uefa.uecl": "uecl", "eng.facup": "fa_cup", "eng.efl": "league_cup"}
+
+
+def comp_of(lg: dict | None) -> str:
+    lg = lg or {}
+    key = lg.get("catalog_key") or ""
+    if key in _COMP_BY_KEY:
+        return _COMP_BY_KEY[key]
+    name = (lg.get("name") or "").lower()
+    kind = lg.get("kind") or "league"
+    if "friendl" in name:
+        return "friendly"
+    if "super cup" in name or "supercup" in name or "supercopa" in name or "supercoppa" in name:
+        return "super_cup"
+    if kind == "league":
+        return "league"
+    if kind == "cup":
+        return "league_cup" if ("league cup" in name or "efl" in name or "coupe de la ligue" in name) else "domestic_cup"
+    if kind == "continental":
+        for k, v in (("champions league", "ucl"), ("europa league", "uel"), ("conference league", "uecl")):
+            if k in name:
+                return v
+        return "other"
+    return "league"                                   # a country's competitive match counts in full
+
+
+# Final tournaments are played at neutral grounds (the host nation aside, which no feed field marks),
+# and so are the Nations League finals. Everything else has a real home side.
+NEUTRAL_KEYS = {"fifa.wc", "uefa.euro", "conmebol.copaamerica", "afc.asiancup", "caf.afcon", "concacaf.goldcup", "fifa.cwc"}
+_NEUTRAL_STAGES = ("final", "semi-final", "semi-finals", "3rd place")
+
+
+def is_neutral(lg: dict | None, m: dict) -> bool:
+    lg = lg or {}
+    if lg.get("catalog_key") in NEUTRAL_KEYS:
+        return True
+    stage = str(m.get("stage") or "").lower()
+    return lg.get("kind") == "international" and "nations league" in (lg.get("name") or "").lower() \
+        and any(stage.startswith(w) for w in _NEUTRAL_STAGES)
+
+
+def comp_map(db) -> dict:
+    return {lg["iid"]: comp_of(lg) for lg in db.leagues.find({}, {"_id": 0, "iid": 1, "catalog_key": 1, "name": 1, "kind": 1})}
+
+
 def build_calendar(db, team_iids, now=None):
     """context.Calendar for the given clubs: their league matches (from `matches`, every status, all tracked
     leagues) plus everything in `club_calendar`. Past rows cost nothing extra: they are already stored."""
     teams = [int(t) for t in team_iids]
     rows = []
-    for m in db.matches.find({"$or": [{"home_iid": {"$in": teams}}, {"away_iid": {"$in": teams}}], "kickoff": {"$ne": None}},
-                             {"_id": 0, "home_iid": 1, "away_iid": 1, "kickoff": 1}):
+    comps = comp_map(db)
+    # A postponed or cancelled fixture sits at a date it will not be played on, and counted there it
+    # made a rested club look congested.
+    for m in db.matches.find({"$or": [{"home_iid": {"$in": teams}}, {"away_iid": {"$in": teams}}], "kickoff": {"$ne": None},
+                              "status": {"$nin": ["other", "postponed", "cancelled", "abandoned"]}},
+                             {"_id": 0, "home_iid": 1, "away_iid": 1, "kickoff": 1, "league_iid": 1, "stage": 1}):
         for t in (m["home_iid"], m["away_iid"]):
             if t in teams:
-                rows.append((int(t), m["kickoff"], "league", ""))
+                rows.append((int(t), m["kickoff"], comps.get(m.get("league_iid"), "league"), m.get("stage") or ""))
     for c in db.club_calendar.find({"team_iid": {"$in": teams}}, {"_id": 0}):
         rows.append((int(c["team_iid"]), c["kickoff"], c["comp"], c.get("stage", "")))
     df = pd.DataFrame(rows, columns=["team", "kickoff", "comp", "stage"])
@@ -1077,14 +1169,18 @@ def fit_start_model(db, league_iid: int, ms, pg, cal) -> dict:
     if mode == "off" or not S.get(db, "context.enabled"):
         out["reason"] = "switched off"
         return out
-    kick = {d["iid"]: d["kickoff"] for d in db.matches.find({"league_iid": league_iid}, {"iid": 1, "kickoff": 1})}
+    comps = comp_map(db)
+    kick = {d["iid"]: (d["kickoff"], comps.get(d.get("league_iid"), "league"), d.get("stage") or "")
+            for d in db.matches.find({"league_iid": {"$in": frame_leagues(db, league_iid)}},
+                                     {"iid": 1, "kickoff": 1, "league_iid": 1, "stage": 1})}
     rows = CX.prior_and_regularity(pg[["game_id", "round", "team", "player", "started"]].copy())
     parts = []
     for (gid, team), _ in rows.groupby(["game_id", "team"]):
-        k = kick.get(gid)
-        if k is None:
+        kk = kick.get(gid)
+        if kk is None:
             continue
-        c = cal.context(team, k, "league", "")
+        k, comp, stage = kk
+        c = cal.context(team, k, comp, stage)
         d = CX.pressure_parts(c); d.update(game_id=gid, team=team)
         parts.append(d)
     if not parts:
@@ -1120,9 +1216,9 @@ def fit_start_model(db, league_iid: int, ms, pg, cal) -> dict:
     return out
 
 
-def context_for_match(cal, m) -> dict:
-    """{team: calendar numbers} for both clubs of an upcoming fixture."""
-    return {t: cal.context(t, m["kickoff"], "league", "") for t in (m["home_iid"], m["away_iid"])}
+def context_for_match(cal, m, comp: str = "league") -> dict:
+    """{team: calendar numbers} for both clubs of an upcoming fixture, in its own competition."""
+    return {t: cal.context(t, m["kickoff"], comp, m.get("stage") or "") for t in (m["home_iid"], m["away_iid"])}
 
 
 # --------------------------------------------------------------- scoring
@@ -1137,6 +1233,12 @@ def score_finished(db) -> int:
             continue                                          # one outcome per forecast, even if old rows linger
         m = db.matches.find_one({"iid": f["match_iid"], "status": "final"})
         if not m or not m.get("ingested_at"):
+            continue
+        if m.get("extra_time"):
+            # Every line is a ninety-minute line, and a match that went to extra time reports its
+            # counts -- and its score -- for 120. Scoring it would count a 91st-120th-minute shot or
+            # goal as a hit, inflating the track record, the calibration refit and the record the
+            # badges are checked against. Not scored at all, as the fit already leaves it out.
             continue
         if f["scope"] == "player":
             if f["stat"] in ("yellow_cards", "red_cards") and not m.get("extras_at"):

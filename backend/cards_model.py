@@ -35,14 +35,28 @@ def league_numbers(db, league_iid: int) -> dict | None:
     ids = [d["match_iid"] for d in db.match_events.find({"league_iid": league_iid}, {"match_iid": 1})]
     if len(ids) < 30:
         return None
-    rows = list(db.team_match_stats.find({"match_iid": {"$in": ids}, "yellow_cards": {"$ne": None}}, {"team_iid": 1, "yellow_cards": 1, "yellow_cards_against": 1}))
+    rows = list(db.team_match_stats.find({"match_iid": {"$in": ids}, "yellow_cards": {"$ne": None}}, {"team_iid": 1, "match_iid": 1, "yellow_cards": 1, "yellow_cards_against": 1}))
     if not rows:
         return None
     avg_t = sum(r["yellow_cards"] for r in rows) / len(rows)
     team = {}
+    # Cards drawn: the opponent's yellows in the same match, read from its own row when this row does
+    # not carry the mirror. A row without it used to add 0 drawn and still count as a game, which
+    # read a side as never provoking a booking and cut every player's card chance against it.
+    by_match = {}
+    for r in rows:
+        by_match.setdefault(r.get("match_iid"), []).append(r)
     for r in rows:
         t = team.setdefault(r["team_iid"], [0, 0, 0])
-        t[0] += r["yellow_cards"]; t[1] += r.get("yellow_cards_against") or 0; t[2] += 1
+        drawn = r.get("yellow_cards_against")
+        if drawn is None:
+            other = [o for o in by_match.get(r.get("match_iid"), []) if o is not r]
+            drawn = other[0]["yellow_cards"] if other else None
+        t[0] += r["yellow_cards"]; t[2] += 1
+        if drawn is not None:
+            t[1] += drawn
+        else:
+            t[1] += avg_t                                   # unknown: the league average, not zero
     ev_y = n_ev = 0
     for d in db.match_events.find({"league_iid": league_iid}, {"events.type": 1}):
         n_ev += 1; ev_y += sum(1 for e in d["events"] if e["type"] == "yellow")
@@ -62,7 +76,7 @@ def league_numbers(db, league_iid: int) -> dict | None:
         y, f, _ = per_match[mm["iid"]]
         ty += y; tf += f; nm += 1
         if mm.get("referee"):
-            rr = refs.setdefault(str(mm["referee"]).strip(), [0.0, 0.0, 0]); rr[0] += y; rr[1] += f; rr[2] += 1
+            rr = refs.setdefault(str(mm["referee"]).split(",")[0].strip(), [0.0, 0.0, 0]); rr[0] += y; rr[1] += f; rr[2] += 1
     return {"ids": set(ids), "avg_team": avg_t, "team": team, "ref_avg": ev_y / n_ev if n_ev else 2 * avg_t,
             "pos90": {k: v[0] / (v[1] / 90) for k, v in pos.items() if v[1] > 0},
             "posf90": {k: v[2] / (v[3] / 90) for k, v in pos.items() if v[3] > 0 and v[2] > 0},
@@ -101,7 +115,15 @@ def ratings_fit(db, league_iid: int):
 def ref_factor(db, league_iid, name, ln) -> tuple[float, str | None]:
     if not name:
         return 1.0, None
-    rc = (ln.get("ref_cpf") or {}).get(name.strip())
+    import referees as RF
+    # The validated factor first (referees.py: team-adjusted, decayed, shrunk at c = 80 cards,
+    # +4.0 milli per match walk-forward). The match page has always shown it; the forecast used a
+    # raw yellows-per-foul figure instead, which reads a referee given the derbies as strict.
+    st = db.referee_stats.find_one({"referee": RF.clean(name), "league_iid": league_iid, "factor": {"$exists": True}},
+                                   {"_id": 0, "factor": 1, "sentence": 1, "matches": 1})
+    if st and st.get("factor") is not None and (st.get("matches") or 0) > 0:
+        return float(st["factor"]), st.get("sentence")
+    rc = (ln.get("ref_cpf") or {}).get(RF.clean(name))
     if rc and ln.get("cpf") and rc[1] > 0:                 # yellows per foul, shrunk to the league
         kf = K_REF * ln["fouls_pg"]
         shr = (rc[0] + kf * ln["cpf"]) / (rc[1] + kf)
@@ -206,7 +228,10 @@ def run_match(db, m, run_id=None, now=None, ln=None) -> int:
                 continue
             seen.add(pid)
             g = list(db.player_match_stats.find({"player_iid": pid, "minutes": {"$gt": 0}}, {"match_iid": 1, "minutes": 1, "yellow_cards": 1, "fouls_committed": 1}).sort("kickoff", -1).limit(30))
-            ev = [r for r in g if r["match_iid"] in ln["ids"]]
+            # His bookings and fouls in EVERY competition. Kept to this league's matches, a midfielder
+            # booked every two and a half club games read 14% in the Nations League, from two caps and
+            # the positional average (the same mistake as the shots model's, engine_bridge.player_history).
+            ev = [r for r in g if r.get("yellow_cards") is not None or r["match_iid"] in ln["ids"]]
             mins = sum(r["minutes"] for r in g[:10]) / max(len(g[:10]), 1)
             y, m90 = sum(r.get("yellow_cards") or 0 for r in ev), sum(r["minutes"] for r in ev) / 90
             prior = ln["pos90"].get(f.get("pos") or "?", sum(ln["pos90"].values()) / max(len(ln["pos90"]), 1))

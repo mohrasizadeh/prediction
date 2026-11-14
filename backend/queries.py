@@ -256,7 +256,7 @@ def match_detail(db, match_iid: int) -> dict | None:
             "probs": db.match_probs.find_one({"match_iid": match_iid, "is_current": True}, {"_id": 0}),
             "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"),
                                                   S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"),
-                                                  S.get(db, "engine.lead_rule")),
+                                                  S.get(db, "engine.lead_rule"), obvious=float(S.get(db, "engine.obvious_ratio"))),
             "styles": styles, "starters": lu,
             "referee": RF.for_match(db, m),
             "predicted": [] if lu else predicted_xi(db, fc, (m["home_iid"], m["away_iid"])),
@@ -444,6 +444,30 @@ def is_trivial(f: dict, min_span: float) -> bool:
     return abs(float(sp)) < float(min_span)
 
 
+def is_obvious(f: dict, ratio: float) -> bool:
+    """Is this line far below what the player (or team) usually does? (owner, with a screenshot)
+
+    "If Yamal is making 3 shots a game, giving him 1+ shot as a leading card doesn't make any
+    sense" -- and the same for a keeper making four saves a game shown "1+ save". The line is true
+    and the number is high, and that is exactly why it says nothing: anyone who follows football
+    already knows it.
+
+    A line is obvious when the count it asks for is at most `ratio` times his usual count
+    (`expected_usual`, his own expectation in an ordinary match). At 0.4 a player averaging 3.9
+    shots has 1+ obvious and 2+ not; a player averaging 2 shots keeps 1+ as a real question. Like
+    the triviality gate, this is a demotion, not a deletion: the line stays on the ladder, in the
+    Finder and available to a combo; it only cannot LEAD a card or take one of the lines a card
+    carries while a real question is available. Setting the ratio to 0 switches it off.
+    """
+    if not ratio or ratio <= 0:
+        return False
+    u = f.get("expected_usual")
+    if u is None or f.get("thr") is None or f.get("stat") == "match_goals":
+        return False
+    k = int(float(f["thr"]) // 1) + 1
+    return k <= float(ratio) * float(u)
+
+
 def prominence(f: dict, weights: dict | None = None, scale: str = "odds", pos_weights: dict | None = None) -> float:
     """How much this line is worth saying out loud.
 
@@ -568,7 +592,8 @@ def _card_key(f: dict, group: str):
 
 
 def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weights: dict | None = None, scale: str = "odds",
-                min_span: float = 0.0, pos_weights: dict | None = None, rule: str = "prominence") -> list[dict]:
+                min_span: float = 0.0, pos_weights: dict | None = None, rule: str = "prominence",
+                obvious: float = 0.0) -> list[dict]:
     """One card per player (or team) per match, per market when `group` is "player_market" (docs/46).
 
     The line that leads is chosen by `lead_score` above: with engine.lead_rule "prominence" (the
@@ -592,6 +617,8 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
         # docs/56: prefer rungs that could have come out differently against a different opponent. "or lead"
         # is the floor that keeps a card from vanishing when every rung in it is insensitive.
         lead = [f for f in lead if not is_trivial(f, min_span)] or lead
+        # And never lead with a line far below his usual game while a real question is available.
+        lead = [f for f in lead if not is_obvious(f, obvious)] or lead
         # docs/60: choose the MARKET first, then the line inside it. Only meaningful when a card
         # holds more than one market, so it is a no-op for group="player_market" and for teams.
         if rule == "relevance":
@@ -617,11 +644,11 @@ def group_cards(fc: list[dict], max_p: float = 1.0, group: str = "player", weigh
         head = (max(lead, key=lambda f: (lead_score(f, rule, weights, scale, pos_weights), f["p"], f["thr"])) if best > 0
                 else max(lead, key=lambda f: (f["p"], f["thr"])))
         card = dict(head)
-        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos", "span")}
+        card["more_lines"] = sorted(({k: f.get(k) for k in ("fkey", "stat", "thr", "market", "p", "lo", "hi", "tier", "p_usual", "edge", "ladder", "pos", "span", "expected_usual")}
                                      for f in g if f is not head), key=lambda x: (-x["p"], x["stat"], x["thr"]))
         # the best percentage anywhere in the card, so a "show me 90%+" filter can see past the lead line
         card["best_p"] = max(f["p"] for f in g)
-        card["markets"] = _markets(g, rule, weights, scale, pos_weights)
+        card["markets"] = _markets(g, rule, weights, scale, pos_weights, obvious)
         out.append(card)
     return out
 
@@ -641,14 +668,15 @@ _MARKET_KEYS = ("id", "fkey", "scope", "stat", "market", "noun", "verb", "thr", 
                 "starts_recent", "club_recent", "lineup_why", "addable")
 
 
-def _markets(g: list[dict], rule: str, weights, scale: str, pos_weights) -> list[dict]:
-    """One complete forecast per stat: the rung that stat leads with, with everything to redraw the card."""
+def _markets(g: list[dict], rule: str, weights, scale: str, pos_weights, obvious: float = 0.0) -> list[dict]:
+    """One complete forecast per stat: the rung that stat leads with, with everything to redraw the card.
+    An obvious rung (is_obvious) leads its market only when the market has nothing else."""
     best: dict = {}
+    key = lambda f: (not is_obvious(f, obvious), lead_score(f, rule, weights, scale, pos_weights), f["p"], f["thr"])
     for f in g:
         st = f.get("stat")
         cur = best.get(st)
-        if cur is None or (lead_score(f, rule, weights, scale, pos_weights), f["p"], f["thr"]) > \
-                          (lead_score(cur, rule, weights, scale, pos_weights), cur["p"], cur["thr"]):
+        if cur is None or key(f) > key(cur):
             best[st] = f
     return sorted(({k: f.get(k) for k in _MARKET_KEYS} for f in best.values()),
                   key=lambda x: (-(x["p"] or 0), x["stat"] or ""))
@@ -754,12 +782,18 @@ def insights_feed(db, limit=50, tiers=("Strong", "Solid"), league_iids=None, sta
     if player_iids: q["player_iid"] = {"$in": list(player_iids)}
     if team_iids: q["team_iid"] = {"$in": list(team_iids)}
     fc = list(db.forecasts.find(q, {"_id": 0, "contrib": 0}).limit(3000))
+    # The feed admits Strong and Solid only, so the grouping below never sees a player's Watch rungs:
+    # a forward averaging 2.7 shots whose only Solid line is "1+ shot 93%" got a card leading with
+    # it, the line the owner called pointless. An obvious line (is_obvious) is not a recommendation,
+    # so it is not in the feed at all -- it is still on his card's ladder and in the Finder.
+    ob = float(S.get(db, "engine.obvious_ratio"))
+    fc = [f for f in fc if not is_obvious(f, ob)]
     grp = S.get(db, "engine.feed_group")
     weights, scale = S.get(db, "engine.market_weights"), S.get(db, "engine.lift_scale")
     pos_weights = S.get(db, "engine.position_weights")
     if grp in ("player", "player_market"):
         fc = group_cards(fc, float(S.get(db, "engine.feed_max_p")), grp, weights,
-                         scale, float(S.get(db, "engine.min_span")), pos_weights, S.get(db, "engine.lead_rule"))
+                         scale, float(S.get(db, "engine.min_span")), pos_weights, S.get(db, "engine.lead_rule"), obvious=float(S.get(db, "engine.obvious_ratio")))
     key = FEED_SORTS.get(sort or S.get(db, "engine.feed_sort"), FEED_SORTS["edge"])
     fc.sort(key=lambda f: key(f, weights, scale, pos_weights))
     fc = fc[:limit]
@@ -1534,7 +1568,7 @@ def player_detail(db, player_iid: int, now=None) -> dict | None:
     return {"player": p, "team": team, "next_match": nxt,
             "forecasts": fc, "cards": group_cards(fc, float(S.get(db, "engine.feed_max_p")), "player", S.get(db, "engine.market_weights"),
                                                   S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"),
-                                                  S.get(db, "engine.lead_rule"))}
+                                                  S.get(db, "engine.lead_rule"), obvious=float(S.get(db, "engine.obvious_ratio")))}
 
 
 # -------------------------------------------------------------- Team page
@@ -1560,7 +1594,7 @@ def team_detail(db, team_iid: int, now=None) -> dict | None:
     _decorate(db, fc)
     cards = group_cards(fc, float(S.get(db, "engine.feed_max_p")), "team", S.get(db, "engine.market_weights"),
                         S.get(db, "engine.lift_scale"), float(S.get(db, "engine.min_span")), S.get(db, "engine.position_weights"),
-                        S.get(db, "engine.lead_rule"))
+                        S.get(db, "engine.lead_rule"), obvious=float(S.get(db, "engine.obvious_ratio")))
     nxt = _with_teams(db, nxt)
     # The same MatchRow draws a win/draw/loss bar and a named line on the league page and two bare
     # club names here, because those two fields were never attached to this fixture list.

@@ -46,6 +46,21 @@ def league_context(db, league: dict, before) -> dict:
             table[t][0] += pts; table[t][1] += 1
     n = len(teams)
     total = 2 * (n - 1)
+    # Games left, counted from the fixture list where it is stored. `2 * (n - 1)` assumes a plain
+    # double round robin: Scotland (12 clubs, 38 games) was "late season" after 14 and flagged
+    # mid-table sides as having nothing to play for in autumn, and MLS never reached late season.
+    # API-Football lists a season's fixtures in full, so each club's remaining scheduled matches
+    # are the real number; the formula is only the fallback for a season whose list is not stored.
+    remaining = {t: 0 for t in teams}
+    for m in db.matches.find({"league_iid": league["iid"], "season": season, "status": "scheduled"},
+                             {"_id": 0, "home_iid": 1, "away_iid": 1}):
+        for t in (m["home_iid"], m["away_iid"]):
+            if t in remaining:
+                remaining[t] += 1
+    listed = any(remaining.values())
+    # Stakes are a league's question. A cup or a group stage has no "nothing left to play for".
+    if league.get("kind") not in (None, "league"):
+        n = 0
     upper, releg = _places(db, league)
     order = sorted((v[0] for v in table.values()), reverse=True)
     out = {}
@@ -53,7 +68,7 @@ def league_context(db, league: dict, before) -> dict:
         last = [x for x in hist[t] if x[1] is not None][-FORM_N:]
         fp = (sum(p for p, _ in last) - sum(x for _, x in last)) / len(last) if len(last) >= 3 else 0.0
         pts, played = table[t]
-        left = total - played
+        left = remaining.get(t, 0) if listed else total - played
         dead = rel = race = 0
         why = []
         if 0 < left <= LATE and n >= upper + releg + 2 and len(order) == n:
